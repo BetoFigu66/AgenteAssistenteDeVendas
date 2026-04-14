@@ -1,0 +1,53 @@
+---
+Olá, tudo bem?
+Sou da equipe de vendas da Inforrel, e estou entrando em contato referente a uma solicitação realizada junto à Topdata sobre orçamento de relógio ponto.
+1)	Qual modelo (proximidade somente ou proximidade e biometria, facial)?
+2)	É retirada ou para instalar. Se for para instalar, preciso do endereço de instalação?
+3)	 Você ja tem o software de controle de ponto? Caso não tenha, qual a faixa de funcionários?
+4)	Qual o e-mail para envio do orçamento?
+(DUVIDAS REP TOPDATA)
+
+---
+Olá! Tudo bem?
+Sou da equipe de vendas da Inforrel, e estou entrando em contato referente a uma solicitação realizada junto à Control ID sobre orçamento de relógio ponto.
+1)	Qual modelo (proximidade somente ou proximidade e biometria) ou facial?
+2)	É retirada ou para instalar. Se for para instalar, preciso do endereço de instalação?
+3)	 Você ja tem o software de controle de ponto? Caso não tenha, qual a faixa de funcionários?
+4)	Qual o e-mail para envio do orçamento?
+DUVIDAS REP CONTROL ID
+---
+Olá, tudo bem?
+Sou Rita da equipe de vendas da Inforrel, e estou entrando em contato referente a uma solicitação realizada junto à Topdata sobre orçamento de catraca:
+1)	Qual modelo facial (5000 ou 50 mil faces), cartão de proximidade 125 kHz ou MIFARE,  cartão de código de barras, biometria LC ou LFD, QRCODE)?
+2)	É retirada ou para instalar. Se for para instalar, preciso do endereço de instalação?
+3)	 Você ja tem o software de controle de acesso? Caso não tenha, qual a quantidade de equipamentos?
+4)	Qual o e-mail para envio do orçamento?
+DUVIDAS CATRACAS TOPDATA
+---
+Olá, tudo bem?
+Sou Rita da equipe de vendas da Inforrel, e estou entrando em contato referente a uma solicitação realizada junto à Control id sobre orçamento de catraca
+1)	Qual modelo
+    -  Facial (1 ou 2 faciais)
+    -  Cartão de proximidade 125 kHz ou MIFARE
+     - Biometria
+     - com urna ou sem urna
+     - preta ou inox
+2)	É retirada ou para instalar. Se for para instalar, preciso do endereço de instalação?
+3)	 Você ja tem o software de controle de acesso? Caso não tenha, qual a quantidade de equipamentos?
+4)	Qual o e-mail para envio do orçamento?
+DUVIDAS CATRACAS CONTROL ID
+---
+Olá tudo bem? Sou da equipe de vendas da INFORREL.
+Recebemos uma solicitação de orçamento da CONTROL ID e preciso de algumas informações:
+1) 	Que tipo de controle de acesso? Catraca?
+2)	É para retirada ou para instalar. Se for para instalar, preciso do endereço de instalação?
+3)	Qual software de controle de acesso você irá utilizar?
+DUVIDAS_CONTROLE_ACESSO CONTROL ID
+---
+Olá! Tudo bem?
+Sou Rita da Inforrel, e estou entrando em contato referente a uma solicitação realizada junto à Control ID sobre orçamento de idface
+1)	Qual será o  uso do leitor facial?
+2)	É retirada ou para instalar? Se for para instalar, preciso do endereço de instalação para verificar se atendemos a região.
+3)	 Você ja tem o software ?
+DUVIDAS FACIAL CONTROL ID
+---
