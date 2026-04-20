@@ -16,9 +16,11 @@ Sistema de automação de atendimento via WhatsApp usando IA para empresas que f
 | Questionário de requisitos | ✅ Completo |
 | Respostas rápidas (RAG) | ✅ Coletadas |
 | Arquitetura POC | ✅ Aprovada |
+| Backend (FastAPI + SQLAlchemy) | ✅ Implementado |
+| Frontend (React + Vite) | ✅ Implementado |
+| CI/CD (GitHub Actions) | ✅ Configurado |
 | Requisitos formais | 🔜 Pendente |
 | Histórias de usuário | 🔜 Pendente |
-| Desenvolvimento | 🔜 Não iniciado |
 
 ## 🎯 Objetivo
 
@@ -32,26 +34,45 @@ Criar um assistente inteligente que:
 
 ```
 AgenteAssistenteDeVendas/
+├── backend/                    # API FastAPI + SQLAlchemy
+│   ├── main.py                 # Endpoints da API
+│   ├── models.py               # Modelos SQLAlchemy
+│   ├── database.py             # Conexão com banco
+│   ├── config.py               # Configurações
+│   ├── alembic/                # Migrations do banco
+│   ├── requirements.txt        # Dependências Python
+│   └── README.md               # 📖 Instruções do backend
+├── frontend/                   # React + Vite + TailwindCSS
+│   ├── src/
+│   │   ├── components/         # Componentes React
+│   │   ├── services/           # Serviços de API
+│   │   ├── App.jsx             # Componente principal
+│   │   └── main.jsx            # Entry point
+│   ├── package.json            # Dependências Node.js
+│   ├── Dockerfile              # Build de produção
+│   └── README.md               # 📖 Instruções do frontend
 ├── agentes/                    # Agentes de IA para desenvolvimento
 │   ├── analista_requisitos.py
 │   ├── auxiliar_negocios.py
 │   ├── arquiteto_sistemas.py
 │   ├── planejador_negocios.py
 │   ├── diretor_geral.py
-│   ├── orquestrador.py
+│   ├── qa_engineer.py          # ✨ Novo: Qualidade
 │   └── base_agente.py
 ├── artefatos/
 │   ├── analista_de_requisitos/
-│   │   ├── questionario_rita_v1.md    # Questionário enviado à Rita
-│   │   ├── respostas_rita_v1.md       # ✅ Respostas completas
-│   │   └── RespostasRapidasWhatsApp.txt # Material para RAG
+│   │   ├── questionario_rita_v1.md
+│   │   ├── respostas_rita_v1.md
+│   │   └── RespostasRapidasWhatsApp.txt
 │   └── arquiteto_de_sistemas/
-│       └── arquitetura_poc_v1.md      # ✅ Arquitetura aprovada
-├── docs/
-│   ├── IdeiaInicialChatGPT.md         # Ideia inicial
-│   ├── prompts_agentes.md             # Prompts para usar com IA
-│   └── timesheet.md                   # Registro de horas
-├── historico/
+│       ├── arquitetura_poc_v1.md
+│       ├── politica_branches.md       # ✨ Novo: Git workflow
+│       └── processo_disponibilizacao_versoes.md
+├── .github/
+│   └── workflows/
+│       └── build-and-push.yml  # CI/CD para Docker
+├── docker-compose.yml          # Orquestração de containers
+├── Dockerfile                  # Build do backend
 └── README.md
 ```
 
@@ -84,27 +105,55 @@ AgenteAssistenteDeVendas/
 - Gera relatórios de status
 - Registra atas de reuniões
 
-## 🚀 Como Usar
+### 6. QA Engineer ✨
+- Revisa documentação e código
+- Define cobertura de testes
+- Valida fluxo de branches e PRs
+- Sugere melhorias de processo
 
-```python
-from agentes import OrquestradorAgentes
+## 🚀 Como Executar
 
-# Inicializa o sistema
-orquestrador = OrquestradorAgentes()
+### Opção 1: Docker (Recomendado)
 
-# Lista agentes disponíveis
-agentes = orquestrador.listar_agentes()
+```bash
+# Subir backend + frontend
+docker-compose up
 
-# Inicializa projeto com pendências
-status = orquestrador.inicializar_projeto()
-
-# Acessa agente específico
-analista = orquestrador.obter_agente("analista")
-prompt = analista.get_prompt_sistema()
-
-# Gera relatório de status
-orquestrador.gerar_relatorio_completo()
+# Acessar:
+# - Frontend: http://localhost:3000
+# - Backend API: http://localhost:8000
+# - Swagger: http://localhost:8000/docs
 ```
+
+📖 Instruções detalhadas: [backend/README.md](backend/README.md)
+
+### Opção 2: Desenvolvimento Local
+
+**Backend (Python):**
+```bash
+cd backend
+python -m venv venv
+venv\Scripts\activate        # Windows
+pip install -r requirements.txt
+python main.py
+```
+
+**Frontend (Node.js):**
+```bash
+cd frontend
+npm install
+npm run dev
+```
+
+📖 Instruções detalhadas: [frontend/README.md](frontend/README.md)
+
+### Tecnologias
+
+| Camada | Tecnologia |
+|--------|------------|
+| **Backend** | FastAPI, SQLAlchemy, Alembic, SQLite |
+| **Frontend** | React 18, Vite, TailwindCSS, Lucide |
+| **Infra** | Docker, GitHub Actions, ghcr.io |
 
 ## 📋 Fluxo de Trabalho
 
@@ -112,7 +161,10 @@ orquestrador.gerar_relatorio_completo()
 2. **Definição de MVP** com Auxiliar de Negócios
 3. **Arquitetura** com Arquiteto de Sistemas
 4. **Estratégia Comercial** com Planejador de Negócios
-5. **Acompanhamento** com Diretor Geral
+5. **Qualidade** com QA Engineer
+6. **Acompanhamento** com Diretor Geral
+
+📖 Política de branches: [artefatos/arquiteto_de_sistemas/politica_branches.md](artefatos/arquiteto_de_sistemas/politica_branches.md)
 
 ## 📝 Artefatos Gerados
 
