@@ -6,11 +6,13 @@ from .auxiliar_negocios import AuxiliarNegocios
 from .arquiteto_sistemas import ArquitetoSistemas
 from .planejador_negocios import PlanejadorNegocios
 from .diretor_geral import DiretorGeral
+from .qa_engineer import QAEngineer
 
 __all__ = [
     'AnalistaRequisitos',
     'AuxiliarNegocios', 
     'ArquitetoSistemas',
     'PlanejadorNegocios',
-    'DiretorGeral'
+    'DiretorGeral',
+    'QAEngineer'
 ]
