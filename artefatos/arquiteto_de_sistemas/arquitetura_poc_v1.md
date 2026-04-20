@@ -78,7 +78,7 @@ Validar a viabilidade técnica de um assistente de vendas via WhatsApp com IA, c
 | **Evolution API** | Open source, sem custo de API | Requer servidor, menos estável | Apenas infra |
 | **360dialog** | Oficial Meta, bom preço | Setup mais complexo | ~€49/mês |
 
-**Recomendação POC**: **Evolution API** (custo zero) ou **Twilio Sandbox** (grátis para dev)
+**Decisão POC**: **Twilio Sandbox** (grátis para dev, boa documentação, setup rápido)
 
 ### 3.2 Backend (FastAPI)
 
@@ -270,9 +270,10 @@ def deve_escalar(mensagem: str, confianca_ia: float) -> bool:
 **Revisão**: Implementar pgvector quando base crescer
 
 ### ADR-003: Evolution API vs Twilio
-**Decisão**: Começar com Evolution API (ou Twilio Sandbox)  
-**Motivo**: Custo zero para validação  
-**Revisão**: Avaliar Twilio/360dialog para produção
+**Decisão**: Twilio Sandbox  
+**Motivo**: Custo zero para validação, boa documentação, setup rápido  
+**Data da decisão**: 2026-04-19  
+**Revisão**: Avaliar Twilio produção ou 360dialog quando sair do POC
 
 ---
 
@@ -288,7 +289,41 @@ def deve_escalar(mensagem: str, confianca_ia: float) -> bool:
 
 ---
 
-## 10. Perguntas em Aberto
+## 10. Processo de Liberação de Versão (POC)
+
+**Responsável pela validação**: Kika (Analista de Requisitos)
+
+**Fluxo**:
+1. Desenvolvedor conclui implementação
+2. Kika valida contra critérios de aceite dos requisitos
+3. Se aprovado → versão liberada
+4. Se reprovado → retorna para correção com feedback
+
+**Justificativa**: Kika já define os critérios de aceite, então faz sentido ela validar se foram atendidos durante o POC.
+
+### 10.1 Disponibilização de Versões
+
+| Etapa | Validador | Método | Motivo |
+|-------|-----------|--------|--------|
+| Validação interna | Kika | Docker (`docker-compose up`) | Ambiente isolado, reproduzível |
+| Validação com cliente | Rita | GitHub Codespaces | Zero setup, acesso via browser |
+
+**Documento detalhado**: [processo_disponibilizacao_versoes.md](processo_disponibilizacao_versoes.md)
+
+---
+
+## 11. Pendências Pós-POC
+
+| Item | Descrição | Prioridade |
+|------|-----------|------------|
+| Desmembramento do Agente QA | Revisar e dividir o agente QA Engineer em agentes especializados: QA de Produto, Tech Writer e DevOps/SRE | Média |
+| Branches QA e Homolog | Criar branches `qa` e `homolog` e configurar deploys automáticos | Alta |
+| Aprovações obrigatórias em PRs | Configurar aprovações obrigatórias para PRs em todas as branches | Média |
+| Alembic + SQLAlchemy para MySQL/PostgreSQL | Migrar de SQLite para banco de produção | Alta |
+
+---
+
+## 12. Perguntas em Aberto
 
 1. **WhatsApp**: Rita usa WhatsApp Business ou pessoal? Tem API configurada?
 2. **Catálogos**: Em que formato estão? (PDF, imagens, texto?)
