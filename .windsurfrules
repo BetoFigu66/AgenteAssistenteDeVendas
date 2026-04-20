@@ -1,0 +1,90 @@
+# Regras do Projeto - Assistente de Vendas Inforrel
+
+## Contexto do Projeto
+Este é um sistema de automação de atendimento via WhatsApp usando IA para a empresa Inforrel (venda de catracas e relógios de ponto).
+
+## Estrutura
+- **backend/**: API FastAPI + SQLAlchemy + Alembic (Python)
+- **frontend/**: React + Vite + TailwindCSS (Node.js)
+- **agentes/**: Agentes de IA para auxiliar no desenvolvimento
+- **artefatos/**: Documentação e decisões arquiteturais
+
+## Comandos Úteis
+Consulte sempre: `docs/comandos_uteis.md`
+
+## Como Rodar
+
+### Docker (recomendado)
+```bash
+docker-compose up
+```
+- Frontend: http://localhost:3000
+- Backend: http://localhost:8000
+- Swagger: http://localhost:8000/docs
+
+### Local
+**Backend:**
+```bash
+cd backend
+python -m venv venv
+venv\Scripts\Activate.ps1  # Windows
+pip install -r requirements.txt
+python main.py
+```
+
+**Frontend:**
+```bash
+cd frontend
+npm install
+npm run dev
+```
+
+## Padrões de Código
+
+### Python (Backend)
+- Usar type hints
+- Docstrings em português
+- Imports no topo do arquivo
+- SQLAlchemy para ORM
+- Alembic para migrations
+
+### React (Frontend)
+- Componentes funcionais com hooks
+- TailwindCSS para estilização
+- Cores do tema Inforrel definidas em `tailwind.config.js`
+- Serviços de API em `src/services/`
+
+## Git Workflow
+- Branch principal: `main`
+- Desenvolvimento: `develop`
+- Features: `feature/REQ-XXX-descricao`
+- Bugfixes: `bugfix/BUG-XXX-descricao`
+
+Detalhes: `artefatos/arquiteto_de_sistemas/politica_branches.md`
+
+## Cores Inforrel
+| Cor | Hex | Uso |
+|-----|-----|-----|
+| Primary | #1B4F72 | Títulos, botões |
+| Secondary | #2E86AB | Hover, destaques |
+| Accent | #F39C12 | Badges, alertas |
+| Dark | #1A252F | Header, footer |
+| Light | #F8F9FA | Background |
+
+## Regras de Negócio Críticas
+- ❌ NUNCA prometer prazo de entrega
+- ⚠️ Sempre validar compatibilidade de sistema
+- 🚨 Escalar para humano quando cliente pedir
+
+## Documentação Importante
+- Arquitetura: `artefatos/arquiteto_de_sistemas/arquitetura_poc_v1.md`
+- Requisitos: `artefatos/analista_de_requisitos/respostas_rita_v1.md`
+- Branches: `artefatos/arquiteto_de_sistemas/politica_branches.md`
+- Comandos: `docs/comandos_uteis.md`
+
+## Dicas para o Assistente IA
+1. Ao criar código Python, sempre usar SQLAlchemy (não sqlite3 direto)
+2. Ao criar componentes React, usar as cores do tema Inforrel
+3. Ao sugerir comandos, verificar se já existe em `docs/comandos_uteis.md`
+4. Se o usuário perguntar "como faz X", adicionar ao `docs/comandos_uteis.md`
+5. Manter documentação em português

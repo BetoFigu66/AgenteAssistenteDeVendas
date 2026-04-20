@@ -53,3 +53,16 @@ Thumbs.db
 # Dados sensíveis do cliente
 **/dados_clientes/
 **/backups/
+AnotacoesPessoais/
+
+# Node.js / Frontend
+node_modules/
+dist/
+.vite/
+*.local
+
+# Database
+*.db
+*.sqlite
+*.sqlite3
+data/*.db
