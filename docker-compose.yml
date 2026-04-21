@@ -1,6 +1,24 @@
 version: '3.8'
 
 services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: inforrel_postgres
+    environment:
+      POSTGRES_USER: inforrel
+      POSTGRES_PASSWORD: inforrel_dev
+      POSTGRES_DB: assistente_vendas
+    ports:
+      - "5433:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U inforrel -d assistente_vendas"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
   backend:
     build:
       context: .
@@ -9,10 +27,12 @@ services:
       - "8000:8000"
     volumes:
       - ./backend:/app
-      - ./data:/app/data
     environment:
       - DEBUG=true
-      - DATABASE_URL=sqlite:///./data/assistente.db
+      - DATABASE_URL=postgresql://inforrel:inforrel_dev@postgres:5432/assistente_vendas
+    depends_on:
+      postgres:
+        condition: service_healthy
     restart: unless-stopped
 
   frontend:
@@ -39,3 +59,6 @@ services:
       - backend
     profiles:
       - dev
+
+volumes:
+  postgres_data:

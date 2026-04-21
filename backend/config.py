@@ -12,7 +12,7 @@ class Settings(BaseSettings):
     TWILIO_WHATSAPP_NUMBER: Optional[str] = None
     
     # Database
-    DATABASE_URL: str = "sqlite:///./data/assistente.db"
+    DATABASE_URL: str = "postgresql://inforrel:inforrel_dev@localhost:5433/assistente_vendas"
     
     # API
     API_HOST: str = "0.0.0.0"
