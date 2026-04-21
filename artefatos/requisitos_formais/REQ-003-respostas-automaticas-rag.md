@@ -60,7 +60,7 @@ A resposta automática deve ser gerada com auxílio de IA, mas sempre baseada em
   - Instalação (condições gerais)
   - Envio de catálogo quando solicitado
 
-- [ ] **REQ-003.5**: Sistema deve registrar a pergunta, trechos recuperados e resposta enviada no histórico de conversa
+- [ ] **REQ-003.5**: Sistema deve registrar a pergunta, as referências do RAG utilizadas (fonte + id do item) e a resposta enviada no histórico de conversa
 
 ### 4.2 Regras de Negócio
 
@@ -160,7 +160,7 @@ Sistema: "Tenho sim. Você quer o catálogo de catracas ou de relógios de ponto
 | Risco | Probabilidade | Impacto | Mitigação |
 |-------|---------------|---------|-----------|
 | Base de conhecimento incompleta | Alta | Alto | Começar com FAQ top 20 e iterar |
-| Resposta “inventada” pela IA | Média | Alto | Forçar uso de trechos recuperados e auditoria |
+| Resposta “inventada” pela IA | Média | Alto | Forçar uso de referências recuperadas (fonte + id do item) e auditoria |
 | Informações desatualizadas | Média | Médio | Processo simples de atualização dos arquivos |
 
 ---

@@ -66,7 +66,7 @@ O sistema deve conduzir conversas de forma estruturada, porém **adaptativa**, c
   - Modelo/especificação do produto
   - Endereço de entrega/instalação
   - Software existente (se aplicável)
-  - Quantidade de funcionários (opcional; aceitar “não sei”)
+  - Quantidade/faixa de pessoas (funcionários/usuários) (obrigatória para controle de ponto e controle de acesso)
   - Contato para orçamento
 
 - [ ] **REQ-002.6**: Sistema deve validar cada resposta capturada antes de considerar o campo como completo:
@@ -102,9 +102,11 @@ O sistema deve conduzir conversas de forma estruturada, porém **adaptativa**, c
 
 - [ ] **REQ-002.13**: Se cliente mencionar software existente, sistema deve capturar o nome do sistema e, se necessário, pedir confirmação
 
-- [ ] **REQ-002.14**: Quantidade de funcionários pode ser solicitada independentemente do cliente ter ou não software, quando ajudar no dimensionamento e na elaboração do orçamento
+- [ ] **REQ-002.14**: Para controle de ponto (relógio de ponto) e controle de acesso, a quantidade/faixa de pessoas (funcionários/usuários) deve ser tratada como obrigatória para concluir a qualificação
 
-- [ ] **REQ-002.15**: Quantidade de funcionários não deve ser tratada como obrigatória para concluir a qualificação; se o cliente não souber ou não quiser informar, o sistema deve seguir o fluxo e solicitar apenas os demais campos pendentes
+- [ ] **REQ-002.15**: Para catracas, a quantidade/faixa de pessoas deve ser tratada como opcional; se o cliente não souber ou não quiser informar, o sistema deve seguir o fluxo e solicitar apenas os demais campos pendentes
+
+- [ ] **REQ-002.15A**: A quantidade/faixa de pessoas pode ser informada como número aproximado ou por faixa (ex: “até 50”, “51-100”, “100+”), desde que permita dimensionamento
 
 - [ ] **REQ-002.16**: Se a mensagem inicial já contiver múltiplos dados (ex: CNPJ + produto + endereço), sistema deve responder confirmando o entendimento e perguntando somente o que faltar
 
