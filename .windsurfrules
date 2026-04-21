@@ -4,10 +4,17 @@
 Este é um sistema de automação de atendimento via WhatsApp usando IA para a empresa Inforrel (venda de catracas e relógios de ponto).
 
 ## Estrutura
-- **backend/**: API FastAPI + SQLAlchemy + Alembic (Python)
+- **backend/**: API FastAPI + SQLAlchemy + Alembic + PostgreSQL (Python)
 - **frontend/**: React + Vite + TailwindCSS (Node.js)
 - **agentes/**: Agentes de IA para auxiliar no desenvolvimento
 - **artefatos/**: Documentação e decisões arquiteturais
+
+## Banco de Dados
+- **PostgreSQL 16** rodando em container Docker
+- Credenciais dev: `inforrel / inforrel_dev`
+- Database: `assistente_vendas`
+- Porta: `5432`
+- Tabelas em português (ex: `mensagens`, `empresas`, `contatos`, `negociacoes`, `orcamentos`, `produtos`, `tipos_produto`, `itens_negociacao`, `negociacao_infos`)
 
 ## Comandos Úteis
 Consulte sempre: `docs/comandos_uteis.md`

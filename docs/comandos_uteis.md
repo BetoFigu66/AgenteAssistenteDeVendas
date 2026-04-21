@@ -96,6 +96,34 @@ alembic revision --autogenerate -m "descricao"
 
 ---
 
+## PostgreSQL
+
+```bash
+# Subir apenas o postgres (sem backend/frontend)
+docker-compose up -d postgres
+
+# Ver logs do postgres
+docker-compose logs -f postgres
+
+# Acessar shell do postgres (dentro do container)
+docker exec -it inforrel_postgres psql -U inforrel -d assistente_vendas
+
+# Parar e remover volume (APAGA TODOS OS DADOS)
+docker-compose down -v
+```
+
+### Conexão DBeaver / cliente externo
+
+| Campo | Valor |
+|-------|-------|
+| Host | `localhost` |
+| Porta | `5433` *(5432 interno do container, 5433 exposto para não conflitar com postgres local)* |
+| Database | `assistente_vendas` |
+| User | `inforrel` |
+| Password | `inforrel_dev` |
+
+---
+
 ## Frontend (Node.js)
 
 ```bash

@@ -91,8 +91,9 @@ docker-compose up --build
 
 **O que vai acontecer:**
 - Docker vai baixar as imagens necessárias (primeira vez demora mais)
+- Vai subir o PostgreSQL
 - Vai construir o backend Python
-- Vai iniciar o frontend e backend
+- Vai iniciar o frontend, backend e banco de dados
 
 **Quando estiver pronto, você verá:**
 ```
@@ -106,6 +107,7 @@ backend_1   | INFO:     Uvicorn running on http://0.0.0.0:8000
 | **Frontend** | http://localhost:3000 |
 | **Backend API** | http://localhost:8000 |
 | **Documentação API** | http://localhost:8000/docs |
+| **PostgreSQL** | localhost:5432 (user: `inforrel`, pass: `inforrel_dev`, db: `assistente_vendas`) |
 
 ### Passo 4: Parar o projeto
 
@@ -150,11 +152,18 @@ docker-compose down
 
 ## 5. Executar sem Docker (alternativa)
 
-Se preferir rodar sem Docker:
+Se preferir rodar o backend/frontend sem Docker, você ainda precisa do **PostgreSQL**:
 
 ```bash
+# 1. Subir apenas o postgres via docker
+docker-compose up -d postgres
+
+# 2. Rodar o backend localmente
 cd backend
+python -m venv venv
+source venv/bin/activate   # ou venv\Scripts\Activate.ps1 no Windows
 pip install -r requirements.txt
+alembic upgrade head
 python main.py
 ```
 
@@ -190,22 +199,19 @@ alembic downgrade -1
 alembic revision --autogenerate -m "descricao da mudanca"
 ```
 
-### Trocar de banco de dados
+### Configuração do banco
 
-Edite o arquivo `.env` ou `config.py`:
+O projeto usa **PostgreSQL 16** (rodando em container Docker).
+
+Edite o arquivo `.env` conforme necessário:
 
 ```bash
-# SQLite (padrão)
-DATABASE_URL=sqlite:///./data/assistente.db
+# Via docker-compose (backend dentro do container)
+DATABASE_URL=postgresql://inforrel:inforrel_dev@postgres:5432/assistente_vendas
 
-# MySQL
-DATABASE_URL=mysql+pymysql://user:senha@localhost/assistente
-
-# PostgreSQL
-DATABASE_URL=postgresql://user:senha@localhost/assistente
+# Backend rodando local, postgres no docker
+DATABASE_URL=postgresql://inforrel:inforrel_dev@localhost:5432/assistente_vendas
 ```
-
-**Nota**: Para MySQL/PostgreSQL, descomente as dependências no `requirements.txt`.
 
 ---
 

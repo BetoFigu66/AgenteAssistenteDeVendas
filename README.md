@@ -151,7 +151,7 @@ npm run dev
 
 | Camada | Tecnologia |
 |--------|------------|
-| **Backend** | FastAPI, SQLAlchemy, Alembic, SQLite |
+| **Backend** | FastAPI, SQLAlchemy, Alembic, PostgreSQL 16 |
 | **Frontend** | React 18, Vite, TailwindCSS, Lucide |
 | **Infra** | Docker, GitHub Actions, ghcr.io |
 

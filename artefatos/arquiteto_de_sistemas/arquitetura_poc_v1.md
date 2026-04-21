@@ -58,7 +58,7 @@ Validar a viabilidade técnica de um assistente de vendas via WhatsApp com IA, c
                       ▼
 ┌─────────────────────────────────────────────────────────────────┐
 │                      BANCO DE DADOS                             │
-│                   (SQLite / PostgreSQL)                         │
+│                   (PostgreSQL 16)                               │
 │  - Histórico de conversas                                       │
 │  - Base de conhecimento (produtos, preços, FAQ)                 │
 └─────────────────────────────────────────────────────────────────┘
@@ -186,7 +186,7 @@ def deve_escalar(mensagem: str, confianca_ia: float) -> bool:
 | Componente | Tecnologia | Justificativa |
 |------------|------------|---------------|
 | Backend | **FastAPI** | Preferência do dev, async, rápido |
-| Banco | **SQLite** | Simples, sem servidor, suficiente para POC |
+| Banco | **PostgreSQL 16** | Robusto, suporta JSONB, padrão de mercado, roda em container |
 | IA | **OpenAI GPT-4o-mini** | Custo-benefício, boa qualidade |
 | WhatsApp | **Evolution API** ou **Twilio Sandbox** | Custo zero para POC |
 | Hospedagem | **Local + ngrok** | Grátis, rápido para testar |
@@ -260,9 +260,10 @@ def deve_escalar(mensagem: str, confianca_ia: float) -> bool:
 ## 8. Decisões Arquiteturais (ADRs)
 
 ### ADR-001: SQLite vs PostgreSQL
-**Decisão**: SQLite para POC  
-**Motivo**: Simplicidade, sem necessidade de servidor separado  
-**Revisão**: Migrar para PostgreSQL na versão single-tenant
+**Decisão**: ~~SQLite para POC~~ **PostgreSQL 16 desde o início** (revisado em 2026-04)  
+**Motivo original**: Simplicidade do SQLite  
+**Motivo da revisão**: SQLite não suporta `ALTER TABLE` com FK (problema com batch mode do Alembic), além de não ter JSONB nativo. PostgreSQL rodando em container Docker resolve tudo com baixa complexidade adicional.  
+**Status**: Implementado
 
 ### ADR-002: RAG com JSON vs Banco Vetorial
 **Decisão**: JSON com keyword matching  
@@ -319,7 +320,7 @@ def deve_escalar(mensagem: str, confianca_ia: float) -> bool:
 | Desmembramento do Agente QA | Revisar e dividir o agente QA Engineer em agentes especializados: QA de Produto, Tech Writer e DevOps/SRE | Média |
 | Branches QA e Homolog | Criar branches `qa` e `homolog` e configurar deploys automáticos | Alta |
 | Aprovações obrigatórias em PRs | Configurar aprovações obrigatórias para PRs em todas as branches | Média |
-| Alembic + SQLAlchemy para MySQL/PostgreSQL | Migrar de SQLite para banco de produção | Alta |
+| ~~Alembic + SQLAlchemy para MySQL/PostgreSQL~~ | ✅ Feito: migrado para PostgreSQL 16 | - |
 
 ---
 
