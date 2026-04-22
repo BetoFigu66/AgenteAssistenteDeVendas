@@ -1,60 +1,70 @@
 """
-Agente Diretor Geral
-Responsável por orquestrar os outros agentes e acompanhar pendências.
+Agente Gerente de Projetos
+Responsável por gestão ágil do projeto, relatórios de Sprint e coordenação dos agentes.
 """
 from .base_agente import BaseAgente
 from pathlib import Path
 import json
-from datetime import datetime
+from datetime import datetime, timedelta
+from typing import List, Dict, Optional
 
 
-class DiretorGeral(BaseAgente):
+class GerenteDeProjetos(BaseAgente):
     """
-    Diretor Geral - Orquestra agentes e acompanha pendências.
+    Gerente de Projetos - Gestão ágil, relatórios de Sprint e coordenação.
     
     Responsabilidades:
+    - Conduzir cerimônias de Sprint (planning, daily, review, retrospectiva)
+    - Gerar relatórios de Sprint (a cada 2 semanas)
+    - Priorizar backlog e pendências
     - Coordenar trabalho entre agentes
-    - Acompanhar pendências de todos os agentes
     - Alertar sobre bloqueios e dependências
     - Manter visão geral do projeto
-    - Gerar relatórios de status
     """
     
     def __init__(self, projeto_root: str = None):
         super().__init__(
-            nome="Diretor Geral",
-            papel="Orquestrar agentes e acompanhar pendências do projeto",
+            nome="Gerente de Projetos",
+            papel="Gerenciar o projeto de forma ágil, gerar relatórios de Sprint e coordenar agentes",
             projeto_root=projeto_root
         )
         self.agentes_gerenciados = [
             "Analista de Requisitos",
             "Auxiliar de Negocios", 
             "Arquiteto de Sistemas",
-            "Planejador de Negocios"
+            "Planejador de Negocios",
+            "QA Engineer",
+            "Implementador"
         ]
+        
+        # Configurações de Sprint (padrão: 2 semanas)
+        self.duracao_sprint_dias = 14
     
     def get_prompt_sistema(self) -> str:
-        return """Você é o Diretor Geral do projeto, responsável por coordenar todos os agentes e garantir o progresso.
+        return """Você é o Gerente de Projetos do projeto, responsável por conduzir o desenvolvimento de forma ágil.
 
 Seu papel é:
-1. Manter visão geral do projeto
-2. Coordenar trabalho entre agentes
-3. Identificar bloqueios e dependências
-4. Alertar sobre pendências críticas
-5. Gerar relatórios de status
+1. **Gestão de Sprint**: Relatórios a cada 2 semanas (feito → próximo → pendente)
+2. **Cerimônias ágeis**: Planning, daily, review, retrospectiva
+3. **Priorização**: Ordenar backlog e pendências por valor/urgência
+4. **Coordenação**: Alinhar trabalho entre agentes e remover impedimentos
+5. **Comunicação**: Relatórios claros de progresso para stakeholders
 
 Agentes sob sua coordenação:
 1. **Analista de Requisitos**: Brainstorms e documentação de requisitos
 2. **Auxiliar de Negócios**: Transformar ideia em produto
 3. **Arquiteto de Sistemas**: Propor arquiteturas (POC, single, multi-tenant)
 4. **Planejador de Negócios**: Monetização e estratégia comercial
+5. **QA Engineer**: Qualidade de código e processos
+6. **Implementador**: Governança e padrões de implementação
 
-Ao interagir:
-- Mantenha foco no progresso do projeto
-- Identifique dependências entre agentes
-- Priorize pendências críticas
-- Sugira próximos passos
-- Facilite comunicação entre agentes
+Estrutura de Relatório de Sprint:
+- 📊 **Visão Geral**: Resumo executivo do Sprint
+- ✅ **Feito (Done)**: O que foi entregue neste Sprint
+- 🎯 **Próximo Sprint**: O que está planejado para as próximas 2 semanas
+- 📋 **Backlog Pendente**: O que ainda falta do escopo total
+- 🚨 **Bloqueios/Riscos**: Impedimentos e mitigações
+- 📈 **Métricas**: Artefatos criados, pendências resolvidas/novas, bugs corrigidos
 
 Formato de status:
 - 🟢 Concluído
@@ -105,15 +115,183 @@ Formato de status:
         
         return status
     
-    def gerar_relatorio_status(self) -> str:
-        """Gera relatório de status do projeto."""
+    def gerar_relatorio_sprint(
+        self,
+        sprint_numero: int,
+        data_inicio: datetime,
+        data_fim: datetime,
+        feito: List[Dict],
+        proximo_sprint: List[Dict],
+        backlog_pendente: List[Dict],
+        bloqueios: List[str] = None,
+        metricas: Dict = None
+    ) -> str:
+        """
+        Gera relatório de Sprint no formato padrão (a cada 2 semanas).
+        
+        Args:
+            sprint_numero: Número do Sprint (1, 2, 3...)
+            data_inicio: Data de início do Sprint
+            data_fim: Data de término do Sprint
+            feito: Lista de itens entregues [{"titulo": str, "descricao": str, "agente": str}]
+            proximo_sprint: Lista do planejado [{"titulo": str, "prioridade": str}]
+            backlog_pendente: Itens ainda não iniciados do escopo total
+            bloqueios: Lista de impedimentos atuais
+            metricas: Dict com contagens (artefatos, pendencias, bugs, etc.)
+        """
+        if metricas is None:
+            metricas = self._calcular_metricas_sprint(data_inicio, data_fim)
+        
+        if bloqueios is None:
+            bloqueios = []
+        
+        # Cabeçalho
+        conteudo = f"""# 📊 Relatório de Sprint {sprint_numero}
+
+**Período**: {data_inicio.strftime('%d/%m/%Y')} → {data_fim.strftime('%d/%m/%Y')}  
+**Gerado em**: {datetime.now().strftime('%d/%m/%Y %H:%M')}  
+**Duração**: {self.duracao_sprint_dias} dias
+
+---
+
+## 🎯 Visão Geral do Sprint
+
+Este relatório apresenta o progresso do projeto nas últimas 2 semanas, 
+com entregas realizadas, planejamento para o próximo ciclo e itens pendentes.
+
+---
+
+## ✅ Feito neste Sprint (Done)
+
+Itens entregues e concluídos:
+
+"""
+        
+        # Seção Feito
+        if feito:
+            for i, item in enumerate(feito, 1):
+                agente = item.get('agente', 'Time')
+                conteudo += f"""### {i}. {item.get('titulo', 'Sem título')}
+**Responsável**: {agente}  
+{item.get('descricao', 'Sem descrição')}
+
+"""
+        else:
+            conteudo += "_Nenhum item entregue neste período._\n\n"
+        
+        # Seção Próximo Sprint
+        conteudo += f"""---
+
+## 🎯 Próximo Sprint (Planejado)
+
+Itens priorizados para as próximas 2 semanas ({(data_fim + timedelta(days=1)).strftime('%d/%m/%Y')} → {(data_fim + timedelta(days=self.duracao_sprint_dias)).strftime('%d/%m/%Y')}):
+
+"""
+        
+        if proximo_sprint:
+            for i, item in enumerate(proximo_sprint, 1):
+                prioridade = item.get('prioridade', 'media')
+                emoji_prio = {"alta": "🔴", "media": "🟡", "baixa": "🟢"}.get(prioridade, "⚪")
+                conteudo += f"{i}. {emoji_prio} **{item.get('titulo', 'Sem título')}** ({prioridade})\n"
+        else:
+            conteudo += "_Backlog em definição._\n"
+        
+        # Seção Backlog Pendente
+        conteudo += f"""
+---
+
+## 📋 Backlog Total Pendente
+
+Itens do escopo completo que ainda não foram iniciados:
+
+"""
+        
+        if backlog_pendente:
+            for i, item in enumerate(backlog_pendente, 1):
+                conteudo += f"{i}. {item.get('titulo', 'Sem título')}\n"
+        else:
+            conteudo += "_Todos os itens do escopo foram iniciados ou concluídos! 🎉_\n"
+        
+        # Seção Bloqueios
+        conteudo += f"""
+---
+
+## 🚨 Bloqueios e Riscos
+
+"""
+        
+        if bloqueios:
+            conteudo += "Impedimentos identificados:\n\n"
+            for bloqueio in bloqueios:
+                conteudo += f"- 🔴 {bloqueio}\n"
+        else:
+            conteudo += "✅ Nenhum bloqueio crítico identificado.\n"
+        
+        # Seção Métricas
+        conteudo += f"""
+---
+
+## � Métricas do Sprint
+
+| Métrica | Valor |
+|---------|-------|
+| 📄 Artefatos criados | {metricas.get('artefatos_criados', 0)} |
+| ✅ Pendências resolvidas | {metricas.get('pendencias_resolvidas', 0)} |
+| 🆕 Pendências novas | {metricas.get('pendencias_novas', 0)} |
+| 🐛 Bugs corrigidos | {metricas.get('bugs_corrigidos', 0)} |
+| 🕐 Total de reports | {metricas.get('reports_total', 0)} |
+| 🔧 Reports resolvidos | {metricas.get('reports_resolvidos', 0)} |
+
+---
+
+## 💡 Insights e Próximos Passos
+
+Baseado no progresso atual:
+
+1. **Velocidade**: Ajustar planejamento para próximo sprint baseado na capacidade de entrega
+2. **Qualidade**: Monitorar métricas de bugs e reports para melhoria contínua
+3. **Priorização**: Reavaliar backlog pendente conforme feedback de stakeholders
+
+---
+
+*Relatório gerado automaticamente pelo Agente Gerente de Projetos*  
+*Template: Sprint Report v1.0*
+"""
+        
+        nome_arquivo = f"relatorio_sprint_{sprint_numero:02d}_{data_fim.strftime('%Y%m%d')}.md"
+        return str(self.criar_artefato(nome_arquivo, conteudo, tipo="relatorio_sprint"))
+    
+    def _calcular_metricas_sprint(self, data_inicio: datetime, data_fim: datetime) -> Dict:
+        """Calcula métricas automáticas do período do Sprint."""
         status = self.obter_status_geral()
         
-        conteudo = f"""# Relatório de Status do Projeto
+        # Contagem básica de artefatos e pendências
+        total_artefatos = sum(d["total_artefatos"] for d in status["agentes"].values())
+        total_pendencias = sum(d["pendencias_abertas"] for d in status["agentes"].values())
+        
+        # Contagem de pendências resolvidas (estimativa baseada no histórico)
+        historico = self.listar_historico(dias=self.duracao_sprint_dias)
+        interacoes = len(historico)
+        
+        return {
+            "artefatos_criados": total_artefatos,
+            "pendencias_resolvidas": max(0, interacoes - total_pendencias),  # Estimativa
+            "pendencias_novas": total_pendencias,
+            "bugs_corrigidos": 0,  # Será preenchido manualmente ou via integração futura
+            "reports_total": 0,    # Via query ao banco futuramente
+            "reports_resolvidos": 0
+        }
+    
+    def gerar_relatorio_status(self) -> str:
+        """Gera relatório de status do projeto (visualização rápida, não Sprint)."""
+        status = self.obter_status_geral()
+        
+        conteudo = f"""# 📋 Relatório de Status do Projeto
 
-**Data**: {datetime.now().strftime('%Y-%m-%d %H:%M')}
+**Data**: {datetime.now().strftime('%Y-%m-%d %H:%M')}  
+**Gerado por**: Gerente de Projetos
 
-## Visão Geral
+## Visão Geral por Agente
 
 """
         total_artefatos = 0
@@ -126,38 +304,31 @@ Formato de status:
             emoji = "🟢" if dados["pendencias_abertas"] == 0 and dados["total_artefatos"] > 0 else "🟡" if dados["total_artefatos"] > 0 else "⚪"
             
             conteudo += f"""### {emoji} {agente}
-- **Artefatos criados**: {dados['total_artefatos']}
-- **Pendências abertas**: {dados['pendencias_abertas']}
+- **Artefatos**: {dados['total_artefatos']} | **Pendências abertas**: {dados['pendencias_abertas']}
 
 """
-            if dados["artefatos"]:
-                conteudo += "**Artefatos**:\n"
-                for art in dados["artefatos"]:
-                    conteudo += f"- {art}\n"
-                conteudo += "\n"
-            
             if dados["pendencias"]:
-                conteudo += "**Pendências**:\n"
-                for pend in dados["pendencias"]:
+                conteudo += "**Pendências ativas**:\n"
+                for pend in dados["pendencias"][:5]:  # Limita a 5
                     status_emoji = "✅" if pend.get("status") == "concluido" else "⏳"
-                    conteudo += f"- {status_emoji} {pend.get('descricao', 'N/A')}\n"
+                    prio = pend.get("prioridade", "media")
+                    conteudo += f"- {status_emoji} [{prio}] {pend.get('descricao', 'N/A')}\n"
                 conteudo += "\n"
         
-        conteudo += f"""## Resumo
+        conteudo += f"""## Resumo Executivo
 - **Total de artefatos**: {total_artefatos}
-- **Total de pendências abertas**: {total_pendencias}
+- **Pendências abertas**: {total_pendencias}
+- **Status geral**: {"🟢 Saudável" if total_pendencias < 5 else "🟡 Atenção" if total_pendencias < 10 else "🔴 Crítico"}
 
-## Próximos Passos Sugeridos
-1. Revisar pendências abertas
-2. Verificar dependências entre agentes
-3. Priorizar itens críticos
+---
+*Para relatório completo de Sprint, use `gerar_relatorio_sprint()`*
 """
         
-        return self.criar_artefato(
+        return str(self.criar_artefato(
             f"relatorio_status_{datetime.now().strftime('%Y%m%d_%H%M')}.md",
             conteudo,
-            tipo="relatorio"
-        )
+            tipo="relatorio_status"
+        ))
     
     def listar_historico(self, dias: int = 7) -> list:
         """Lista histórico de interações dos últimos N dias."""

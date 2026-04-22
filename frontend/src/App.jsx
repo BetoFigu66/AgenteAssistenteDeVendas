@@ -1,14 +1,18 @@
 import { useState, useEffect } from 'react'
+import { Flag } from 'lucide-react'
 import Header from './components/Header'
 import Footer from './components/Footer'
 import PhonePanel from './components/PhonePanel'
 import ChatArea from './components/ChatArea'
+import ReportsPage from './components/ReportsPage'
 import { api } from './services/api'
 
 function App() {
+  const [pagina, setPagina] = useState('chat') // 'chat' | 'reports'
   const [telefoneAtual, setTelefoneAtual] = useState(null)
   const [telefones, setTelefones] = useState([])
   const [mensagens, setMensagens] = useState([])
+  const [dadosConversa, setDadosConversa] = useState(null)
   const [loading, setLoading] = useState(false)
   const [erro, setErro] = useState(null)
 
@@ -18,7 +22,10 @@ function App() {
 
   useEffect(() => {
     if (telefoneAtual) {
+      carregarDadosConversa(telefoneAtual)
       carregarHistorico(telefoneAtual)
+    } else {
+      setDadosConversa(null)
     }
   }, [telefoneAtual])
 
@@ -46,6 +53,16 @@ function App() {
     }
   }
 
+  const carregarDadosConversa = async (telefone) => {
+    try {
+      const data = await api.obterDadosConversa(telefone)
+      setDadosConversa(data)
+    } catch (error) {
+      console.error('Erro ao carregar dados da conversa:', error)
+      setDadosConversa(null)
+    }
+  }
+
   const selecionarTelefone = (telefone) => {
     setTelefoneAtual(telefone)
     if (!telefones.includes(telefone)) {
@@ -61,6 +78,7 @@ function App() {
       setErro(null)
       await api.enviarMensagem(telefoneAtual, mensagem)
       await carregarHistorico(telefoneAtual)
+      await carregarDadosConversa(telefoneAtual)
     } catch (error) {
       console.error('Erro ao enviar mensagem:', error)
       setErro(error.message || 'Erro ao enviar mensagem. Tente novamente.')
@@ -72,25 +90,57 @@ function App() {
   return (
     <div className="min-h-screen flex flex-col">
       <Header />
-      
-      <main className="flex-1 container mx-auto px-4 py-8 max-w-5xl">
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          <PhonePanel
-            telefones={telefones}
-            telefoneAtual={telefoneAtual}
-            onSelectTelefone={selecionarTelefone}
-          />
-          
-          <ChatArea
-            telefone={telefoneAtual}
-            mensagens={mensagens}
-            loading={loading}
-            erro={erro}
-            onEnviarMensagem={enviarMensagem}
-          />
+
+      {/* Navegação */}
+      <nav className="bg-white border-b border-gray-200">
+        <div className="container mx-auto px-4 max-w-7xl flex gap-1">
+          <button
+            onClick={() => setPagina('chat')}
+            className={`px-4 py-2 text-sm font-medium border-b-2 transition ${
+              pagina === 'chat'
+                ? 'border-inforrel-primary text-inforrel-primary'
+                : 'border-transparent text-gray-600 hover:text-inforrel-primary'
+            }`}
+          >
+            💬 Chat
+          </button>
+          <button
+            onClick={() => setPagina('reports')}
+            className={`px-4 py-2 text-sm font-medium border-b-2 transition flex items-center gap-1.5 ${
+              pagina === 'reports'
+                ? 'border-inforrel-primary text-inforrel-primary'
+                : 'border-transparent text-gray-600 hover:text-inforrel-primary'
+            }`}
+          >
+            <Flag size={14} /> Triagem de Reports
+          </button>
         </div>
+      </nav>
+
+      <main className="flex-1">
+        {pagina === 'chat' ? (
+          <div className="container mx-auto px-4 py-8 max-w-5xl">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              <PhonePanel
+                telefones={telefones}
+                telefoneAtual={telefoneAtual}
+                onSelectTelefone={selecionarTelefone}
+              />
+              <ChatArea
+                telefone={telefoneAtual}
+                mensagens={mensagens}
+                dadosConversa={dadosConversa}
+                loading={loading}
+                erro={erro}
+                onEnviarMensagem={enviarMensagem}
+              />
+            </div>
+          </div>
+        ) : (
+          <ReportsPage onVoltar={() => setPagina('chat')} />
+        )}
       </main>
-      
+
       <Footer />
     </div>
   )

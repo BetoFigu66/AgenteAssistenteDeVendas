@@ -1,8 +1,9 @@
 import { useState, useRef, useEffect } from 'react'
 import { Send, MessageCircle, AlertTriangle } from 'lucide-react'
 import Message from './Message'
+import ConversaInfo from './ConversaInfo'
 
-function ChatArea({ telefone, mensagens, loading, erro, onEnviarMensagem }) {
+function ChatArea({ telefone, mensagens, dadosConversa, loading, erro, onEnviarMensagem }) {
   const [inputMensagem, setInputMensagem] = useState('')
   const messagesEndRef = useRef(null)
 
@@ -33,6 +34,9 @@ function ChatArea({ telefone, mensagens, loading, erro, onEnviarMensagem }) {
           </p>
         </div>
       </div>
+
+      {/* Informações da conversa (empresa, contato, negociação) */}
+      {telefone && dadosConversa && <ConversaInfo dados={dadosConversa} />}
 
       {/* Mensagens */}
       <div className="flex-1 overflow-y-auto p-4 space-y-3 bg-gray-50">

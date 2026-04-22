@@ -4,7 +4,7 @@ Modelos SQLAlchemy para o Assistente de Vendas.
 from datetime import datetime, date
 from decimal import Decimal
 from typing import Optional, List
-from sqlalchemy import String, Text, DateTime, Date, Enum, Index, Boolean, Numeric, ForeignKey
+from sqlalchemy import String, Text, DateTime, Date, Enum, Index, Boolean, Numeric, ForeignKey, Integer, JSON
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 import enum
 
@@ -64,10 +64,16 @@ class Mensagem(Base):
     # Novos campos - relacionamentos
     contato_id: Mapped[Optional[int]] = mapped_column(ForeignKey("contatos.id"), nullable=True, index=True)
     negociacao_id: Mapped[Optional[int]] = mapped_column(ForeignKey("negociacoes.id"), nullable=True, index=True)
+    processamento_id: Mapped[Optional[int]] = mapped_column(
+        ForeignKey("processamentos_mensagem.id"), nullable=True, index=True
+    )
     
     # Relacionamentos
     contato: Mapped[Optional["Contato"]] = relationship(back_populates="mensagens")
     negociacao: Mapped[Optional["Negociacao"]] = relationship(back_populates="mensagens")
+    processamento: Mapped[Optional["ProcessamentoMensagem"]] = relationship(
+        back_populates="mensagem", foreign_keys=[processamento_id]
+    )
     
     __table_args__ = (
         Index('idx_mensagens_telefone_timestamp', 'telefone', 'timestamp'),
@@ -84,7 +90,8 @@ class Mensagem(Base):
             "origem": self.origem.value if isinstance(self.origem, OrigemMensagem) else self.origem,
             "timestamp": self.timestamp.isoformat() if self.timestamp else None,
             "contato_id": self.contato_id,
-            "negociacao_id": self.negociacao_id
+            "negociacao_id": self.negociacao_id,
+            "processamento_id": self.processamento_id,
         }
 
 
@@ -575,4 +582,213 @@ class NegociacaoInfo(Base):
             "pendente": self.pendente,
             "origem": self.origem.value if self.origem else None,
             "updated_at": self.updated_at.isoformat() if self.updated_at else None
+        }
+
+
+class OrigemClassificacao(str, enum.Enum):
+    """Origem da classificação da mensagem."""
+    REGRA = "regra"
+    LLM = "llm"
+    HIBRIDO = "hibrido"
+
+
+class ProcessamentoMensagem(Base):
+    """
+    Registro auditável do processamento de uma mensagem pelo cérebro.
+    
+    Armazena todas as decisões tomadas (classificação, identificação, geração de resposta),
+    permitindo debug de conversas, medição de qualidade e evolução do cérebro.
+    
+    Uma mensagem (Mensagem) aponta para um ProcessamentoMensagem opcionalmente.
+    Geralmente apenas mensagens de origem USER têm processamento associado.
+    """
+    
+    __tablename__ = "processamentos_mensagem"
+    
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    
+    # --- Classificação ---
+    intencao: Mapped[Optional[str]] = mapped_column(String(50), nullable=True, index=True)
+    confianca: Mapped[Optional[Decimal]] = mapped_column(Numeric(3, 2), nullable=True)
+    origem_classificacao: Mapped[Optional[OrigemClassificacao]] = mapped_column(
+        Enum(OrigemClassificacao, values_callable=lambda x: [e.value for e in x]),
+        nullable=True
+    )
+    entidades: Mapped[Optional[dict]] = mapped_column(JSON, nullable=True)
+    
+    # --- Identificação do remetente no momento do processamento ---
+    status_identificacao: Mapped[Optional[str]] = mapped_column(String(30), nullable=True)
+    contato_id_identificado: Mapped[Optional[int]] = mapped_column(
+        ForeignKey("contatos.id"), nullable=True
+    )
+    empresa_id_identificada: Mapped[Optional[int]] = mapped_column(
+        ForeignKey("empresas.id"), nullable=True
+    )
+    negociacao_id_ativa: Mapped[Optional[int]] = mapped_column(
+        ForeignKey("negociacoes.id"), nullable=True
+    )
+    
+    # --- Decisão de resposta ---
+    template_usado: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
+    personalizado_via_llm: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    
+    # --- Metadados da LLM (se usada) ---
+    llm_provider: Mapped[Optional[str]] = mapped_column(String(30), nullable=True)
+    llm_modelo: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
+    llm_tokens_input: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
+    llm_tokens_output: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
+    llm_latencia_ms: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
+    llm_raw_resposta: Mapped[Optional[dict]] = mapped_column(JSON, nullable=True)
+    
+    # --- Controle ---
+    duracao_ms: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
+    erro: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime, default=datetime.utcnow, nullable=False
+    )
+    
+    # Relacionamento inverso (mensagem aponta para cá via FK)
+    mensagem: Mapped[Optional["Mensagem"]] = relationship(
+        back_populates="processamento",
+        foreign_keys="Mensagem.processamento_id",
+        uselist=False,
+    )
+    reports: Mapped[List["ReportProblema"]] = relationship(
+        back_populates="processamento",
+        cascade="all, delete-orphan",
+        order_by="ReportProblema.created_at.desc()",
+    )
+    
+    def to_dict(self) -> dict:
+        """Converte o modelo para dicionário."""
+        return {
+            "id": self.id,
+            "intencao": self.intencao,
+            "confianca": float(self.confianca) if self.confianca is not None else None,
+            "origem_classificacao": (
+                self.origem_classificacao.value if self.origem_classificacao else None
+            ),
+            "entidades": self.entidades,
+            "status_identificacao": self.status_identificacao,
+            "contato_id_identificado": self.contato_id_identificado,
+            "empresa_id_identificada": self.empresa_id_identificada,
+            "negociacao_id_ativa": self.negociacao_id_ativa,
+            "template_usado": self.template_usado,
+            "personalizado_via_llm": self.personalizado_via_llm,
+            "llm_provider": self.llm_provider,
+            "llm_modelo": self.llm_modelo,
+            "llm_tokens_input": self.llm_tokens_input,
+            "llm_tokens_output": self.llm_tokens_output,
+            "llm_latencia_ms": self.llm_latencia_ms,
+            "llm_raw_resposta": self.llm_raw_resposta,
+            "duracao_ms": self.duracao_ms,
+            "erro": self.erro,
+            "created_at": self.created_at.isoformat() if self.created_at else None,
+        }
+
+
+class CategoriaReport(str, enum.Enum):
+    """Categoria do problema reportado — indica a camada afetada."""
+    CLASSIFICACAO = "classificacao"  # intenção/entidades erradas
+    FLUXO = "fluxo"                  # orquestração/roteamento errado
+    TEMPLATE = "template"            # texto/tom da resposta
+    DADOS = "dados"                  # dados incorretos (CNPJ, contato, etc.)
+    LLM = "llm"                      # problema com a LLM (timeout, erro, etc.)
+    OUTRO = "outro"
+
+
+class SeveridadeReport(str, enum.Enum):
+    """Severidade do impacto do problema."""
+    BAIXA = "baixa"
+    MEDIA = "media"
+    ALTA = "alta"
+    CRITICA = "critica"
+
+
+class StatusReport(str, enum.Enum):
+    """Estágio do report no workflow de correção."""
+    ABERTO = "aberto"
+    EM_ANALISE = "em_analise"
+    AGUARDANDO_FIX = "aguardando_fix"
+    RESOLVIDO = "resolvido"
+    DESCARTADO = "descartado"
+
+
+class ReportProblema(Base):
+    """
+    Report de problema em um processamento de mensagem.
+    
+    Permite que o usuário (desenvolvedor, atendente) marque um processamento
+    como problemático, descrevendo em texto livre o que não funcionou.
+    Usado para evoluir o cérebro do assistente.
+    """
+    
+    __tablename__ = "reports_problema"
+    
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    processamento_id: Mapped[int] = mapped_column(
+        ForeignKey("processamentos_mensagem.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    descricao: Mapped[str] = mapped_column(Text, nullable=False)
+    autor: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
+    
+    # Triagem
+    categoria: Mapped[CategoriaReport] = mapped_column(
+        Enum(CategoriaReport, values_callable=lambda x: [e.value for e in x]),
+        default=CategoriaReport.OUTRO,
+        nullable=False,
+    )
+    severidade: Mapped[SeveridadeReport] = mapped_column(
+        Enum(SeveridadeReport, values_callable=lambda x: [e.value for e in x]),
+        default=SeveridadeReport.MEDIA,
+        nullable=False,
+    )
+    status: Mapped[StatusReport] = mapped_column(
+        Enum(StatusReport, values_callable=lambda x: [e.value for e in x]),
+        default=StatusReport.ABERTO,
+        nullable=False,
+        index=True,
+    )
+    
+    # Resolução
+    resolucao: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    resolvido_por: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
+    resolvido_em: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
+    
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime, default=datetime.utcnow, nullable=False
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime,
+        default=datetime.utcnow,
+        onupdate=datetime.utcnow,
+        nullable=False,
+    )
+    
+    # Relacionamentos
+    processamento: Mapped["ProcessamentoMensagem"] = relationship(back_populates="reports")
+    
+    @property
+    def resolvido(self) -> bool:
+        """Compatibilidade retroativa: resolvido = status terminal."""
+        return self.status in (StatusReport.RESOLVIDO, StatusReport.DESCARTADO)
+    
+    def to_dict(self) -> dict:
+        """Converte o modelo para dicionário."""
+        return {
+            "id": self.id,
+            "processamento_id": self.processamento_id,
+            "descricao": self.descricao,
+            "autor": self.autor,
+            "categoria": self.categoria.value if self.categoria else None,
+            "severidade": self.severidade.value if self.severidade else None,
+            "status": self.status.value if self.status else None,
+            "resolvido": self.resolvido,
+            "resolucao": self.resolucao,
+            "resolvido_por": self.resolvido_por,
+            "resolvido_em": self.resolvido_em.isoformat() if self.resolvido_em else None,
+            "created_at": self.created_at.isoformat() if self.created_at else None,
+            "updated_at": self.updated_at.isoformat() if self.updated_at else None,
         }

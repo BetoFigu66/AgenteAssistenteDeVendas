@@ -112,6 +112,23 @@ docker exec -it inforrel_postgres psql -U inforrel -d assistente_vendas
 docker-compose down -v
 ```
 
+### LLM Provider (Groq)
+
+1. Crie uma conta em https://console.groq.com
+2. Gere uma API Key em https://console.groq.com/keys
+3. Adicione no seu `backend/.env`:
+```env
+LLM_PROVIDER=groq
+LLM_MODEL=llama-3.1-8b-instant
+LLM_API_KEY=sua_chave_aqui
+```
+
+**Importante:** Nunca commitar `.env`. Está no `.gitignore`.
+
+Para trocar de provider (ex: OpenAI, Gemini, Ollama), basta alterar `LLM_PROVIDER` e implementar a classe em `backend/services/llm/`.
+
+---
+
 ### Conexão DBeaver / cliente externo
 
 | Campo | Valor |
