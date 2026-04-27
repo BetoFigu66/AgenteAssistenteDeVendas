@@ -102,9 +102,11 @@ O sistema deve conduzir conversas de forma estruturada, porém **adaptativa**, c
 
 - [ ] **REQ-002.13**: Se cliente mencionar software existente, sistema deve capturar o nome do sistema e, se necessário, pedir confirmação
 
-- [ ] **REQ-002.14**: Para controle de ponto (relógio de ponto) e controle de acesso, a quantidade/faixa de pessoas (funcionários/usuários) deve ser tratada como obrigatória para concluir a qualificação
+- [ ] **REQ-002.14**: Para controle de ponto (relógio de ponto), se o cliente não tiver software de controle de ponto, o sistema deve solicitar a faixa de funcionários (resposta obrigatória) para concluir a qualificação
 
-- [ ] **REQ-002.15**: Para catracas, a quantidade/faixa de pessoas deve ser tratada como opcional; se o cliente não souber ou não quiser informar, o sistema deve seguir o fluxo e solicitar apenas os demais campos pendentes
+- [ ] **REQ-002.14A**: Para controle de acesso (catracas), se o cliente não tiver software de controle de acesso, o sistema deve solicitar a quantidade de equipamentos (resposta obrigatória) para concluir a qualificação
+
+- [ ] **REQ-002.15**: Para catracas, se o cliente já tiver software de controle de acesso, a quantidade/faixa de pessoas pode ser tratada como opcional; se o cliente não souber ou não quiser informar, o sistema deve seguir o fluxo e solicitar apenas os demais campos pendentes
 
 - [ ] **REQ-002.15A**: A quantidade/faixa de pessoas pode ser informada como número aproximado ou por faixa (ex: “até 50”, “51-100”, “100+”), desde que permita dimensionamento
 
@@ -261,6 +263,7 @@ Sistema: "Claro! Só para eu direcionar certinho: você quer catraca de que tipo
 |------|--------|-----------|-------|
 | 14/04/2026 | 1.0 | Criação inicial do requisito | Kika |
 | 15/04/2026 | 1.1 | Ajuste para qualificação adaptativa e perguntas dinâmicas | Kika |
+| 24/04/2026 | 1.2 | Separação de REQ-002.14 em dois requisitos (controle de ponto e controle de acesso) com regras específicas para quando não há software existente | Kika |
 
 ---
 

@@ -1,139 +1,63 @@
---- Página 1 ---
-Catraca  compacta para soluções de controle de acesso 
-que reúne segurança, simplicidade e eficiência
-Segurança
-Seu patrimônio seguro 
-com o acesso restrito 
-a pessoas autorizadas.
-Comodidade
-Registro detalhado de todos os 
-acessos de seus 
-colaboradores, visitantes e 
-clientes.
-Economia
-Solução eﬁcaz e 
-de baixo custo.
-CATRACA FIT
-Central de atendimento: (41) 3213-7100
-www.topdata.com.br
+Catraca FIT: catraca compacta para soluções de controle de acesso que reúne segurança, simplicidade e eficiência
 
+Segurança: Seu patrimônio seguro com o acesso restrito a pessoas autorizadas.
 
---- Página 2 ---
-A Catraca Fit é indicada para uso em condomínios, 
-academias, escolas e universidades, refeitórios, eventos, 
-clubes ou qualquer outro empreendimento onde seja 
-necessário garantir acesso somente a pessoas autorizadas.
-A catraca Fit pode ser usada de forma 
-autônoma, gerenciada por um software 
-de controle de acesso ou por soluções 
-especíﬁcas para o seu negócio, como 
-controle de academias e de portarias.
-O braço articulado é um acessório importante 
-para garantir segurança na saída dos 
-usuários em casos de emergências, 
-especialmente indicado para shows, feiras, 
-estádios e eventos em geral.
-Revendedor Autorizado:
-Topdata
-(41)
-41) 3213-7100
-www.topdata.com.br
-Central de atendimento: (41) 3213-7100
-www.topdata.com.br
+Comodidade: Registro detalhado de todos os acessos de seus colaboradores, visitantes e clientes.
 
+Economia: Solução eﬁcaz e de baixo custo.
 
---- Página 3 ---
+A Catraca Fit é indicada para uso em condomínios, academias, escolas e universidades, refeitórios, eventos, clubes ou qualquer outro empreendimento onde seja necessário garantir acesso somente a pessoas autorizadas.
+A catraca Fit pode ser usada de forma autônoma, gerenciada por um software de controle de acesso ou por soluções especíﬁcas para o seu negócio, como controle de academias e de portarias.
+O braço articulado é um acessório importante para garantir segurança na saída dos usuários em casos de emergências, especialmente indicado para shows, feiras, estádios e eventos em geral.
+
 CATRACA FIT 4 - Especificações 
-Leitores disponíveis 
-o
-Leitor de cartão de proximidade 125 KHz
-o
-Leitor de proximidade para smart card, padrão Mifare 13,56 MHz.
-o
-Leitor de código de barras padrão 2 de 5 intercalado, de 4 a 16 dígitos
-o
-Leitor de código de barras padrão 3 de 9, de 4 a 10 dígitos
-o
-Leitor de código de barras padrão QR Code
-o
-Leitor biométrico
-Opções de leitor biométrico 
-o
-LFD
-
+Leitores disponíveis: 
+- Leitor de cartão de proximidade 125 KHz
+- Leitor de proximidade para smart card, padrão Mifare 13,56 MHz.
+- Leitor de código de barras padrão 2 de 5 intercalado, de 4 a 16 dígitos
+- Leitor de código de barras padrão 3 de 9, de 4 a 10 dígitos
+- Leitor de código de barras padrão QR Code
+- Leitor biométrico
+
+Opções de leitor biométrico: 
+1) LFD
 Proteção contra uso de dedos falsos de silicone, borracha e outros
-
 Armazenamento de até 10.000 digitais
-
 Permite o cadastramento de 1 ou 2 digitais por usuário
-o
-LC
-
+2) LC
 Armazenamento de até 3.000 digitais
-
 Permite o cadastramento de 1 ou 2 digitais por usuário
-o
-LM
-
+3)LM
 Leitor Sagem
-
 Armazenamento de até 10.000 usuários*
-
 Permite o cadastramento de 1 ou 2 digitais por usuário
-
 Proteção contra uso de dedos falsos de silicone, borracha e outros*
 *Conforme o modelo de módulo escolhido
-Recursos 
-o
+
+Recursos:
 Capacidade para armazenamento de até 30.000 registros
-o
 Lista para controle de acesso de até 15.000 usuários
-o
 Até 100 tabelas de horário para controle de acesso
-o
 Relógio interno com precisão de 1 minuto por ano
-o
 Permite o cadastro de 10 funções especiais configuráveis
-o
 Permite a liberação do giro dos braços através de um botão externo
-o
 Função de contador de giros para visualização no software Gerenciador de Inners
-o
 Permite sinalização de seleção para revista
-o
 Display com backlight, de 2 linhas por 16 colunas
-o
 Teclado com 16 teclas de silicone, tipo manta
-o
 Pictogramas luminosos para indicação de giro liberado
-o
 Web server integrado para configuração
-o
 Comunicação TCP/IP 10/100Mbps
-Construção 
-o
+
+Construção:
 Pedestal em aço carbono com pintura epóxi
-o
 Tampa em plástico ABS de alta resistência
-o
-Mecanismo com 3 braços em tubo de aço inox polido,
-com durabilidade maior que 3.000.000 de giros
-o
-Opcionais:
-
-Sistema de braço articulado
-
-Sistema de urna de coleta de cartões de visitante
-Especificações técnicas 
-o
+Mecanismo com 3 braços em tubo de aço inox polido, com durabilidade maior que 3.000.000 de giros
+Opcionais: Sistema de braço articulado e Sistema de urna de coleta de cartões de visitante
+
+Especificações técnicas:
 Alimentação: entrada 100 a 240 Vac 60Hz; Opcional: 12VDC
-o
 Consumo: 17W
-o
 Dimensões sem os braços: Largura: 300 mm; Altura: 1050 mm; Profundidade: 250 mm
-o
 Dimensões com os braços: Largura: 690 mm; Altura: 1050 mm; Profundidade: 690 mm
-o
 Peso: 24 Kg
-Central de atendimento: (41) 3213-7100
-www.topdata.com.br
