@@ -1,0 +1,222 @@
+URL: https://inforrel.com.br/produtos/controle-de-acesso-idface-max-control-id/
+================================================================================
+
+Controle de Acesso iDFace Max - Control iD - Inforrel
+Ir para o conteúdo
+Popular Keywords
+Categories
+No Record Found
+Ver mais
+(19) 3772-5050
+[email protected]
+Início
+Quem somos
+Nossos Serviços
+Controle de Acessos
+Controle de Ponto
+AssistênciaTécnica
+Produtos
+Controle de Ponto
+Controle de Acessos
+Câmeras
+Roteadores
+Softwares
+Cancelas
+Soluções Especiais
+Para Comércios em Geral
+Para Clubes
+Para Academias
+Blog
+Contato
+Popular Keywords
+Categories
+No Record Found
+Ver mais
+MENU
+Início
+Quem somos
+Nossos Serviços
+Produtos
+Soluções Especiais
+Blog
+Contato
+(19) 3772-5050
+[email protected]
+×
+Compartilhe
+Controle de Acesso iDFace Max – Control iD
+Sugestão de aplicação:
+Residências
+Com um design moderno e acabamento elegante, o iDFace Max é o dispositivo ideal para monitorar e controlar a entrada e saída de pessoas através da tecnologia de reconhecimento facial.
+Seu algoritmo avançado e câmeras de alta qualidade permitem a identificação de até 100.000 faces (1:N) com detecção de rostos vivos e identificação de usuários com e sem máscara.
+Para comunicação, o aparelho conta com interfone SIP integrado* e possui conexões TCP/IP, USB, Wi-Fi* e Bluetooth*.
+Além disso, seu amplo display touchscreen LCD de 7” possibilita uma navegação fácil e intuitiva para a configuração de regras de acesso e visualização de relatórios.
+*Conforme modelo
+Display touchscreen de 7”
+Capacidade para até 10.000 / 50.000 / 100.000 faces com detecção de rosto vivo, conforme a licença adquirida
+Grau de Proteção IP65
+Regras de acesso personalizadas por grupos e horários
+Interfone SIP integrado*
+Comunicação TCP/IP, USB, Wi-Fi* e Bluetooth*
+*Conforme modelo
+Solicite uma proposta
+Documentos
+Download do Software iDSecure:
+iDSecure On-Premises
+Manual do iDSecure Cloud:
+iDSecure Cloud
+Documentos PDF:
+Datasheet iDFace Max
+Guia Rápido
+Cartilha de Cadastramento de Fotos
+Arte em Alta Resolução (TIF):
+iDFace Max
+iDFace Max (Perspectiva)
+iDFace Max (Frontal)
+Arquivo 3D (DWG):
+iDFace Max
+API – Interface para Integração:
+Documentação da API
+Exemplo de integração
+(github)
+Firmware V7:
+Última Versão (7.8.2)
+Changelog
+Atenção: dispositivos com firmware anterior à versão 7.7.5 devem primeiro atualizar para a versão 7.7.0 (
+download
+)
+Inscreva-se para receber atualizações por e-mail
+Perguntas Frequentes
+Controle de Acesso
+Quantidade de Usuários:
+Capacidade para mais de 200.000 usuários cadastrados
+Quantidade de Faces:
+Capacidade para até 100.000* faces com detecção de rosto vivo
+Regras de Acesso:
+Regras de liberação conforme horários e departamentos
+Controle de Portas:
+Através do módulo de acionamento externo e/ou relé interno
+Sensores e Botoeira:
+1 entrada de botoeira no módulo de acionamento
+1 entrada para sensor de porta aberta no módulo de acionamento
+Relé de Saída:
+1 relé interno e 1 no módulo de acionamento de até 30VAC/5A
+Entrada Wiegand:
+1 porta no módulo de acionamento
+Saída Wiegand:
+1 porta no módulo de acionamento
+Comunicação
+Ethernet:
+1 porta Ethernet 10/100Mbps nativa
+USB:
+1 porta USB Host 2.0
+OSDP:
+Suporte ao protocolo OSDP como Dispositivo Periférico pela interface RS-485
+Wi-Fi:
+Comunicação Wi-Fi integrada (opcional)
+GPRS:
+Módulo de conexão via GPRS (opcional)
+Interfone SIP:
+Interfone SIP integrado compatível com G711 (versão Pro)
+Formas de Identificação
+Reconhecimento Facial:
+Duas câmeras HD 1080p (luz visível e luz infravermelha)
+Cartões de Proximidade (conforme modelo):
+Tecnologias MIFARE™, 125 kHz ASK ou HID
+Senha:
+Identificação de usuários através de senha numérica
+QR Code:
+Identificação de usuários através de QR Code
+Interface de Usuário
+Tela LCD Touchscreen:
+Display LCD TFT colorido de 7” (800x1280) com tela capacitiva sensível ao toque
+Software Web Integrado:
+Software completo de gerenciamento de controle de acesso via browser
+Áudio:
+Alto-falante e microfone embutidos
+Características Gerais
+Dimensões gerais:
+119,4 mm x 34,6 mm x 247 mm (L x P x A) - Terminal
+52 mm x 52 mm x 22 mm (L x P x A) - Módulo de Acionamento Externo
+Peso do equipamento:
+950g - Terminal
+35g - Módulo de Acionamento Externo
+Alimentação:
+Fonte externa de 12V 2A ou PoE (IEEE802.3af)
+Grau de proteção:
+IP65
+Controle de Ponto e Frequência:
+Coletor compatível com o software RHiD (REP-P) conforme Portaria MTP 671/2021
+Diagrama de Interligação:
+Solicite uma proposta
+newsletter
+Enviar
+Quem somos
+Fundada em 1995, a empresa teve como princípio atender a um nicho de mercado (assistência técnica de relógio de ponto) crescente mas que deixava muito a desejar. A Inforrel foi se aperfeiçoando no atendimento técnico e acompanhando as evoluções tecnológicas do segmento.
+Central de
+Atendimento:
+Av. João Batista Morato do Canto, 2160 - Parque Industrial, Campinas - SP, 13031-800
+Mapa do site
+Início
+Quem somos
+Nossos Serviços
+Soluções Especiais
+Produtos
+Blog
+Contato
+Contato
+Campinas: (19) 3772-5050
++55 19 99664-6832
+[email protected]
+[email protected]
+Seg à Sex: 07:45h às 17:15h
+Redes Sociais
+Facebook
+Instagram
+Linkedin
+Políticas de Privacidade
+Desenvolvido por:
+© Todos os direitos reservados
+Gerenciar o consentimento
+Para fornecer as melhores experiências, usamos tecnologias como cookies para armazenar e/ou acessar informações do dispositivo. O consentimento para essas tecnologias nos permitirá processar dados como comportamento de navegação ou IDs exclusivos neste site. Não consentir ou retirar o consentimento pode afetar negativamente certos recursos e funções.
+Funcional
+Funcional
+Sempre ativo
+O armazenamento ou acesso técnico é estritamente necessário para a finalidade legítima de permitir a utilização de um serviço específico explicitamente solicitado pelo assinante ou utilizador, ou com a finalidade exclusiva de efetuar a transmissão de uma comunicação através de uma rede de comunicações eletrónicas.
+Preferências
+Preferências
+O armazenamento ou acesso técnico é necessário para o propósito legítimo de armazenar preferências que não são solicitadas pelo assinante ou usuário.
+Estatísticas
+Estatísticas
+O armazenamento ou acesso técnico que é usado exclusivamente para fins estatísticos.
+O armazenamento técnico ou acesso que é usado exclusivamente para fins estatísticos anônimos. Sem uma intimação, conformidade voluntária por parte de seu provedor de serviços de Internet ou registros adicionais de terceiros, as informações armazenadas ou recuperadas apenas para esse fim geralmente não podem ser usadas para identificá-lo.
+Marketing
+Marketing
+O armazenamento ou acesso técnico é necessário para criar perfis de usuário para enviar publicidade ou para rastrear o usuário em um site ou em vários sites para fins de marketing semelhantes.
+Gerenciar opções
+Gerenciar serviços
+Gerenciar {vendor_count} fornecedores
+Leia mais sobre esses objetivos
+Aceitar
+Negar
+Ver preferências
+Salvar preferências
+Ver preferências
+{title}
+{title}
+{title}
+Gerenciar o consentimento
+Desejo receber uma proposta
+Preencha o formulário e nos envie suas informações que logo entraremos em contato.
+"*" indica campos obrigatórios
+Seu nome *
+(obrigatório)
+Empresa
+(obrigatório)
+E-mail *
+(obrigatório)
+Produto
+Mensagem
+WhatsApp
+Olá! Bem vindo(a) a INFORREL
+Abrir bate-papo

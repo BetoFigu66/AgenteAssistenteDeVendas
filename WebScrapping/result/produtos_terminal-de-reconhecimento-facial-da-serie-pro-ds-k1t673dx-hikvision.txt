@@ -1,0 +1,258 @@
+URL: https://inforrel.com.br/produtos/terminal-de-reconhecimento-facial-da-serie-pro-ds-k1t673dx-hikvision/
+================================================================================
+
+Terminal de Reconhecimento Facial da série Pro DS-K1T673DX - Hikvision - Inforrel
+Ir para o conteúdo
+Popular Keywords
+Categories
+No Record Found
+Ver mais
+(19) 3772-5050
+[email protected]
+Início
+Quem somos
+Nossos Serviços
+Controle de Acessos
+Controle de Ponto
+AssistênciaTécnica
+Produtos
+Controle de Ponto
+Controle de Acessos
+Câmeras
+Roteadores
+Softwares
+Cancelas
+Soluções Especiais
+Para Comércios em Geral
+Para Clubes
+Para Academias
+Blog
+Contato
+Popular Keywords
+Categories
+No Record Found
+Ver mais
+MENU
+Início
+Quem somos
+Nossos Serviços
+Produtos
+Soluções Especiais
+Blog
+Contato
+(19) 3772-5050
+[email protected]
+×
+Compartilhe
+Terminal de Reconhecimento Facial da série Pro DS-K1T673DX – Hikvision
+Sugestão de aplicação:
+Residências
+Principais Recursos
+Tela de toque LCD de 7 polegadas, lente grande angular de 2 megapixels
+Distância de reconhecimento: 0,3 a 3 m
+Duração do reconhecimento facial ＜ 0,2 s/Usuário
+Taxa de precisão de reconhecimento facial ≥ 99%
+Cartão M1 integrado, cartão Felica e módulo de leitura de cartão DESfire (apresenta o cartão na tela para autenticação)
+Detecção de máscara facial
+Capacidade de 50.000 faces, 10.000 impressões digitais (com módulo de impressão digital) e 150.000 eventos capacidade
+Compatível com ISAPI, ISUP 5.0, TCP/IP (IPv4 e IPv6)
+Suporta reconhecimento de uma única pessoa e de várias pessoas (até 5 pessoas)
+Especificações
+Tela
+Vídeo
+Áudio
+Rede
+Interface
+Autenticação
+Geral
+Terminal/Capacidade de reconhecimento facial
+Função
+Tela
+Tamanho da tela
+7 polegadas
+Método de operação
+Tela sensível ao toque capacitiva
+Tipo
+IPS
+Resolução
+600 × 1024
+Vídeo
+Lente
+2
+Resolução
+2 MP
+FOV (campo de visão)
+HFOV= 75,5°; VFOV= 41,5°; DFOV= 87°
+Áudio
+Qualidade de áudio
+Microfone omnidirecional embutido
+Rede
+Rede com fio
+Suporte
+Interface
+Interface de rede
+1 RJ-45, 10/100/1000 M autoadaptativo
+Controle de bloqueio
+1
+Botão Sair
+1
+Entrada de contato da porta
+1
+Entrada de alarme
+2
+Saída de alarme
+1
+TAMPER
+1
+RS-485
+1 RS-485 (half duplex, HIKVISION)
+Wiegand
+1 Wiegand (Hik 26 bits, Hik 34 bits)
+USB
+1 (Para o módulo)
+Interface de saída de áudio
+1 (3,5 mm)
+Autenticação
+Tipo de cartão
+Cartão M1; cartão DESfire; cartão Felica
+Geral
+Fonte de alimentação
+12 VCC a 24 VCC, 2 A
+Temperatura de trabalho
+-30 °C a 60 °C (-22 °F a 140 °F)
+Umidade de trabalho
+0 a 90% (sem condensação)
+Nível de proteção
+IP 65
+Dimensões
+110,5 mm × 209,2 mm × 24 mm (4,35″ × 8,24″ × 0,94″)
+Peso
+Peso bruto: 1,06 kg (2,34 lb)
+Peso líquido: 0,57 kg (1,26 lb)
+Idioma
+Inglês, espanhol (América do Sul), árabe, tailandês, indonésio, russo, vietnamita, português (Brasil), japonês, coreano, chinês tradicional, francês e turco
+Terminal/Capacidade de reconhecimento facial
+Capacidade de impressão digital
+10.000 (com módulo de impressão digital)
+Função
+Anti-spoofing facial
+Suporte
+Solicite uma proposta
+O
+DS-K1T673DX
+é um terminal de controle de acesso facial da Série Pro da Hikvision. Ele é um dispositivo robusto e de alta segurança, projetado para ambientes com grande fluxo de pessoas, como grandes empresas, hospitais e edifícios governamentais.
+Sua principal característica é o
+reconhecimento facial de alta velocidade
+(menos de 0,2 segundos) com câmeras duplas que impedem fraudes (anti-spoofing). Além do rosto, ele oferece múltiplos métodos de verificação, incluindo
+impressão digital
+e
+cartão de proximidade (Mifare)
+, em uma tela touchscreen colorida de 7 polegadas.
+Baixe o folder
+Perguntas Frequentes
+Quais são todos os métodos de autenticação que este terminal suporta?
+Ele é um dispositivo "multi-biométrico" completo. Os métodos de autenticação incluem:
+Reconhecimento Facial
+Impressão Digital (Biometria)
+Cartão de Proximidade (Mifare)
+Senha
+E combinações entre eles (ex: Rosto + Cartão)
+Qual é a capacidade de armazenamento de usuários e faces?
+Este terminal é projetado para aplicações de larga escala. Ele tem capacidade para armazenar:
+Até
+100.000 faces
+Até
+100.000 cartões
+Até
+500.000 eventos
+(registros de passagem)
+O sistema "anti-fraude" (anti-spoofing) funciona bem? Ele bloqueia fotos?
+Sim, essa é uma das suas principais características de segurança. O DS-K1T673DX utiliza
+duas câmeras
+(uma de luz visível e outra de infravermelho) e um algoritmo de
+deep learning
+para garantir a "detecção de vida". Isso impede que o sistema seja enganado por fotos, vídeos ou até mesmo máscaras 3D.
+Este equipamento pode ser instalado em uma área externa, exposto ao tempo?
+Ele é classificado com proteção
+IP65
+. Isso significa que ele é totalmente protegido contra poeira e resistente a jatos de água. Ele pode ser instalado em
+ambientes internos ou externos cobertos
+, mas não é recomendado para instalação em locais que recebam chuva forte ou luz solar direta e intensa sobre a tela/câmera.
+Ele pode ser usado para comunicação, como um videoporteiro?
+Sim. O terminal suporta
+áudio bidirecional
+(possui microfone e alto-falante) e o protocolo
+SIP
+. Isso permite que ele seja usado para funções de intercomunicação, podendo, por exemplo, realizar uma chamada de vídeo para uma estação interna ou um aplicativo de software (como o Hik-Central) quando um visitante chega.
+Solicite uma proposta
+newsletter
+Enviar
+Quem somos
+Fundada em 1995, a empresa teve como princípio atender a um nicho de mercado (assistência técnica de relógio de ponto) crescente mas que deixava muito a desejar. A Inforrel foi se aperfeiçoando no atendimento técnico e acompanhando as evoluções tecnológicas do segmento.
+Central de
+Atendimento:
+Av. João Batista Morato do Canto, 2160 - Parque Industrial, Campinas - SP, 13031-800
+Mapa do site
+Início
+Quem somos
+Nossos Serviços
+Soluções Especiais
+Produtos
+Blog
+Contato
+Contato
+Campinas: (19) 3772-5050
++55 19 99664-6832
+[email protected]
+[email protected]
+Seg à Sex: 07:45h às 17:15h
+Redes Sociais
+Facebook
+Instagram
+Linkedin
+Políticas de Privacidade
+Desenvolvido por:
+© Todos os direitos reservados
+Gerenciar o consentimento
+Para fornecer as melhores experiências, usamos tecnologias como cookies para armazenar e/ou acessar informações do dispositivo. O consentimento para essas tecnologias nos permitirá processar dados como comportamento de navegação ou IDs exclusivos neste site. Não consentir ou retirar o consentimento pode afetar negativamente certos recursos e funções.
+Funcional
+Funcional
+Sempre ativo
+O armazenamento ou acesso técnico é estritamente necessário para a finalidade legítima de permitir a utilização de um serviço específico explicitamente solicitado pelo assinante ou utilizador, ou com a finalidade exclusiva de efetuar a transmissão de uma comunicação através de uma rede de comunicações eletrónicas.
+Preferências
+Preferências
+O armazenamento ou acesso técnico é necessário para o propósito legítimo de armazenar preferências que não são solicitadas pelo assinante ou usuário.
+Estatísticas
+Estatísticas
+O armazenamento ou acesso técnico que é usado exclusivamente para fins estatísticos.
+O armazenamento técnico ou acesso que é usado exclusivamente para fins estatísticos anônimos. Sem uma intimação, conformidade voluntária por parte de seu provedor de serviços de Internet ou registros adicionais de terceiros, as informações armazenadas ou recuperadas apenas para esse fim geralmente não podem ser usadas para identificá-lo.
+Marketing
+Marketing
+O armazenamento ou acesso técnico é necessário para criar perfis de usuário para enviar publicidade ou para rastrear o usuário em um site ou em vários sites para fins de marketing semelhantes.
+Gerenciar opções
+Gerenciar serviços
+Gerenciar {vendor_count} fornecedores
+Leia mais sobre esses objetivos
+Aceitar
+Negar
+Ver preferências
+Salvar preferências
+Ver preferências
+{title}
+{title}
+{title}
+Gerenciar o consentimento
+Desejo receber uma proposta
+Preencha o formulário e nos envie suas informações que logo entraremos em contato.
+"*" indica campos obrigatórios
+Seu nome *
+(obrigatório)
+Empresa
+(obrigatório)
+E-mail *
+(obrigatório)
+Produto
+Mensagem
+WhatsApp
+Olá! Bem vindo(a) a INFORREL
+Abrir bate-papo

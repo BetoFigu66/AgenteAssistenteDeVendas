@@ -1,0 +1,212 @@
+URL: https://inforrel.com.br/produtos/relogio-de-ponto-rep-idclass-bio-barras-control-id/
+================================================================================
+
+Relógio de Ponto REP iDClass Bio Barras - Control iD - Inforrel
+Ir para o conteúdo
+Popular Keywords
+Categories
+No Record Found
+Ver mais
+(19) 3772-5050
+[email protected]
+Início
+Quem somos
+Nossos Serviços
+Controle de Acessos
+Controle de Ponto
+AssistênciaTécnica
+Produtos
+Controle de Ponto
+Controle de Acessos
+Câmeras
+Roteadores
+Softwares
+Cancelas
+Soluções Especiais
+Para Comércios em Geral
+Para Clubes
+Para Academias
+Blog
+Contato
+Popular Keywords
+Categories
+No Record Found
+Ver mais
+MENU
+Início
+Quem somos
+Nossos Serviços
+Produtos
+Soluções Especiais
+Blog
+Contato
+(19) 3772-5050
+[email protected]
+×
+Compartilhe
+Relógio de Ponto REP iDClass Bio Barras – Control iD
+Sugestão de aplicação:
+Escritórios
+A Control iD apresenta o Relógio de Ponto iDClass Bio Barras. Com um leitor de impressão digital e um leitor de código de barras, ele oferece versatilidade e segurança para os registros de ponto de uma empresa ou organização. Seu display sensível ao toque possibilita uma interface amigável e intuitiva com o usuário. Tudo isso em conformidade com as exigências da Portaria 671/2021, sendo certificado pelo Inmetro. Seu design diferenciado, tamanho reduzido e robustez, característicos dos produtos que a Control iD traz ao mercado, demonstram a dedicação e a excelência com que a Control iD projeta seus produtos, reafirmando sua liderança no segmento.
+Identificação biométrica, código de barras e senha
+Mecanismo impressor térmico de alta velocidade e robustez com guilhotina
+Capacidade para bobina de até 400m (10.000+ tickets por bobina)
+Comunicação TCP/IP, web server embarcado e duas portas USB. Wi-Fi e GPRS opcionais
+Display colorido touchscreen de 2.4″
+Homologado pelo Ministério do Trabalho e Emprego
+Certificado pelo Inmetro
+Solicite uma proposta
+Documentos
+Documentos PDF:
+Manual – Relógio de Ponto REP iDClass
+Folder – Relógio de Ponto REP iDClass (Portaria 1510/2009)
+Folder – Relógio de Ponto REP iDClass (Portaria 671/2021)
+Gabarito de Furação
+Imagens em Alta Resolução (JPG):
+REP iDClass Frontal
+REP iDClass Perspectiva
+Arte em Alta Resolução (PSD):
+REP iDClass Frontal
+REP iDClass Perspectiva
+API – Interface para Integração:
+Documentação da API
+(Download)
+(Visualizar)
+Exemplo de integração
+(github)
+Biblioteca de integração (DLL):
+DLL de integração Windows (ZIP)
+iDCloud:
+Utilitário de AFD (ZIP)
+Documentação para integração iDCloud
+Perguntas Frequentes
+Controle de Ponto
+Certificado pelo Inmetro:
+Produto certificado pelo Inmetro - Portarias 4 de 2022 e 671 de 2021
+Homologado Portaria 671/2021:
+Produto homologado pelo Ministério do Trabalho e Emprego
+Quantidade de Funcionários:
+Capacidade para 15.000 usuários cadastrados
+Quantidade de Digitais:
+Capacidade para 15.000 digitais (1:1) e 5.000 (1:N)
+Formas de Identificação
+Leitor biométrico:
+Leitor de impressão digital óptico de 500 DPI
+Cartões de Barras:
+Leitura de cartões de barras (Código 39, 2 de 5 e 2 de 5 entrelaçado)
+Senha:
+Identificação de usuários através de senha numérica
+Impressora e Bobina
+Compartimento de Bobina:
+Capacidade para bobinas de até 400m (10.000+ tickets por bobina)
+Mecanismo Impressor:
+Mecanismo impressor de alta qualidade Seiko (Japão)
+Corte Automático do Ticket:
+Impressora com guilhotina de alta velocidade
+Velocidade de Impressão:
+Velocidade de impressão de 100 mm/s
+Detecção de Quantidade de Papel Restante:
+Permite o monitoramento do nível de papel remotamente
+Comunicação
+iDCloud:
+Sincronização automática com a nuvem (vendido separadamente)
+USB:
+1 porta USB 2.0 Host (Porta Fiscal) para fiscalização de Arquivo Fonte de Dados (AFD)
+1 porta USB 2.0 Host para importação e exportação de usuários e recebimentos de AFD
+Ethernet:
+1 porta Ethernet 10/100Mbps nativa
+GPRS:
+Módulo de conexão via GPRS opcional
+Wi-Fi:
+Módulo de conexão via Wi-Fi opcional
+Interface de usuário
+Tela LCD Touchscreen:
+Display LCD TFT colorido de 2.4” 320x240 com tela resistiva sensível ao toque
+Características Gerais
+Dimensões gerais (L x A x P):
+246 mm x 246 mm x 104 mm (incluindo suporte inferior)
+246 mm x 230 mm x 104 mm (sem suporte)
+Peso líquido:
+935 g
+Peso embalado:
+1,4 kg
+Garantia:
+1 ano
+Cor do equipamento:
+Preto texturizado
+Alimentação:
+110-220V (Bi-Volt) / 60Hz
+No-Break (opcional):
+No-break interno de até 4h
+Solicite uma proposta
+newsletter
+Enviar
+Quem somos
+Fundada em 1995, a empresa teve como princípio atender a um nicho de mercado (assistência técnica de relógio de ponto) crescente mas que deixava muito a desejar. A Inforrel foi se aperfeiçoando no atendimento técnico e acompanhando as evoluções tecnológicas do segmento.
+Central de
+Atendimento:
+Av. João Batista Morato do Canto, 2160 - Parque Industrial, Campinas - SP, 13031-800
+Mapa do site
+Início
+Quem somos
+Nossos Serviços
+Soluções Especiais
+Produtos
+Blog
+Contato
+Contato
+Campinas: (19) 3772-5050
++55 19 99664-6832
+[email protected]
+[email protected]
+Seg à Sex: 07:45h às 17:15h
+Redes Sociais
+Facebook
+Instagram
+Linkedin
+Políticas de Privacidade
+Desenvolvido por:
+© Todos os direitos reservados
+Gerenciar o consentimento
+Para fornecer as melhores experiências, usamos tecnologias como cookies para armazenar e/ou acessar informações do dispositivo. O consentimento para essas tecnologias nos permitirá processar dados como comportamento de navegação ou IDs exclusivos neste site. Não consentir ou retirar o consentimento pode afetar negativamente certos recursos e funções.
+Funcional
+Funcional
+Sempre ativo
+O armazenamento ou acesso técnico é estritamente necessário para a finalidade legítima de permitir a utilização de um serviço específico explicitamente solicitado pelo assinante ou utilizador, ou com a finalidade exclusiva de efetuar a transmissão de uma comunicação através de uma rede de comunicações eletrónicas.
+Preferências
+Preferências
+O armazenamento ou acesso técnico é necessário para o propósito legítimo de armazenar preferências que não são solicitadas pelo assinante ou usuário.
+Estatísticas
+Estatísticas
+O armazenamento ou acesso técnico que é usado exclusivamente para fins estatísticos.
+O armazenamento técnico ou acesso que é usado exclusivamente para fins estatísticos anônimos. Sem uma intimação, conformidade voluntária por parte de seu provedor de serviços de Internet ou registros adicionais de terceiros, as informações armazenadas ou recuperadas apenas para esse fim geralmente não podem ser usadas para identificá-lo.
+Marketing
+Marketing
+O armazenamento ou acesso técnico é necessário para criar perfis de usuário para enviar publicidade ou para rastrear o usuário em um site ou em vários sites para fins de marketing semelhantes.
+Gerenciar opções
+Gerenciar serviços
+Gerenciar {vendor_count} fornecedores
+Leia mais sobre esses objetivos
+Aceitar
+Negar
+Ver preferências
+Salvar preferências
+Ver preferências
+{title}
+{title}
+{title}
+Gerenciar o consentimento
+Desejo receber uma proposta
+Preencha o formulário e nos envie suas informações que logo entraremos em contato.
+"*" indica campos obrigatórios
+Seu nome *
+(obrigatório)
+Empresa
+(obrigatório)
+E-mail *
+(obrigatório)
+Produto
+Mensagem
+WhatsApp
+Olá! Bem vindo(a) a INFORREL
+Abrir bate-papo

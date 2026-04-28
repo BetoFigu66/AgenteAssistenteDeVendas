@@ -1,0 +1,186 @@
+URL: https://inforrel.com.br/produtos/controle-de-acesso-iduhf/
+================================================================================
+
+Controle de Acesso iDUHF - Control iD - Inforrel
+Ir para o conteúdo
+Popular Keywords
+Categories
+No Record Found
+Ver mais
+(19) 3772-5050
+[email protected]
+Início
+Quem somos
+Nossos Serviços
+Controle de Acessos
+Controle de Ponto
+AssistênciaTécnica
+Produtos
+Controle de Ponto
+Controle de Acessos
+Câmeras
+Roteadores
+Softwares
+Cancelas
+Soluções Especiais
+Para Comércios em Geral
+Para Clubes
+Para Academias
+Blog
+Contato
+Popular Keywords
+Categories
+No Record Found
+Ver mais
+MENU
+Início
+Quem somos
+Nossos Serviços
+Produtos
+Soluções Especiais
+Blog
+Contato
+(19) 3772-5050
+[email protected]
+×
+Compartilhe
+Controle de Acesso iDUHF – Control iD
+Sugestão de aplicação:
+Pequenas e Médias Empresas
+A Control iD traz ao mercado o equipamento com proteção IP65 ideal para monitorar e controlar o acesso de veículos em condomínios corporativos e residenciais.
+Com um leitor UHF integrado de alcance de até 15 metros de distância, o iDUHF opera como um aparelho independente que proporciona tanto a leitura e autenticação das tags veiculares, quanto o controle da placa de acionamento de motor externa.
+Sua capacidade de armazenamento é de até 200.000 usuários e, através do software web embarcado, é possível configurar o produto, customizar regras de acesso e gerar relatórios específicos de maneira simples e intuitiva.
+Leitura e autenticação de tags no próprio aparelho
+Regras de acesso e relatórios customizáveis
+Armazena até 200.000 usuários
+Proteção IP65
+Controla placa de acionamento de motor
+Software embarcado e comunicação TCP/IP
+Solicite uma proposta
+Documentos
+Download do Software iDSecure:
+iDSecure On-Premises
+Manual do iDSecure Cloud:
+iDSecure Cloud
+Documentos PDF:
+Datasheet iDUHF
+Guia Rápido
+API – Interface para Integração:
+Documentação da API
+Exemplo de integração
+(github)
+Firmware V5:
+Última Versão (5.18.2)
+Inscreva-se para receber atualizações por e-mail
+Perguntas Frequentes
+Controle de Acesso
+Quantidade de Usuários:
+Capacidade para mais de 200.000 usuários cadastrados
+Regras de Acesso:
+Regras de liberação conforme horários e departamentos
+Registros de Acesso:
+Capacidade para mais de 200.000 registros
+Comunicação
+Ethernet:
+1 porta Ethernet 10/100Mbps nativa
+RS-485:
+1 porta RS-485 nativa com terminação de 120Ω
+RS-232:
+1 porta RS-232 nativa
+Relé de Saída:
+1 relé de até 30VAC / 5A
+Saída Wiegand:
+1 saída nativa
+Entradas adicionais:
+Entradas de Trigger e Sensor de Porta
+Formas de Identificação
+Leitor UHF:
+Distância de leitura de até 15m, a depender de tag utilizada e das condições de instalação da antena
+Interface de Usuário
+Software Web Integrado:
+Software completo de gerenciamento de controle de acesso via browser
+Características Gerais
+Dimensões gerais
+420 mm x 420 mm x 60 mm (L x A x P) - Antena
+52 mm x 52 mm x 22 mm (L x P x A) - Módulo de Acionamento Externo
+Peso do equipamento
+2270g - Antena
+35g - Módulo de Acionamento Externo
+Alimentação
+Fonte externa de 12V
+(não inclusa)
+Consumo Total
+3,5W (300mA) nominal
+Diagrama de Interligação
+Solicite uma proposta
+newsletter
+Enviar
+Quem somos
+Fundada em 1995, a empresa teve como princípio atender a um nicho de mercado (assistência técnica de relógio de ponto) crescente mas que deixava muito a desejar. A Inforrel foi se aperfeiçoando no atendimento técnico e acompanhando as evoluções tecnológicas do segmento.
+Central de
+Atendimento:
+Av. João Batista Morato do Canto, 2160 - Parque Industrial, Campinas - SP, 13031-800
+Mapa do site
+Início
+Quem somos
+Nossos Serviços
+Soluções Especiais
+Produtos
+Blog
+Contato
+Contato
+Campinas: (19) 3772-5050
++55 19 99664-6832
+[email protected]
+[email protected]
+Seg à Sex: 07:45h às 17:15h
+Redes Sociais
+Facebook
+Instagram
+Linkedin
+Políticas de Privacidade
+Desenvolvido por:
+© Todos os direitos reservados
+Gerenciar o consentimento
+Para fornecer as melhores experiências, usamos tecnologias como cookies para armazenar e/ou acessar informações do dispositivo. O consentimento para essas tecnologias nos permitirá processar dados como comportamento de navegação ou IDs exclusivos neste site. Não consentir ou retirar o consentimento pode afetar negativamente certos recursos e funções.
+Funcional
+Funcional
+Sempre ativo
+O armazenamento ou acesso técnico é estritamente necessário para a finalidade legítima de permitir a utilização de um serviço específico explicitamente solicitado pelo assinante ou utilizador, ou com a finalidade exclusiva de efetuar a transmissão de uma comunicação através de uma rede de comunicações eletrónicas.
+Preferências
+Preferências
+O armazenamento ou acesso técnico é necessário para o propósito legítimo de armazenar preferências que não são solicitadas pelo assinante ou usuário.
+Estatísticas
+Estatísticas
+O armazenamento ou acesso técnico que é usado exclusivamente para fins estatísticos.
+O armazenamento técnico ou acesso que é usado exclusivamente para fins estatísticos anônimos. Sem uma intimação, conformidade voluntária por parte de seu provedor de serviços de Internet ou registros adicionais de terceiros, as informações armazenadas ou recuperadas apenas para esse fim geralmente não podem ser usadas para identificá-lo.
+Marketing
+Marketing
+O armazenamento ou acesso técnico é necessário para criar perfis de usuário para enviar publicidade ou para rastrear o usuário em um site ou em vários sites para fins de marketing semelhantes.
+Gerenciar opções
+Gerenciar serviços
+Gerenciar {vendor_count} fornecedores
+Leia mais sobre esses objetivos
+Aceitar
+Negar
+Ver preferências
+Salvar preferências
+Ver preferências
+{title}
+{title}
+{title}
+Gerenciar o consentimento
+Desejo receber uma proposta
+Preencha o formulário e nos envie suas informações que logo entraremos em contato.
+"*" indica campos obrigatórios
+Seu nome *
+(obrigatório)
+Empresa
+(obrigatório)
+E-mail *
+(obrigatório)
+Produto
+Mensagem
+WhatsApp
+Olá! Bem vindo(a) a INFORREL
+Abrir bate-papo
