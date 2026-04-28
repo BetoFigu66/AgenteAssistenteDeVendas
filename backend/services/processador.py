@@ -22,6 +22,7 @@ from models import (
     Contato,
     Empresa,
     Mensagem,
+    ModoOperacao,
     Negociacao,
     NegociacaoInfo,
     OrigemClassificacao,
@@ -105,29 +106,48 @@ class ProcessadorMensagem:
             f"(confiança={resultado_class.confianca:.2f}, via {resultado_class.origem})"
         )
         
-        # 4. Roteia conforme estado de identificação + intenção
-        try:
-            resposta = await self._decidir_resposta(
-                db=db,
-                telefone=telefone_norm,
-                conteudo=conteudo,
-                identificacao=identificacao,
-                resultado_class=resultado_class,
-            )
-        except Exception as e:
-            logger.exception(f"[Processador] Erro gerando resposta: {e}")
-            erro_processamento = str(e)
-            resposta = RespostaGerada(
-                texto="Desculpe, tive um problema ao processar sua mensagem.",
-                template_usado=None,
+        # 4. Verifica modo de operação da negociação ativa (se existir)
+        # Se modo=HUMANO, o sistema processa/classifica mas NÃO gera resposta.
+        contato_inicial = identificacao.contato
+        negociacao_inicial = (
+            self._negociacao_ativa(db, contato_inicial) if contato_inicial else None
+        )
+        modo_humano = (
+            negociacao_inicial is not None
+            and negociacao_inicial.modo_operacao == ModoOperacao.HUMANO
+        )
+        if modo_humano:
+            logger.info(
+                f"[Processador] Negociação {negociacao_inicial.id} em modo HUMANO — "
+                f"não gerando resposta automática."
             )
         
-        # 5. Recarrega identificação (pode ter sido criado contato agora)
+        # 5. Roteia conforme estado de identificação + intenção (só no modo AGENTE)
+        if modo_humano:
+            resposta = RespostaGerada(texto="", template_usado=None)
+        else:
+            try:
+                resposta = await self._decidir_resposta(
+                    db=db,
+                    telefone=telefone_norm,
+                    conteudo=conteudo,
+                    identificacao=identificacao,
+                    resultado_class=resultado_class,
+                )
+            except Exception as e:
+                logger.exception(f"[Processador] Erro gerando resposta: {e}")
+                erro_processamento = str(e)
+                resposta = RespostaGerada(
+                    texto="Desculpe, tive um problema ao processar sua mensagem.",
+                    template_usado=None,
+                )
+        
+        # 6. Recarrega identificação (pode ter sido criado contato agora)
         ident_final = identificar_por_telefone(db, telefone_norm)
         contato = ident_final.contato
         negociacao = self._negociacao_ativa(db, contato) if contato else None
         
-        # 6. Registra processamento (auditoria/debug)
+        # 7. Registra processamento (auditoria/debug) — sempre, independente do modo
         duracao_ms = int((time.monotonic() - inicio_ms) * 1000)
         processamento = self._criar_processamento(
             db=db,
@@ -141,22 +161,28 @@ class ProcessadorMensagem:
             erro=erro_processamento,
         )
         
-        # 7. Vincula mensagem do cliente ao processamento/contato/negociação
+        # 8. Vincula mensagem do cliente ao processamento/contato/negociação
         msg_in.processamento_id = processamento.id
         if contato:
             msg_in.contato_id = contato.id
             if negociacao:
                 msg_in.negociacao_id = negociacao.id
         
-        # 8. Persiste resposta do sistema
-        msg_out = Mensagem(
-            telefone=telefone_norm,
-            conteudo=resposta.texto,
-            origem=OrigemMensagem.SYSTEM,
-            contato_id=contato.id if contato else None,
-            negociacao_id=negociacao.id if negociacao else None,
-        )
-        db.add(msg_out)
+        # 9. Persiste resposta do sistema APENAS quando modo=AGENTE.
+        # No modo HUMANO, o operador enviará a resposta manualmente pela UI.
+        # Mensagem nasce pendente de aprovação: aprovador_id e timestamp_aprovacao
+        # ficam NULL até alguém aprovar via POST /api/mensagens/{id}/aprovar.
+        if not modo_humano:
+            msg_out = Mensagem(
+                telefone=telefone_norm,
+                conteudo=resposta.texto,
+                origem=OrigemMensagem.SYSTEM,
+                contato_id=contato.id if contato else None,
+                negociacao_id=negociacao.id if negociacao else None,
+                aprovador_id=None,
+                timestamp_aprovacao=None,
+            )
+            db.add(msg_out)
         db.commit()
         
         return ResultadoProcessamento(
@@ -415,12 +441,7 @@ class ProcessadorMensagem:
             .first()
         )
     
-    def _obter_ou_criar_negociacao(
-        self,
-        db: Session,
-        contato: Contato,
-        empresa: Empresa,
-    ) -> Negociacao:
+    def _obter_ou_criar_negociacao(self, db: Session, contato: Contato, empresa: Empresa,) -> Negociacao:
         """Retorna negociação ativa ou cria uma nova."""
         negociacao = self._negociacao_ativa(db, contato)
         if negociacao:

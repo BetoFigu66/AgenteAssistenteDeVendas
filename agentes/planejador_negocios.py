@@ -44,8 +44,13 @@ Seu papel é:
 Contexto do Projeto:
 - Produto: Assistente de vendas via WhatsApp com IA
 - Mercado: PMEs que usam WhatsApp para vendas
-- Diferencial: IA que sabe quando escalar para humano
-- Primeiro cliente: Empresa de catracas (Rita/Ivan)
+- Diferenciais: 
+    - IA que sabe quando escalar para humano
+    - Interface para acompanhamento de atendimentos que permite:
+        - Dar feedback em relação às conversas com os clientes.
+        - Fornecer maid informações para alimentar dinamicamente a base de conhecimento
+    - Acesso rápido a situação do cliente, incluindo tipo de contrato de manutenção.
+- Primeiro cliente: Empresa de catracas Inforrel. Contato: Rita Conti
 
 Modelos de monetização a considerar:
 1. SaaS (assinatura mensal fixa)

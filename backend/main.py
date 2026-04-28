@@ -4,14 +4,18 @@ Assistente de Vendas - Backend FastAPI
 from contextlib import asynccontextmanager
 from fastapi import FastAPI, Form, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import PlainTextResponse
+from fastapi.responses import PlainTextResponse, JSONResponse
+from fastapi.exceptions import RequestValidationError
 from pydantic import BaseModel
+import traceback
 from datetime import datetime
 from typing import Optional
 import uvicorn
 import logging
 
 from fastapi import HTTPException
+
+from sqlalchemy import func, case
 
 from database import Database
 from config import settings
@@ -20,14 +24,17 @@ from models import (
     Contato,
     Empresa,
     Mensagem,
+    ModoOperacao,
     Negociacao,
     NegociacaoInfo,
     Orcamento,
+    OrigemMensagem,
     ProcessamentoMensagem,
     ReportProblema,
     SeveridadeReport,
     StatusNegociacao,
     StatusReport,
+    User,
 )
 from services.identificador import identificar_por_telefone, normalizar_telefone
 from services.llm import get_llm_provider
@@ -48,6 +55,16 @@ async def lifespan(app: FastAPI):
     logger.info(f"Database URL: {settings.DATABASE_URL}")
     db = Database()
     logger.info("Banco de dados inicializado com SQLAlchemy")
+    
+    # Executa migrations pendentes automaticamente
+    try:
+        from alembic.config import Config
+        from alembic import command
+        alembic_cfg = Config("alembic.ini")
+        command.upgrade(alembic_cfg, "head")
+        logger.info("Migrations Alembic aplicadas com sucesso (upgrade head)")
+    except Exception as e:
+        logger.warning(f"Não foi possível aplicar migrations automaticamente: {e}")
     
     # Inicializa o cerebrio (LLM + processador)
     try:
@@ -77,6 +94,46 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+# ============================================================================
+# Handlers de Exceção Globais - SEMPRE logar stack-trace para diagnóstico
+# ============================================================================
+
+@app.exception_handler(RequestValidationError)
+async def validation_exception_handler(request: Request, exc: RequestValidationError):
+    """Handler para erros 422 - loga stack-trace completa para diagnóstico."""
+    stack_trace = traceback.format_exc()
+    logger.error(f"[ERRO 422] ValidationError em {request.method} {request.url}")
+    logger.error(f"[ERRO 422] Detalhes: {exc.errors()}")
+    logger.error(f"[ERRO 422] Stack trace:\n{stack_trace}")
+    return JSONResponse(
+        status_code=422,
+        content={
+            "detail": exc.errors(),
+            "message": "Erro de validação nos dados enviados",
+            "type": "validation_error"
+        }
+    )
+
+
+@app.exception_handler(Exception)
+async def global_exception_handler(request: Request, exc: Exception):
+    """Handler global - loga stack-trace completa de qualquer exceção não tratada."""
+    stack_trace = traceback.format_exc()
+    logger.error(f"[ERRO 500] Exceção não tratada em {request.method} {request.url}")
+    logger.error(f"[ERRO 500] Tipo: {type(exc).__name__}")
+    logger.error(f"[ERRO 500] Mensagem: {str(exc)}")
+    logger.error(f"[ERRO 500] Stack trace:\n{stack_trace}")
+    return JSONResponse(
+        status_code=500,
+        content={
+            "detail": "Erro interno do servidor",
+            "message": str(exc) if settings.DEBUG else "Erro interno do servidor",
+            "type": "internal_error"
+        }
+    )
+
 
 RESPOSTA_FALLBACK = "Desculpe, tive um problema ao processar sua mensagem. Pode tentar novamente?"
 
@@ -116,7 +173,13 @@ async def webhook_twilio(
         logger.exception(f"Erro ao processar webhook: {e}")
         resposta = RESPOSTA_FALLBACK
     
-    twiml_response = f"""<?xml version="1.0" encoding="UTF-8"?>
+    # Se não há resposta (ex.: negociação em modo HUMANO), devolve TwiML vazio
+    # — o Twilio não envia nada para o cliente e o operador responderá pela UI.
+    if not resposta:
+        twiml_response = """<?xml version="1.0" encoding="UTF-8"?>
+<Response></Response>"""
+    else:
+        twiml_response = f"""<?xml version="1.0" encoding="UTF-8"?>
 <Response>
     <Message>{resposta}</Message>
 </Response>"""
@@ -234,6 +297,9 @@ async def obter_dados_conversa(telefone: str):
                 "id": negociacao.id,
                 "titulo": negociacao.titulo,
                 "status": negociacao.status.value if negociacao.status else None,
+                "modo_operacao": (
+                    negociacao.modo_operacao.value if negociacao.modo_operacao else None
+                ),
             } if negociacao else None,
         }
 
@@ -246,6 +312,67 @@ async def obter_empresa(empresa_id: int):
         if not empresa:
             raise HTTPException(status_code=404, detail="Empresa não encontrada")
         return empresa.to_dict()
+
+
+# =============================================================================
+# Rotas de Negociação - ORDEM IMPORTA: rotas estáticas ANTES de rotas dinâmicas
+# =============================================================================
+
+@app.get("/api/negociacoes/ativas")
+async def listar_negociacoes_ativas():
+    """
+    Lista negociações ativas ordenadas pela quantidade de mensagens pendentes
+    de aprovação (maior primeiro).
+    
+    Retorna: id, status, modo_operacao, telefone, nome_contato, empresa_nome,
+    mensagens_pendentes.
+    """
+    with db.get_session() as session:
+        # Subquery: contagem de mensagens pendentes por negociação
+        pendentes_expr = func.count(Mensagem.id).label('pendentes')
+        subq = (
+            session.query(
+                Mensagem.negociacao_id.label('neg_id'),
+                pendentes_expr,
+            )
+            .filter(Mensagem.origem == OrigemMensagem.SYSTEM)
+            .filter(Mensagem.aprovador_id.is_(None))
+            .filter(Mensagem.negociacao_id.isnot(None))
+            .group_by(Mensagem.negociacao_id)
+            .subquery()
+        )
+
+        stmt = (
+            session.query(Negociacao, Contato, Empresa, subq.c.pendentes)
+            .join(Contato, Contato.id == Negociacao.contato_id)
+            .join(Empresa, Empresa.id == Negociacao.empresa_id)
+            .outerjoin(subq, subq.c.neg_id == Negociacao.id)
+            .filter(Negociacao.status.in_(STATUS_NEGOCIACAO_ATIVOS))
+            .order_by(
+                func.coalesce(subq.c.pendentes, 0).desc(),
+                Negociacao.updated_at.desc(),
+            )
+        )
+
+        resultado = []
+        for negociacao, contato, empresa, pendentes in stmt.all():
+            resultado.append({
+                "id": negociacao.id,
+                "status": negociacao.status.value if negociacao.status else None,
+                "modo_operacao": (
+                    negociacao.modo_operacao.value if negociacao.modo_operacao else None
+                ),
+                "titulo": negociacao.titulo,
+                "telefone": contato.telefone,
+                "nome_contato": contato.nome,
+                "empresa_id": empresa.id,
+                "empresa_nome": empresa.fantasia or empresa.nome,
+                "mensagens_pendentes": int(pendentes or 0),
+                "updated_at": (
+                    negociacao.updated_at.isoformat() if negociacao.updated_at else None
+                ),
+            })
+        return {"total": len(resultado), "negociacoes": resultado}
 
 
 @app.get("/api/negociacoes/{negociacao_id}")
@@ -273,6 +400,94 @@ async def obter_negociacao(negociacao_id: int):
         }
 
 
+class AlterarModoRequest(BaseModel):
+    modo_operacao: str  # "agente" | "humano"
+
+
+@app.patch("/api/negociacoes/{negociacao_id}/modo-operacao")
+async def alterar_modo_operacao(negociacao_id: int, payload: AlterarModoRequest):
+    """
+    Alterna o modo de operação de uma negociação entre AGENTE e HUMANO.
+
+    - AGENTE: sistema gera respostas automáticas.
+    - HUMANO: sistema só registra mensagens recebidas; operador responde pela UI.
+    """
+    try:
+        novo_modo = ModoOperacao(payload.modo_operacao)
+    except ValueError:
+        valores = [m.value for m in ModoOperacao]
+        raise HTTPException(
+            status_code=400,
+            detail=f"modo_operacao inválido: '{payload.modo_operacao}'. Aceitos: {valores}",
+        )
+
+    with db.get_session() as session:
+        negociacao = session.query(Negociacao).filter_by(id=negociacao_id).first()
+        if not negociacao:
+            raise HTTPException(status_code=404, detail="Negociação não encontrada")
+        negociacao.modo_operacao = novo_modo
+        session.flush()
+        session.refresh(negociacao)
+        logger.info(
+            f"[ModoOperacao] Negociação {negociacao.id} alterada para modo={novo_modo.value}"
+        )
+        return negociacao.to_dict()
+
+
+class EnviarMensagemManualRequest(BaseModel):
+    conteudo: str
+    aprovador_id: Optional[int] = None  # quem enviou (opcional nesta etapa)
+
+
+@app.post("/api/negociacoes/{negociacao_id}/mensagens-manuais", status_code=201)
+async def enviar_mensagem_manual(negociacao_id: int, payload: EnviarMensagemManualRequest):
+    """
+    Registra uma mensagem enviada manualmente pelo operador (modo HUMANO).
+
+    A mensagem é salva com origem=SYSTEM e já considerada aprovada (o operador
+    é o próprio autor). No futuro, integrar com Twilio para envio efetivo ao cliente.
+    """
+    conteudo = (payload.conteudo or "").strip()
+    if not conteudo:
+        raise HTTPException(status_code=400, detail="Conteúdo da mensagem é obrigatório")
+
+    with db.get_session() as session:
+        negociacao = session.query(Negociacao).filter_by(id=negociacao_id).first()
+        if not negociacao:
+            raise HTTPException(status_code=404, detail="Negociação não encontrada")
+
+        contato = negociacao.contato
+        telefone = contato.telefone if contato and contato.telefone else None
+        if not telefone:
+            raise HTTPException(
+                status_code=400,
+                detail="Negociação não tem contato com telefone associado",
+            )
+
+        aprovador = None
+        if payload.aprovador_id is not None:
+            aprovador = session.query(User).filter_by(id=payload.aprovador_id).first()
+            if not aprovador:
+                raise HTTPException(
+                    status_code=404,
+                    detail=f"Usuário aprovador_id={payload.aprovador_id} não encontrado",
+                )
+
+        mensagem = Mensagem(
+            telefone=telefone,
+            conteudo=conteudo,
+            origem=OrigemMensagem.SYSTEM,
+            contato_id=contato.id if contato else None,
+            negociacao_id=negociacao.id,
+            aprovador_id=aprovador.id if aprovador else None,
+            timestamp_aprovacao=datetime.utcnow() if aprovador else None,
+        )
+        session.add(mensagem)
+        session.flush()
+        session.refresh(mensagem)
+        return mensagem.to_dict()
+
+
 @app.get("/api/processamentos/{processamento_id}")
 async def obter_processamento(processamento_id: int):
     """Retorna as decisões do cérebro para uma mensagem (debug/auditoria)."""
@@ -284,6 +499,192 @@ async def obter_processamento(processamento_id: int):
             **proc.to_dict(),
             "reports": [r.to_dict() for r in proc.reports],
         }
+
+
+# ---------------------------------------------------------------------------
+# Users e Aprovação de Mensagens
+# ---------------------------------------------------------------------------
+
+
+class UserRequest(BaseModel):
+    nome: str
+
+
+class AprovarMensagemRequest(BaseModel):
+    aprovador_id: int
+
+
+@app.get("/api/users")
+async def listar_users():
+    """Lista usuários cadastrados (sem autenticação)."""
+    with db.get_session() as session:
+        users = session.query(User).order_by(User.nome.asc()).all()
+        return {"users": [u.to_dict() for u in users]}
+
+
+@app.post("/api/users", status_code=201)
+async def criar_user(payload: UserRequest):
+    """Cria um usuário (id + nome). Sem autenticação por enquanto."""
+    nome = (payload.nome or "").strip()
+    if not nome:
+        raise HTTPException(status_code=400, detail="Nome é obrigatório")
+    with db.get_session() as session:
+        user = User(nome=nome)
+        session.add(user)
+        session.flush()
+        return user.to_dict()
+
+
+@app.get("/api/mensagens/pendentes")
+async def listar_mensagens_pendentes():
+    """
+    Lista mensagens geradas pelo agente (origem=SYSTEM) que ainda não foram
+    aprovadas por um usuário.
+    """
+    with db.get_session() as session:
+        mensagens = (
+            session.query(Mensagem)
+            .filter(Mensagem.origem == OrigemMensagem.SYSTEM)
+            .filter(Mensagem.aprovador_id.is_(None))
+            .order_by(Mensagem.timestamp.asc())
+            .all()
+        )
+        return {
+            "total": len(mensagens),
+            "mensagens": [m.to_dict() for m in mensagens],
+        }
+
+
+@app.post("/api/mensagens/{mensagem_id}/aprovar")
+async def aprovar_mensagem(mensagem_id: int, payload: AprovarMensagemRequest):
+    """
+    Aprova uma mensagem gerada pelo agente, registrando aprovador e timestamp.
+
+    Regras:
+    - Só mensagens com origem=SYSTEM podem ser aprovadas.
+    - Não reaprova mensagens já aprovadas (retorna 409).
+    - aprovador_id deve existir na tabela users.
+    """
+    with db.get_session() as session:
+        mensagem = session.query(Mensagem).filter_by(id=mensagem_id).first()
+        if not mensagem:
+            raise HTTPException(status_code=404, detail="Mensagem não encontrada")
+
+        origem_val = (
+            mensagem.origem.value
+            if isinstance(mensagem.origem, OrigemMensagem)
+            else mensagem.origem
+        )
+        if origem_val != OrigemMensagem.SYSTEM.value:
+            raise HTTPException(
+                status_code=400,
+                detail="Apenas mensagens geradas pelo agente (origem=system) podem ser aprovadas",
+            )
+
+        if mensagem.aprovador_id is not None:
+            raise HTTPException(
+                status_code=409,
+                detail=(
+                    f"Mensagem já aprovada por aprovador_id={mensagem.aprovador_id} "
+                    f"em {mensagem.timestamp_aprovacao.isoformat() if mensagem.timestamp_aprovacao else 'N/A'}"
+                ),
+            )
+
+        aprovador = session.query(User).filter_by(id=payload.aprovador_id).first()
+        if not aprovador:
+            raise HTTPException(
+                status_code=404,
+                detail=f"Usuário aprovador_id={payload.aprovador_id} não encontrado",
+            )
+
+        mensagem.aprovador_id = aprovador.id
+        mensagem.timestamp_aprovacao = datetime.utcnow()
+        session.flush()
+        session.refresh(mensagem)
+        return mensagem.to_dict()
+
+
+class ReprovarMensagemRequest(BaseModel):
+    justificativa: str
+    reprovador_id: int
+
+
+@app.post("/api/mensagens/{mensagem_id}/reprovar", status_code=201)
+async def reprovar_mensagem(mensagem_id: int, payload: ReprovarMensagemRequest):
+    """
+    Reprova uma mensagem gerada pelo agente, criando um report de problema.
+
+    Regras:
+    - Só mensagens com origem=SYSTEM podem ser reprovadas.
+    - Não reprova mensagens já aprovadas.
+    - Cria um report vinculado à mensagem (e ao processamento, se houver).
+    """
+    try:
+        with db.get_session() as session:
+            mensagem = session.query(Mensagem).filter_by(id=mensagem_id).first()
+            if not mensagem:
+                raise HTTPException(status_code=404, detail="Mensagem não encontrada")
+
+            origem_val = (
+                mensagem.origem.value
+                if isinstance(mensagem.origem, OrigemMensagem)
+                else mensagem.origem
+            )
+            if origem_val != OrigemMensagem.SYSTEM.value:
+                raise HTTPException(
+                    status_code=400,
+                    detail="Apenas mensagens geradas pelo agente (origem=system) podem ser reprovadas",
+                )
+
+            if mensagem.aprovador_id is not None:
+                raise HTTPException(
+                    status_code=409,
+                    detail="Mensagem já foi aprovada e não pode ser reprovada",
+                )
+
+            reprovador = session.query(User).filter_by(id=payload.reprovador_id).first()
+            if not reprovador:
+                raise HTTPException(
+                    status_code=404,
+                    detail=f"Usuário reprovador_id={payload.reprovador_id} não encontrado",
+                )
+
+            justificativa = payload.justificativa.strip()
+            if not justificativa:
+                raise HTTPException(status_code=400, detail="Justificativa é obrigatória")
+
+            logger.info(f"Criando report para mensagem_id={mensagem_id}, processamento_id={mensagem.processamento_id}")
+
+            # Cria o report vinculado à mensagem (e ao processamento se existir)
+            report = ReportProblema(
+                processamento_id=mensagem.processamento_id,  # pode ser None
+                mensagem_id=mensagem.id,
+                descricao=f"Mensagem reprovada: {justificativa}",
+                autor=reprovador.nome,
+                categoria=CategoriaReport.RESPOSTA_INADEQUADA,
+                severidade=SeveridadeReport.ALTA,
+            )
+            session.add(report)
+            session.commit()
+            session.refresh(report)
+            logger.info(f"Report criado com sucesso: id={report.id}")
+
+            return {
+                "mensagem": "Mensagem reprovada e report criado com sucesso",
+                "report_id": report.id,
+                "mensagem_id": mensagem.id,
+            }
+    except HTTPException:
+        raise
+    except Exception as e:
+        import traceback
+        stack_trace = traceback.format_exc()
+        print(f"[ERRO REPROVAR] mensagem_id={mensagem_id}: {e}\n{stack_trace}", flush=True)
+        logger.error(f"[ERRO REPROVAR] mensagem_id={mensagem_id}: {e}\n{stack_trace}")
+        raise HTTPException(status_code=500, detail="Erro interno ao reprovar mensagem")
+
+
+# ---------------------------------------------------------------------------
 
 
 def _validar_enum(valor: Optional[str], enum_cls, nome: str):
@@ -305,6 +706,7 @@ class ReportProblemaRequest(BaseModel):
     autor: Optional[str] = None
     categoria: Optional[str] = None
     severidade: Optional[str] = None
+    mensagem_id: Optional[int] = None
 
 
 class AtualizarReportRequest(BaseModel):
@@ -332,6 +734,7 @@ async def criar_report_problema(processamento_id: int, payload: ReportProblemaRe
         
         report = ReportProblema(
             processamento_id=processamento_id,
+            mensagem_id=payload.mensagem_id,
             descricao=descricao,
             autor=(payload.autor or None),
         )
