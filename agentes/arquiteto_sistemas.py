@@ -56,7 +56,7 @@ Contexto Técnico do Projeto:
 - IA: OpenAI/Anthropic com RAG
 - Canal: WhatsApp Business API
 - Banco: PostgreSQL sugerido
-- Desenvolvedor: Experiente, usa Windsurf Pro
+- Desenvolvedor: Experiente, usa Windsurf Pro e CODEX como backup
 
 Três níveis de arquitetura:
 
@@ -134,10 +134,7 @@ Validar a viabilidade técnica com custo mínimo e tempo reduzido.
 - Sem monitoramento
 - Conhecimento limitado (no prompt)
 - Apenas um número WhatsApp
-- Sem histórico persistente elaborado
-
-## Estimativa de Tempo
-**15-25 horas** de desenvolvimento
+- Sem controle de acesso por ligin/senha
 
 ## Custos Mensais Estimados
 - OpenAI: ~$10-20

@@ -185,6 +185,92 @@ export const api = {
       throw new ApiError('Backend não está respondendo', 0, 'network')
     }
   },
+
+  // Users
+  async listarUsers() {
+    const response = await fetch(`${API_URL}/api/users`)
+    if (!response.ok) throw new ApiError('Erro ao listar usuários', response.status, 'server')
+    return response.json()
+  },
+
+  async criarUser(nome) {
+    const response = await fetch(`${API_URL}/api/users`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ nome }),
+    })
+    if (!response.ok) {
+      const detail = await response.json().catch(() => null)
+      throw new ApiError(detail?.detail || 'Erro ao criar usuário', response.status, 'server')
+    }
+    return response.json()
+  },
+
+  // Negociações Ativas
+  async listarNegociacoesAtivas() {
+    const response = await fetch(`${API_URL}/api/negociacoes/ativas`)
+    if (!response.ok) throw new ApiError('Erro ao listar negociações', response.status, 'server')
+    return response.json()
+  },
+
+  async alterarModoOperacao(negociacaoId, modoOperacao) {
+    const response = await fetch(`${API_URL}/api/negociacoes/${negociacaoId}/modo-operacao`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ modo_operacao: modoOperacao }),
+    })
+    if (!response.ok) {
+      const detail = await response.json().catch(() => null)
+      throw new ApiError(detail?.detail || 'Erro ao alterar modo', response.status, 'server')
+    }
+    return response.json()
+  },
+
+  async enviarMensagemManual(negociacaoId, conteudo, aprovadorId = null) {
+    const response = await fetch(`${API_URL}/api/negociacoes/${negociacaoId}/mensagens-manuais`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ conteudo, aprovador_id: aprovadorId }),
+    })
+    if (!response.ok) {
+      const detail = await response.json().catch(() => null)
+      throw new ApiError(detail?.detail || 'Erro ao enviar mensagem', response.status, 'server')
+    }
+    return response.json()
+  },
+
+  // Aprovação de mensagens
+  async aprovarMensagem(mensagemId, aprovadorId) {
+    const response = await fetch(`${API_URL}/api/mensagens/${mensagemId}/aprovar`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ aprovador_id: aprovadorId }),
+    })
+    if (!response.ok) {
+      const detail = await response.json().catch(() => null)
+      throw new ApiError(detail?.detail || 'Erro ao aprovar mensagem', response.status, 'server')
+    }
+    return response.json()
+  },
+
+  async reprovarMensagem(mensagemId, justificativa, reprovadorId) {
+    const response = await fetch(`${API_URL}/api/mensagens/${mensagemId}/reprovar`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ justificativa, reprovador_id: reprovadorId }),
+    })
+    if (!response.ok) {
+      const detail = await response.json().catch(() => null)
+      throw new ApiError(detail?.detail || 'Erro ao reprovar mensagem', response.status, 'server')
+    }
+    return response.json()
+  },
+
+  async listarMensagensPendentes() {
+    const response = await fetch(`${API_URL}/api/mensagens/pendentes`)
+    if (!response.ok) throw new ApiError('Erro ao listar mensagens pendentes', response.status, 'server')
+    return response.json()
+  },
 }
 
 export { ApiError }

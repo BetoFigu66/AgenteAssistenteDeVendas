@@ -1,5 +1,5 @@
 """
-Agente Implementador — responsável por executar o código da POC.
+Agente Implementador — responsável por implementar.
 
 Diferente dos outros agentes (analista, arquiteto, QA), o Implementador é
 operacional: é quem efetivamente escreve o código. Seu principal artefato
@@ -115,7 +115,7 @@ class Implementador(BaseAgente):
     def get_prompt_sistema(self) -> str:
         diretrizes = self.carregar_diretrizes() or "(nenhuma diretriz registrada ainda)"
         return (
-            "Você é o Agente Implementador do projeto Assistente de Vendas Inforrel.\n"
+            "Você é o Agente Implementador do projeto Assistente de Vendas.\n"
             "Sua função é escrever código de produção seguindo RIGOROSAMENTE o harness "
             "de diretrizes abaixo. Diretrizes têm precedência sobre atalhos, conveniência "
             "e problemas temporários de ambiente.\n\n"

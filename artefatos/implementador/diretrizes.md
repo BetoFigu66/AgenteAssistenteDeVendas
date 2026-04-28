@@ -43,6 +43,32 @@ Este documento é o **contrato de conduta** que toda implementação neste repos
   - ✅ Apresentações a cada 2 semanas devem usar este artefato como base.
   - ❌ Não criar documentos de status soltos em outras pastas sem registro no agente.
 
+### D04 — SEMPRE logar stack-trace completa em erros de backend
+- **Categoria:** logging / diagnóstico
+- **Registrada em:** 2026-04-23
+- **Regra:** Toda exceção não tratada ou erro de API (422, 500, etc.) no backend DEVE ter sua stack-trace completa logada no servidor. Não basta logar apenas a mensagem de erro; o traceback completo é obrigatório para diagnóstico efetivo.
+- **Motivação:** Erros HTTP (especialmente 422 ValidationError e 500 Internal Server Error) sem stack-trace são impossíveis de diagnosticar em produção. O desenvolvedor precisa saber exatamente qual linha de código gerou a exceção e o caminho de execução completo.
+- **Contexto originário:** Endpoint GET /api/negociacoes/ativas retornava 422 sem nenhuma informação de log no servidor, tornando impossível identificar qual campo ou validação estava falhando. Usuário teve que investigar manualmente sem pistas.
+- **Aplicação prática:**
+  - ✅ Usar exception handlers globais no FastAPI capturando RequestValidationError (422) e Exception (500)
+  - ✅ Logar via logging.error() com traceback.format_exc() - linha, arquivo, call stack completa
+  - ✅ Incluir informações de contexto: método HTTP, URL, tipo da exceção, mensagem
+  - ✅ Verificar implementação de referência em main.py: handlers validation_exception_handler e global_exception_handler
+  - ❌ Nunca deixar uma exceção propagar sem logging detalhado, mesmo que retorne resposta amigável ao cliente
+  - ❌ Não depender apenas do log do uvicorn (que pode ser superficial); logar explicitamente no handler
+
+### D05 — Rotas estáticas ANTES de rotas dinâmicas no FastAPI
+- **Categoria:** fastapi / routing
+- **Registrada em:** 2026-04-23
+- **Regra:** No FastAPI (Starlette), rotas são matchadas na ordem de declaração. Portanto, rotas com path parameters dinâmicos (`/{id}`) devem sempre ser declaradas DEPOIS de rotas estáticas específicas (`/ativas`, `/stats`, etc.).
+- **Motivação:** Se `/api/items/{item_id}` for declarado antes de `/api/items/stats`, uma requisição para `/api/items/stats` vai tentar fazer match com `item_id="stats"`, falhando na validação (ex: int_parsing error 422) ou pior, buscando um ID inexistente.
+- **Contexto originário:** Endpoint `/api/negociacoes/ativas` retornava 422 "Input should be a valid integer" porque `/api/negociacoes/{negociacao_id}` (com parâmetro int) estava declarado primeiro, capturando "ativas" como valor do path parameter.
+- **Aplicação prática:**
+  - ✅ Declarar `/api/negociacoes/ativas` ANTES de `/api/negociacoes/{negociacao_id}`
+  - ✅ Usar comentário de seção para indicar ordenação importante (ex: `# Rotas estáticas ANTES de dinâmicas`)
+  - ❌ Nunca declarar rotas dinâmicas antes de estáticas no mesmo prefixo
+  - ⚠️ Aplicar mesmo padrão para sub-rotas: `/api/users/me` antes de `/api/users/{user_id}`
+
 ---
 
 ## Como registrar novas diretrizes

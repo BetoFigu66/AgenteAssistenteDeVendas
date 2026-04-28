@@ -42,6 +42,17 @@ class StatusOrcamento(str, enum.Enum):
     EXPIRADO = "expirado"
 
 
+class ModoOperacao(str, enum.Enum):
+    """Modo de operação da negociação.
+    
+    - AGENTE: sistema gera respostas automáticas (padrão).
+    - HUMANO: sistema apenas recebe e registra mensagens; respostas são
+      enviadas manualmente pelo operador via interface web.
+    """
+    AGENTE = "agente"
+    HUMANO = "humano"
+
+
 class Mensagem(Base):
     """Modelo para armazenar mensagens do chat."""
     
@@ -68,11 +79,22 @@ class Mensagem(Base):
         ForeignKey("processamentos_mensagem.id"), nullable=True, index=True
     )
     
+    # Aprovação de mensagens geradas pelo agente (REQ-aprovação)
+    aprovador_id: Mapped[Optional[int]] = mapped_column(
+        ForeignKey("users.id"), nullable=True, index=True
+    )
+    timestamp_aprovacao: Mapped[Optional[datetime]] = mapped_column(
+        DateTime, nullable=True
+    )
+    
     # Relacionamentos
     contato: Mapped[Optional["Contato"]] = relationship(back_populates="mensagens")
     negociacao: Mapped[Optional["Negociacao"]] = relationship(back_populates="mensagens")
     processamento: Mapped[Optional["ProcessamentoMensagem"]] = relationship(
         back_populates="mensagem", foreign_keys=[processamento_id]
+    )
+    aprovador: Mapped[Optional["User"]] = relationship(
+        back_populates="mensagens_aprovadas", foreign_keys=[aprovador_id]
     )
     
     __table_args__ = (
@@ -81,6 +103,17 @@ class Mensagem(Base):
         Index('idx_mensagens_negociacao', 'negociacao_id'),
     )
     
+    @property
+    def pendente_aprovacao(self) -> bool:
+        """True quando a mensagem foi gerada pelo agente e ainda não foi aprovada.
+
+        Mensagens do cliente (origem=USER) nunca são consideradas pendentes.
+        """
+        origem_val = (
+            self.origem.value if isinstance(self.origem, OrigemMensagem) else self.origem
+        )
+        return origem_val == OrigemMensagem.SYSTEM.value and self.aprovador_id is None
+
     def to_dict(self) -> dict:
         """Converte o modelo para dicionário."""
         return {
@@ -92,6 +125,39 @@ class Mensagem(Base):
             "contato_id": self.contato_id,
             "negociacao_id": self.negociacao_id,
             "processamento_id": self.processamento_id,
+            "aprovador_id": self.aprovador_id,
+            "timestamp_aprovacao": (
+                self.timestamp_aprovacao.isoformat() if self.timestamp_aprovacao else None
+            ),
+            "pendente_aprovacao": self.pendente_aprovacao,
+        }
+
+
+class User(Base):
+    """Usuário do sistema (sem autenticação por enquanto).
+    
+    Usado para registrar quem aprovou mensagens geradas pelo agente antes
+    do envio ao cliente.
+    """
+    
+    __tablename__ = "users"
+    
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    nome: Mapped[str] = mapped_column(String(100), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime, default=datetime.utcnow, nullable=False
+    )
+    
+    # Relacionamentos
+    mensagens_aprovadas: Mapped[List["Mensagem"]] = relationship(
+        back_populates="aprovador", foreign_keys="Mensagem.aprovador_id"
+    )
+    
+    def to_dict(self) -> dict:
+        return {
+            "id": self.id,
+            "nome": self.nome,
+            "created_at": self.created_at.isoformat() if self.created_at else None,
         }
 
 
@@ -317,6 +383,12 @@ class Negociacao(Base):
         default=StatusNegociacao.NOVO,
         nullable=False
     )
+    modo_operacao: Mapped[ModoOperacao] = mapped_column(
+        Enum(ModoOperacao, values_callable=lambda x: [e.value for e in x], name="modooperacao"),
+        default=ModoOperacao.AGENTE,
+        nullable=False,
+        index=True,
+    )
     valor_estimado: Mapped[Optional[Decimal]] = mapped_column(Numeric(15, 2), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False)
     updated_at: Mapped[datetime] = mapped_column(
@@ -343,6 +415,7 @@ class Negociacao(Base):
             "titulo": self.titulo,
             "descricao": self.descricao,
             "status": self.status.value if self.status else None,
+            "modo_operacao": self.modo_operacao.value if self.modo_operacao else None,
             "valor_estimado": str(self.valor_estimado) if self.valor_estimado else None,
             "created_at": self.created_at.isoformat() if self.created_at else None
         }
@@ -689,11 +762,12 @@ class ProcessamentoMensagem(Base):
 
 class CategoriaReport(str, enum.Enum):
     """Categoria do problema reportado — indica a camada afetada."""
-    CLASSIFICACAO = "classificacao"  # intenção/entidades erradas
-    FLUXO = "fluxo"                  # orquestração/roteamento errado
-    TEMPLATE = "template"            # texto/tom da resposta
-    DADOS = "dados"                  # dados incorretos (CNPJ, contato, etc.)
-    LLM = "llm"                      # problema com a LLM (timeout, erro, etc.)
+    CLASSIFICACAO = "classificacao"       # intenção/entidades erradas
+    FLUXO = "fluxo"                       # orquestração/roteamento errado
+    TEMPLATE = "template"                 # texto/tom da resposta
+    RESPOSTA_INADEQUADA = "resposta_inadequada"  # resposta do agente inadequada (reprovação)
+    DADOS = "dados"                       # dados incorretos (CNPJ, contato, etc.)
+    LLM = "llm"                           # problema com a LLM (timeout, erro, etc.)
     OUTRO = "outro"
 
 
@@ -726,9 +800,14 @@ class ReportProblema(Base):
     __tablename__ = "reports_problema"
     
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
-    processamento_id: Mapped[int] = mapped_column(
+    processamento_id: Mapped[Optional[int]] = mapped_column(
         ForeignKey("processamentos_mensagem.id", ondelete="CASCADE"),
-        nullable=False,
+        nullable=True,
+        index=True,
+    )
+    mensagem_id: Mapped[Optional[int]] = mapped_column(
+        ForeignKey("mensagens.id", ondelete="SET NULL"),
+        nullable=True,
         index=True,
     )
     descricao: Mapped[str] = mapped_column(Text, nullable=False)
@@ -780,6 +859,7 @@ class ReportProblema(Base):
         return {
             "id": self.id,
             "processamento_id": self.processamento_id,
+            "mensagem_id": self.mensagem_id,
             "descricao": self.descricao,
             "autor": self.autor,
             "categoria": self.categoria.value if self.categoria else None,

@@ -192,6 +192,7 @@ def deve_escalar(mensagem: str, confianca_ia: float) -> bool:
 | Hospedagem | **Local + ngrok** | Grátis, rápido para testar |
 | Cache | **Não necessário** | Volume baixo (10-30/dia) |
 
+WhatsApp:  A prinípio escolhido o **Twilio Sandbox**
 ---
 
 ## 5. Fluxo de Mensagem
@@ -215,7 +216,7 @@ def deve_escalar(mensagem: str, confianca_ia: float) -> bool:
          ▼
 5. Verifica confiança:
    ├── Alta (>0.7) → Envia resposta
-   └── Baixa (<0.7) → Escala para Rita
+   └── Baixa (<0.7) → Escala para Rita (Ou sinaliza na interface de acompanhamento que a confiança está baixa na mensagem)
          │
          ▼
 6. Resposta enviada via WhatsApp API
@@ -248,7 +249,6 @@ def deve_escalar(mensagem: str, confianca_ia: float) -> bool:
 
 ## 7. Limitações Aceitas no POC
 
-- [ ] Sem painel web para Rita (usa WhatsApp direto)
 - [ ] Sem analytics/métricas
 - [ ] Sem alta disponibilidade
 - [ ] RAG simples (sem embeddings)

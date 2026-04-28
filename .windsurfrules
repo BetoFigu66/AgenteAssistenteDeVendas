@@ -67,6 +67,8 @@ npm run dev
 - Features: `feature/REQ-XXX-descricao`
 - Bugfixes: `bugfix/BUG-XXX-descricao`
 
+Obs: Depois que entrar em produção, devemos ter mais uma branch qas
+
 Detalhes: `artefatos/arquiteto_de_sistemas/politica_branches.md`
 
 ## Cores Inforrel
@@ -90,7 +92,7 @@ Detalhes: `artefatos/arquiteto_de_sistemas/politica_branches.md`
 - Comandos: `docs/comandos_uteis.md`
 
 ## Dicas para o Assistente IA
-1. Ao criar código Python, sempre usar SQLAlchemy (não sqlite3 direto)
+1. Ao criar código Python, sempre usar SQLAlchemy (não Postgres direto)
 2. Ao criar componentes React, usar as cores do tema Inforrel
 3. Ao sugerir comandos, verificar se já existe em `docs/comandos_uteis.md`
 4. Se o usuário perguntar "como faz X", adicionar ao `docs/comandos_uteis.md`

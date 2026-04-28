@@ -204,12 +204,30 @@ $env:PATH
 
 ---
 
+## VSCode / WindSurf
+
+```json
+// Ativar quebra visual de linhas longas no editor
+{
+  "editor.wordWrap": "on"
+}
+```
+
+Atalho rapido para alternar a quebra visual de linha: `Alt + Z`.
+
+Tambem pode ser ativado pelo menu: `View` -> `Word Wrap`.
+
+Observacao: isso altera apenas a visualizacao no editor, sem modificar o arquivo.
+
+---
+
 ## Histórico de Dúvidas
 
 | Data | Quem | Dúvida | Comando/Solução |
 |------|------|--------|-----------------|
 | 2026-04-20 | Beto | Como ativar venv no Windows? | `venv\Scripts\Activate.ps1` |
 | 2026-04-20 | Beto | Precisa de venv para frontend? | Não, Node.js usa `node_modules` |
+| 2026-04-25 | Beto | Como quebrar a visualizacao de linhas longas no VSCode? | Ativar `editor.wordWrap: on` ou usar `Alt + Z` |
 
 ---
 
