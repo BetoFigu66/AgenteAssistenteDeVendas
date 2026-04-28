@@ -66,3 +66,7 @@ dist/
 *.sqlite
 *.sqlite3
 data/*.db
+.history/
+files_to_review.txt
+list_files_to_review.sh
+
