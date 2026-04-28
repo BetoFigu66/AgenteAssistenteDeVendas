@@ -2,6 +2,7 @@ export const CATEGORIAS = [
   { valor: 'classificacao', label: 'Classificação', descricao: 'Intenção ou entidades erradas' },
   { valor: 'fluxo', label: 'Fluxo', descricao: 'Orquestração/roteamento errado' },
   { valor: 'template', label: 'Template', descricao: 'Texto/tom da resposta' },
+  { valor: 'resposta_inadequada', label: 'Resposta Inadequada', descricao: 'Resposta do agente reprovada pelo usuário' },
   { valor: 'dados', label: 'Dados', descricao: 'Dados incorretos (CNPJ, contato, etc.)' },
   { valor: 'llm', label: 'LLM', descricao: 'Problema com a LLM' },
   { valor: 'outro', label: 'Outro', descricao: 'Outra categoria' },
