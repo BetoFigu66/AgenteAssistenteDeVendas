@@ -27,7 +27,7 @@ class RespostaGerada:
     llm_tokens_output: Optional[int] = None
 
 
-_PROMPT_SISTEMA_PERSONALIZACAO = """Você é um assistente de vendas da Inforrel (catracas e relógios de ponto).
+_PROMPT_SISTEMA_PERSONALIZACAO = """Você é um assistente de vendas via WhatsApp com IA da Inforrel (catracas e relógios de ponto).
 
 Regras OBRIGATÓRIAS:
 - Responda em português brasileiro, tom cordial e profissional

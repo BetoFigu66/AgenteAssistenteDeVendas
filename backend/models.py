@@ -1,5 +1,5 @@
 """
-Modelos SQLAlchemy para o Assistente de Vendas.
+Modelos SQLAlchemy para o Assistente de Vendas via WhatsApp com IA.
 """
 from datetime import datetime, date
 from decimal import Decimal

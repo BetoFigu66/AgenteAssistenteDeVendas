@@ -3,7 +3,7 @@
 **Para**: Rita  
 **De**: Equipe de Desenvolvimento  
 **Data**: 2026-04-12  
-**Objetivo**: Entender o cenário atual para desenvolver o Assistente de Vendas via WhatsApp
+**Objetivo**: Entender o cenário atual para desenvolver o Assistente de Vendas via WhatsApp com IA
 
 ---
 

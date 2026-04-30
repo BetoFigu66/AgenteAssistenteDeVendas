@@ -53,7 +53,9 @@ Thumbs.db
 # Dados sensíveis do cliente
 **/dados_clientes/
 **/backups/
-AnotacoesPessoais/
+# Anotações pessoais de colaboradores - ignora tudo exceto o README
+AnotacoesPessoais/*
+!AnotacoesPessoais/README.md
 
 # Node.js / Frontend
 node_modules/
@@ -69,4 +71,9 @@ data/*.db
 .history/
 files_to_review.txt
 list_files_to_review.sh
+
+# Apresentacoes .pptx geradas pelo Gerente de Projetos (derivadas do YAML).
+# Os templates ficam versionados; as saidas nao.
+artefatos/gerente_projetos/*.pptx
+!artefatos/gerente_projetos/*template*.pptx
 

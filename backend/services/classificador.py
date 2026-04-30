@@ -216,7 +216,7 @@ def classificar_por_regras(texto: str) -> tuple[Intencao, float]:
 # Classificação por LLM
 # =============================================================================
 
-_PROMPT_SISTEMA_CLASSIFICADOR = """Você é um classificador de mensagens para um assistente de vendas da empresa Inforrel, que vende catracas e relógios de ponto.
+_PROMPT_SISTEMA_CLASSIFICADOR = """Você é um classificador de mensagens para um assistente de vendas via WhatsApp com IA da empresa Inforrel, que vende catracas e relógios de ponto.
 
 Classifique a mensagem do cliente em UMA das intenções:
 - saudacao: cumprimentos

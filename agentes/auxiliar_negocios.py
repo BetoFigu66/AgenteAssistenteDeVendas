@@ -69,7 +69,7 @@ Ao interagir:
     
     def definir_mvp(self, funcionalidades: list, prazo_estimado: str = None):
         """Define o escopo do MVP."""
-        conteudo = """# Definição do MVP - Assistente de Vendas WhatsApp
+        conteudo = """# Definição do MVP - Assistente de Vendas via WhatsApp com IA
 
 ## Objetivo
 Criar uma versão mínima funcional que demonstre valor para o cliente inicial.

@@ -1,5 +1,5 @@
 """
-Assistente de Vendas - Backend FastAPI
+Assistente de Vendas via WhatsApp com IA - Backend FastAPI
 """
 from contextlib import asynccontextmanager
 from fastapi import FastAPI, Form, Request

@@ -121,6 +121,20 @@ docker-compose up
 
 ---
 
+### ADR-006: Disponibilização em Nuvem sem Custo via Túnel Local
+
+**Decisão**: Cloudflare Tunnel apontando para o `docker-compose` rodando na máquina do Beto.
+**Motivo**: Permite que Kika e Rita acessem a aplicação via URL HTTPS pública sem custo de hospedagem e sem depender do Codespaces (ADR-005), enquanto não há orçamento para cloud (Railway/Render/VPS).
+**Data da decisão**: 2026-04-28
+
+**Limitação**: Aplicação só fica no ar enquanto a máquina do Beto estiver ligada com os containers e o `cloudflared` rodando.
+
+**Passo-a-passo completo**: ver `deploy_tunel_local.md` (mesmo diretório).
+
+**Quando substituir**: ao migrar para hospedagem paga (Railway/VPS), criar ADR-007 depreciando esta.
+
+---
+
 ## 5. Artefatos Necessários
 
 | Artefato | Responsável | Status |
