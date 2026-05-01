@@ -1,0 +1,141 @@
+--- Página 1 ---
+Central de atendimento: (41) 3213-7100
+www.topdata.com.br
+Segurança
+Realiza cálculos 
+complexos com 
+precisão
+Comodidade
+Diversos relatórios 
+para um melhor 
+gerenciamento de 
+pessoal
+Flexibilidade
+Permite o cadastro de 
+várias empresas, cada 
+uma com suas 
+características
+Praticidade
+Operação fácil e intuitiva 
+através de uma 
+interface amigável
+O TopPonto Web é um software de tratamento de ponto na nuvem fácil de usar e 
+configurável de acordo com as necessidades da empresa.
+Aumenta a produtividade do RH e traz mais segurança para o fechamento da folha ponto.
+TopPonto Web
+
+
+--- Página 2 ---
+Central de atendimento: (41) 3213-7100
+www.topdata.com.br
+O TopPonto Web tem comunicação direta com os coletores da 
+Topdata. As configurações são feitas de forma simples e os 
+registros 
+são recebidos automaticamente.  Mais praticidade e 
+eficiência para o controle de ponto.
+Com o TopPonto Web é fácil 
+encontrar e corrigir 
+inconsistências, tornando o 
+fechamento de ponto mais 
+simples e rápido.
+O registro de ponto pode ser feito 
+por um aplicativo no telefone 
+celular, com reconhecimento facial. 
+Também é possível restringir a 
+marcação a uma região específica.
+Revendedor Autorizado:
+Topdata
+(41)
+41) 3213-7100
+www.topdata.com.br
+
+
+--- Página 3 ---
+TopPonto Web - Especificações 
+Sistema 
+o
+Software em nuvem, não precisa ser instalado.
+o
+Acesso através de um navegador, em um computador ou em um dispositivo móvel.
+o
+Dados armazenados em servidor online seguro.
+o
+Para entrar no sistema basta acessar a página e informar o nome do usuário e a senha.
+o
+Acessível de qualquer lugar com disponibilidade de internet.
+Características 
+o
+Software de tratamento de ponto em conformidade com a Portaria 671/2021 do MTP.
+o
+É multiempresa, permitindo o controle de diferentes empresas e filiais no mesmo sistema.
+o
+Faz o tratamento dos registros de ponto efetuados em relógios de ponto REP-C e em coletores de
+marcação de ponto, como um computador, um telefone celular, ou o Inner Ponto 4.
+o
+Possui REP-P integrado.
+o
+Painel de controle configurável para rápida visualização de informações gerenciais.
+o
+Definição de perfil para especificar em detalhes as permissões do operador.
+o
+A manutenção de marcações permite encontrar com facilidade as inconsistências de marcação e
+fazer os ajustes necessários de forma simples, diretamente na posição do registro.
+o
+Grande flexibilidade para o cadastro de jornadas e de bancos de horas.
+o
+Emissão de relatórios detalhados para o fechamento de ponto e gerenciamento de pessoal.
+o
+Definição de regras e classificação dos adicionais de horas extras.
+Recursos 
+o
+Comunicação direta com os equipamentos de registro de ponto da TOPDATA, Inner REP Plus e Inner
+Ponto 4, para envio de configurações e coleta automática das marcações.
+o
+Permite o envio de um relatório de marcações para aprovação pelo empregado. A aprovação pode
+ser feita pelo telefone celular ou em um computador.
+o
+O painel de controle exibe: número de funcionários, número de empresas, equipamentos
+cadastrados, plano contratado, últimas marcações, últimos acessos ao sistema, empregados
+presentes, ausentes e que chegaram atrasados, gráfico de horas extras, gráfico de banco de horas e
+status de aprovação dos relatórios de registro de ponto enviados aos empregados.
+o
+Lançamentos coletivos: afastamentos, feriados, jornada, compensação, banco de horas, fechamento,
+marcação, abonos e aprovações.
+o
+Relatórios: espelho, presença, comparecimento, frequência, horas extras, banco de horas, adicionais,
+horas noturnas, ocorrências, absenteísmo, descanso entre jornadas, intervalo entre jornadas.
+o
+Filtros para os relatórios: empresa, departamento, funcionários, período, funcionários ativos ou todos.
+o
+O relatório gerado pode ser exportado em PDF, XLS (Excel), TXT ou CSV.
+o
+Arquivos fiscais: AEJ, Espelho Fiscal, AFDT e ACJEF.
+o
+Importação e exportação de funcionários, exportação de eventos, com layout configurável.
+o
+Geração de marcações pré-assinaladas.
+o
+Permite configurar adicional para horas extras e para banco de horas, com até 10 limites de horas,
+escolhendo o percentual de acréscimo para cada limite. Os adicionais podem ser definidos para dia
+normal, dia compensado, folga, folga diferenciada, feriado, sábado, domingo e horas noturnas.
+o
+Permite definir as permissões de cada operador, por empresa e por departamento, escolhendo de
+forma detalhada quais ações estarão disponíveis para cada um.
+Aplicativo TopPonto para telefone celular 
+o
+Aplicativo para registro de ponto no telefone celular, disponível para Android e IOS.
+o
+Permite que a marcação seja realizada com reconhecimento facial, online ou off-line.
+o
+Permite que seja definida uma "cerca virtual", restringindo a área onde o registro pode ser feito. No
+TopPonto Web é possível visualizar um mapa com a localização no momento do registro.
+o
+Visualização de jornada, horas extras, faltas, abonos, banco de horas, entradas e saídas.
+o
+Visualização dos comprovantes de ponto.
+o
+Visualização do espelho do ponto.
+o
+Aprovação do relatório mensal de marcação de ponto do empregado.
+Central de atendimento: (41) 3213-7100
+www.topdata.com.br
