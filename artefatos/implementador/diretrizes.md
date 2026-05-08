@@ -31,17 +31,26 @@ Este documento é o **contrato de conduta** que toda implementação neste repos
   - ❌ Proibido: aplicar DDL direto em DBeaver/psql e só depois alinhar com modelo.
   - Antes de qualquer mudança de schema, **verificar** se o modelo e o banco estão alinhados (`alembic current` + `alembic check`).
 
-### D03 — Relatórios de Sprint são responsabilidade do Gerente de Projetos
+### D03 — Sprint Review: YAML como fonte única, PPTX derivado
 - **Categoria:** processo
 - **Registrada em:** 2026-04-22
-- **Regra:** Relatórios de evolução do projeto (a cada 2 semanas) devem ser gerados via `agentes.diretor_geral.GerenteDeProjetos.gerar_relatorio_sprint()`. Não criar relatórios manuais soltos; usar o template padrão em `artefatos/gerente_projetos/template_relatorio_sprint.md`. A estrutura padrão inclui: ✅ Feito, 🎯 Próximo Sprint, 📋 Backlog Pendente, 🚨 Bloqueios, 📈 Métricas.
-- **Motivação:** Padronização da comunicação de progresso, rastreabilidade de entregas, e visibilidade clara do que falta vs. o que foi feito. O agente Gerente de Projetos centraliza a gestão ágil e mantém histórico automático.
-- **Contexto originário:** Usuário solicitou preparação de apresentação de Sprint e questionou qual agente deveria ser responsável. DiretorGeral foi renomeado para GerenteDeProjetos para refletir melhor seu papel de PO/Scrum Master.
+- **Revisada em:** 2026-04-29
+- **Regra:** O Sprint Review (a cada 2 semanas) é composto por dois artefatos gerados pelo `GerenteDeProjetos`:
+  1. **`sprint_NN_YYYYMMDD.yaml`** — **fonte única da verdade**, versionado. Gerado por `gerar_dados_sprint_yaml()`. Contém: `feito`, `proximo_sprint`, `backlog_pendente`, `bloqueios`, `metricas`, `insights`.
+  2. **`sprint_review_NN_YYYYMMDD.pptx`** — derivado do YAML via `gerar_apresentacao_pptx()`, preenchendo o template `sprint_review_template_v01.pptx` por substituição de tokens `{{...}}`. **Não é versionado** (ver `.gitignore`) e não deve ser editado diretamente exceto para ajustes puramente visuais.
+- **Motivação:** Um único formato estruturado elimina retrabalho de copiar dados do `.md` para o `.pptx`. YAML é legível/editável por humano, fácil de revisar em PR. O `.pptx` passa a ser artefato descartável de apresentação, regerado sempre que o YAML mudar.
+- **Contexto originário:** A versão anterior gerava um `.md` que depois era copiado manualmente para o `.pptx`. O usuário pediu para automatizar. Decidimos unificar no YAML e eliminar o `.md` para evitar ter duas fontes de verdade.
 - **Aplicação prática:**
-  - ✅ Usar `GerenteDeProjetos().gerar_relatorio_sprint()` preenchendo: `feito`, `proximo_sprint`, `backlog_pendente`, `bloqueios`.
-  - ✅ Relatórios ficam em `artefatos/gerente_projetos/` com padrão `relatorio_sprint_NN_YYYYMMDD.md`.
-  - ✅ Apresentações a cada 2 semanas devem usar este artefato como base.
-  - ❌ Não criar documentos de status soltos em outras pastas sem registro no agente.
+  - ✅ Fluxo padrão:
+    ```python
+    gp = GerenteDeProjetos()
+    yaml_path = gp.gerar_dados_sprint_yaml(sprint_numero=1, data_inicio=..., data_fim=..., feito=[...], proximo_sprint=[...], backlog_pendente=[...], bloqueios=[...])
+    gp.gerar_apresentacao_pptx(yaml_path)
+    ```
+  - ✅ Editar conteúdo só no YAML; regerar o PPTX.
+  - ✅ Tokens aceitos pelo template documentados em `artefatos/gerente_projetos/README.md`.
+  - ❌ Proibido criar novo `.md` de Sprint Review solto ou editar conteúdo textual direto no PPTX.
+  - ❌ Proibido commitar `sprint_review_*.pptx` (exceto templates, que têm `template` no nome).
 
 ### D04 — SEMPRE logar stack-trace completa em erros de backend
 - **Categoria:** logging / diagnóstico
@@ -68,6 +77,20 @@ Este documento é o **contrato de conduta** que toda implementação neste repos
   - ✅ Usar comentário de seção para indicar ordenação importante (ex: `# Rotas estáticas ANTES de dinâmicas`)
   - ❌ Nunca declarar rotas dinâmicas antes de estáticas no mesmo prefixo
   - ⚠️ Aplicar mesmo padrão para sub-rotas: `/api/users/me` antes de `/api/users/{user_id}`
+
+### D06 — Checks de QA são executáveis e rodam no pre-commit
+- **Categoria:** qualidade / processo
+- **Registrada em:** 2026-04-29
+- **Regra:** Toda regra de qualidade reutilizável e verificável automaticamente deve ser implementada como um `@registrar_check` no `@c:\Beto\Pessoal\Python\git\AgenteAssistenteDeVendas\agentes\qa_engineer.py` e executada via `scripts/qa_check.py`. Severidade `error` **bloqueia** o commit via `pre-commit`; `warning` e `info` apenas alertam.
+- **Motivação:** Concentrar as regras verificáveis num único registry torna fácil (1) adicionar novas regras — basta decorar uma função — e (2) rodar as mesmas regras em diferentes momentos do processo (local pre-commit, CI, release). Evita lógica de QA espalhada por scripts ad-hoc.
+- **Contexto originário:** Ao longo do projeto surgiram verificações úteis (gitkeep redundantes, imports relativos apontando para arquivos inexistentes, citações `@path` órfãs em `.md`). Sem um ponto único, cada uma virava código solto ou documentação esquecida.
+- **Aplicação prática:**
+  - ✅ Nova regra verificável → criar função decorada com `@registrar_check(id=..., titulo=..., severidade=..., escopos=[...])` retornando `CheckResult`.
+  - ✅ Escopos aceitos: `sempre`, `pre-commit`, `pre-push`, `release`. Escolher com base no custo: pre-commit só checks rápidos (segundos).
+  - ✅ Usar `severidade="error"` apenas para problemas que **devem** bloquear commit (ex: import quebrado). Quando em dúvida, usar `warning`.
+  - ✅ Setup local obrigatório: `pip install pre-commit && pre-commit install`.
+  - ✅ Rodar manualmente: `python scripts/qa_check.py [--escopo X] [--check Y] [--listar]`.
+  - ❌ Não criar scripts de verificação fora do registry (fica invisível ao QA Engineer e ao pre-commit).
 
 ---
 

@@ -1,4 +1,4 @@
-# Assistente de Vendas - Guia de Execução
+# Assistente de Vendas via WhatsApp com IA - Guia de Execução
 
 Este guia explica como executar o projeto usando Docker.
 

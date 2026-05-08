@@ -31,7 +31,35 @@ git branch
 
 # Ver histórico de commits (últimos 10)
 git log -n 10 --oneline
+
+# Comparar 2 commits (ou branches, ou tags)
+git diff <sha1> <sha2>
+git diff <sha1> <sha2> -- caminho/do/arquivo   # só um arquivo
+git diff --name-only <sha1> <sha2>             # só nomes de arquivos que mudaram
+git diff --stat <sha1> <sha2>                  # resumo com +/- por arquivo
+git diff main develop                          # comparar branches
+git diff HEAD~1 HEAD                           # HEAD vs commit anterior
+
+# Listar commits que estão em B mas não em A
+git log <sha1>..<sha2> --oneline
+
+# Ver o diff de um único commit
+git show <sha>
+
+# Comparar no GitHub via URL:
+# https://github.com/<user>/<repo>/compare/<sha1>...<sha2>
+
+# Ver conteúdo completo de um arquivo em um commit específico
+git show <sha>:caminho/do/arquivo
+
+# Histórico de commits que tocaram um arquivo
+git log --oneline -- caminho/do/arquivo
+
+# Histórico com o diff de cada commit no arquivo (-p = patch)
+git log -p -- caminho/do/arquivo
 ```
+
+**Dica VSCode/Windsurf:** botão direito no arquivo → `Open Timeline`. Lista todos os commits que tocaram aquele arquivo; `Ctrl+Click` em duas entradas compara as versões lado a lado.
 
 ---
 
@@ -129,6 +157,48 @@ Para trocar de provider (ex: OpenAI, Gemini, Ollama), basta alterar `LLM_PROVIDE
 
 ---
 
+### QA Engineer — checks automatizados e pre-commit
+
+Os checks de qualidade ficam em `agentes/qa_engineer.py` (registry via `@registrar_check`). Ver diretriz D06 em `artefatos/implementador/diretrizes.md`.
+
+**Setup (uma vez por clone):**
+```powershell
+pip install -r backend/requirements.txt
+pre-commit install
+```
+
+**Rodar manualmente:**
+```powershell
+# Todos os checks registrados
+python scripts/qa_check.py
+
+# Somente os checks do escopo pre-commit (rápidos)
+python scripts/qa_check.py --escopo pre-commit
+
+# Um check específico
+python scripts/qa_check.py --check gitkeep-redundantes
+
+# Listar checks registrados
+python scripts/qa_check.py --listar
+```
+
+**Severidade:** `error` bloqueia o commit; `warning` e `info` apenas avisam.
+
+**Adicionar um novo check:** decorar uma função em `agentes/qa_engineer.py`:
+```python
+@registrar_check(id="meu-check", titulo="...", severidade="warning",
+                 escopos=["sempre", "pre-commit"])
+def _check_meu(raiz: Path) -> CheckResult:
+    ...
+```
+
+**Rodar pre-commit sobre tudo (útil após mudanças grandes):**
+```powershell
+pre-commit run --all-files
+```
+
+---
+
 ### Conexão DBeaver / cliente externo
 
 | Campo | Valor |
@@ -218,6 +288,32 @@ Atalho rapido para alternar a quebra visual de linha: `Alt + Z`.
 Tambem pode ser ativado pelo menu: `View` -> `Word Wrap`.
 
 Observacao: isso altera apenas a visualizacao no editor, sem modificar o arquivo.
+
+---
+
+## Cloudflare Tunnel (deploy zero-custo para Kika/Rita)
+
+Documento completo: `artefatos/arquiteto_de_sistemas/deploy_tunel_local.md`
+
+```powershell
+# Instalar (uma vez)
+winget install --id Cloudflare.cloudflared
+
+# Subir a app
+docker-compose up -d
+
+# Quick Tunnel (URL temporária, sem login) - frontend
+cloudflared tunnel --url http://localhost:3000
+
+# Quick Tunnel para o backend (outro terminal)
+cloudflared tunnel --url http://localhost:8000
+
+# Named Tunnel (URL fixa, requer conta Cloudflare + domínio)
+cloudflared tunnel login
+cloudflared tunnel create inforrel-poc
+cloudflared tunnel route dns inforrel-poc app.seudominio.com
+cloudflared tunnel run inforrel-poc
+```
 
 ---
 

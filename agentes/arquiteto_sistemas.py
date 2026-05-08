@@ -108,7 +108,7 @@ Validar a viabilidade técnica com custo mínimo e tempo reduzido.
         ↓
 [OpenAI API]
         ↓
-[SQLite/PostgreSQL local]
+[PostgreSQL local]
 ```
 
 ## Stack Tecnológica
@@ -116,7 +116,7 @@ Validar a viabilidade técnica com custo mínimo e tempo reduzido.
 | Componente | Tecnologia | Custo |
 |------------|------------|-------|
 | Backend | FastAPI (Python) | Grátis |
-| Banco de dados | SQLite | Grátis |
+| Banco de dados | PostgreSQL | Grátis |
 | IA | OpenAI API | ~$5-20/mês |
 | WhatsApp | Twilio Sandbox | Grátis (dev) |
 | Hospedagem | Local + ngrok | Grátis |

@@ -56,7 +56,7 @@ AgenteAssistenteDeVendas/
 │   ├── auxiliar_negocios.py
 │   ├── arquiteto_sistemas.py
 │   ├── planejador_negocios.py
-│   ├── diretor_geral.py
+│   ├── gerente_de_projetos.py
 │   ├── qa_engineer.py          # ✨ Novo: Qualidade
 │   └── base_agente.py
 ├── artefatos/
@@ -68,6 +68,7 @@ AgenteAssistenteDeVendas/
 │       ├── arquitetura_poc_v1.md
 │       ├── politica_branches.md       # ✨ Novo: Git workflow
 │       └── processo_disponibilizacao_versoes.md
+├── AnotacoesPessoais/          # 📝 Área pessoal dos colaboradores (não versionada - ver README interno)
 ├── .github/
 │   └── workflows/
 │       └── build-and-push.yml  # CI/CD para Docker
@@ -99,7 +100,7 @@ AgenteAssistenteDeVendas/
 - Análise de concorrência
 - Projeções financeiras
 
-### 5. Diretor Geral
+### 5. Gerente de Projetos
 - Coordena todos os agentes
 - Acompanha pendências
 - Gera relatórios de status
@@ -162,7 +163,7 @@ npm run dev
 3. **Arquitetura** com Arquiteto de Sistemas
 4. **Estratégia Comercial** com Planejador de Negócios
 5. **Qualidade** com QA Engineer
-6. **Acompanhamento** com Diretor Geral
+6. **Acompanhamento** com Gerente de Projetos
 
 📖 Política de branches: [artefatos/arquiteto_de_sistemas/politica_branches.md](artefatos/arquiteto_de_sistemas/politica_branches.md)
 

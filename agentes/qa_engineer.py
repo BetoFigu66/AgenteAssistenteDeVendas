@@ -9,9 +9,259 @@ Responsabilidades:
 5. Checklist de qualidade antes de releases
 """
 
-from typing import Dict, List, Optional
-from base_agente import BaseAgente
+import ast
+import os
+import re
+from dataclasses import dataclass, field
+from pathlib import Path
+from typing import Callable, Dict, Iterable, List, Optional
 
+from .base_agente import BaseAgente
+
+# ----------------------------------------------------------------------
+# Infra de checks: resultado padronizado + registry global.
+# ----------------------------------------------------------------------
+
+SEVERIDADES = ("error", "warning", "info")
+ESCOPOS = ("sempre", "pre-commit", "pre-push", "release")
+
+
+@dataclass
+class CheckResult:
+    """Resultado padronizado de um check de QA."""
+
+    passou: bool
+    severidade: str = "warning"  # sobrescreve a severidade default do Check
+    findings: List[str] = field(default_factory=list)
+    mensagem: str = ""
+    dica_correcao: str = ""
+
+
+@dataclass
+class Check:
+    """Metadados de um check registrado."""
+
+    id: str
+    titulo: str
+    severidade: str
+    escopos: List[str]
+    funcao: Callable[[Path], CheckResult]
+
+
+_REGISTRY: Dict[str, Check] = {}
+
+
+def registrar_check(
+    id: str,
+    titulo: str,
+    severidade: str = "warning",
+    escopos: Optional[List[str]] = None,
+):
+    """
+    Decorator para registrar um check no registry global.
+
+    Args:
+        id: Identificador unico do check (kebab-case).
+        titulo: Titulo humano do check.
+        severidade: "error" | "warning" | "info". Apenas `error` bloqueia commit.
+        escopos: Onde o check deve rodar. Default: ["sempre"].
+    """
+    if severidade not in SEVERIDADES:
+        raise ValueError(f"severidade invalida: {severidade}. Use uma de {SEVERIDADES}")
+    escopos = escopos or ["sempre"]
+    for e in escopos:
+        if e not in ESCOPOS:
+            raise ValueError(f"escopo invalido: {e}. Use um de {ESCOPOS}")
+
+    def decorator(funcao: Callable[[Path], CheckResult]) -> Callable[[Path], CheckResult]:
+        if id in _REGISTRY:
+            raise ValueError(f"Check duplicado: {id}")
+        _REGISTRY[id] = Check(
+            id=id, titulo=titulo, severidade=severidade, escopos=escopos, funcao=funcao
+        )
+        return funcao
+
+    return decorator
+
+
+# Diretorios sempre ignorados pelas varreduras dos checks.
+_DIRS_IGNORADOS = {
+    ".git", ".idea", ".vscode", ".history", ".windsurf",
+    "__pycache__", "node_modules", "venv", ".venv",
+    "dist", "build", ".pytest_cache", "historico",
+}
+
+
+def _deve_ignorar(caminho: Path, raiz: Path) -> bool:
+    try:
+        rel = caminho.relative_to(raiz)
+    except ValueError:
+        return False
+    return any(parte in _DIRS_IGNORADOS for parte in rel.parts)
+
+
+def _iter_arquivos(raiz: Path, nome_exato: Optional[str] = None,
+                   sufixo: Optional[str] = None) -> Iterable[Path]:
+    """
+    Itera sobre arquivos do repositorio, tolerando erros de I/O do Windows
+    (ex.: arquivos de lock do LibreOffice que disparam OSError em stat).
+
+    Filtra por `nome_exato` OU `sufixo` (ex.: ".py"). Pula diretorios
+    listados em `_DIRS_IGNORADOS`.
+    """
+    raiz_str = str(raiz)
+    for dirpath, dirnames, filenames in os.walk(raiz_str, onerror=lambda e: None):
+        # Poda dirs ignorados in-place para nao descer neles
+        dirnames[:] = [d for d in dirnames if d not in _DIRS_IGNORADOS]
+        for fname in filenames:
+            if nome_exato is not None and fname != nome_exato:
+                continue
+            if sufixo is not None and not fname.endswith(sufixo):
+                continue
+            caminho = Path(dirpath) / fname
+            try:
+                # Testa acesso basico; pula se Windows recusar (ex.: lock file)
+                if not caminho.is_file():
+                    continue
+            except OSError:
+                continue
+            yield caminho
+
+
+# ----------------------------------------------------------------------
+# Checks concretos
+# ----------------------------------------------------------------------
+
+@registrar_check(
+    id="gitkeep-redundantes",
+    titulo="Arquivos .gitkeep em diretorios nao-vazios",
+    severidade="warning",
+    escopos=["sempre", "pre-commit"],
+)
+def _check_gitkeep_redundantes(raiz: Path) -> CheckResult:
+    """`.gitkeep` so faz sentido em diretorios vazios. Acusa os demais."""
+    redundantes: List[str] = []
+    for gitkeep in _iter_arquivos(raiz, nome_exato=".gitkeep"):
+        try:
+            irmaos = [p for p in gitkeep.parent.iterdir() if p.name != ".gitkeep"]
+        except OSError:
+            continue
+        if irmaos:
+            redundantes.append(str(gitkeep.relative_to(raiz)).replace("\\", "/"))
+    return CheckResult(
+        passou=not redundantes,
+        findings=redundantes,
+        mensagem=(
+            f"{len(redundantes)} .gitkeep(s) redundante(s) encontrados"
+            if redundantes
+            else "Nenhum .gitkeep redundante."
+        ),
+        dica_correcao="Remova os arquivos .gitkeep listados (o diretorio ja tem conteudo).",
+    )
+
+
+@registrar_check(
+    id="imports-quebrados",
+    titulo="Imports relativos apontando para modulos inexistentes",
+    severidade="error",
+    escopos=["sempre", "pre-commit"],
+)
+def _check_imports_quebrados(raiz: Path) -> CheckResult:
+    """
+    Parseia arquivos .py e checa `from .modulo import ...` onde `modulo.py`
+    nem pacote `modulo/__init__.py` existem. Foca em imports RELATIVOS
+    (level > 0) para evitar falsos positivos em libs instaladas.
+    """
+    quebrados: List[str] = []
+    for py_file in _iter_arquivos(raiz, sufixo=".py"):
+        try:
+            fonte = py_file.read_text(encoding="utf-8")
+            tree = ast.parse(fonte)
+        except (SyntaxError, UnicodeDecodeError, OSError):
+            continue
+        for node in ast.walk(tree):
+            if not isinstance(node, ast.ImportFrom):
+                continue
+            if node.level == 0 or not node.module:
+                continue
+            base = py_file.parent
+            for _ in range(node.level - 1):
+                base = base.parent
+            parts = node.module.split(".")
+            alvo_modulo = base.joinpath(*parts).with_suffix(".py")
+            alvo_pacote = base.joinpath(*parts, "__init__.py")
+            if not alvo_modulo.exists() and not alvo_pacote.exists():
+                rel = str(py_file.relative_to(raiz)).replace("\\", "/")
+                quebrados.append(
+                    f"{rel}:{node.lineno} — from {'.' * node.level}{node.module} (nao existe)"
+                )
+    return CheckResult(
+        passou=not quebrados,
+        findings=quebrados,
+        mensagem=(
+            f"{len(quebrados)} import(s) relativo(s) quebrado(s)"
+            if quebrados
+            else "Nenhum import relativo quebrado."
+        ),
+        dica_correcao="Corrija o nome do modulo ou remova o import se obsoleto.",
+    )
+
+
+# Regex para citacoes no formato `@<caminho absoluto>[:linhas]` em .md
+# Ex: @c:/proj/file.py:12-20  ou  @/home/u/file.ts:5
+_RE_CITACAO_MD = re.compile(
+    r"@([A-Za-z]:[\\/][^\s`\n]+|/[^\s`\n]+)"
+)
+
+
+@registrar_check(
+    id="referencias-orfas-em-docs",
+    titulo="Citacoes @caminho em .md apontando para arquivos inexistentes",
+    severidade="warning",
+    escopos=["sempre", "pre-commit"],
+)
+def _check_referencias_orfas_em_docs(raiz: Path) -> CheckResult:
+    """
+    Procura citacoes no formato `@<path_absoluto>[:linhas]` em arquivos .md
+    e acusa as que apontam para arquivos que nao existem mais.
+    So analisa citacoes dentro do proprio repositorio (caminhos que
+    comecam pela raiz do projeto); caminhos externos sao ignorados.
+    """
+    orfas: List[str] = []
+    raiz_str = str(raiz.resolve()).replace("\\", "/").rstrip("/").lower()
+    for md_file in _iter_arquivos(raiz, sufixo=".md"):
+        try:
+            texto = md_file.read_text(encoding="utf-8")
+        except (UnicodeDecodeError, OSError):
+            continue
+        for linha_num, linha in enumerate(texto.splitlines(), start=1):
+            for match in _RE_CITACAO_MD.finditer(linha):
+                caminho_bruto = match.group(1)
+                # Remove sufixo :N ou :N-M (linha/range)
+                caminho_sem_linhas = re.sub(r":\d+(-\d+)?$", "", caminho_bruto)
+                caminho_norm = caminho_sem_linhas.replace("\\", "/").lower()
+                # So checamos caminhos dentro do repo
+                if not caminho_norm.startswith(raiz_str):
+                    continue
+                alvo = Path(caminho_sem_linhas)
+                if not alvo.exists():
+                    rel_md = str(md_file.relative_to(raiz)).replace("\\", "/")
+                    orfas.append(f"{rel_md}:{linha_num} — {caminho_bruto}")
+    return CheckResult(
+        passou=not orfas,
+        findings=orfas,
+        mensagem=(
+            f"{len(orfas)} citacao(oes) orfas em .md"
+            if orfas
+            else "Nenhuma citacao orfa."
+        ),
+        dica_correcao="Atualize o caminho na citacao ou remova a referencia.",
+    )
+
+
+# ----------------------------------------------------------------------
+# QAEngineer — agente executor da checklist
+# ----------------------------------------------------------------------
 
 class QAEngineer(BaseAgente):
     """
@@ -23,13 +273,13 @@ class QAEngineer(BaseAgente):
     - Qualidade de Processo
     """
     
-    def __init__(self):
+    def __init__(self, projeto_root: str = None):
         super().__init__(
             nome="QA Engineer",
             papel="Garantir a qualidade do projeto em documentação, código e processos",
-            objetivo="Manter padrões de qualidade, identificar gaps e sugerir melhorias"
+            projeto_root=projeto_root,
         )
-        
+
         self.checklists = {
             "documentacao": [
                 "Todos os arquivos de requisitos estão completos",
@@ -58,9 +308,131 @@ class QAEngineer(BaseAgente):
                 "Documentação foi atualizada",
                 "Changelog foi atualizado",
                 "Versão foi tagueada corretamente",
-            ]
+            ],
         }
-    
+
+    # ------------------------------------------------------------------
+    # Metodos abstratos do BaseAgente
+    # ------------------------------------------------------------------
+    def get_prompt_sistema(self) -> str:
+        return (
+            "Voce e o QA Engineer do projeto. Seu papel e garantir qualidade "
+            "em documentacao, codigo e processos, apoiando revisoes de PR, "
+            "checklists de release e executando os checks automatizados "
+            "registrados no registry. Severidade `error` bloqueia commits; "
+            "`warning` e `info` apenas alertam."
+        )
+
+    def get_contexto(self) -> dict:
+        return {
+            "agente": self.nome,
+            "papel": self.papel,
+            "checks_registrados": [c.id for c in _REGISTRY.values()],
+            "artefatos": self.listar_artefatos(),
+            "pendencias": self.obter_pendencias(),
+        }
+
+    # ------------------------------------------------------------------
+    # Execucao da checklist de checks automatizados
+    # ------------------------------------------------------------------
+    def listar_checks(self, escopo: Optional[str] = None) -> List[Dict]:
+        """
+        Lista os checks registrados.
+
+        Args:
+            escopo: Se informado, filtra por escopo (ex: "pre-commit").
+        """
+        resultado = []
+        for check in _REGISTRY.values():
+            if escopo and escopo not in check.escopos:
+                continue
+            resultado.append(
+                {
+                    "id": check.id,
+                    "titulo": check.titulo,
+                    "severidade": check.severidade,
+                    "escopos": list(check.escopos),
+                }
+            )
+        return resultado
+
+    def executar_checks(
+        self,
+        escopo: Optional[str] = None,
+        check_id: Optional[str] = None,
+    ) -> Dict:
+        """
+        Executa os checks registrados e retorna o relatorio consolidado.
+
+        Args:
+            escopo: Filtra checks pelo escopo (pre-commit, pre-push, release, sempre).
+                Se None, roda TODOS os registrados.
+            check_id: Se informado, roda apenas o check com esse id (ignora escopo).
+
+        Returns:
+            Dict com:
+            - `resultados`: list de {id, titulo, severidade, passou, findings, mensagem}
+            - `total`: total de checks executados
+            - `passaram`: quantos passaram
+            - `falharam_error`: quantos falharam com severidade `error`
+            - `falharam_warning`: quantos falharam com severidade `warning`
+            - `bloqueia_commit`: bool, True se algum `error` falhou
+        """
+        raiz = Path(self.projeto_root).resolve()
+
+        if check_id is not None:
+            checks = [_REGISTRY[check_id]] if check_id in _REGISTRY else []
+            if not checks:
+                raise KeyError(f"Check nao encontrado: {check_id}")
+        else:
+            checks = [
+                c for c in _REGISTRY.values()
+                if escopo is None or escopo in c.escopos
+            ]
+
+        resultados = []
+        falharam_error = 0
+        falharam_warning = 0
+        passaram = 0
+        for check in checks:
+            try:
+                result = check.funcao(raiz)
+            except Exception as exc:  # defensivo: um check quebrado nao derruba o resto
+                result = CheckResult(
+                    passou=False,
+                    severidade="error",
+                    findings=[f"Excecao ao executar: {exc!r}"],
+                    mensagem=f"Check {check.id} lancou excecao",
+                )
+            severidade_efetiva = result.severidade or check.severidade
+            resultados.append(
+                {
+                    "id": check.id,
+                    "titulo": check.titulo,
+                    "severidade": severidade_efetiva,
+                    "passou": result.passou,
+                    "findings": result.findings,
+                    "mensagem": result.mensagem,
+                    "dica_correcao": result.dica_correcao,
+                }
+            )
+            if result.passou:
+                passaram += 1
+            else:
+                if severidade_efetiva == "error":
+                    falharam_error += 1
+                elif severidade_efetiva == "warning":
+                    falharam_warning += 1
+
+        return {
+            "resultados": resultados,
+            "total": len(checks),
+            "passaram": passaram,
+            "falharam_error": falharam_error,
+            "falharam_warning": falharam_warning,
+            "bloqueia_commit": falharam_error > 0,
+        }
+
     def revisar_documentacao(self, artefatos: List[str]) -> Dict:
         """
         Revisa a documentação do projeto.

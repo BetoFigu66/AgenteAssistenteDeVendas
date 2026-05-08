@@ -1,4 +1,4 @@
-# Arquitetura POC - Assistente de Vendas WhatsApp
+# Arquitetura POC - Assistente de Vendas via WhatsApp com IA
 
 **Versão**: 1.0  
 **Data**: 2026-04-13  
@@ -266,15 +266,62 @@ WhatsApp:  A prinípio escolhido o **Twilio Sandbox**
 **Status**: Implementado
 
 ### ADR-002: RAG com JSON vs Banco Vetorial
-**Decisão**: JSON com keyword matching  
-**Motivo**: Catálogo pequeno (~20 produtos), não justifica complexidade  
-**Revisão**: Implementar pgvector quando base crescer
+**Decisão**: ~~JSON com keyword matching~~ **Substituída pelo ADR-004** (revisado em 2026-04-29)
+**Motivo original**: Catálogo pequeno (~20 produtos), não justificava complexidade
+**Motivo da revisão**: Um dos objetivos do projeto é aquisição de conhecimento técnico. O custo financeiro de embeddings é desprezível (< $0,50/mês com OpenAI `text-embedding-3-small`) e o overhead de implementação é aceitável (~11h). Antecipar essa decisão evita refactor tardio do prompt/retrieval depois que o POC já estiver em produção.
+**Status**: Substituído por ADR-004
 
 ### ADR-003: Evolution API vs Twilio
-**Decisão**: Twilio Sandbox  
-**Motivo**: Custo zero para validação, boa documentação, setup rápido  
-**Data da decisão**: 2026-04-19  
+**Decisão**: Twilio Sandbox
+**Motivo**: Custo zero para validação, boa documentação, setup rápido
+**Data da decisão**: 2026-04-19
 **Revisão**: Avaliar Twilio produção ou 360dialog quando sair do POC
+
+### ADR-004: RAG com pgvector + OpenAI embeddings
+**Decisão**: Implementar RAG com `pgvector` no Postgres existente, usando `text-embedding-3-small` da OpenAI (1536 dimensões) como provider de embeddings, mantendo o LLM de chat (Groq) inalterado.
+**Data da decisão**: 2026-04-29
+**Status**: Aprovado, aguardando implementação
+
+#### Contexto
+O ADR-002 previa "RAG simples sem embeddings". Ao avaliar o trade-off, ficou claro que:
+- Custo financeiro: < $0,50/mês para o volume previsto (~1.000 mensagens/mês, catálogo de ~50 produtos).
+- Custo de implementação: ~11h adicionais (vs. ~3-4h do RAG por keyword previsto originalmente).
+- Risco de adiar: trocar a estratégia de retrieval depois que prompts e dados já estão em produção é caro, porque mexe simultaneamente em modelo de dados, prompts, avaliação e ingestão.
+- Objetivo do projeto: aquisição de conhecimento técnico — embeddings é peça central do estado-da-arte em assistentes conversacionais.
+
+#### Componentes da decisão
+1. **Banco vetorial**: `pgvector` rodando no mesmo Postgres do projeto (imagem `pgvector/pgvector:pg16`). Sem nova infra.
+2. **Modelo de embedding**: OpenAI `text-embedding-3-small`, 1536 dimensões. Justificativa: barato, estável, multilíngue (suporta PT-BR razoavelmente), padrão de mercado para didática.
+3. **Provider separado do LLM de chat**: novo `EmbeddingProvider` (ABC) com `OpenAIEmbeddingProvider` concreto. Variáveis `EMBEDDING_PROVIDER`, `EMBEDDING_MODEL`, `EMBEDDING_API_KEY` independentes de `LLM_*`. Permite manter Groq para chat (rápido e barato) e OpenAI só para embedding.
+4. **Modelo de dados**: tabela única `documentos_conhecimento` com `tipo` (enum: produto/faq/politica), `titulo`, `conteudo`, `metadata JSONB`, `embedding vector(1536)`. Índice `ivfflat` com `vector_cosine_ops`. Tabela única simplifica retrieval e ingestão; especialização por tipo fica em `metadata`.
+5. **Conteúdo inicial**: apenas catálogo de produtos (linhas da tabela `produtos`). FAQ fica para iteração futura.
+6. **Trigger do retrieval**: o `RetrievalService` é consultado apenas nas intenções `PERGUNTAR_PRODUTO`, `PERGUNTAR_PRECO` e `FORA_CONTEXTO`. Demais intenções continuam usando templates atuais.
+7. **Integração**: `GeradorRespostas` recebe os trechos recuperados via parâmetro de contexto e injeta no prompt do LLM ("trechos do catálogo: ..."), sem alterar o `LLMProvider`.
+
+#### Alternativas consideradas e descartadas
+- **Embeddings locais (`sentence-transformers`)**: zero custo, mas ~500MB de dependências e 100-300ms/query no CPU. Atrasa o POC. Pode ser revisitado depois.
+- **Cohere `embed-multilingual-v3`**: melhor qualidade em PT-BR, mas adiciona uma terceira conta/chave e custa mais. Para catálogo pequeno o ganho não compensa.
+- **Tabelas separadas por tipo (produtos, faq, politicas)**: mais "limpo", mas multiplica retrieval logic e migrations. Tabela única + `tipo` cobre o POC e refatorar é trivial se precisar.
+- **RAG sempre ativo (todos os turnos)**: mais flexível, mas aumenta custo de tokens e latência. Decidimos por trigger seletivo.
+
+#### Consequências
+- **Positivas**: aprendizado real do stack vetorial; ganho de qualidade em perguntas semânticas; mesma estratégia escala para FAQ e políticas no futuro sem refactor.
+- **Negativas**: +1 dependência externa (OpenAI), +1 chave de API para gerenciar, ~11h adicionais no esforço do POC.
+- **Mitigações**: `EmbeddingProvider` é ABC, então trocar OpenAI por local depois é uma classe nova; ingestão é idempotente, então re-rodar quando o catálogo mudar é seguro.
+
+#### Critérios de revisão
+Revisitar este ADR quando:
+- Catálogo passar de ~500 produtos (avaliar se `ivfflat` ainda é suficiente ou migrar para `hnsw`).
+- Custo mensal de embeddings ultrapassar $20 (avaliar embedding local).
+- Latência do retrieval passar de 300ms (otimizar índice ou cache).
+
+#### Tarefas que este ADR habilita (não faz parte da decisão)
+- Migration Alembic com `CREATE EXTENSION vector` e tabela `documentos_conhecimento`.
+- Implementação de `EmbeddingProvider` + `OpenAIEmbeddingProvider`.
+- Implementação de `RetrievalService.buscar(query, top_k, tipo)`.
+- Script CLI `backend/scripts/ingerir_conhecimento.py` (idempotente, batch).
+- Integração no `GeradorRespostas` para as 3 intenções listadas.
+- Atualização da seção 6 (estimativas) e seção 7 (limitações) deste documento ao concluir a implementação.
 
 ---
 

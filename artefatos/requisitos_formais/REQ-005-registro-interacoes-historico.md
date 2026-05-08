@@ -170,7 +170,7 @@ O objetivo é permitir rastreabilidade, revisão de conversas críticas e melhor
 ## 7. Dependências
 
 ### 7.1 Dependências Técnicas
-- Banco de dados (SQLite no POC)
+- Banco de dados (PostgreSQL no POC)
 - Camada de persistência para conversas/eventos
 
 ### 7.2 Dependências de Negócio

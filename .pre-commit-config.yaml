@@ -1,0 +1,18 @@
+# Pre-commit hooks do projeto.
+# Setup:
+#   pip install pre-commit
+#   pre-commit install
+#
+# Rodar manualmente sobre tudo:
+#   pre-commit run --all-files
+
+repos:
+  - repo: local
+    hooks:
+      - id: qa-check
+        name: QA Engineer - checks pre-commit
+        entry: python scripts/qa_check.py --escopo pre-commit --sem-cor
+        language: system
+        pass_filenames: false
+        always_run: true
+        stages: [pre-commit]

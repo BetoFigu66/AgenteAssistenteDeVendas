@@ -127,7 +127,7 @@ No POC, a atualização do status de conversão será **manual pela Rita**.
 ## 8. Dependências
 
 ### 8.1 Dependências Técnicas
-- Persistência de orçamentos e status (SQLite no POC)
+- Persistência de orçamentos e status (PostgreSQL no POC)
 - Associações com conversa/cliente
 
 ### 8.2 Dependências de Negócio

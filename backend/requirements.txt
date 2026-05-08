@@ -15,5 +15,10 @@ httpx==0.26.0
 # LLM
 groq==0.11.0
 
-# Testes
+# Agentes / artefatos
+pyyaml==6.0.2
+python-pptx==1.0.2
+
+# Testes / QA / Dev (nao sao usados em producao)
 pytest==8.3.3
+pre-commit==3.8.0

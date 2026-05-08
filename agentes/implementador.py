@@ -14,7 +14,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import List, Dict, Optional
 
-from base_agente import BaseAgente
+from .base_agente import BaseAgente
 
 
 class Implementador(BaseAgente):

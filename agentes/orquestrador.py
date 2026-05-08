@@ -10,7 +10,7 @@ from .analista_requisitos import AnalistaRequisitos
 from .auxiliar_negocios import AuxiliarNegocios
 from .arquiteto_sistemas import ArquitetoSistemas
 from .planejador_negocios import PlanejadorNegocios
-from .diretor_geral import DiretorGeral
+from .gerente_de_projetos import GerenteDeProjetos
 
 
 class OrquestradorAgentes:
@@ -27,14 +27,14 @@ class OrquestradorAgentes:
         self.auxiliar_negocios = AuxiliarNegocios(self.projeto_root)
         self.arquiteto = ArquitetoSistemas(self.projeto_root)
         self.planejador = PlanejadorNegocios(self.projeto_root)
-        self.diretor = DiretorGeral(self.projeto_root)
+        self.gerente_de_projetos = GerenteDeProjetos(self.projeto_root)
         
         self.agentes = {
             "analista": self.analista,
             "auxiliar": self.auxiliar_negocios,
             "arquiteto": self.arquiteto,
             "planejador": self.planejador,
-            "diretor": self.diretor
+            "gerente_de_projetos": self.gerente_de_projetos
         }
     
     def obter_agente(self, nome: str):
@@ -82,7 +82,7 @@ class OrquestradorAgentes:
             ("arquiteto", "Documentar decisões técnicas iniciais", "media"),
             ("planejador", "Pesquisar concorrentes no mercado", "media"),
             ("planejador", "Propor modelo de precificação inicial", "media"),
-            ("diretor", "Gerar primeiro relatório de status", "baixa"),
+            ("gerente_de_projetos", "Gerar primeiro relatório de status", "baixa"),
         ]
         
         for agente_id, descricao, prioridade in pendencias_iniciais:
@@ -90,23 +90,23 @@ class OrquestradorAgentes:
             agente.adicionar_pendencia(descricao, prioridade)
         
         # Registra inicialização
-        self.diretor.registrar_interacao(
+        self.gerente_de_projetos.registrar_interacao(
             tipo="inicializacao_projeto",
             conteudo="Projeto inicializado com pendências para todos os agentes",
-            participantes=["Sistema", "Diretor Geral"]
+            participantes=["Sistema", "Gerente de Projetos"]
         )
         
-        return self.diretor.obter_status_geral()
+        return self.gerente_de_projetos.obter_status_geral()
     
     def gerar_relatorio_completo(self) -> str:
         """Gera relatório completo do projeto."""
-        return self.diretor.gerar_relatorio_status()
+        return self.gerente_de_projetos.gerar_relatorio_status()
 
 
 def main():
     """Função principal para demonstração."""
     print("=" * 60)
-    print("Sistema de Agentes - Assistente de Vendas WhatsApp")
+    print("Sistema de Agentes - Assistente de Vendas via WhatsApp com IA")
     print("=" * 60)
     
     orquestrador = OrquestradorAgentes()
