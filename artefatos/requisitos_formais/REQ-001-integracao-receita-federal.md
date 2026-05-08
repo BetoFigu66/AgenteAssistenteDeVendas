@@ -1,7 +1,7 @@
 # REQ-001: Integração com Receita Federal (CNPJ)
 
-**Versão**: 1.0  
-**Data**: 2026-04-14  
+**Versão**: 1.1  
+**Data**: 2026-05-06  
 **Autor**: Kika (Analista de Requisitos)  
 **Status**: Em Elaboração  
 **Prioridade**: Alta  
@@ -42,14 +42,14 @@ O sistema deve consultar automaticamente dados da Receita Federal quando um clie
 
 ### 4.1 Funcionalidades Obrigatórias
 
-- [ ] **REQ-001.1**: Sistema deve reconhecer CNPJ em diferentes formatos:
+- [ ] **REQ-001.1 — Reconhecimento de CNPJ em diferentes formatos**: Sistema deve reconhecer CNPJ em diferentes formatos:
   - XX.XXX.XXX/XXXX-XX
   - XXXXXXXXXXXXXX
   - XX XXX XXX XXX XX
 
-- [ ] **REQ-001.2**: Sistema deve validar formato do CNPJ antes da consulta
+- [ ] **REQ-001.2 — Validação de formato do CNPJ**: Sistema deve validar formato do CNPJ antes da consulta
 
-- [ ] **REQ-001.3**: Sistema deve consultar API externa e retornar:
+- [ ] **REQ-001.3 — Consulta à API da Receita Federal**: Sistema deve consultar API externa e retornar:
   - Razão Social
   - Nome Fantasia (se houver)
   - Endereço completo (logradouro, número, complemento, bairro, cidade, UF, CEP)
@@ -57,24 +57,24 @@ O sistema deve consultar automaticamente dados da Receita Federal quando um clie
   - Data de abertura
   - CNAE principal
 
-- [ ] **REQ-001.4**: Sistema deve exibir dados para confirmação do usuário
+- [ ] **REQ-001.4 — Confirmação dos dados pelo cliente**: Sistema deve exibir dados para confirmação do usuário
 
-- [ ] **REQ-001.5**: Dados confirmados devem ficar disponíveis para orçamento
+- [ ] **REQ-001.5 — Disponibilização dos dados para orçamento**: Dados confirmados devem ficar disponíveis para orçamento
 
 ### 4.2 Regras de Negócio
 
-- [ ] **REQ-001.6**: Se CNPJ for inválido ou não encontrado, sistema deve:
+- [ ] **REQ-001.6 — Tratamento de CNPJ inválido ou não encontrado**: Se CNPJ for inválido ou não encontrado, sistema deve:
   - Informar erro de forma amigável
   - Solicitar verificação dos dados
   - Permitir nova tentativa
 
-- [ ] **REQ-001.7**: Dados devem ser armazenados no perfil do cliente para consultas futuras
+- [ ] **REQ-001.7 — Persistência dos dados no perfil do cliente**: Dados devem ser armazenados no perfil do cliente para consultas futuras
 
 ### 4.3 Requisitos Não-Funcionais
 
-- [ ] **REQ-001.8**: Tempo de resposta da consulta: < 3 segundos
-- [ ] **REQ-001.9**: Disponibilidade da API: > 99%
-- [ ] **REQ-001.10**: Tratamento de falhas da API externa
+- [ ] **REQ-001.8 — Tempo de resposta da consulta**: Tempo de resposta da consulta: < 3 segundos
+- [ ] **REQ-001.9 — Disponibilidade da API externa**: Disponibilidade da API: > 99%
+- [ ] **REQ-001.10 — Tratamento de falhas da API externa**: Tratamento de falhas da API externa
 
 ---
 
@@ -162,6 +162,7 @@ Os dados estão corretos? (S/N)"
 | Data | Versão | Alteração | Autor |
 |------|--------|-----------|-------|
 | 14/04/2026 | 1.0 | Criação inicial do requisito | Kika |
+| 06/05/2026 | 1.1 | Adição de títulos descritivos a todos os requisitos do documento | Kika |
 
 ---
 

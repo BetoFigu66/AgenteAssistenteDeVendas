@@ -1,7 +1,7 @@
 # REQ-003: Respostas Automáticas com Base de Conhecimento (RAG)
 
-**Versão**: 1.0  
-**Data**: 2026-04-15  
+**Versão**: 1.2  
+**Data**: 2026-05-06  
 **Autor**: Kika (Analista de Requisitos)  
 **Status**: Em Elaboração  
 **Prioridade**: Alta  
@@ -47,39 +47,54 @@ A resposta automática deve ser gerada com auxílio de IA, mas sempre baseada em
 
 ### 4.1 Funcionalidades Obrigatórias
 
-- [ ] **REQ-003.1**: Sistema deve classificar mensagens recebidas e identificar quando são perguntas respondíveis automaticamente (FAQ)
+- [ ] **REQ-003.1 — Classificação de mensagens para FAQ**: Sistema deve classificar mensagens recebidas e identificar quando são perguntas respondíveis automaticamente (FAQ)
 
-- [ ] **REQ-003.2**: Sistema deve consultar a base de conhecimento (RAG) e recuperar informações relevantes para a pergunta do cliente
+- [ ] **REQ-003.2 — Recuperação de conteúdo da base de conhecimento (RAG)**: Sistema deve consultar a base de conhecimento (RAG) e recuperar informações relevantes para a pergunta do cliente
 
-- [ ] **REQ-003.3**: Sistema deve gerar resposta usando IA com base no conteúdo recuperado (não inventar)
+- [ ] **REQ-003.3 — Geração de resposta baseada em referências**: Sistema deve gerar resposta usando IA com base no conteúdo recuperado (não inventar)
 
-- [ ] **REQ-003.4**: Sistema deve suportar no mínimo os tópicos:
+- [ ] **REQ-003.4 — Tópicos mínimos suportados**: Sistema deve suportar no mínimo os tópicos:
   - Valor / preço
   - Modelos disponíveis
   - Prazos (com as restrições de regra de negócio)
   - Instalação (condições gerais)
   - Envio de catálogo quando solicitado
 
-- [ ] **REQ-003.5**: Sistema deve registrar a pergunta, as referências do RAG utilizadas (fonte + id do item) e a resposta enviada no histórico de conversa
+- [ ] **REQ-003.5 — Registro da pergunta, referências e resposta**: Sistema deve registrar a pergunta, as referências do RAG utilizadas (fonte + id do item) e a resposta enviada no histórico de conversa
 
 ### 4.2 Regras de Negócio
 
-- [ ] **REQ-003.6**: O sistema **NUNCA** deve prometer prazo de entrega; quando questionado, deve responder de forma segura e condicional (ex: “depende do modelo e disponibilidade; posso confirmar com o time e retorno”)
+- [ ] **REQ-003.6 — Proibição de prometer prazo de entrega**: O sistema **NUNCA** deve prometer prazo de entrega; quando questionado, deve responder de forma segura e condicional (ex: “depende do modelo e disponibilidade; posso confirmar com o time e retorno”)
 
-- [ ] **REQ-003.7**: Caso a pergunta envolva compatibilidade com sistema do cliente, o sistema deve orientar validação com o fornecedor do software e/ou escalar para humano quando necessário
+- [ ] **REQ-003.7 — Tratamento de perguntas sobre compatibilidade**: Caso a pergunta envolva compatibilidade com sistema do cliente, o sistema deve orientar validação com o fornecedor do software e/ou escalar para humano quando necessário
 
-- [ ] **REQ-003.8**: Caso a IA não encontre informação suficiente na base, deve:
+- [ ] **REQ-003.8 — Fallback para informação insuficiente**: Caso a IA não encontre informação suficiente na base, deve:
   - Informar que precisa confirmar
   - Fazer no máximo 1 pergunta de clarificação
   - Se ainda assim não houver base, escalar para humano
 
-- [ ] **REQ-003.9**: Para perguntas de preço, o sistema não deve negociar desconto; pode mencionar que valores podem variar por quantidade e condições, e que o vendedor pode avaliar
+- [ ] **REQ-003.9 — Não negociar desconto em perguntas de preço**: Para perguntas de preço, o sistema não deve negociar desconto; pode mencionar que valores podem variar por quantidade e condições, e que o vendedor pode avaliar
+
+- [ ] **REQ-003.13 — Devolver controle ao REQ-002 após responder**: Quando o cliente estiver em meio a um fluxo de qualificação (REQ-002) e fizer uma **pergunta sobre produto/serviço**, o REQ-003 deve:
+  - Responder a dúvida com base no conteúdo recuperado
+  - Ao final da resposta, **devolver o controle ao REQ-002**, sinalizando para retomar a qualificação na última pergunta pendente
+  - Não solicitar dados de qualificação (CNPJ, endereço, contato etc.) — isso é responsabilidade do REQ-002
+
+- [ ] **REQ-003.14 — Não acionar para respostas de qualificação**: O REQ-003 não deve ser acionado para mensagens que sejam **resposta direta a uma pergunta de qualificação** feita pelo sistema (ex: cliente enviando CNPJ, quantidade de funcionários, endereço). Essas mensagens pertencem ao REQ-002.
 
 ### 4.3 Requisitos Não-Funcionais
 
-- [ ] **REQ-003.10**: Tempo alvo de resposta: < 5 segundos em condições normais
-- [ ] **REQ-003.11**: Respostas devem ser curtas e objetivas para WhatsApp
-- [ ] **REQ-003.12**: Todas as respostas automáticas devem ser auditáveis (conteúdo-base + resposta)
+- [ ] **REQ-003.10 — Tempo alvo de resposta**: Tempo alvo de resposta: < 5 segundos em condições normais
+- [ ] **REQ-003.11 — Respostas curtas e objetivas para WhatsApp**: Respostas devem ser curtas e objetivas para WhatsApp
+- [ ] **REQ-003.12 — Auditabilidade das respostas automáticas**: Todas as respostas automáticas devem ser auditáveis (conteúdo-base + resposta)
+
+### 4.4 Terminologia
+
+Para alinhamento com o REQ-002, este requisito adota:
+
+- **Pergunta sobre produto/serviço**: mensagem do **cliente** com dúvida que exige consulta à base de conhecimento (catálogo, FAQ, manuais, preços, prazos, compatibilidade, serviços prestados, características técnicas). Escopo do REQ-003.
+- **Pergunta de qualificação**: pergunta feita pelo **sistema** para coletar dado necessário ao orçamento. Escopo do REQ-002 (fora do REQ-003).
+- **Pergunta ambigua**: mensagem que poderia ser de qualificação ou de conhecimento; nesse caso, aplicar REQ-003.1 (classificação) e, se necessário, REQ-003.8 (uma pergunta de clarificação).
 
 ---
 
@@ -140,6 +155,28 @@ Cliente: "Você tem catálogo?"
 Sistema: "Tenho sim. Você quer o catálogo de catracas ou de relógios de ponto?"
 ```
 
+### 7.4 Pergunta sobre produto no meio da qualificação (interação com REQ-002)
+
+Cenário em que o cliente está respondendo a uma qualificação (REQ-002) e interrompe com uma dúvida sobre o produto:
+
+```
+[Contexto: REQ-002 acabou de perguntar "Sua empresa já tem software de controle de ponto?"]
+
+Cliente: "Ainda não. Aliás, qual a diferença entre biométrico e facial?"
+
+→ Classificação (REQ-003.1): pergunta sobre produto/serviço
+→ Recuperar conteúdo do catálogo (REQ-003.2)
+→ Gerar resposta baseada em referências (REQ-003.3)
+
+Sistema: "O biométrico identifica pela digital do dedo, enquanto o facial
+reconhece pelo rosto — mais rápido e sem contato.
+(Fonte: catálogo Control iD / Topdata)
+
+Voltando ao seu orçamento: você prefere biométrico ou facial?"
+
+→ REQ-003.13: devolve controle ao REQ-002 reapresentando a última pergunta pendente
+```
+
 ---
 
 ## 8. Dependências
@@ -183,6 +220,8 @@ Sistema: "Tenho sim. Você quer o catálogo de catracas ou de relógios de ponto
 | Data | Versão | Alteração | Autor |
 |------|--------|-----------|-------|
 | 15/04/2026 | 1.0 | Criação inicial do requisito | Kika |
+| 05/05/2026 | 1.1 | Adicionada terminologia (seção 4.4), regras de interação com REQ-002 (REQ-003.13 e REQ-003.14) e exemplo 7.4 de pergunta sobre produto no meio da qualificação | Kika |
+| 06/05/2026 | 1.2 | Adição de títulos descritivos a todos os requisitos do documento | Kika |
 
 ---
 

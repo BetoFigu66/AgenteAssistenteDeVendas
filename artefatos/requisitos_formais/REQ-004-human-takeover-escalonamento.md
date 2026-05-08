@@ -1,7 +1,7 @@
 # REQ-004: Escalonamento para Humano (Human Takeover)
 
-**Versão**: 1.0  
-**Data**: 2026-04-15  
+**Versão**: 1.4  
+**Data**: 2026-05-06  
 **Autor**: Kika (Analista de Requisitos)  
 **Status**: Em Elaboração  
 **Prioridade**: Alta  
@@ -46,56 +46,31 @@ No POC, o escalonamento deve notificar a Rita, que responderá ao cliente pelo p
 
 ### 4.1 Funcionalidades Obrigatórias
 
-- [ ] **REQ-004.1**: O sistema deve detectar gatilhos de escalonamento a partir da mensagem do cliente e do contexto da conversa
+- [ ] **REQ-004.1 — Detecção de gatilhos de escalonamento**: O sistema deve detectar gatilhos de escalonamento a partir da mensagem do cliente e do contexto da conversa. Os gatilhos são classificados em duas categorias (detalhadas na seção 4.2):
+  - **Explícitos**: o cliente pede diretamente atendimento humano (ver REQ-004.6)
+  - **Implícitos**: o sistema infere a necessidade pelo conteúdo/contexto, como insatisfação, análise técnica necessária ou baixa confiança na resposta (ver REQ-004.7, REQ-004.8 e REQ-004.9)
 
-- [ ] **REQ-004.2**: Quando decidir escalar, o sistema deve:
+- [ ] **REQ-004.2 — Gerar resumo do contexto e notificar vendedor**: Quando decidir escalar, o sistema deve:
   - Registrar a conversa como “crítica”
   - Gerar um resumo do contexto (para o humano)
   - Notificar a Rita
 
-- [ ] **REQ-004.3**: O sistema deve suportar escalonamento manual:
-  - Se o cliente pedir explicitamente para falar com humano
-  - Se a Rita solicitar assumir a conversa (POC: via procedimento combinado)
+- [ ] **REQ-004.3 — Assumir conversa iniciada de forma manual pelo vendedor**: O sistema deve suportar **takeover iniciado pela operadora** (Rita), independente da existência de gatilhos do lado do cliente:
+  - A Rita pode solicitar assumir uma conversa em andamento a qualquer momento (POC: via procedimento combinado)
+  - Ao assumir, o sistema deve aplicar o mesmo tratamento de uma conversa escalada (REQ-004.2 e REQ-004.4): marcar a conversa como em atendimento humano, gerar resumo de contexto e bloquear respostas automáticas
+  - Observação: o escalonamento iniciado por **pedido explícito do cliente** é tratado como gatilho explícito (REQ-004.1 + REQ-004.6), não por este requisito
 
-- [ ] **REQ-004.4**: O sistema deve manter estado “em atendimento humano” para evitar respostas automáticas indevidas após o handoff
+- [ ] **REQ-004.4 — Alterar conversa para estado "em atendimento humano"**: O sistema deve manter, por conversa, um **estado persistente** indicando se ela está em atendimento humano. Esse estado:
+  - É **ativado** no momento do handoff (REQ-004.2) ou quando a Rita assume manualmente (REQ-004.3)
+  - É **desativado** apenas quando o humano sinalizar a finalização do atendimento
+  - Deve ser consultável pelos demais módulos do sistema (REQ-002, REQ-003) para decidir se podem responder automaticamente
 
-- [ ] **REQ-004.5**: O sistema deve registrar no histórico:
+- [ ] **REQ-004.5 — Registro de histórico de escalonamento**: O sistema deve registrar no histórico:
   - Motivo do escalonamento
   - Timestamp
   - Conteúdo do resumo
 
-- [ ] **REQ-004.5A**: Antes de escalar para um vendedor, o sistema deve tentar coletar as informações mínimas necessárias para o atendimento humano (alinhado ao fluxo de qualificação do REQ-002), exceto nos casos de escalonamento imediato (REQ-004.6 e REQ-004.7)
-
-### 4.2 Gatilhos de Escalonamento
-
-- [ ] **REQ-004.6**: O sistema deve escalar imediatamente quando o cliente solicitar humano, incluindo variações como:
-  - “quero falar com alguém”
-  - “falar com vendedor”
-  - “falar com humano”
-  - “atendente”
-  - “pessoa real”
-
-- [ ] **REQ-004.7**: O sistema deve escalar quando houver indícios de insatisfação ou reclamação:
-  - “reclamação”, “não funciona”, “problema”, “péssimo”, “estou irritado”, etc.
-
-- [ ] **REQ-004.8**: O sistema deve escalar quando o tema exigir análise técnica/humana, como:
-  - Compatibilidade com software/sistema do cliente
-  - Controle de acesso (ex: controle facial em porta): sempre considerar como projeto complexo e escalar/direcionar para um vendedor (exige Ivan/técnico)
-  - Cliente grande/projeto complexo
-  Para identificar “cliente grande/projeto complexo”, o sistema deve considerar, no mínimo:
-  - Quantidade de equipamentos (quando o cliente informar ou quando o sistema conseguir inferir): se quantidade >= 4 (catracas ou relógios), escalar
-  - Quantidade de funcionários (quando o cliente informar): se funcionários >= LIMIAR_FUNCIONARIOS (a definir com a Rita), escalar
-
-- [ ] **REQ-004.9**: O sistema deve escalar quando não conseguir responder com segurança, por exemplo:
-  - Base de conhecimento insuficiente
-  - Confiança baixa na resposta
-  - Contradições de dados relevantes
-
-### 4.3 Regras de Negócio
-
-- [ ] **REQ-004.10**: Após escalonamento, o sistema não deve continuar respondendo automaticamente para o cliente, a menos que o humano finalize o atendimento
-
-- [ ] **REQ-004.10A**: Quando o escalonamento não for imediato (ou seja, não acionado por pedido explícito de humano ou reclamação/insatisfação), o sistema deve coletar, no mínimo:
+- [ ] **REQ-004.5A — Pré-qualificação antes do escalonamento**: Antes de escalar para um vendedor (exceto nos casos de escalonamento imediato — REQ-004.6 e REQ-004.7), o sistema deve coletar, no mínimo:
   - Dados de CNPJ (REQ-001)
   - Se é para instalar, entregar ou retirada
   - Se for relógio de ponto:
@@ -104,16 +79,46 @@ No POC, o escalonamento deve notificar a Rita, que responderá ao cliente pelo p
   - Se for catraca:
     - Qual sistema ele usa
     - Se o modelo que quer é homologado
+  
+  Esses dados devem ser obtidos pelo fluxo de qualificação (REQ-002).
 
-- [ ] **REQ-004.11**: O sistema deve usar mensagem de transição adequada ao cliente, por exemplo:
-  - “Perfeito, vou acionar um atendente para te ajudar e já te retorno.”
+### 4.2 Gatilhos de Escalonamento
 
-- [ ] **REQ-004.12**: Se o escalonamento ocorrer por reclamação/insatisfação, o sistema deve ser empático e rápido, sem debater
+- [ ] **REQ-004.6 — Escalonamento por pedido explícito do cliente**: O sistema deve escalar imediatamente quando o cliente solicitar humano, incluindo variações como:
+  - “quero falar com alguém”
+  - “falar com vendedor”
+  - “falar com humano”
+  - “atendente”
+  - “pessoa real”
+
+- [ ] **REQ-004.7 — Escalonamento por insatisfação ou reclamação**: O sistema deve escalar quando houver indícios de insatisfação ou reclamação:
+  - “reclamação”, “não funciona”, “problema”, “péssimo”, “estou irritado”, etc.
+
+- [ ] **REQ-004.8 — Escalonamento por análise técnica ou projeto complexo**: O sistema deve escalar quando o tema exigir análise técnica/humana, como:
+  - Compatibilidade com software/sistema do cliente
+  - Controle de acesso (ex: controle facial em porta): sempre considerar como projeto complexo e escalar/direcionar para um vendedor (exige Ivan/técnico)
+  - Cliente grande/projeto complexo
+  Para identificar “cliente grande/projeto complexo”, o sistema deve considerar, no mínimo:
+  - Quantidade de equipamentos (quando o cliente informar ou quando o sistema conseguir inferir): se quantidade >= 4 (catracas ou relógios), escalar
+  - Quantidade de funcionários (quando o cliente informar): se funcionários >= LIMIAR_FUNCIONARIOS (a definir com a Rita), escalar
+
+- [ ] **REQ-004.9 — Escalonamento por baixa confiança na resposta**: O sistema deve escalar quando não conseguir responder com segurança, por exemplo:
+  - Base de conhecimento insuficiente
+  - Confiança baixa na resposta
+  - Contradições de dados relevantes
+
+### 4.3 Regras de Negócio
+
+- [ ] **REQ-004.10 — Suspensão de respostas automáticas até finalização do atendimento humano**: Enquanto o estado “em atendimento humano” (REQ-004.4) estiver ativo, o sistema **não deve** gerar respostas automáticas para o cliente — nem do fluxo de qualificação (REQ-002), nem da base de conhecimento/RAG (REQ-003). O sistema só retoma respostas automáticas após o humano sinalizar a finalização do atendimento
+
+- [ ] **REQ-004.11 — Comunicação com o cliente no momento do escalonamento**: O sistema deve enviar uma mensagem de transição ao cliente ao iniciar o escalonamento, adequando o tom ao motivo:
+  - **Caso geral**: mensagem cordial informando o handoff (ex: “Perfeito, vou acionar um atendente para te ajudar e já te retorno.”)
+  - **Escalonamento por reclamação/insatisfação (REQ-004.7)**: tom empático e rápido, **sem debater** o problema com o cliente
 
 ### 4.4 Requisitos Não-Funcionais
 
-- [ ] **REQ-004.13**: Notificação ao humano deve ocorrer em até 10 segundos
-- [ ] **REQ-004.14**: Registro do escalonamento deve ser auditável
+- [ ] **REQ-004.13 — SLA de notificação ao humano**: Notificação ao humano deve ocorrer em até 10 segundos
+- [ ] **REQ-004.14 — Auditabilidade do registro de escalonamento**: Registro do escalonamento deve ser auditável
 
 ---
 
@@ -132,6 +137,8 @@ No POC, a notificação deve ser feita via WhatsApp para a Rita.
 ## 6. Resumo da Conversa (para o humano)
 
 O sistema deve gerar um resumo curto, orientado à ação, incluindo quando possível:
+- Telefone do cliente
+- Data/hora da mensagem
 - Intenção do cliente
 - Produto(s) de interesse
 - Dados já coletados (CNPJ, localidade, quantidade, etc.)
@@ -206,6 +213,10 @@ O sistema deve gerar um resumo curto, orientado à ação, incluindo quando poss
 | Data | Versão | Alteração | Autor |
 |------|--------|-----------|-------|
 | 15/04/2026 | 1.0 | Criação inicial do requisito | Kika |
+| 06/05/2026 | 1.1 | Refatoração de REQ-004.1 (categorias explícito/implícito de gatilhos) e REQ-004.3 (escopo restrito a takeover iniciado pela Rita), eliminando sobreposição entre os dois requisitos | Kika |
+| 06/05/2026 | 1.2 | Adição de títulos descritivos a todos os requisitos do documento e refatoração de REQ-004.4 (capacidade: estado persistente) e REQ-004.10 (regra: suspensão de respostas automáticas) para eliminar duplicação semântica | Kika |
+| 06/05/2026 | 1.3 | Fusão de REQ-004.5A e REQ-004.10A em um único requisito (REQ-004.5A) com a lista detalhada de campos mínimos para pré-qualificação; REQ-004.10A removido | Kika |
+| 06/05/2026 | 1.4 | Fusão de REQ-004.11 (mensagem de transição) e REQ-004.12 (tom empático em reclamação) em um único requisito (REQ-004.11) sobre comunicação com o cliente no momento do escalonamento; REQ-004.12 removido | Kika |
 
 ---
 
