@@ -1,0 +1,20 @@
+{
+  "total_lidos": 198,
+  "duplicados_na_entrada": 0,
+  "novos": 198,
+  "atualizados": 0,
+  "ignorados": 0,
+  "desativados": 0,
+  "reativados": 0,
+  "embeddings_gerados": 198,
+  "lotes_embeddings": 4,
+  "tokens_input": 44058,
+  "dimensoes": 1536,
+  "provider": "openai",
+  "modelo": "text-embedding-3-small",
+  "dry_run": false,
+  "entrada": "/mnt/c/Beto/Pessoal/Python/git/AgenteAssistenteDeVendas/backend/data/rag/chunks_conhecimento.jsonl",
+  "inicio": "2026-05-01T18:20:40.693470+00:00",
+  "fim": "2026-05-01T18:20:52.274731+00:00",
+  "duracao_segundos": 11.581
+}

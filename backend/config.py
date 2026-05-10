@@ -24,7 +24,25 @@ class Settings(BaseSettings):
     LLM_MODEL: str = "llama-3.1-8b-instant"
     LLM_API_KEY: Optional[str] = None
     LLM_TEMPERATURE: float = 0.3
-    
+
+    # Embeddings (RAG)
+    EMBEDDING_PROVIDER: str = "openai"
+    EMBEDDING_MODEL: str = "text-embedding-3-small"
+    EMBEDDING_API_KEY: Optional[str] = None
+
+    # RAG / Retrieval
+    RAG_ENABLED: bool = True
+    RAG_TOP_K: int = 4
+    RAG_SCORE_MINIMO: float = 0.70
+    RAG_SUGERIR_PRODUTOS: bool = False
+    RAG_EXIBIR_FONTES_PAINEL: bool = True
+
+    # Q&A Pairs
+    QA_ENABLED: bool = True
+    QA_SCORE_MINIMO: float = 0.80
+    QA_TOP_K: int = 3
+    QA_APENAS_APROVADOS: bool = True
+
     # Consulta CNPJ
     RECEITAWS_BASE_URL: str = "https://www.receitaws.com.br/v1/cnpj"
     

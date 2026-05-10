@@ -271,6 +271,103 @@ export const api = {
     if (!response.ok) throw new ApiError('Erro ao listar mensagens pendentes', response.status, 'server')
     return response.json()
   },
+
+  // Pares Q&A
+  async listarParesQA({ contexto, ativo, aprovado, page = 1, limit = 50 } = {}) {
+    const params = new URLSearchParams()
+    if (contexto !== undefined && contexto !== null && contexto !== '') params.append('contexto', contexto)
+    if (ativo !== undefined && ativo !== null) params.append('ativo', ativo)
+    if (aprovado !== undefined && aprovado !== null) params.append('aprovado', aprovado)
+    params.append('page', page)
+    params.append('limit', limit)
+    const response = await fetch(`${API_URL}/api/pares-qa?${params}`)
+    if (!response.ok) throw new ApiError('Erro ao listar pares Q&A', response.status, 'server')
+    return response.json()
+  },
+
+  async listarPendentesAprovacaoQA(contexto) {
+    const params = new URLSearchParams()
+    if (contexto) params.append('contexto', contexto)
+    const response = await fetch(`${API_URL}/api/pares-qa/pendentes-aprovacao?${params}`)
+    if (!response.ok) throw new ApiError('Erro ao listar pendentes Q&A', response.status, 'server')
+    return response.json()
+  },
+
+  async criarParQA(dados) {
+    const response = await fetch(`${API_URL}/api/pares-qa`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(dados),
+    })
+    if (!response.ok) {
+      const detail = await response.json().catch(() => null)
+      throw new ApiError(detail?.detail || 'Erro ao criar par Q&A', response.status, 'server')
+    }
+    return response.json()
+  },
+
+  async atualizarParQA(id, dados) {
+    const response = await fetch(`${API_URL}/api/pares-qa/${id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(dados),
+    })
+    if (!response.ok) {
+      const detail = await response.json().catch(() => null)
+      throw new ApiError(detail?.detail || 'Erro ao atualizar par Q&A', response.status, 'server')
+    }
+    return response.json()
+  },
+
+  async aprovarParQA(id) {
+    const response = await fetch(`${API_URL}/api/pares-qa/${id}/aprovar`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+    })
+    if (!response.ok) {
+      const detail = await response.json().catch(() => null)
+      throw new ApiError(detail?.detail || 'Erro ao aprovar par Q&A', response.status, 'server')
+    }
+    return response.json()
+  },
+
+  async desativarParQA(id) {
+    const response = await fetch(`${API_URL}/api/pares-qa/${id}`, { method: 'DELETE' })
+    if (!response.ok) {
+      const detail = await response.json().catch(() => null)
+      throw new ApiError(detail?.detail || 'Erro ao desativar par Q&A', response.status, 'server')
+    }
+    return response.json()
+  },
+
+  async getConfigRag() {
+    try {
+      const response = await fetch(`${API_URL}/api/config/rag`)
+      if (!response.ok) throw new ApiError('Erro ao buscar config RAG', response.status, 'server')
+      return response.json()
+    } catch (error) {
+      if (error instanceof ApiError) throw error
+      throw new ApiError('Backend não está respondendo', 0, 'network')
+    }
+  },
+
+  async patchConfigRag(dados) {
+    try {
+      const response = await fetch(`${API_URL}/api/config/rag`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(dados),
+      })
+      if (!response.ok) {
+        const detail = await response.json().catch(() => null)
+        throw new ApiError(detail?.detail || 'Erro ao atualizar config RAG', response.status, 'server')
+      }
+      return response.json()
+    } catch (error) {
+      if (error instanceof ApiError) throw error
+      throw new ApiError('Backend não está respondendo', 0, 'network')
+    }
+  },
 }
 
 export { ApiError }

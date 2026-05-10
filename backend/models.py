@@ -5,13 +5,55 @@ from datetime import datetime, date
 from decimal import Decimal
 from typing import Optional, List
 from sqlalchemy import String, Text, DateTime, Date, Enum, Index, Boolean, Numeric, ForeignKey, Integer, JSON
+from sqlalchemy.dialects.postgresql import ARRAY, JSONB
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
+from sqlalchemy.types import UserDefinedType
 import enum
 
 
 class Base(DeclarativeBase):
     """Classe base para todos os modelos."""
     pass
+
+
+class Vector(UserDefinedType):
+    """Tipo pgvector para embeddings.
+
+    Serializa list[float] no formato textual aceito pelo pgvector ("[v1,v2,...]")
+    e converte a leitura de volta para list[float]. Permite usar o atributo
+    `embedding` como uma lista Python em codigo cliente.
+    """
+
+    cache_ok = True
+
+    def __init__(self, dimensions: int):
+        self.dimensions = dimensions
+
+    def get_col_spec(self, **kw) -> str:
+        return f"vector({self.dimensions})"
+
+    def bind_processor(self, dialect):
+        def process(value):
+            if value is None:
+                return None
+            if isinstance(value, str):
+                return value
+            return "[" + ",".join(repr(float(x)) for x in value) + "]"
+        return process
+
+    def result_processor(self, dialect, coltype):
+        def process(value):
+            if value is None:
+                return None
+            if isinstance(value, (list, tuple)):
+                return list(value)
+            texto = value.strip()
+            if texto.startswith("[") and texto.endswith("]"):
+                texto = texto[1:-1]
+            if not texto:
+                return []
+            return [float(x) for x in texto.split(",")]
+        return process
 
 
 class OrigemMensagem(str, enum.Enum):
@@ -532,6 +574,107 @@ class Produto(Base):
         }
 
 
+class DocumentoConhecimento(Base):
+    """
+    Chunk/documento de conhecimento usado pela RAG.
+
+    A coluna no banco chama-se `metadata`, mas no modelo usamos `metadados`
+    porque `metadata` e reservado pelo SQLAlchemy Declarative.
+    """
+
+    __tablename__ = "documentos_conhecimento"
+
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    id_externo: Mapped[str] = mapped_column(String(500), nullable=False, unique=True)
+    id_documento_origem: Mapped[str] = mapped_column(String(500), nullable=False, index=True)
+    id_fonte: Mapped[Optional[str]] = mapped_column(String(64), nullable=True, index=True)
+    tipo: Mapped[str] = mapped_column(String(50), nullable=False, index=True)
+    titulo: Mapped[str] = mapped_column(String(300), nullable=False, index=True)
+    conteudo: Mapped[str] = mapped_column(Text, nullable=False)
+    metadados: Mapped[dict] = mapped_column("metadata", JSONB, nullable=False)
+    conteudo_hash: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
+    embedding: Mapped[List[float]] = mapped_column(Vector(1536), nullable=False)
+    ativo: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False, index=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime,
+        default=datetime.utcnow,
+        onupdate=datetime.utcnow,
+        nullable=False,
+    )
+
+    __table_args__ = (
+        Index("idx_documentos_conhecimento_tipo_ativo", "tipo", "ativo"),
+        Index("idx_documentos_conhecimento_titulo", "titulo"),
+        Index("idx_documentos_conhecimento_hash", "conteudo_hash"),
+    )
+
+    def to_dict(self) -> dict:
+        return {
+            "id": self.id,
+            "id_externo": self.id_externo,
+            "id_documento_origem": self.id_documento_origem,
+            "id_fonte": self.id_fonte,
+            "tipo": self.tipo,
+            "titulo": self.titulo,
+            "conteudo": self.conteudo,
+            "metadata": self.metadados,
+            "conteudo_hash": self.conteudo_hash,
+            "ativo": self.ativo,
+            "created_at": self.created_at.isoformat() if self.created_at else None,
+            "updated_at": self.updated_at.isoformat() if self.updated_at else None,
+        }
+
+
+class ParQA(Base):
+    """
+    Par Pergunta+Resposta curado para busca semântica.
+
+    O embedding é gerado a partir do campo `pergunta` (não da resposta),
+    maximizando a similaridade cosseno com queries dos usuários.
+    """
+
+    __tablename__ = "pares_qa"
+
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    id_externo: Mapped[str] = mapped_column(String(255), nullable=False, unique=True)
+    pergunta: Mapped[str] = mapped_column(Text, nullable=False)
+    resposta: Mapped[str] = mapped_column(Text, nullable=False)
+    contexto: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
+    tags: Mapped[Optional[List[str]]] = mapped_column(ARRAY(Text), nullable=True)
+    embedding: Mapped[Optional[List[float]]] = mapped_column(Vector(1536), nullable=True)
+    ativo: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+    aprovado: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    criado_por: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
+    criado_em: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False)
+    atualizado_em: Mapped[datetime] = mapped_column(
+        DateTime,
+        default=datetime.utcnow,
+        onupdate=datetime.utcnow,
+        nullable=False,
+    )
+
+    __table_args__ = (
+        Index("idx_pares_qa_contexto_ativo", "contexto", "ativo"),
+        Index("idx_pares_qa_aprovado_ativo", "aprovado", "ativo"),
+    )
+
+    def to_dict(self) -> dict:
+        return {
+            "id": self.id,
+            "id_externo": self.id_externo,
+            "pergunta": self.pergunta,
+            "resposta": self.resposta,
+            "contexto": self.contexto,
+            "tags": self.tags or [],
+            "ativo": self.ativo,
+            "aprovado": self.aprovado,
+            "criado_por": self.criado_por,
+            "criado_em": self.criado_em.isoformat() if self.criado_em else None,
+            "atualizado_em": self.atualizado_em.isoformat() if self.atualizado_em else None,
+        }
+
+
 class ItemOrcamento(Base):
     """
     Item de um orçamento.
@@ -712,7 +855,12 @@ class ProcessamentoMensagem(Base):
     llm_tokens_output: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
     llm_latencia_ms: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
     llm_raw_resposta: Mapped[Optional[dict]] = mapped_column(JSON, nullable=True)
-    
+
+    # --- RAG (retrieval-augmented generation) ---
+    rag_utilizada: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    rag_trechos: Mapped[Optional[list]] = mapped_column(JSONB, nullable=True)
+    rag_score_maximo: Mapped[Optional[Decimal]] = mapped_column(Numeric(5, 4), nullable=True)
+
     # --- Controle ---
     duracao_ms: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
     erro: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
@@ -754,6 +902,13 @@ class ProcessamentoMensagem(Base):
             "llm_tokens_output": self.llm_tokens_output,
             "llm_latencia_ms": self.llm_latencia_ms,
             "llm_raw_resposta": self.llm_raw_resposta,
+            "rag_utilizada": self.rag_utilizada,
+            "rag_trechos": self.rag_trechos,
+            "rag_score_maximo": (
+                float(self.rag_score_maximo)
+                if self.rag_score_maximo is not None
+                else None
+            ),
             "duracao_ms": self.duracao_ms,
             "erro": self.erro,
             "created_at": self.created_at.isoformat() if self.created_at else None,

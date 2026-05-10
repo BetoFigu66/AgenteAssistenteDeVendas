@@ -2,10 +2,32 @@ import { useState, useRef, useEffect } from 'react'
 import { Send, MessageCircle, AlertTriangle } from 'lucide-react'
 import Message from './Message'
 import ConversaInfo from './ConversaInfo'
+import { api } from '../services/api'
 
 function ChatArea({ telefone, mensagens, dadosConversa, loading, erro, onEnviarMensagem }) {
   const [inputMensagem, setInputMensagem] = useState('')
   const messagesEndRef = useRef(null)
+  const [scoreMinimo, setScoreMinimo] = useState(null)
+  const [salvandoScore, setSalvandoScore] = useState(false)
+
+  useEffect(() => {
+    api.getConfigRag().then(cfg => setScoreMinimo(cfg.rag_score_minimo)).catch(() => {})
+  }, [])
+
+  const handleScoreChange = (e) => {
+    const val = parseFloat(e.target.value)
+    if (!isNaN(val)) setScoreMinimo(val)
+  }
+
+  const handleScoreBlur = async (e) => {
+    const val = parseFloat(e.target.value)
+    if (isNaN(val) || val < 0 || val > 1) return
+    setSalvandoScore(true)
+    try {
+      await api.patchConfigRag({ rag_score_minimo: val })
+    } catch (_) {}
+    finally { setSalvandoScore(false) }
+  }
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
@@ -27,11 +49,31 @@ function ChatArea({ telefone, mensagens, dadosConversa, loading, erro, onEnviarM
     <div className="md:col-span-2 bg-white rounded-lg shadow-md flex flex-col" style={{ height: '600px' }}>
       {/* Header do chat */}
       <div className="px-4 py-3 border-b bg-gradient-to-r from-inforrel-primary to-inforrel-secondary rounded-t-lg">
-        <div className="flex items-center gap-2 text-white">
-          <MessageCircle size={20} />
-          <p className="font-medium">
-            {telefone || 'Selecione um telefone'}
-          </p>
+        <div className="flex items-center justify-between text-white">
+          <div className="flex items-center gap-2">
+            <MessageCircle size={20} />
+            <p className="font-medium">
+              {telefone || 'Selecione um telefone'}
+            </p>
+          </div>
+          {scoreMinimo !== null && (
+            <div className="flex items-center gap-1.5 text-xs">
+              <span className="text-white/70">Score RAG</span>
+              <input
+                type="number"
+                min="0"
+                max="1"
+                step="0.05"
+                value={scoreMinimo}
+                onChange={handleScoreChange}
+                onBlur={handleScoreBlur}
+                onKeyDown={e => e.key === 'Enter' && e.target.blur()}
+                title="Score mínimo de similaridade para a RAG retornar resultados (0.0 a 1.0)"
+                className="w-16 text-center rounded px-1 py-0.5 bg-white/20 text-white border border-white/30 focus:outline-none focus:bg-white/30"
+              />
+              <span className={`text-xs transition-opacity ${salvandoScore ? 'opacity-100' : 'opacity-0'} text-white/60`}>✓</span>
+            </div>
+          )}
         </div>
       </div>
 

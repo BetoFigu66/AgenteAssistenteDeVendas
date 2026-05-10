@@ -39,6 +39,7 @@ from models import (
 from services.identificador import identificar_por_telefone, normalizar_telefone
 from services.llm import get_llm_provider
 from services.processador import ProcessadorMensagem
+from routers.pares_qa import router as pares_qa_router
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -94,6 +95,8 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+app.include_router(pares_qa_router)
 
 
 # ============================================================================
@@ -582,13 +585,22 @@ async def aprovar_mensagem(mensagem_id: int, payload: AprovarMensagemRequest):
             )
 
         if mensagem.aprovador_id is not None:
-            raise HTTPException(
-                status_code=409,
-                detail=(
+            # Verifica se foi reprovada (tem report vinculado) ou aprovada normalmente
+            from models import ReportProblema as _RP
+            foi_reprovada = (
+                session.query(_RP)
+                .filter_by(mensagem_id=mensagem.id)
+                .first() is not None
+            )
+            detalhe = (
+                "Mensagem já foi reprovada e não pode ser aprovada"
+                if foi_reprovada
+                else (
                     f"Mensagem já aprovada por aprovador_id={mensagem.aprovador_id} "
                     f"em {mensagem.timestamp_aprovacao.isoformat() if mensagem.timestamp_aprovacao else 'N/A'}"
-                ),
+                )
             )
+            raise HTTPException(status_code=409, detail=detalhe)
 
         aprovador = session.query(User).filter_by(id=payload.aprovador_id).first()
         if not aprovador:
@@ -654,6 +666,10 @@ async def reprovar_mensagem(mensagem_id: int, payload: ReprovarMensagemRequest):
                 raise HTTPException(status_code=400, detail="Justificativa é obrigatória")
 
             logger.info(f"Criando report para mensagem_id={mensagem_id}, processamento_id={mensagem.processamento_id}")
+
+            # Marca a mensagem como "revisada" para sair do estado pendente_aprovacao
+            mensagem.aprovador_id = reprovador.id
+            mensagem.timestamp_aprovacao = datetime.utcnow()
 
             # Cria o report vinculado à mensagem (e ao processamento se existir)
             report = ReportProblema(
@@ -921,6 +937,61 @@ async def obter_contexto_report(report_id: int, antes: int = 3, depois: int = 3)
             "processamento": proc.to_dict() if proc else None,
             "contexto_mensagens": contexto_msgs,
         }
+
+
+# ============================================================================
+# Configuração RAG (runtime) — para ajuste dinâmico durante testes
+# ============================================================================
+
+class RagConfigUpdate(BaseModel):
+    rag_score_minimo: Optional[float] = None
+    rag_top_k: Optional[int] = None
+
+
+@app.get("/api/config/rag")
+async def get_config_rag():
+    """Retorna a configuração atual da RAG em memória."""
+    from services.rag import get_retrieval_service
+    try:
+        servico = get_retrieval_service()
+        return {
+            "rag_enabled": settings.RAG_ENABLED,
+            "rag_score_minimo": servico._score_minimo_padrao,
+            "rag_top_k": servico._top_k_padrao,
+        }
+    except Exception:
+        return {
+            "rag_enabled": settings.RAG_ENABLED,
+            "rag_score_minimo": settings.RAG_SCORE_MINIMO,
+            "rag_top_k": settings.RAG_TOP_K,
+        }
+
+
+@app.patch("/api/config/rag")
+async def patch_config_rag(body: RagConfigUpdate):
+    """Atualiza em memória os parâmetros da RAG sem reiniciar o servidor."""
+    from services.rag import get_retrieval_service
+    try:
+        servico = get_retrieval_service()
+    except Exception as exc:
+        raise HTTPException(status_code=503, detail=f"RAG não disponível: {exc}")
+    if body.rag_score_minimo is not None:
+        if not 0.0 <= body.rag_score_minimo <= 1.0:
+            raise HTTPException(status_code=422, detail="rag_score_minimo deve estar entre 0.0 e 1.0")
+        servico._score_minimo_padrao = body.rag_score_minimo
+    if body.rag_top_k is not None:
+        if body.rag_top_k < 1:
+            raise HTTPException(status_code=422, detail="rag_top_k deve ser >= 1")
+        servico._top_k_padrao = body.rag_top_k
+    logger.info(
+        "[RAG config] score_minimo=%.2f top_k=%d",
+        servico._score_minimo_padrao,
+        servico._top_k_padrao,
+    )
+    return {
+        "rag_score_minimo": servico._score_minimo_padrao,
+        "rag_top_k": servico._top_k_padrao,
+    }
 
 
 @app.get("/health")
