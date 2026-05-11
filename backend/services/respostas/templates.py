@@ -96,6 +96,12 @@ FORA_CONTEXTO = (
     "catracas e relógios de ponto. Em que posso te ajudar?"
 )
 
+# Fallback quando RAG nao encontra trechos com score suficiente
+PRODUTO_SEM_CONTEXTO = (
+    "Ainda não tenho uma resposta precisa sobre isso por aqui. "
+    "Posso te passar para um de nossos atendentes para te ajudar melhor? 🙋"
+)
+
 # Orçamento (status)
 ORCAMENTO_APROVADO = (
     "Perfeito! Orçamento aprovado registrado. Nosso time comercial dará "

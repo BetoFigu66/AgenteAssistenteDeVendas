@@ -42,10 +42,22 @@ from services.identificador import (
     normalizar_telefone,
 )
 from services.llm import LLMProvider
+from services.debug_log import DebugLogger
+from services.rag import DocumentoRecuperado, ParRecuperado, QAService, RetrievalService
 from services.respostas import GeradorRespostas, RespostaGerada
 from services.respostas import templates as T
 
 logger = logging.getLogger(__name__)
+
+
+# Intencoes que disparam busca na RAG. PERGUNTAR_PRECO esta presente para que
+# possamos registrar os trechos relacionados em auditoria, mas a resposta
+# continua sendo o template padrao de encaminhamento para orcamento humano.
+_INTENCOES_RAG = frozenset({
+    "perguntar_produto",
+    "perguntar_preco",
+    "fora_contexto",
+})
 
 
 @dataclass
@@ -61,10 +73,40 @@ class ResultadoProcessamento:
 
 class ProcessadorMensagem:
     """Orquestrador central do cérebro do assistente."""
-    
-    def __init__(self, llm: Optional[LLMProvider] = None):
+
+    def __init__(
+        self,
+        llm: Optional[LLMProvider] = None,
+        retrieval: Optional[RetrievalService] = None,
+        qa: Optional[QAService] = None,
+    ):
         self._llm = llm
         self._gerador = GeradorRespostas(llm=llm, usar_llm=llm is not None)
+        self._retrieval = retrieval
+        if self._retrieval is None and settings.RAG_ENABLED:
+            try:
+                from services.rag import get_retrieval_service
+                self._retrieval = get_retrieval_service()
+                logger.info("[Processador] RetrievalService inicializado para RAG")
+            except Exception as e:
+                # Erro comum: EMBEDDING_API_KEY nao configurada em dev.
+                logger.warning(
+                    "[Processador] RAG desabilitada: falha ao inicializar retrieval: %s",
+                    e,
+                )
+                self._retrieval = None
+        self._qa = qa
+        if self._qa is None and settings.QA_ENABLED:
+            try:
+                from services.rag import get_qa_service
+                self._qa = get_qa_service()
+                logger.info("[Processador] QAService inicializado")
+            except Exception as e:
+                logger.warning(
+                    "[Processador] QA desabilitado: falha ao inicializar QAService: %s",
+                    e,
+                )
+                self._qa = None
     
     # ------------------------------------------------------------------
     # Ponto de entrada
@@ -94,16 +136,37 @@ class ProcessadorMensagem:
         )
         db.add(msg_in)
         db.commit()
-        
+
+        # Logger de debug vinculado a esta mensagem (prefixo para grep por telefone:msg_id)
+        dlog = DebugLogger(telefone=telefone_norm, msg_id=msg_in.id)
+        dlog.log("entrada", f'msg="{conteudo[:120].replace(chr(10), " ")}"')
+
         # 2. Identifica remetente
         identificacao = identificar_por_telefone(db, telefone_norm)
         logger.info(f"[Processador] Identificação: {identificacao.status.value}")
+        dlog.log(
+            "identificacao",
+            "status=" + identificacao.status.value
+            + (f" empresa='{identificacao.empresa.nome[:30]}'" if identificacao.empresa else "")
+            + (f" contato_id={identificacao.contato.id}" if identificacao.contato else ""),
+        )
         
         # 3. Classifica intenção e extrai entidades
         resultado_class = await classificar(conteudo, llm=self._llm)
         logger.info(
             f"[Processador] Intenção: {resultado_class.intencao.value} "
             f"(confiança={resultado_class.confianca:.2f}, via {resultado_class.origem})"
+        )
+        _ent = resultado_class.entidades
+        _ent_str = (
+            (f" cnpjs={_ent.cnpjs}" if _ent.cnpjs else "")
+            + (f" produtos={_ent.tipos_produto}" if _ent.tipos_produto else "")
+            + (f" qtd={_ent.quantidades}" if _ent.quantidades else "")
+        )
+        dlog.log(
+            "intent",
+            f"intencao={resultado_class.intencao.value} confianca={resultado_class.confianca:.2f}"
+            f" via={resultado_class.origem}{_ent_str}",
         )
         
         # 4. Verifica modo de operação da negociação ativa (se existir)
@@ -121,6 +184,7 @@ class ProcessadorMensagem:
                 f"[Processador] Negociação {negociacao_inicial.id} em modo HUMANO — "
                 f"não gerando resposta automática."
             )
+        dlog.log("modo", "HUMANO → resposta suprimida" if modo_humano else "AGENTE")
         
         # 5. Roteia conforme estado de identificação + intenção (só no modo AGENTE)
         if modo_humano:
@@ -133,6 +197,7 @@ class ProcessadorMensagem:
                     conteudo=conteudo,
                     identificacao=identificacao,
                     resultado_class=resultado_class,
+                    dlog=dlog,
                 )
             except Exception as e:
                 logger.exception(f"[Processador] Erro gerando resposta: {e}")
@@ -148,6 +213,13 @@ class ProcessadorMensagem:
         negociacao = self._negociacao_ativa(db, contato) if contato else None
         
         # 7. Registra processamento (auditoria/debug) — sempre, independente do modo
+        dlog.log(
+            "saida",
+            f'template={resposta.template_usado or "nenhum"}'
+            f" rag={resposta.rag_utilizada}"
+            f" llm={resposta.personalizado_via_llm}"
+            f' texto="{resposta.texto[:80].replace(chr(10), " ")}"',
+        )
         duracao_ms = int((time.monotonic() - inicio_ms) * 1000)
         processamento = self._criar_processamento(
             db=db,
@@ -161,6 +233,8 @@ class ProcessadorMensagem:
             erro=erro_processamento,
         )
         
+        dlog.log("processamento_id", f"id={processamento.id} duracao={duracao_ms}ms")
+
         # 8. Vincula mensagem do cliente ao processamento/contato/negociação
         msg_in.processamento_id = processamento.id
         if contato:
@@ -228,6 +302,9 @@ class ProcessadorMensagem:
         tokens_in = (resultado_class.llm_tokens_input or 0) + (resposta.llm_tokens_input or 0) or None
         tokens_out = (resultado_class.llm_tokens_output or 0) + (resposta.llm_tokens_output or 0) or None
         
+        score_maximo = resposta.rag_score_maximo
+        if score_maximo is not None:
+            score_maximo = round(float(score_maximo), 4)
         proc = ProcessamentoMensagem(
             intencao=resultado_class.intencao.value,
             confianca=round(resultado_class.confianca, 2),
@@ -245,6 +322,9 @@ class ProcessadorMensagem:
             llm_tokens_output=tokens_out,
             llm_latencia_ms=resultado_class.llm_latencia_ms,
             llm_raw_resposta=resultado_class.raw_llm,
+            rag_utilizada=resposta.rag_utilizada,
+            rag_trechos=resposta.trechos_rag or None,
+            rag_score_maximo=score_maximo,
             duracao_ms=duracao_ms,
             erro=erro,
         )
@@ -264,6 +344,7 @@ class ProcessadorMensagem:
         conteudo: str,
         identificacao,
         resultado_class,
+        dlog: Optional[DebugLogger] = None,
     ) -> RespostaGerada:
         """Decide o que responder com base na identificação e intenção."""
         intencao = resultado_class.intencao
@@ -271,14 +352,20 @@ class ProcessadorMensagem:
         
         # Regra: Escalar humano sempre tem prioridade
         if intencao == Intencao.ESCALAR_HUMANO:
+            if dlog:
+                dlog.log("rota", "ESCALAR_HUMANO → ESCALADO_HUMANO")
             return await self._gerador.gerar(T.ESCALADO_HUMANO)
         
         # Regra: Reclamação também escala
         if intencao == Intencao.RECLAMAR:
+            if dlog:
+                dlog.log("rota", "RECLAMAR → RECLAMACAO_ESCALADA")
             return await self._gerador.gerar(T.RECLAMACAO_ESCALADA)
         
         # Se o cliente forneceu CNPJ, processa
         if entidades.cnpjs:
+            if dlog:
+                dlog.log("rota", f"cnpj_fornecido={entidades.cnpjs[0]}")
             return await self._processar_cnpj_fornecido(
                 db, telefone, entidades.cnpjs[0],
                 nome_informado=entidades.nomes[0] if entidades.nomes else None,
@@ -286,9 +373,13 @@ class ProcessadorMensagem:
         
         # Telefone novo ou sem empresa -> pedir identificação
         if identificacao.status == StatusIdentificacao.NOVO:
+            if dlog:
+                dlog.log("rota", "NOVO → SAUDACAO_NOVO_CONTATO")
             return await self._gerador.gerar(T.SAUDACAO_NOVO_CONTATO)
         
         if identificacao.status == StatusIdentificacao.MULTIPLO:
+            if dlog:
+                dlog.log("rota", "MULTIPLO → MULTIPLAS_EMPRESAS")
             nomes_empresas = ", ".join(e.nome for e in identificacao.empresas[:5])
             return await self._gerador.gerar(
                 T.MULTIPLAS_EMPRESAS,
@@ -296,6 +387,8 @@ class ProcessadorMensagem:
             )
         
         if identificacao.status == StatusIdentificacao.SEM_EMPRESA:
+            if dlog:
+                dlog.log("rota", "SEM_EMPRESA → PERGUNTAR_CNPJ")
             return await self._gerador.gerar(T.PERGUNTAR_CNPJ)
         
         # A partir daqui: contato identificado com empresa
@@ -319,6 +412,7 @@ class ProcessadorMensagem:
             contato=contato,
             empresa=empresa,
             conteudo_cliente=conteudo,
+            dlog=dlog,
         )
     
     async def _gerar_resposta_por_intencao(
@@ -327,9 +421,12 @@ class ProcessadorMensagem:
         contato: Contato,
         empresa: Empresa,
         conteudo_cliente: str,
+        dlog: Optional[DebugLogger] = None,
     ) -> RespostaGerada:
         """Gera resposta baseado na intenção (com contato já identificado)."""
         nome = contato.nome or ""
+        if dlog:
+            dlog.log("rota", f"identificado empresa='{empresa.nome[:30]}' intencao={intencao.value}")
         
         if intencao == Intencao.SAUDACAO:
             if nome:
@@ -342,20 +439,31 @@ class ProcessadorMensagem:
                 personalizar=True,
                 mensagem_cliente=conteudo_cliente,
             )
-        
+
         if intencao == Intencao.PERGUNTAR_PRECO:
-            return await self._gerador.gerar(
+            # Plano v1: para perguntas de preco a resposta e sempre o template
+            # padrao de encaminhamento. Ainda assim, rodamos a RAG para
+            # registrar trechos relacionados em auditoria.
+            trechos_preco = await self._buscar_trechos_rag(conteudo_cliente, dlog=dlog)
+            resposta = await self._gerador.gerar(
                 T.PRECO_NAO_NEGOCIADO,
                 personalizar=True,
                 mensagem_cliente=conteudo_cliente,
             )
-        
+            _anexar_trechos_para_auditoria(resposta, trechos_preco)
+            return resposta
+
         if intencao == Intencao.PEDIR_ORCAMENTO:
             return await self._gerador.gerar(T.PEDIR_TIPO_PRODUTO)
-        
+
         if intencao == Intencao.PERGUNTAR_PRODUTO:
-            return await self._gerador.gerar(T.PEDIR_TIPO_PRODUTO)
-        
+            return await self._responder_com_rag(
+                conteudo_cliente=conteudo_cliente,
+                template_fallback=T.PRODUTO_SEM_CONTEXTO,
+                template_fallback_nome="PRODUTO_SEM_CONTEXTO",
+                dlog=dlog,
+            )
+
         if intencao == Intencao.APROVAR_ORCAMENTO:
             return await self._gerador.gerar(T.ORCAMENTO_APROVADO)
         
@@ -363,13 +471,133 @@ class ProcessadorMensagem:
             return await self._gerador.gerar(T.ORCAMENTO_REPROVADO)
         
         if intencao == Intencao.FORA_CONTEXTO:
-            return await self._gerador.gerar(T.FORA_CONTEXTO)
-        
+            return await self._responder_com_rag(
+                conteudo_cliente=conteudo_cliente,
+                template_fallback=T.FORA_CONTEXTO,
+                template_fallback_nome="FORA_CONTEXTO",
+                dlog=dlog,
+            )
+
         # Fallback
+        if dlog:
+            dlog.log("rota", f"intencao={intencao.value} não mapeada → NAO_ENTENDI")
         return await self._gerador.gerar(
             T.NAO_ENTENDI,
             personalizar=True,
             mensagem_cliente=conteudo_cliente,
+        )
+
+    # ------------------------------------------------------------------
+    # RAG helpers
+    # ------------------------------------------------------------------
+
+    async def _buscar_resposta_qa(
+        self,
+        query: str,
+        dlog: Optional[DebugLogger] = None,
+    ) -> Optional[ParRecuperado]:
+        """Busca o melhor par Q&A para a query; retorna None se nao encontrado."""
+        if not settings.QA_ENABLED or self._qa is None:
+            if dlog:
+                dlog.log("qa_busca", "QA desabilitado ou servico nao inicializado")
+            return None
+        if dlog:
+            dlog.log("qa_busca", f'query="{query[:80]}" score_min={self._qa._score_minimo_padrao}')
+        try:
+            pares = await self._qa.buscar(
+                query=query,
+                apenas_aprovados=settings.QA_APENAS_APROVADOS,
+            )
+            if pares:
+                top = pares[0]
+                if dlog:
+                    dlog.log(
+                        "qa_resultado",
+                        f"hit score={top.score:.4f} id={top.id_externo}"
+                        f" pergunta='{top.pergunta[:50]}'",
+                    )
+                return top
+            if dlog:
+                dlog.log("qa_resultado", f"sem hits (score_min={self._qa._score_minimo_padrao})")
+            return None
+        except Exception as e:
+            logger.warning("[Processador] Falha na busca QA: %s", e)
+            if dlog:
+                dlog.log("qa_erro", f"{type(e).__name__}: {str(e)[:80]}")
+            return None
+
+    async def _buscar_trechos_rag(
+        self,
+        query: str,
+        dlog: Optional[DebugLogger] = None,
+    ) -> list[DocumentoRecuperado]:
+        """Busca trechos na RAG, tolerando RAG desabilitada ou em falha."""
+        if not settings.RAG_ENABLED or self._retrieval is None:
+            if dlog:
+                dlog.log("rag_busca", "RAG desabilitada ou retrieval não inicializado")
+            return []
+        score_min = self._retrieval._score_minimo_padrao
+        if dlog:
+            dlog.log("rag_busca", f'query="{query[:80]}" score_min={score_min}')
+        try:
+            trechos = await self._retrieval.buscar(query=query, tipo=None)
+            if dlog:
+                if trechos:
+                    top = trechos[0]
+                    dlog.log(
+                        "rag_resultado",
+                        f"encontrados={len(trechos)} melhor_score={top.score:.4f}"
+                        f" titulo='{str(top.titulo)[:50]}'",
+                    )
+                else:
+                    dlog.log("rag_resultado", f"encontrados=0 (score_min={score_min})")
+            return trechos
+        except Exception as e:
+            logger.warning("[Processador] Falha na busca RAG: %s", e)
+            if dlog:
+                dlog.log("rag_erro", f"{type(e).__name__}: {str(e)[:80]}")
+            return []
+
+    async def _responder_com_rag(
+        self,
+        conteudo_cliente: str,
+        template_fallback: str,
+        template_fallback_nome: str,
+        dlog: Optional[DebugLogger] = None,
+    ) -> RespostaGerada:
+        """Busca pares/trechos e gera resposta; Q&A tem prioridade sobre chunks."""
+        # Camada 1: Q&A pairs curados
+        par = await self._buscar_resposta_qa(conteudo_cliente, dlog=dlog)
+        if par is not None:
+            if dlog:
+                dlog.log("qa_decisao", f"hit QA → resposta curada id={par.id_externo} score={par.score:.4f}")
+            return RespostaGerada(
+                texto=par.resposta,
+                template_usado="qa_pair",
+                personalizado_via_llm=False,
+                rag_utilizada=True,
+                trechos_rag=[par.to_dict()],
+                rag_score_maximo=par.score,
+            )
+        # Camada 2: chunks de produto (RAG)
+        trechos = await self._buscar_trechos_rag(conteudo_cliente, dlog=dlog)
+        if not trechos:
+            if dlog:
+                dlog.log("rag_decisao", f"sem trechos → fallback template={template_fallback_nome}")
+            resposta = await self._gerador.gerar(
+                template_fallback,
+                template_nome=template_fallback_nome,
+            )
+            resposta.rag_utilizada = settings.RAG_ENABLED and self._retrieval is not None
+            return resposta
+        if dlog:
+            dlog.log("rag_decisao", f"{len(trechos)} trechos → gerando com LLM+RAG")
+        return await self._gerador.gerar_com_rag(
+            pergunta_cliente=conteudo_cliente,
+            trechos=trechos,
+            permitir_sugestao_produto=settings.RAG_SUGERIR_PRODUTOS,
+            template_fallback=template_fallback,
+            template_fallback_nome=template_fallback_nome,
         )
     
     # ------------------------------------------------------------------
@@ -498,3 +726,31 @@ class ProcessadorMensagem:
         
         if registros:
             db.commit()
+
+
+def _anexar_trechos_para_auditoria(
+    resposta: RespostaGerada,
+    trechos: list[DocumentoRecuperado],
+) -> None:
+    """Popula `trechos_rag` e `rag_score_maximo` sem alterar o texto da resposta.
+
+    Usado quando a RAG e acionada apenas para auditoria (ex: PERGUNTAR_PRECO),
+    mantendo o template padrao como resposta ao cliente.
+    """
+    if not trechos:
+        return
+    resumo = [
+        {
+            "id": getattr(t, "id", None),
+            "id_externo": getattr(t, "id_externo", None),
+            "tipo": getattr(t, "tipo", None),
+            "titulo": getattr(t, "titulo", None),
+            "score": float(getattr(t, "score", 0.0) or 0.0),
+            "distancia": float(getattr(t, "distancia", 0.0) or 0.0),
+            "url": (getattr(t, "metadados", None) or {}).get("url"),
+        }
+        for t in trechos
+    ]
+    resposta.rag_utilizada = True
+    resposta.trechos_rag = resumo
+    resposta.rag_score_maximo = max(r["score"] for r in resumo)

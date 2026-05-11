@@ -1,0 +1,67 @@
+{
+  "gerado_em": "2026-04-30T16:36:30.684968+00:00",
+  "similaridade_minima": 0.82,
+  "total_entrada": 82,
+  "total_saida": 80,
+  "duplicatas_exatas_removidas": 2,
+  "grupos_duplicata_exata": 1,
+  "pares_similares_para_revisao": 1,
+  "por_tipo_documento": {
+    "blog": 4,
+    "categoria_produto": 6,
+    "conversa": 1,
+    "indice_produto": 6,
+    "institucional": 7,
+    "produto": 52,
+    "solucao": 4
+  },
+  "por_origem": {
+    "conversa_whatsapp": 1,
+    "folder_produto": 17,
+    "webscraping": 62
+  },
+  "por_status_consolidacao": {
+    "representante_duplicata_exata": 1,
+    "similar_precisa_revisao": 2,
+    "unico": 77
+  },
+  "duplicatas_exatas": [
+    {
+      "id_documento": "folder_produto:folder-controle-de-acesso-qr-code:c8ba58504804",
+      "arquivo": "docs/FoldersProdutos/folder-controle-de-acesso-QR-Code.txt",
+      "origem": "folder_produto",
+      "tipo": "produto",
+      "titulo": "Segurança"
+    },
+    {
+      "id_documento": "folder_produto:folder-controle-de-acesso-rfid-ou-smartcard-mifare:c8ba58504804",
+      "arquivo": "docs/FoldersProdutos/folder-controle-de-acesso-RFID-ou-Smartcard-Mifare.txt",
+      "origem": "folder_produto",
+      "tipo": "produto",
+      "titulo": "Segurança"
+    }
+  ],
+  "similares_para_revisao": [
+    {
+      "score": 0.99,
+      "representante_sugerido": "folder_produto:folder-catraca-de-acesso-fit:cf39e2e196c1",
+      "outro_documento": "folder_produto:folder-catraca-de-acesso:3cd2a4d7bd3f",
+      "documentos": [
+        {
+          "id_documento": "folder_produto:folder-catraca-de-acesso-fit:cf39e2e196c1",
+          "titulo": "Catraca compacta para soluções de controle de acesso",
+          "tipo": "produto",
+          "origem": "folder_produto",
+          "arquivo": "docs/FoldersProdutos/folder-catraca-de-acesso-fit.txt"
+        },
+        {
+          "id_documento": "folder_produto:folder-catraca-de-acesso:3cd2a4d7bd3f",
+          "titulo": "Catraca FIT: catraca compacta para soluções de controle de acesso que reúne segurança, simplicidade e eficiência",
+          "tipo": "produto",
+          "origem": "folder_produto",
+          "arquivo": "docs/FoldersProdutos/folder-catraca-de-acesso.txt"
+        }
+      ]
+    }
+  ]
+}

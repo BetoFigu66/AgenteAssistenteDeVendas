@@ -259,6 +259,56 @@ def _check_referencias_orfas_em_docs(raiz: Path) -> CheckResult:
     )
 
 
+@registrar_check(
+    id="pgvector-op-sem-return-type",
+    titulo="Operador pgvector <=> sem return_type=Float() explícito",
+    severidade="error",
+    escopos=["sempre", "pre-commit"],
+)
+def _check_pgvector_op_sem_return_type(raiz: Path) -> CheckResult:
+    """
+    O operador `<=>` (distancia cosseno do pgvector) em SQLAlchemy herda o tipo
+    da coluna esquerda. Quando a coluna e do tipo customizado `Vector`, o
+    `result_processor` do Vector e aplicado ao float de distancia retornado,
+    causando `AttributeError: 'float' object has no attribute 'strip'`.
+
+    Toda chamada `.op('<=>') deve ter `return_type=Float()` explicito para que
+    SQLAlchemy saiba que o resultado e um float, nao um vector.
+    """
+    problemas: List[str] = []
+    backend = raiz / "backend"
+    if not backend.is_dir():
+        return CheckResult(
+            passou=True,
+            mensagem="Diretorio backend/ nao encontrado; check ignorado.",
+        )
+    for py_file in _iter_arquivos(backend, sufixo=".py"):
+        try:
+            texto = py_file.read_text(encoding="utf-8")
+        except (UnicodeDecodeError, OSError):
+            continue
+        for i, linha in enumerate(texto.splitlines(), 1):
+            if '.op("<=>"' in linha and "return_type=" not in linha:
+                rel = str(py_file.relative_to(raiz)).replace("\\", "/")
+                problemas.append(
+                    f"{rel}:{i} — .op('<=>') sem return_type=Float()"
+                )
+    return CheckResult(
+        passou=not problemas,
+        findings=problemas,
+        mensagem=(
+            f"{len(problemas)} chamada(s) .op('<=>') sem return_type=Float()"
+            if problemas
+            else "Todas as chamadas .op('<=>') têm return_type=Float()."
+        ),
+        dica_correcao=(
+            "Adicione return_type=Float() ao .op('<=>') para evitar que o "
+            "result_processor do Vector seja aplicado ao float de distancia. "
+            "Exemplo: .op('<=>', return_type=Float())(param)"
+        ),
+    )
+
+
 # ----------------------------------------------------------------------
 # QAEngineer — agente executor da checklist
 # ----------------------------------------------------------------------

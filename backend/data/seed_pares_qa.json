@@ -1,0 +1,429 @@
+[
+  {
+    "id_externo": "qa:bastao_ronda:001",
+    "contexto": "bastao_ronda",
+    "tags": ["viggia", "ronda", "vigilante", "seguranca"],
+    "pergunta": "Como posso fiscalizar se meus vigilantes estão fazendo a ronda corretamente?",
+    "resposta": "Para isso existe o Bastão de Ronda Viggia da Topdata. O vigilante carrega o bastão durante a ronda e encosta nos iButtons fixados nos pontos estratégicos do trajeto. O sistema registra horário e local de cada toque. O software TopRonda permite configurar as rotas e emitir relatórios detalhados sobre as rondas realizadas. É uma solução completa para garantir que as rondas foram feitas conforme planejado. Posso enviar mais detalhes ou um orçamento?"
+  },
+  {
+    "id_externo": "qa:bastao_ronda:002",
+    "contexto": "bastao_ronda",
+    "tags": ["viggia", "ibutton", "como funciona"],
+    "pergunta": "O que é o bastão de ronda Viggia e como ele funciona?",
+    "resposta": "O Viggia é um bastão portátil da Topdata para controle de rondas de segurança. Funciona assim: você fixa iButtons (pequenos marcadores) nos pontos de ronda. O vigilante leva o bastão e, ao passar em cada ponto, encosta no iButton — o bastão emite um sinal sonoro e visual confirmando a leitura e registra o horário. Depois, o dado é transferido via USB para o software TopRonda, que gera relatórios completos das rondas. Tem capacidade de armazenar até 4.094 registros e a bateria dura até 10 anos. Deseja ver um catálogo ou orçamento?"
+  },
+  {
+    "id_externo": "qa:bastao_ronda:003",
+    "contexto": "bastao_ronda",
+    "tags": ["viggia", "aplicacao", "manutencao", "rotas"],
+    "pergunta": "O bastão de ronda serve só para segurança ou tem outras aplicações?",
+    "resposta": "Além do controle de rondas de segurança, o Viggia também é usado para controle de rotas de manutenção técnica, rotas de vendedores e rotas de transporte. Qualquer situação em que você precise comprovar que uma pessoa passou por determinados pontos em determinados horários pode ser gerenciada com ele. Quer saber mais sobre alguma dessas aplicações específicas?"
+  },
+  {
+    "id_externo": "qa:bastao_ronda:004",
+    "contexto": "bastao_ronda",
+    "tags": ["viggia", "bateria", "especificacoes"],
+    "pergunta": "Qual a duração da bateria do bastão de ronda?",
+    "resposta": "A bateria do Viggia tem duração estimada de 10 anos, considerando 100 registros por dia. É alimentado por bateria interna, com memória não volátil para não perder os registros mesmo sem energia. A comunicação com o computador é feita via USB 2.0. Tem mais alguma dúvida sobre o Viggia?"
+  },
+  {
+    "id_externo": "qa:catraca:001",
+    "contexto": "catraca",
+    "tags": ["catraca", "academia", "condominio", "escola"],
+    "pergunta": "Qual catraca é indicada para academia ou condomínio?",
+    "resposta": "Para academias, condomínios, escolas e refeitórios, a Catraca Fit é a opção mais indicada. É compacta, de baixo custo e pode funcionar de forma autônoma ou conectada a um software de controle de acesso. Suporta até 15.000 usuários e 30.000 registros, com opções de leitor biométrico, cartão de proximidade, QR Code ou código de barras. Para ambientes que exigem maior sofisticação e design premium, temos a Catraca Revolution em aço inox. Qual é o seu cenário? Posso recomendar o modelo mais adequado."
+  },
+  {
+    "id_externo": "qa:catraca:002",
+    "contexto": "catraca",
+    "tags": ["catraca", "evento", "show", "feiras", "estadio"],
+    "pergunta": "Qual catraca usar para eventos como shows e feiras?",
+    "resposta": "Para eventos, a Catraca Box é a mais indicada. Ela pode ser fornecida com base especial que facilita a instalação e remoção rápida. Tem urna coletora de cartões de visitantes para evitar que o usuário esqueça de devolver o crachá na saída, e suporte para braço articulado para saída em emergências. A Catraca Fit também tem essa opção de braço articulado. Ambas suportam múltiplas tecnologias de leitura: biometria, proximidade, QR Code e código de barras. Posso preparar um orçamento para o seu evento?"
+  },
+  {
+    "id_externo": "qa:catraca:003",
+    "contexto": "catraca",
+    "tags": ["catraca", "biometria", "digital"],
+    "pergunta": "A catraca tem opção com leitor biométrico?",
+    "resposta": "Sim, todas as nossas catracas (Fit, Revolution e Box) têm opção com leitor biométrico. Existem três módulos disponíveis: LFD (até 10.000 digitais, com proteção contra dedos falsos de silicone), LC (até 3.000 digitais) e LM — modelo Sagem (até 10.000 usuários). O mesmo equipamento pode ter biometria combinada com cartão de proximidade, QR Code ou código de barras. Quer saber mais sobre algum modelo específico?"
+  },
+  {
+    "id_externo": "qa:catraca:004",
+    "contexto": "catraca",
+    "tags": ["catraca", "qr code", "leitura"],
+    "pergunta": "A catraca funciona com QR Code?",
+    "resposta": "Sim! As catracas Revolution e Fit têm opção com leitor de QR Code integrado, além de suportar códigos de barras nos padrões 2 de 5 intercalado, 3 de 9 e QR Code. A Catraca Box também aceita QR Code. Essa opção é muito usada em eventos com acesso por ingresso digital ou em empresas com crachás QR Code. Posso detalhar mais alguma especificação?"
+  },
+  {
+    "id_externo": "qa:catraca:005",
+    "contexto": "catraca",
+    "tags": ["catraca", "inox", "design", "sofisticada"],
+    "pergunta": "Qual catraca tem acabamento em aço inox?",
+    "resposta": "Temos duas opções com acabamento em inox: a Catraca Box, com tampa inteiramente em aço inox escovado — ideal para ambientes onde a segurança deve ser ressaltada, como empresas corporativas e prédios comerciais; e a Catraca Revolution, com painel frontal em aço inox escovado e linhas modernas, indicada para ambientes de alto padrão. Ambas têm mecanismo com 3 braços em tubo de inox polido com durabilidade superior a 3 milhões de giros. Qual ambiente você está equipando?"
+  },
+  {
+    "id_externo": "qa:catraca:006",
+    "contexto": "catraca",
+    "tags": ["catraca", "usuarios", "capacidade"],
+    "pergunta": "Quantos usuários a catraca suporta?",
+    "resposta": "As catracas Fit, Revolution e Box suportam até 15.000 usuários cadastrados com cartão e até 30.000 registros de acesso armazenados internamente. Para o controle biométrico, a capacidade depende do módulo escolhido: até 10.000 digitais (módulos LFD e LM) ou 3.000 digitais (módulo LC). Todas permitem até 100 tabelas de horário para controle de acesso. Essa capacidade atende o seu caso?"
+  },
+  {
+    "id_externo": "qa:catraca:007",
+    "contexto": "catraca",
+    "tags": ["catraca", "diferenca", "fit", "revolution"],
+    "pergunta": "Qual a diferença entre a Catraca Fit e a Catraca Revolution?",
+    "resposta": "As duas têm as mesmas funcionalidades principais (capacidade para 15.000 usuários, 30.000 registros, biometria, cartão, QR Code). A diferença está no design e na construção: a Catraca Fit tem tampa em plástico ABS, pesa 24 kg e tem dimensões mais compactas (300 mm de largura). Já a Catraca Revolution tem painel frontal em aço inox escovado, pesa 30 kg e tem dimensões maiores (255 mm de largura, 1060 mm de altura), sendo mais indicada para ambientes de alto padrão. O preço também difere. Quer um orçamento comparativo?"
+  },
+  {
+    "id_externo": "qa:catraca:008",
+    "contexto": "catraca",
+    "tags": ["catraca", "diferenca", "box", "fit", "revolution"],
+    "pergunta": "Quais modelos de catraca vocês vendem?",
+    "resposta": "Trabalhamos com três modelos de catraca da Topdata: Catraca Fit (compacta e econômica, ideal para academias, condomínios e escolas), Catraca Revolution (design moderno com painel em aço inox, para ambientes de alto padrão) e Catraca Box (acabamento total em inox escovado, com opção de base para eventos, urna coletora de crachás e braço articulado). Todas suportam biometria, cartão de proximidade, QR Code e código de barras. Qual seria a aplicação?"
+  },
+  {
+    "id_externo": "qa:catraca:009",
+    "contexto": "catraca",
+    "tags": ["catraca", "braco articulado", "emergencia"],
+    "pergunta": "A catraca tem saída de emergência?",
+    "resposta": "Sim, as catracas Fit, Revolution e Box têm opção de braço articulado como acessório. Em situações de emergência, o braço se abre para garantir a saída rápida dos usuários. É especialmente indicado para shows, feiras, estádios e eventos em geral. Também é possível liberar o giro dos braços por meio de um botão externo em qualquer situação. Deseja incluir esse acessório no orçamento?"
+  },
+  {
+    "id_externo": "qa:catraca:010",
+    "contexto": "catraca",
+    "tags": ["catraca", "software", "gerenciamento"],
+    "pergunta": "Qual software gerencia a catraca?",
+    "resposta": "As catracas são gerenciadas pelo software Gerenciador de Inners da Topdata, que permite configurar os usuários, tabelas de horário, relatórios de acesso e visualizar o contador de giros. Todas as catracas têm servidor web integrado para configuração via browser, sem necessidade de instalar software localmente. A comunicação é via TCP/IP 10/100Mbps. Para a integração com outros sistemas, é necessário verificar a compatibilidade. Quer que eu explique melhor como funciona a implantação?"
+  },
+  {
+    "id_externo": "qa:catraca:011",
+    "contexto": "catraca",
+    "tags": ["catraca", "cartao proximidade", "rfid"],
+    "pergunta": "A catraca funciona com cartão de proximidade?",
+    "resposta": "Sim, todas as catracas têm opção com leitor de cartão de proximidade 125 KHz (padrão RFID) ou para smart card Mifare 13,56 MHz. É possível combinar cartão com biometria para dupla autenticação, aumentando a segurança. O mesmo equipamento pode ler múltiplas tecnologias dependendo do modelo escolhido. Já utiliza algum tipo de cartão atualmente?"
+  },
+  {
+    "id_externo": "qa:catraca:012",
+    "contexto": "catraca",
+    "tags": ["catraca", "durabilidade", "robustez"],
+    "pergunta": "As catracas são resistentes? Qual a durabilidade?",
+    "resposta": "As catracas Topdata têm mecanismo com 3 braços em tubo de aço inox polido, com durabilidade comprovada superior a 3 milhões de giros. Os pedestais são em aço carbono com pintura epóxi de alta resistência (ou inox no caso da Box). São equipamentos projetados para uso intenso em ambientes comerciais. A alimentação é de 100 a 240 Vac, então funciona em qualquer tomada padrão. Quer saber mais sobre manutenção ou garantia?"
+  },
+  {
+    "id_externo": "qa:controle_acesso:001",
+    "contexto": "controle_acesso",
+    "tags": ["inner acesso", "porta", "sala", "controle"],
+    "pergunta": "O que é o Inner Acesso 2 e para que serve?",
+    "resposta": "O Inner Acesso 2 é um controlador de acesso compacto da Topdata para portas, portões, cancelas e salas. Com design discreto (84 x 129 x 42 mm, apenas 0,2 kg), ele pode ser instalado em qualquer ambiente — desde almoxarifados até salas de TI. Você decide quem pode entrar, em quais dias e horários. Aceita biometria, cartão de proximidade ou QR Code, inclusive em combinação para maior segurança. Para portões e cancelas, pode ser instalado em totem, permitindo identificação de dentro do veículo. Qual é a sua necessidade?"
+  },
+  {
+    "id_externo": "qa:controle_acesso:002",
+    "contexto": "controle_acesso",
+    "tags": ["inner acesso", "offline", "sem internet", "autonomo"],
+    "pergunta": "O controlador de acesso funciona sem estar conectado à internet?",
+    "resposta": "Sim, o Inner Acesso 2 opera em modo online ou offline. Quando offline, ele funciona autonomamente com os cadastros e tabelas de horário armazenados internamente — suporta até 15.000 usuários e 30.000 registros. Quando online (TCP/IP), os acessos são sincronizados em tempo real com o software. Tem servidor web embarcado para configuração pelo browser sem instalar nada no computador. Isso é o suficiente para o seu cenário?"
+  },
+  {
+    "id_externo": "qa:controle_acesso:003",
+    "contexto": "controle_acesso",
+    "tags": ["inner acesso", "portao", "cancela", "garagem"],
+    "pergunta": "Tem algum equipamento para controle de acesso de portão de garagem?",
+    "resposta": "Sim, o Inner Acesso 2 pode ser instalado em totem para controlar portões e cancelas, permitindo que o motorista se identifique de dentro do veículo. Aceita cartão de proximidade, QR Code ou biometria. Suporta até 100 tabelas de horário, então você pode configurar acesso diferenciado por dia da semana e horário. Tem opção de cobertura para montagem em ambiente externo. Quantos veículos e usuários precisam de acesso?"
+  },
+  {
+    "id_externo": "qa:controle_acesso:004",
+    "contexto": "controle_acesso",
+    "tags": ["inner acesso", "biometria", "digital"],
+    "pergunta": "O controlador de acesso Inner Acesso 2 tem biometria?",
+    "resposta": "Sim, o Inner Acesso 2 tem modelos com leitor biométrico LC (até 3.000 digitais), podendo ser combinado com cartão de proximidade ou QR Code. Os modelos disponíveis incluem: Inner Acesso 2 Prox (só cartão), Inner Acesso 2 LC Bio (só biometria), Inner Acesso 2 LC Bio Prox (biometria + cartão), Inner Acesso 2 QR Code Prox, Inner Acesso 2 QR Code LC Bio, entre outros. Qual combinação de tecnologias faz mais sentido para você?"
+  },
+  {
+    "id_externo": "qa:controle_acesso:005",
+    "contexto": "controle_acesso",
+    "tags": ["inner acesso", "wifi", "sem fio"],
+    "pergunta": "O controlador de acesso tem Wi-Fi?",
+    "resposta": "Sim, o Inner Acesso 2 tem opção de comunicação Wi-Fi como opcional, além da comunicação padrão TCP/IP 10/100Mbps via cabo de rede. O Wi-Fi facilita a instalação em locais onde passar cabeamento seria difícil. A configuração é feita pelo servidor web embarcado, sem precisar instalar software. Isso é importante para a sua instalação?"
+  },
+  {
+    "id_externo": "qa:controle_acesso:006",
+    "contexto": "controle_acesso",
+    "tags": ["inner acesso", "horario", "tabela acesso"],
+    "pergunta": "Consigo configurar horários de acesso diferentes para cada pessoa?",
+    "resposta": "Sim, o Inner Acesso 2 suporta até 100 tabelas de horário para controle de acesso por dia da semana e por hora. Você pode criar perfis de acesso diferentes — por exemplo, funcionários com acesso de segunda a sexta das 7h às 18h, prestadores com acesso apenas às terças, e gerentes com acesso irrestrito. Os cadastros e horários são configurados via servidor web embarcado. Quantos perfis diferentes você precisaria?"
+  },
+  {
+    "id_externo": "qa:relogio_ponto:001",
+    "contexto": "relogio_ponto",
+    "tags": ["inner rep plus", "homologado", "ministerio trabalho", "inmetro"],
+    "pergunta": "O relógio de ponto eletrônico é homologado pelo Ministério do Trabalho?",
+    "resposta": "Sim, o Inner REP Plus é aprovado pelo INMETRO e homologado pelo Ministério do Trabalho, atendendo às exigências legais para registro de ponto eletrônico. Ele emite comprovante com assinatura digital, RIM e arquivo AFD conforme a legislação. É a solução adequada para empresas sujeitas à obrigatoriedade do ponto eletrônico. Quantos funcionários sua empresa tem?"
+  },
+  {
+    "id_externo": "qa:relogio_ponto:002",
+    "contexto": "relogio_ponto",
+    "tags": ["inner rep plus", "comprovante", "impressao"],
+    "pergunta": "O relógio de ponto imprime comprovante para o funcionário?",
+    "resposta": "Sim, o Inner REP Plus imprime comprovante de ponto com assinatura digital a cada marcação. Com uma bobina de até 360 metros, ele consegue imprimir até 11.000 comprovantes antes de precisar trocar o papel. A impressora é térmica com velocidade de 200 mm/s e tem guilhotina com corte total. O display indica a quantidade de papel restante por ícones. É uma das melhores autonomias do mercado."
+  },
+  {
+    "id_externo": "qa:relogio_ponto:003",
+    "contexto": "relogio_ponto",
+    "tags": ["inner rep plus", "capacidade", "funcionarios"],
+    "pergunta": "Quantos funcionários o relógio de ponto eletrônico suporta?",
+    "resposta": "O Inner REP Plus suporta o cadastro de até 10.000 colaboradores e armazena até 8,5 milhões de registros de ponto internamente. Toda a configuração e coleta de dados pode ser feita remotamente via browser, sem precisar ir até o equipamento. Para empresas com mais funcionários, é possível usar múltiplos equipamentos integrados ao mesmo software. Qual é o tamanho da sua equipe?"
+  },
+  {
+    "id_externo": "qa:relogio_ponto:004",
+    "contexto": "relogio_ponto",
+    "tags": ["inner rep plus", "biometria", "digital"],
+    "pergunta": "O relógio de ponto eletrônico tem leitor biométrico?",
+    "resposta": "Sim, o Inner REP Plus tem vários modelos com leitores biométricos: com biometria + código de barras + proximidade, biometria + proximidade, biometria + código de barras, somente código de barras ou somente proximidade. Há três opções de módulo biométrico: LFD (10.000 digitais, proteção contra dedos falsos), LC (3.000 digitais) e LM — Sagem (10.000 usuários). Qual tecnologia de identificação você prefere?"
+  },
+  {
+    "id_externo": "qa:relogio_ponto:005",
+    "contexto": "relogio_ponto",
+    "tags": ["inner rep plus", "facial", "leitor externo"],
+    "pergunta": "O relógio de ponto funciona com reconhecimento facial?",
+    "resposta": "O Inner REP Plus não tem câmera facial integrada, mas possui entrada para conexão de um leitor facial externo (como o Leitor Facial T4-50K ou F4 da Topdata). O Inner Ponto 4 também tem essa opção. Quando conectado, o equipamento tem uma tecla dedicada para habilitar o reconhecimento facial, evitando marcações não intencionais. Deseja mais informações sobre o Leitor Facial?"
+  },
+  {
+    "id_externo": "qa:relogio_ponto:006",
+    "contexto": "relogio_ponto",
+    "tags": ["inner ponto 4", "portaria 671", "rep-p"],
+    "pergunta": "O Inner Ponto 4 atende à Portaria 671?",
+    "resposta": "Sim, o Inner Ponto 4 é um coletor de marcações desenvolvido especificamente para sistemas com REP-P, conforme especificado na Portaria 671/2021 do MTP. O software TopPonto Web possui REP-P integrado e tem comunicação direta com o Inner Ponto 4, tornando a instalação simples. O equipamento também pode ser integrado a outros sistemas que possuam REP-P, através das bibliotecas de comunicação disponibilizadas pela Topdata. Seu sistema de RH já tem REP-P?"
+  },
+  {
+    "id_externo": "qa:relogio_ponto:007",
+    "contexto": "relogio_ponto",
+    "tags": ["inner ponto 4", "capacidade", "funcionarios"],
+    "pergunta": "Quantos funcionários o Inner Ponto 4 suporta?",
+    "resposta": "O Inner Ponto 4 suporta o cadastro de até 10.000 colaboradores e armazena até 10 milhões de registros. Tem display colorido touchscreen de 4,3 polegadas e aceita identificação por biometria, cartão de proximidade, QR Code ou reconhecimento facial com leitor externo. Também identifica pelo CPF e tem opção de senha. É uma solução robusta para empresas que precisam cumprir a Portaria 671."
+  },
+  {
+    "id_externo": "qa:relogio_ponto:008",
+    "contexto": "relogio_ponto",
+    "tags": ["inner ponto 4", "inner rep plus", "diferenca"],
+    "pergunta": "Qual a diferença entre o Inner REP Plus e o Inner Ponto 4?",
+    "resposta": "A principal diferença está na tecnologia de registro: o Inner REP Plus é um REP (Registrador Eletrônico de Ponto) homologado pelo Ministério do Trabalho com impressora térmica que emite comprovante físico a cada batida. O Inner Ponto 4 é um coletor de marcações REP-P (sem impressora), que registra o ponto conforme a Portaria 671 e se integra a um software com REP-P. O Inner Ponto 4 tem display touchscreen colorido e é mais moderno. Para empresas que precisam de comprovante impresso, o Inner REP Plus é indicado; para quem usa software REP-P, o Inner Ponto 4 é a melhor opção. Qual é o sistema de folha de ponto da sua empresa?"
+  },
+  {
+    "id_externo": "qa:relogio_ponto:009",
+    "contexto": "relogio_ponto",
+    "tags": ["pontto", "cartografico", "pequena empresa", "simples"],
+    "pergunta": "Qual relógio de ponto indicado para uma pequena empresa sem infraestrutura de informática?",
+    "resposta": "Para empresas pequenas ou locais sem infraestrutura de informática, o relógio cartográfico Pontto é a solução ideal. Funciona como um relógio de ponto mecânico-eletrônico: o funcionário insere o cartão mensal e o relógio imprime o horário automaticamente. Não precisa de software, computador ou rede — só uma tomada elétrica. Preço acessível, fácil de instalar e usar. Registra até 6 marcações por dia e tem bateria nobreak (13 horas de autonomia). Para quantos funcionários você precisaria?"
+  },
+  {
+    "id_externo": "qa:relogio_ponto:010",
+    "contexto": "relogio_ponto",
+    "tags": ["pontto", "cartografico", "legislacao", "obrigatoriedade"],
+    "pergunta": "O relógio cartográfico precisa de homologação pelo Ministério do Trabalho?",
+    "resposta": "O relógio cartográfico (como o Pontto) está isento das exigências do controle de ponto eletrônico. Por ser cartográfico, não é REP — portanto não precisa de homologação pelo Ministério do Trabalho nem de emissão de comprovante digital. É a solução mais simples e que exige menos burocracia para empresas de pequeno porte. Vale lembrar que a obrigatoriedade do ponto eletrônico depende do acordo coletivo da categoria. Posso ajudar com mais alguma dúvida?"
+  },
+  {
+    "id_externo": "qa:relogio_ponto:011",
+    "contexto": "relogio_ponto",
+    "tags": ["pontto", "hora extra", "atraso"],
+    "pergunta": "O relógio de ponto cartográfico marca horas extras e atrasos?",
+    "resposta": "Sim, o Pontto pode ser configurado para imprimir em vermelho as marcações realizadas fora do horário previsto, como horas extras e atrasos. Tem calendário perpétuo, configuração de horário de verão, mudança automática de coluna no cartão e ajuste de posição de impressão. É uma solução completa e simples para gestão básica de ponto. Tem outras perguntas?"
+  },
+  {
+    "id_externo": "qa:relogio_ponto:012",
+    "contexto": "relogio_ponto",
+    "tags": ["inner rep plus", "tela", "touchscreen"],
+    "pergunta": "O relógio de ponto eletrônico tem tela sensível ao toque?",
+    "resposta": "Sim, tanto o Inner REP Plus quanto o Inner Ponto 4 têm display colorido de 4,3 polegadas com tela sensível ao toque. A operação é intuitiva e os menus de configuração são protegidos por senha. Ambos têm servidor web embarcado para acesso e configuração remota via browser, sem precisar instalar software no computador."
+  },
+  {
+    "id_externo": "qa:facial:001",
+    "contexto": "facial",
+    "tags": ["leitor facial", "reconhecimento facial", "como funciona"],
+    "pergunta": "O que é o Leitor Facial e como funciona?",
+    "resposta": "O Leitor Facial da Topdata identifica pessoas por reconhecimento facial com inteligência artificial, sem necessidade de contato com o equipamento. Tem câmera binocular colorida 2MP e câmera infravermelha 2MP com iluminação frontal automática, funcionando inclusive em ambientes com pouca luz. A precisão é de 99,7% (FRA) e a velocidade de reconhecimento é menor que 0,2 segundo. Pode ser usado para controle de ponto e controle de acesso. Posso detalhar mais alguma funcionalidade?"
+  },
+  {
+    "id_externo": "qa:facial:002",
+    "contexto": "facial",
+    "tags": ["leitor facial", "fraude", "foto", "seguranca"],
+    "pergunta": "O leitor facial pode ser enganado com foto ou vídeo?",
+    "resposta": "Não. O Leitor Facial da Topdata tem verificação de rosto vivo (liveness detection), que bloqueia reconhecimento de fotos, vídeos e réplicas. É uma proteção efetiva contra fraudes de ponto. Além disso, a câmera infravermelha funciona em qualquer condição de luz, o que garante identificação correta mesmo em contra-luz ou ambientes escuros. Isso é muito importante para você?"
+  },
+  {
+    "id_externo": "qa:facial:003",
+    "contexto": "facial",
+    "tags": ["leitor facial", "modelos", "capacidade", "usuarios"],
+    "pergunta": "Quantos usuários o leitor facial suporta?",
+    "resposta": "Temos dois modelos: o Leitor Facial F4, com capacidade para 5.000 faces, e o Leitor Facial T4-50K, com capacidade para 50.000 faces. Ambos têm as mesmas funcionalidades, o que muda é a capacidade de armazenamento. O cadastro das faces pode ser feito diretamente no leitor, por foto enviada pelo software ou por pendrive. Quantos usuários você precisa cadastrar?"
+  },
+  {
+    "id_externo": "qa:facial:004",
+    "contexto": "facial",
+    "tags": ["leitor facial", "escuro", "pouca luz"],
+    "pergunta": "O leitor facial funciona em ambientes com pouca luz?",
+    "resposta": "Sim, o Leitor Facial tem câmera infravermelha com iluminação frontal automática, que ativa quando o ambiente está escuro. Também tem função WDR que compensa a luminosidade tornando a imagem mais nítida. Funciona perfeitamente em corredores escuros, entradas com contra-luz ou ambientes noturnos. A temperatura de operação é de 0 a 45°C."
+  },
+  {
+    "id_externo": "qa:facial:005",
+    "contexto": "facial",
+    "tags": ["leitor facial", "rfid", "cartao", "combinado"],
+    "pergunta": "O leitor facial também aceita cartão RFID?",
+    "resposta": "Sim, o Leitor Facial tem leitor de cartão proximidade integrado — RFID 125 kHz ou Smart Card Mifare 13,56 MHz (opcional). Também aceita senha. Ou seja, o usuário pode se identificar por face, cartão ou senha, permitindo múltiplas opções de acesso. A integração com sistemas de controle de acesso é feita via interface Wiegand 26, 34 ou 42 bits."
+  },
+  {
+    "id_externo": "qa:facial:006",
+    "contexto": "facial",
+    "tags": ["leitor facial", "mascara", "covid", "cobrimento"],
+    "pergunta": "O leitor facial funciona com máscara?",
+    "resposta": "O Leitor Facial Topdata tem detecção opcional do uso de máscara. Essa funcionalidade pode ser configurada conforme a necessidade do cliente — para permitir ou bloquear o acesso de pessoas com máscara, ou para registrar o uso de máscara como informação. A distância de reconhecimento é configurável entre 0,5 m e 1,5 m. Quer saber mais sobre a configuração?"
+  },
+  {
+    "id_externo": "qa:facial:007",
+    "contexto": "facial",
+    "tags": ["leitor facial", "externo", "acessorios", "totem"],
+    "pergunta": "O leitor facial pode ser instalado em ambiente externo?",
+    "resposta": "Sim, há um gabinete para uso externo disponível como acessório, além de totem para leitor facial. O equipamento opera de 0 a 45°C e com umidade de 20 a 90%. Com o gabinete externo, fica protegido de chuva e intempéries. É uma boa opção para portarias e entradas de estacionamento. Em qual tipo de ambiente você precisa instalar?"
+  },
+  {
+    "id_externo": "qa:ponto_web:001",
+    "contexto": "relogio_ponto",
+    "tags": ["topponto web", "software", "nuvem", "cloud"],
+    "pergunta": "O que é o TopPonto Web e como funciona?",
+    "resposta": "O TopPonto Web é um software de controle de ponto em nuvem da Topdata, em conformidade com a Portaria 671/2021. Não precisa ser instalado — o acesso é feito pelo navegador, de qualquer computador ou celular com internet. Os dados ficam armazenados em servidor online seguro. Ele trata as marcações dos relógios de ponto (Inner REP Plus, Inner Ponto 4) e também registros feitos pelo aplicativo no celular. É multiempresa, permitindo controlar diferentes empresas e filiais no mesmo sistema."
+  },
+  {
+    "id_externo": "qa:ponto_web:002",
+    "contexto": "relogio_ponto",
+    "tags": ["topponto web", "celular", "app", "aplicativo"],
+    "pergunta": "O sistema de ponto funciona pelo celular do funcionário?",
+    "resposta": "Sim, o TopPonto Web tem aplicativo para Android e iOS que permite o registro de ponto pelo celular com reconhecimento facial. É possível configurar uma \"cerca virtual\" que restringe a marcação a uma área geográfica específica — o funcionário só consegue bater ponto se estiver no local de trabalho. O aplicativo também exibe a jornada, horas extras, banco de horas e comprovantes de ponto. Isso atende a sua necessidade?"
+  },
+  {
+    "id_externo": "qa:ponto_web:003",
+    "contexto": "relogio_ponto",
+    "tags": ["topponto web", "portaria 671", "conformidade", "legal"],
+    "pergunta": "O TopPonto Web está em conformidade com a Portaria 671?",
+    "resposta": "Sim, o TopPonto Web é um software de tratamento de ponto em conformidade com a Portaria 671/2021 do MTP (Ministério do Trabalho e Previdência). Possui REP-P integrado, emite Espelho Fiscal, AFDT, ACJEF e AEJ. Os comprovantes de registro de ponto são enviados ao funcionário para aprovação por celular ou computador. É a solução completa para empresas que precisam atender à legislação."
+  },
+  {
+    "id_externo": "qa:ponto_web:004",
+    "contexto": "relogio_ponto",
+    "tags": ["topponto web", "relatorio", "rh", "fechamento"],
+    "pergunta": "Quais relatórios o sistema de ponto gera?",
+    "resposta": "O TopPonto Web gera uma ampla variedade de relatórios: espelho de ponto, presença, comparecimento, frequência, horas extras, banco de horas, adicionais, horas noturnas, ocorrências, absenteísmo, descanso entre jornadas e intervalo entre jornadas. Os relatórios podem ser filtrados por empresa, departamento, funcionário e período, e exportados em PDF, XLS (Excel), TXT ou CSV. O painel de controle exibe visualmente os funcionários presentes, ausentes e atrasados em tempo real."
+  },
+  {
+    "id_externo": "qa:ponto_web:005",
+    "contexto": "relogio_ponto",
+    "tags": ["topponto web", "integracao", "sistema", "erp", "rh"],
+    "pergunta": "O TopPonto Web integra com outros sistemas de RH?",
+    "resposta": "O TopPonto Web permite importação e exportação de funcionários e exportação de eventos com layout configurável, facilitando a integração com sistemas de folha de pagamento e RH. Para integrações específicas, é necessário verificar a compatibilidade com o seu sistema atual — recomendo que nosso técnico avalie o caso. Qual sistema de RH ou folha vocês usam atualmente?"
+  },
+  {
+    "id_externo": "qa:ponto_web:006",
+    "contexto": "relogio_ponto",
+    "tags": ["topponto web", "multiempresa", "filial"],
+    "pergunta": "O sistema de ponto funciona para mais de uma empresa ou filial?",
+    "resposta": "Sim, o TopPonto Web é multiempresa — permite o controle de diferentes empresas e filiais no mesmo sistema, cada uma com suas características, jornadas e configurações. É possível definir permissões de acesso por empresa e por departamento para cada operador. Ideal para grupos empresariais ou escritórios de contabilidade que gerenciam ponto de vários clientes."
+  },
+  {
+    "id_externo": "qa:geral:001",
+    "contexto": "geral",
+    "tags": ["produtos", "catalogo", "o que vendem"],
+    "pergunta": "Quais produtos a Inforrel vende?",
+    "resposta": "A Inforrel é revendedora autorizada Topdata e trabalha com os seguintes produtos: Catracas (Fit, Revolution e Box), Controladores de Acesso (Inner Acesso 2), Relógios de Ponto Eletrônicos (Inner REP Plus), Coletores de Ponto (Inner Ponto 4), Relógio Cartográfico (Pontto), Leitores Faciais (F4 e T4-50K), Bastão de Ronda (Viggia) e Software de Ponto em Nuvem (TopPonto Web). Posso ajudar com mais detalhes sobre algum desses produtos?"
+  },
+  {
+    "id_externo": "qa:geral:002",
+    "contexto": "geral",
+    "tags": ["inforrel", "topdata", "revendedor"],
+    "pergunta": "A Inforrel é revendedor da Topdata?",
+    "resposta": "Sim, a Inforrel é Revendedora Autorizada Topdata. A Topdata é fabricante nacional de equipamentos para controle de ponto e controle de acesso, com suporte técnico pelo telefone (41) 3213-7100 e site www.topdata.com.br. Como revendedora autorizada, oferecemos os produtos com garantia de fábrica e suporte local. Em que posso ajudar?"
+  },
+  {
+    "id_externo": "qa:geral:003",
+    "contexto": "geral",
+    "tags": ["instalacao", "suporte", "tecnico"],
+    "pergunta": "Vocês fazem a instalação dos equipamentos?",
+    "resposta": "Sim, realizamos a instalação dos equipamentos. Para garantir o funcionamento correto e a compatibilidade com a infraestrutura do seu ambiente (rede, software de RH, sistema de acesso existente), nosso técnico faz uma avaliação prévia antes de concluir o orçamento. Onde fica a sua empresa e qual é o equipamento de interesse?"
+  },
+  {
+    "id_externo": "qa:geral:004",
+    "contexto": "geral",
+    "tags": ["orcamento", "preco", "valor"],
+    "pergunta": "Como faço para solicitar um orçamento?",
+    "resposta": "Para preparar um orçamento preciso, preciso entender sua necessidade: qual produto te interessa, quantos usuários/funcionários, quantos pontos de acesso ou relógios e onde fica sua empresa. Pode me passar essas informações aqui mesmo pelo WhatsApp e preparo o orçamento para você."
+  },
+  {
+    "id_externo": "qa:geral:005",
+    "contexto": "geral",
+    "tags": ["compatibilidade", "sistema", "software"],
+    "pergunta": "Como sei se o equipamento é compatível com o meu sistema atual?",
+    "resposta": "A compatibilidade depende do sistema que você usa. Para relógios de ponto, o importante é saber se o seu software de RH tem suporte ao REP ou REP-P. Para controle de acesso, depende do protocolo (Wiegand, TCP/IP). Recomendo que nosso técnico faça essa avaliação antes da compra para evitar problemas. Pode me informar qual software você utiliza atualmente?"
+  },
+  {
+    "id_externo": "qa:geral:006",
+    "contexto": "geral",
+    "tags": ["garantia", "manutencao", "suporte pos venda"],
+    "pergunta": "Qual a garantia dos equipamentos?",
+    "resposta": "Os equipamentos Topdata têm garantia de fábrica. Para saber o prazo exato por produto e as condições de manutenção e suporte pós-venda da Inforrel, posso passar essas informações detalhadas. Qual equipamento você tem interesse? Posso incluir todas as condições no orçamento."
+  },
+  {
+    "id_externo": "qa:catraca:013",
+    "contexto": "catraca",
+    "tags": ["catraca", "refeitorio", "empresa", "funcionarios"],
+    "pergunta": "Qual catraca usar para controle de acesso ao refeitório da empresa?",
+    "resposta": "Para refeitório corporativo a Catraca Fit é a mais indicada — é compacta, econômica e pode ser configurada para liberar somente funcionários no horário de almoço, usando cartão de proximidade ou biometria. Suporta até 15.000 usuários e 100 tabelas de horário. Se o ambiente exigir robustez maior ou design sofisticado, a Catraca Revolution também é uma boa opção. Quantos funcionários usariam o refeitório e qual tecnologia de identificação prefere?"
+  },
+  {
+    "id_externo": "qa:catraca:014",
+    "contexto": "catraca",
+    "tags": ["catraca", "escola", "universidade", "alunos"],
+    "pergunta": "Tem catraca para escola ou universidade?",
+    "resposta": "Sim, a Catraca Fit é muito usada em escolas e universidades para controlar a entrada e saída de alunos e funcionários. Suporta cartão de proximidade, código de barras (ideal para carteirinhas com código), biometria e QR Code. Armazena até 15.000 usuários e pode funcionar de forma autônoma ou integrada a um software. A Catraca Revolution é indicada para ambientes mais sofisticados, como faculdades de alto padrão. Quantas entradas você precisa controlar?"
+  },
+  {
+    "id_externo": "qa:relogio_ponto:013",
+    "contexto": "relogio_ponto",
+    "tags": ["inner ponto 4", "qr code", "marcacao"],
+    "pergunta": "O coletor de ponto aceita QR Code para marcação?",
+    "resposta": "Sim, o Inner Ponto 4 tem modelos com leitor QR Code integrado, capaz de ler QR Code e outros códigos de barras. Isso é útil para empresas que usam crachá com QR Code ou que querem permitir marcação por aplicativo de celular que gera QR Code dinâmico. Pode ser combinado com biometria ou proximidade no mesmo equipamento."
+  },
+  {
+    "id_externo": "qa:relogio_ponto:014",
+    "contexto": "relogio_ponto",
+    "tags": ["inner rep plus", "remoto", "acesso browser"],
+    "pergunta": "Consigo acessar o relógio de ponto remotamente?",
+    "resposta": "Sim, o Inner REP Plus tem servidor web embarcado que permite acessar e configurar o equipamento remotamente via browser, de qualquer computador na rede. Também tem porta USB auxiliar para exportação de registros e importação de cadastros localmente. A comunicação é via TCP/IP, portanto precisa estar na mesma rede local ou acessível via VPN."
+  },
+  {
+    "id_externo": "qa:controle_acesso:007",
+    "contexto": "controle_acesso",
+    "tags": ["inner acesso", "sensor porta", "alarme"],
+    "pergunta": "O controlador de acesso detecta quando a porta fica aberta?",
+    "resposta": "Sim, o Inner Acesso 2 tem entrada para sensor de porta que detecta se a porta está aberta ou fechada. Também tem sensor de violação do equipamento (antivandalismo). A sinalização é feita por LEDs coloridos e buzzer. Esses recursos permitem criar alertas de porta aberta por tempo excessivo, aumentando a segurança do local."
+  },
+  {
+    "id_externo": "qa:controle_acesso:008",
+    "contexto": "controle_acesso",
+    "tags": ["inner acesso", "alimentacao", "energia", "nobreak"],
+    "pergunta": "O controlador de acesso funciona sem energia elétrica?",
+    "resposta": "O Inner Acesso 2 usa fonte de alimentação externa de 12V 1A (não inclusa). Para funcionar em caso de queda de energia, é necessário um nobreak ou fonte com bateria, que pode ser adquirido separadamente. Sem energia elétrica o equipamento fica inoperante, portanto recomendamos instalar um nobreak no controlador de acesso de entradas críticas. Precisa de informações sobre nobreaks compatíveis?"
+  },
+  {
+    "id_externo": "qa:geral:007",
+    "contexto": "geral",
+    "tags": ["diferenca", "controle ponto", "controle acesso"],
+    "pergunta": "Qual a diferença entre controle de ponto e controle de acesso?",
+    "resposta": "Controle de ponto registra os horários de entrada e saída dos funcionários para cálculo de jornada, horas extras e banco de horas — é obrigação legal para empresas com mais de 20 funcionários. Controle de acesso restringe quem pode entrar em determinadas áreas e registra quem passou por onde — é uma medida de segurança patrimonial. Alguns equipamentos fazem os dois: por exemplo, o Inner Ponto 4 faz controle de ponto, e o Inner Acesso 2 faz controle de acesso. O Leitor Facial pode ser usado para ambos. O que você precisa?"
+  },
+  {
+    "id_externo": "qa:geral:008",
+    "contexto": "geral",
+    "tags": ["obrigatoriedade", "ponto eletronico", "lei", "legislacao"],
+    "pergunta": "Minha empresa é obrigada a ter relógio de ponto eletrônico?",
+    "resposta": "A obrigatoriedade do ponto eletrônico depende de vários fatores: número de funcionários, categoria profissional e convenção coletiva. Em geral, empresas com mais de 20 empregados estão sujeitas às regras da Portaria 671/2021. Porém, cada setor pode ter regras específicas definidas em negociação coletiva. Recomendo verificar com seu departamento jurídico ou contador. Posso ajudar a entender qual solução técnica atende ao seu caso."
+  }
+]

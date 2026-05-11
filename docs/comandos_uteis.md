@@ -157,6 +157,126 @@ Para trocar de provider (ex: OpenAI, Gemini, Ollama), basta alterar `LLM_PROVIDE
 
 ---
 
+### Embeddings / RAG (EMBEDDING_API_KEY)
+
+O provider padrão é **OpenAI** (`text-embedding-3-small`, 1536 dimensões).
+A mesma conta OpenAI usada eventualmente para o LLM serve aqui; a chave é a mesma.
+
+**Como obter:**
+
+1. Acesse https://platform.openai.com e faça login (ou crie conta).
+2. No menu lateral, clique em **API keys**.
+3. Clique em **+ Create new secret key**, dê um nome (ex: `inforrel-dev`) e copie a chave gerada — ela só aparece uma vez.
+4. Adicione no seu `backend/.env`:
+
+```env
+EMBEDDING_PROVIDER=openai
+EMBEDDING_MODEL=text-embedding-3-small
+EMBEDDING_API_KEY=sk-...sua_chave_aqui...
+```
+
+**Custo estimado (referência):** `text-embedding-3-small` custa US$ 0,02 por 1 milhão de tokens.
+Uma ingestão inicial do catálogo completo da Inforrel fica na casa de centavos.
+Buscas em produção também são baratas (cada pergunta = 1 chamada pequena).
+
+**Fallback sem chave (desenvolvimento sem embeddings):**
+Defina `RAG_ENABLED=false` no `.env` para desabilitar a RAG completamente.
+O agente continua funcionando com templates e LLM, só não usa o catálogo vetorial.
+
+```env
+RAG_ENABLED=false
+```
+
+Erro de quota na API do OpenAI (insufficient_quota).
+Entrei em https://platform.openai.com/settings/billing, pediu para criar uma organização e adicionar um metodo de pagamento.
+(Signed in with betofigu@gmail.com)
+Organization name: "BF Desenvolvimento de sistemas"
+What best describes you?: "Data Scientist"
+
+API key name: inforrel-dev
+Project name: Inforrel
+API keys belong to projects to help you manage usage limits, team access, and data security.
+---
+
+### RAG - inventario das fontes
+
+```powershell
+# Gera o inventario das fontes raw usadas pela RAG
+python backend\scripts\inventariar_fontes_rag.py
+
+# Gerar em outro caminho, se necessario
+python backend\scripts\inventariar_fontes_rag.py --saida backend\data\rag\inventario_fontes.json
+```
+
+Saida padrao: `backend/data/rag/inventario_fontes.json`.
+
+### RAG - pre-processamento das fontes
+
+```powershell
+# Gera documentos normalizados em JSONL a partir do inventario
+python backend\scripts\preprocessar_conhecimento_rag.py
+
+# Informar caminhos explicitamente, se necessario
+python backend\scripts\preprocessar_conhecimento_rag.py --inventario backend\data\rag\inventario_fontes.json --saida backend\data\rag\documentos_normalizados.jsonl --resumo backend\data\rag\preprocessamento_resumo.json
+```
+
+Saidas padrao:
+
+- `backend/data/rag/documentos_normalizados.jsonl`
+- `backend/data/rag/preprocessamento_resumo.json`
+
+### RAG - consolidacao e deduplicacao
+
+```powershell
+# Deduplica documentos normalizados e gera a base consolidada
+python backend\scripts\consolidar_conhecimento_rag.py
+
+# Ajustar o limiar para marcar documentos similares, se necessario
+python backend\scripts\consolidar_conhecimento_rag.py --similaridade-minima 0.82
+```
+
+Saidas padrao:
+
+- `backend/data/rag/documentos_consolidados.jsonl`
+- `backend/data/rag/consolidacao_resumo.json`
+
+### RAG - chunking
+
+```powershell
+# Gera chunks a partir dos documentos consolidados
+python backend\scripts\gerar_chunks_rag.py
+
+# Ajustar tamanhos, se necessario
+python backend\scripts\gerar_chunks_rag.py --alvo-tokens 700 --max-tokens 900 --overlap-tokens 100
+```
+
+Saidas padrao:
+
+- `backend/data/rag/chunks_conhecimento.jsonl`
+- `backend/data/rag/chunking_resumo.json`
+
+### RAG - banco pgvector
+
+```powershell
+# Recria apenas o container Postgres usando a imagem pgvector definida no docker-compose
+# Preserva o volume postgres_data existente.
+docker-compose up -d postgres
+
+# Aplica migrations pelo container backend
+docker exec agenteassistentedevendas-backend-1 alembic upgrade head
+
+# Verifica revision atual
+docker exec agenteassistentedevendas-backend-1 alembic current
+
+# Confirma extensao vector
+docker exec inforrel_postgres psql -U inforrel -d assistente_vendas -c "SELECT extname FROM pg_extension WHERE extname = 'vector';"
+
+# Inspeciona tabela da RAG
+docker exec inforrel_postgres psql -U inforrel -d assistente_vendas -c "\d+ documentos_conhecimento"
+```
+
+---
+
 ### QA Engineer — checks automatizados e pre-commit
 
 Os checks de qualidade ficam em `agentes/qa_engineer.py` (registry via `@registrar_check`). Ver diretriz D06 em `artefatos/implementador/diretrizes.md`.
