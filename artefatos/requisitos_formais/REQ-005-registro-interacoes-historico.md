@@ -1,6 +1,6 @@
 # REQ-005: Registro Completo de Interações e Histórico de Conversas
 
-**Versão**: 1.3  
+**Versão**: 1.4  
 **Data**: 2026-05-06  
 **Autor**: Kika (Analista de Requisitos)  
 **Status**: Em Elaboração  
@@ -79,7 +79,7 @@ O objetivo é permitir rastreabilidade, revisão de conversas críticas e melhor
   **Gatilhos de `Finalização`** (ao menos um dos seguintes):
   - Humano (Rita) sinaliza encerramento da conversa
   - Orçamento enviado e conversa marcada como concluída
-  - Cliente abandona a conversa por período prolongado (timeout a definir)
+  - Cliente abandona a conversa por período prolongado (conforme REQ-002.22)
 
   **Consulta em tempo real**: o estado atual de cada conversa deve ser consultável pelos demais módulos (REQ-002, REQ-003) para decidir se podem responder automaticamente, alinhado ao REQ-004.4.
 
@@ -209,6 +209,7 @@ O objetivo é permitir rastreabilidade, revisão de conversas críticas e melhor
 | 06/05/2026 | 1.1 | REQ-005.3 reescrito com lista de campos por evento, transições válidas, gatilhos de `Finalização` e consulta em tempo real do estado atual | Kika |
 | 06/05/2026 | 1.2 | REQ-005.8 reescrito com definição explícita de dados de negócio vs. dados sensíveis e regras de tratamento quando aparecerem em mensagens recebidas | Kika |
 | 06/05/2026 | 1.3 | Adição de títulos descritivos a todos os requisitos do documento | Kika |
+| 11/05/2026 | 1.4 | REQ-005.3: substituição de "timeout a definir" por referência ao REQ-002.22 (Tratamento de abandono de conversa pelo cliente) | Kika |
 
 ---
 

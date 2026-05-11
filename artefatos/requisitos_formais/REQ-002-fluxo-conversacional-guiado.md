@@ -1,6 +1,6 @@
 # REQ-002: Fluxo Conversacional Guiado
 
-**Versão**: 1.14  
+**Versão**: 1.15  
 **Data**: 2026-05-08  
 **Autor**: Kika (Analista de Requisitos)  
 **Status**: Em Elaboração  
@@ -135,6 +135,13 @@ O sistema deve conduzir conversas de forma estruturada, porém **adaptativa**, c
   - Delegar a resposta ao REQ-003 (Base de Conhecimento / RAG)
   - Após responder a dúvida, **retomar a qualificação** no ponto em que estava, reapresentando a última pergunta pendente
   - Não descartar os dados já capturados
+
+- [ ] **REQ-002.22 — Tratamento de abandono de conversa pelo cliente**: Se o cliente parar de responder durante o fluxo de qualificação, o sistema deve:
+  - Considerar a conversa **inativa** após **24 horas** sem nova mensagem do cliente
+  - Enviar **uma única mensagem de reengajamento** perguntando se o cliente quer continuar (ex: “Você ainda está aí? Posso continuar de onde paramos?”)
+  - Após **72 horas totais** sem resposta do cliente (24h iniciais + 48h após o reengajamento), transicionar a conversa para o estado `Finalização` (REQ-005.3) com motivo `abandono`
+  - **Preservar os dados já capturados** no histórico (não descartar)
+  - Se o cliente voltar a enviar mensagens depois da finalização por abandono, **iniciar uma nova conversa** (passando novamente pelo classificador do REQ-002.1); quando se tratar do mesmo telefone/CNPJ, o sistema pode oferecer retomar de onde a conversa anterior parou (ex: “Vi que você já tinha conversado conosco. Quer continuar de onde paramos?”)
 
 ### 4.3 Requisitos Não-Funcionais
 
@@ -334,6 +341,7 @@ Cliente: "Facial."
 | 08/05/2026 | 1.12 | Reescrita do REQ-002.16 para focar apenas no comportamento único de confirmação/eco dos dados extraídos (a parte "perguntar só o que falta" já está coberta por REQ-002.4) | Kika |
 | 08/05/2026 | 1.13 | Reescrita do REQ-002.18 deixando explícito o papel de **roteador** entre REQ-002, REQ-003 e REQ-004 (porta de entrada do sistema); renomeação do REQ-002.17 para "Consulta à base de respostas automáticas durante a qualificação" | Kika |
 | 08/05/2026 | 1.14 | Unificação de REQ-002.1 e REQ-002.18 no REQ-002.1 ("Classificação e roteamento das mensagens do cliente"), agora com quatro categorias incluindo "intenção de compra/orçamento (mensagem inicial)"; remoção do REQ-002.18 | Kika |
+| 11/05/2026 | 1.15 | Criação do REQ-002.22 (Tratamento de abandono de conversa pelo cliente): inatividade de 24h, mensagem única de reengajamento, finalização em 72h totais, preservação dos dados e oferta de retomada quando o mesmo cliente voltar | Kika |
 
 ---
 
