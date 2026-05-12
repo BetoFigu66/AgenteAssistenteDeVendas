@@ -1,6 +1,6 @@
 # REQ-002: Fluxo Conversacional Guiado
 
-**Versão**: 1.15  
+**Versão**: 1.16  
 **Data**: 2026-05-08  
 **Autor**: Kika (Analista de Requisitos)  
 **Status**: Em Elaboração  
@@ -129,7 +129,9 @@ O sistema deve conduzir conversas de forma estruturada, porém **adaptativa**, c
 
 - [ ] **REQ-002.15 — Quantidade opcional para catraca com software existente**: Para catracas, se o cliente já tiver software de controle de acesso, a quantidade/faixa de pessoas pode ser tratada como opcional; se o cliente não souber ou não quiser informar, o sistema deve seguir o fluxo e solicitar apenas os demais campos pendentes
 
-- [ ] **REQ-002.16 — Confirmação dos dados extraídos da mensagem inicial**: Quando o sistema extrair um ou mais dados da mensagem inicial do cliente (REQ-002.2), antes de prosseguir com a próxima pergunta dinâmica deve **ecoar ao cliente os dados entendidos** para que ele possa corrigir, se necessário
+- [ ] **REQ-002.16 — Confirmação dos dados extraídos da mensagem inicial**: Quando o sistema extrair um ou mais dados da mensagem inicial do cliente (REQ-002.2), antes de prosseguir com a próxima pergunta dinâmica deve **ecoar ao cliente os dados entendidos** para que ele possa corrigir, se necessário.
+
+  **Interação com REQ-001.4 (CNPJ)**: quando um dos dados extraídos for o **CNPJ**, a confirmação desse campo é satisfeita pelo **REQ-001.4** (exibição dos dados retornados pela Receita Federal para confirmação). O REQ-002.16 não deve gerar uma segunda solicitação de confirmação do CNPJ; o eco do REQ-002.16 cobre apenas os **demais campos** extraídos (ex: tipo de produto, modelo, quantidade, endereço, contato). Quando possível, o sistema pode consolidar tudo (CNPJ + demais campos) numa **única mensagem de resumo** para evitar dupla confirmação.
 
 - [ ] **REQ-002.17 — Consulta à base de respostas automáticas durante a qualificação**: Durante o fluxo de qualificação, se o cliente enviar uma **pergunta sobre produto/serviço** (ex: características técnicas, compatibilidade, preço, prazos, catálogo, serviços prestados), o sistema deve:
   - Delegar a resposta ao REQ-003 (Base de Conhecimento / RAG)
@@ -342,6 +344,7 @@ Cliente: "Facial."
 | 08/05/2026 | 1.13 | Reescrita do REQ-002.18 deixando explícito o papel de **roteador** entre REQ-002, REQ-003 e REQ-004 (porta de entrada do sistema); renomeação do REQ-002.17 para "Consulta à base de respostas automáticas durante a qualificação" | Kika |
 | 08/05/2026 | 1.14 | Unificação de REQ-002.1 e REQ-002.18 no REQ-002.1 ("Classificação e roteamento das mensagens do cliente"), agora com quatro categorias incluindo "intenção de compra/orçamento (mensagem inicial)"; remoção do REQ-002.18 | Kika |
 | 11/05/2026 | 1.15 | Criação do REQ-002.22 (Tratamento de abandono de conversa pelo cliente): inatividade de 24h, mensagem única de reengajamento, finalização em 72h totais, preservação dos dados e oferta de retomada quando o mesmo cliente voltar | Kika |
+| 12/05/2026 | 1.16 | REQ-002.16 esclarecido: a confirmação do **CNPJ** é coberta pelo REQ-001.4 (não duplicar); o eco do REQ-002.16 trata apenas dos demais campos extraídos, podendo ser consolidado em uma única mensagem de resumo | Kika |
 
 ---
 

@@ -1,6 +1,6 @@
 # REQ-004: Escalonamento para Humano (Human Takeover)
 
-**Versão**: 1.4  
+**Versão**: 1.6  
 **Data**: 2026-05-06  
 **Autor**: Kika (Analista de Requisitos)  
 **Status**: Em Elaboração  
@@ -25,7 +25,7 @@ O sistema deve identificar quando uma conversa exige intervenção humana e real
 - Rita (ou outro atendente humano) seja notificada
 - O histórico da conversa fique registrado
 
-No POC, o escalonamento deve notificar a Rita, que responderá ao cliente pelo próprio WhatsApp. Em versões posteriores, o atendente poderá responder por um dashboard.
+No POC, o escalonamento deve notificar a Rita, que responderá ao cliente pelo próprio WhatsApp. O **painel administrativo do REQ-010** dá visibilidade aos escalonamentos pendentes (gestão), mas **não é** usado para responder ao cliente no POC. Em versões posteriores, o atendente poderá responder diretamente pelo painel.
 
 ---
 
@@ -93,6 +93,13 @@ No POC, o escalonamento deve notificar a Rita, que responderá ao cliente pelo p
 
 - [ ] **REQ-004.7 — Escalonamento por insatisfação ou reclamação**: O sistema deve escalar quando houver indícios de insatisfação ou reclamação:
   - “reclamação”, “não funciona”, “problema”, “péssimo”, “estou irritado”, etc.
+
+  **Prioridade de fluxo quando se tratar de pós-venda**: se a reclamação for sobre **atraso de entrega, produto que não funciona, suporte ou outra situação de pós-venda** (conforme detecção do REQ-009.1), o fluxo do **REQ-009 prevalece** sobre o escalonamento imediato deste requisito. Nesses casos, o sistema deve:
+  - Marcar a conversa como crítica (REQ-009.2 / REQ-007.2)
+  - Identificar o orçamento/pedido relacionado (REQ-009.3 a REQ-009.7)
+  - Só então escalar com contexto completo (REQ-009.8), passando pelos mecanismos do REQ-004.2
+
+  Para reclamações que **não se enquadrem em pós-venda** (ex: insatisfação genérica durante a qualificação ou consulta), aplicar este REQ-004.7 normalmente: escalar imediatamente.
 
 - [ ] **REQ-004.8 — Escalonamento por análise técnica ou projeto complexo**: O sistema deve escalar quando o tema exigir análise técnica/humana, como:
   - Compatibilidade com software/sistema do cliente
@@ -165,7 +172,7 @@ O sistema deve gerar um resumo curto, orientado à ação, incluindo quando poss
 
 ## 8. Limitações Aceitas no POC
 
-- [ ] Sem dashboard (Rita responde pelo WhatsApp)
+- [ ] Sem resposta ao cliente pelo painel — Rita responde pelo WhatsApp (o painel do REQ-010 é apenas para gestão/visualização dos escalonamentos)
 - [ ] Sem fila de atendimento (apenas notificação)
 - [ ] Sem roteamento entre múltiplos atendentes
 
@@ -217,6 +224,8 @@ O sistema deve gerar um resumo curto, orientado à ação, incluindo quando poss
 | 06/05/2026 | 1.2 | Adição de títulos descritivos a todos os requisitos do documento e refatoração de REQ-004.4 (capacidade: estado persistente) e REQ-004.10 (regra: suspensão de respostas automáticas) para eliminar duplicação semântica | Kika |
 | 06/05/2026 | 1.3 | Fusão de REQ-004.5A e REQ-004.10A em um único requisito (REQ-004.5A) com a lista detalhada de campos mínimos para pré-qualificação; REQ-004.10A removido | Kika |
 | 06/05/2026 | 1.4 | Fusão de REQ-004.11 (mensagem de transição) e REQ-004.12 (tom empático em reclamação) em um único requisito (REQ-004.11) sobre comunicação com o cliente no momento do escalonamento; REQ-004.12 removido | Kika |
+| 12/05/2026 | 1.5 | Atualização das menções a "dashboard" para referenciar o REQ-010 (Painel Administrativo POC), esclarecendo que o painel cobre gestão/visualização de escalonamentos mas que a resposta ao cliente continua pelo WhatsApp no POC | Kika |
+| 12/05/2026 | 1.6 | REQ-004.7 enriquecido com regra de prioridade: reclamações de pós-venda (atraso, defeito, suporte) seguem o fluxo do REQ-009 (identificação de orçamento antes do escalonamento); reclamações genéricas continuam escalando imediatamente | Kika |
 
 ---
 

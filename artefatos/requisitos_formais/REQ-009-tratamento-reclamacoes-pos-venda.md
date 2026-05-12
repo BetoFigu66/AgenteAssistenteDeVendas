@@ -1,6 +1,6 @@
 # REQ-009: Tratamento de Reclamações Pós-venda (Atraso/Suporte) com Identificação de Orçamento/Pedido
 
-**Versão**: 1.0  
+**Versão**: 1.3  
 **Data**: 2026-04-17  
 **Autor**: Kika (Analista de Requisitos)  
 **Status**: Em Elaboração  
@@ -45,47 +45,54 @@ O sistema deve identificar e tratar mensagens de pós-venda relacionadas a recla
 
 ### 4.1 Detecção de Reclamação/Pós-venda
 
-- [ ] **REQ-009.1**: O sistema deve detectar mensagens de pós-venda, com foco inicial em:
+- [ ] **REQ-009.1 — Detecção de mensagens de pós-venda**: O sistema deve detectar mensagens de pós-venda, com foco inicial em:
   - atraso/prazo de entrega
   - falta de prazo
   - produto não funciona / defeito
   - suporte/instalação/ajuda
 
-- [ ] **REQ-009.2**: Ao detectar pós-venda, o sistema deve classificar a conversa como crítica (integração com REQ-007) e iniciar tratamento de reclamação
+- [ ] **REQ-009.2 — Marcação como conversa crítica ao detectar pós-venda**: Ao detectar pós-venda, o sistema deve classificar a conversa como crítica (integração com REQ-007) e iniciar tratamento de reclamação
 
 ### 4.2 Identificação de Orçamento/Pedido Relacionado
 
-- [ ] **REQ-009.3**: O sistema deve identificar o cliente a partir do número WhatsApp (`cliente_id`/telefone) e buscar orçamentos associados (REQ-006)
+- [ ] **REQ-009.3 — Identificação do cliente e busca de orçamentos pelo telefone**: O sistema deve identificar o cliente a partir do número WhatsApp (`cliente_id`/telefone) e buscar orçamentos associados (REQ-006)
 
-- [ ] **REQ-009.4**: Quando houver mais de um orçamento associado ao mesmo número, o sistema deve selecionar o mais provável (por recência) e pedir confirmação do cliente
+- [ ] **REQ-009.4 — Seleção do orçamento mais provável quando houver múltiplos**: Quando houver mais de um orçamento associado ao mesmo número, o sistema deve selecionar o mais provável (por recência) e pedir confirmação do cliente
 
-- [ ] **REQ-009.5**: Quando não houver orçamento associado ao número, o sistema deve solicitar dados mínimos para localizar:
+- [ ] **REQ-009.5 — Solicitação de dados alternativos quando não achar orçamento pelo telefone**: Quando não houver orçamento associado ao número, o sistema deve solicitar dados mínimos para localizar:
   - CNPJ (preferencial) ou
   - e-mail usado no orçamento (se aplicável)
 
 ### 4.3 Confirmação com o Cliente
 
-- [ ] **REQ-009.6**: Antes de escalonar, o sistema deve apresentar um resumo do orçamento/pedido identificado para o cliente confirmar, contendo quando possível:
+- [ ] **REQ-009.6 — Resumo do orçamento para confirmação do cliente**: Antes de escalonar, o sistema deve apresentar um resumo do orçamento/pedido identificado para o cliente confirmar, contendo quando possível:
   - empresa (razão social)
   - produto(s)
-  - data aproximada do orçamento
+  - **data de referência**, escolhida conforme a regra abaixo:
+    - Se o orçamento estiver com status `convertido` (REQ-006.5) — ou seja, foi marcado como pedido efetivado pela Rita no painel administrativo (REQ-006.8 / REQ-010) — usar a **data da transição para `convertido`** (REQ-006.6) e referenciá-la ao cliente como **"data do pedido"**
+    - Caso contrário, usar a **data do último orçamento enviado** ao cliente (timestamp de envio registrado pelo REQ-006.4) e referenciá-la como **"data do orçamento"**
 
-- [ ] **REQ-009.7**: O sistema deve permitir que o cliente diga que não é aquele orçamento e, nesse caso, tentar outra opção (se existir) ou pedir mais dados
+- [ ] **REQ-009.7 — Tratamento de orçamento incorreto identificado pelo cliente**: Quando o cliente indicar que o orçamento apresentado no REQ-009.6 **não é** o que ele quer tratar, o sistema deve seguir esta política:
+  - **1ª tentativa adicional**: se houver outro orçamento associado ao mesmo telefone (lista do REQ-009.3 ordenada por recência), propor o **próximo da lista** e voltar ao REQ-009.6 para confirmação
+  - **2ª tentativa adicional**: caso o cliente recuse novamente e ainda existam orçamentos não oferecidos, propor mais um. O limite total é de **até 2 propostas alternativas** após a primeira (3 tentativas no total) para evitar loops longos
+  - **Sem mais opções por telefone**: se a lista terminar ou o limite for atingido sem confirmação, cair no fluxo do REQ-009.5 (pedir CNPJ ou e-mail usado no orçamento) e, ao localizar, reiniciar a confirmação pelo REQ-009.6
+  - **Desistência/escalonamento sem identificação**: se mesmo após o REQ-009.5 nada for localizado, o sistema deve **escalar mesmo assim** (REQ-009.8) marcando o evento com a flag `orcamento_nao_identificado` e enviando à Rita o texto da reclamação e os dados coletados (telefone, CNPJ/e-mail informados, se houver), para que ela conduza a triagem manualmente
+  - Cada proposta apresentada e cada "não" do cliente deve ser registrada como evento (REQ-005 / REQ-009.10)
 
 ### 4.4 Escalonamento para a Rita
 
-- [ ] **REQ-009.8**: Após confirmação do cliente, o sistema deve escalar imediatamente para a Rita (REQ-004), enviando:
+- [ ] **REQ-009.8 — Escalonamento com contexto completo da reclamação**: Após confirmação do cliente, o sistema deve escalar imediatamente para a Rita (REQ-004), enviando:
   - identificação do cliente (telefone)
   - `orcamento_id` (se existir)
   - dados do orçamento (produto, empresa, data)
   - texto da reclamação do cliente
   - categoria da reclamação (prazo/atraso, suporte, não funciona, etc.)
 
-- [ ] **REQ-009.9**: Após o escalonamento, o sistema deve entrar em estado “em atendimento humano” (REQ-004) para não continuar respondendo automaticamente
+- [ ] **REQ-009.9 — Suspensão de respostas automáticas após escalonamento**: Após o escalonamento, o sistema deve entrar em estado “em atendimento humano” (REQ-004) para não continuar respondendo automaticamente
 
 ### 4.5 Registro e Auditoria
 
-- [ ] **REQ-009.10**: O sistema deve registrar como eventos (REQ-005):
+- [ ] **REQ-009.10 — Registro auditavel das etapas do tratamento de reclamação**: O sistema deve registrar como eventos (REQ-005):
   - detecção de pós-venda
   - orçamento/pedido sugerido
   - confirmação (sim/não)
@@ -160,6 +167,9 @@ Sistema: "Certo. Vou acionar um atendente para te ajudar e já te retorno."
 | Data | Versão | Alteração | Autor |
 |------|--------|-----------|-------|
 | 17/04/2026 | 1.0 | Criação inicial do requisito | Kika |
+| 12/05/2026 | 1.1 | Adição de títulos descritivos a todos os requisitos do documento | Kika |
+| 12/05/2026 | 1.2 | REQ-009.6: refinamento da "data de referência" exibida ao cliente — usar a data da transição para `convertido` ("data do pedido") quando o orçamento foi efetivado via REQ-006.8/REQ-010, ou a data do último orçamento enviado (REQ-006.4) caso contrário | Kika |
+| 12/05/2026 | 1.3 | REQ-009.7 detalhado com política de tentativas (máximo 2 propostas alternativas), integração explícita com REQ-009.5 (fallback para CNPJ/e-mail), critério de desistência (escalar com flag `orcamento_nao_identificado` via REQ-009.8) e exigência de registro de cada proposta/recusa (REQ-005 / REQ-009.10) | Kika |
 
 ---
 

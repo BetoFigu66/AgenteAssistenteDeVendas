@@ -1,6 +1,6 @@
 # REQ-007: Análise de Sentimento e Classificação de Conversas Críticas
 
-**Versão**: 1.0  
+**Versão**: 1.3  
 **Data**: 2026-04-16  
 **Autor**: Kika (Analista de Requisitos)  
 **Status**: Em Elaboração  
@@ -46,38 +46,43 @@ A classificação de conversa crítica deve ser utilizada como insumo para o esc
 
 ### 4.1 Funcionalidades Obrigatórias
 
-- [ ] **REQ-007.1**: O sistema deve analisar mensagens do cliente (e contexto recente) e atribuir uma classificação de sentimento, no mínimo:
+- [ ] **REQ-007.1 — Classificação de sentimento por mensagem**: O sistema deve analisar mensagens do cliente (e contexto recente) e atribuir uma classificação de sentimento, no mínimo:
   - `positivo`
   - `neutro`
   - `negativo`
 
-- [ ] **REQ-007.2**: O sistema deve classificar a conversa como **crítica** quando:
+- [ ] **REQ-007.2 — Critérios para marcar conversa como crítica**: O sistema deve classificar a conversa como **crítica** quando:
   - houver sentimento `negativo` persistente, ou
   - houver palavras/frases que indiquem reclamação/insatisfação, ou
   - o cliente pedir humano (gatilhos do REQ-004.6)
 
-- [ ] **REQ-007.3**: O sistema deve registrar a cada atualização de classificação:
-  - sentimento atual
-  - flag `critica` (sim/não)
-  - motivos (texto curto ou tags)
-  - timestamp
+- [ ] **REQ-007.3 — Registro histórico das classificações**: O sistema deve registrar a cada atualização de classificação os campos abaixo, agregando saidas dos REQ-007.1 e REQ-007.2:
 
-- [ ] **REQ-007.4**: O sistema deve suportar atualização incremental: a conversa pode mudar de não-crítica para crítica (e vice-versa) conforme novas mensagens
+  | Campo registrado | Origem |
+  |------------------|--------|
+  | `sentimento` (atual) | REQ-007.1 |
+  | `critica` (flag sim/não) | REQ-007.2 |
+  | `motivos` (texto curto ou tags) | REQ-007.1 + REQ-007.2 |
+  | `timestamp` | infraestrutura |
 
-- [ ] **REQ-007.5**: Quando classificar como crítica, o sistema deve acionar o fluxo de escalonamento do REQ-004 quando aplicável
+  Esses dados devem ser persistidos como evento auditavel no histórico (REQ-005) e ficar acessiveis para consulta posterior (REQ-007.10).
+
+- [ ] **REQ-007.4 — Atualização incremental do estado crítico**: O sistema deve suportar atualização incremental: a conversa pode mudar de não-crítica para crítica (e vice-versa) conforme novas mensagens
+
+- [ ] **REQ-007.5 — Acionamento de escalonamento ao detectar conversa crítica**: Quando classificar como crítica, o sistema deve acionar o fluxo de escalonamento do REQ-004 quando aplicável
 
 ### 4.2 Regras de Negócio
 
-- [ ] **REQ-007.6**: A classificação como crítica deve priorizar segurança: em caso de dúvida, marcar como crítica
+- [ ] **REQ-007.6 — Viés de segurança na dúvida (preferir crítica)**: A classificação como crítica deve priorizar segurança: em caso de dúvida, marcar como crítica
 
-- [ ] **REQ-007.7**: A classificação deve considerar a presença de negação e contexto (ex: “não estou irritado” não deve ser interpretado como irritação)
+- [ ] **REQ-007.7 — Tratamento de negação e contexto**: A classificação deve considerar a presença de negação e contexto (ex: “não estou irritado” não deve ser interpretado como irritação)
 
-- [ ] **REQ-007.8**: O sistema deve evitar respostas automáticas prolongadas quando a conversa estiver crítica; deve ser breve e orientar escalonamento (alinhado ao REQ-004)
+- [ ] **REQ-007.8 — Respostas automáticas reduzidas em conversas críticas**: O sistema deve evitar respostas automáticas prolongadas quando a conversa estiver crítica; deve ser breve e orientar escalonamento (alinhado ao REQ-004)
 
 ### 4.3 Requisitos Não-Funcionais
 
-- [ ] **REQ-007.9**: Tempo de classificação: < 2 segundos por mensagem, em condições normais
-- [ ] **REQ-007.10**: A classificação deve ser auditável (quais sinais levaram à decisão)
+- [ ] **REQ-007.9 — Tempo máximo de classificação por mensagem**: Tempo de classificação: < 2 segundos por mensagem, em condições normais
+- [ ] **REQ-007.10 — Auditabilidade da classificação**: A classificação deve ser auditável (quais sinais levaram à decisão)
 
 ---
 
@@ -109,7 +114,7 @@ A classificação de conversa crítica deve ser utilizada como insumo para o esc
 ## 7. Limitações Aceitas no POC
 
 - [ ] Modelo de sentimento pode ser simples (regras + IA)
-- [ ] Sem dashboard dedicado; foco em escalonamento e registro
+- [ ] Sem dashboard de métricas/indicadores de sentimento; foco em escalonamento (REQ-004) e registro (REQ-005). A exibição de sentimento por conversa pode aparecer nas telas do REQ-010 como informação complementar, mas não é obrigatória no POC
 
 ---
 
@@ -141,6 +146,9 @@ A classificação de conversa crítica deve ser utilizada como insumo para o esc
 | Data | Versão | Alteração | Autor |
 |------|--------|-----------|-------|
 | 16/04/2026 | 1.0 | Criação inicial do requisito | Kika |
+| 12/05/2026 | 1.1 | Atualização da limitação "sem dashboard dedicado" para esclarecer que o REQ-010 (Painel Administrativo POC) pode exibir sentimento por conversa como informação complementar, sem obrigatoriedade no POC | Kika |
+| 12/05/2026 | 1.2 | Adição de títulos descritivos a todos os requisitos do documento | Kika |
+| 12/05/2026 | 1.3 | REQ-007.3 enriquecido com tabela explicitando a origem de cada campo registrado (REQ-007.1, REQ-007.2 ou infraestrutura) e referências cruzadas a REQ-005 e REQ-007.10 | Kika |
 
 ---
 

@@ -1,6 +1,6 @@
 # REQ-005: Registro Completo de Interações e Histórico de Conversas
 
-**Versão**: 1.4  
+**Versão**: 1.6  
 **Data**: 2026-05-06  
 **Autor**: Kika (Analista de Requisitos)  
 **Status**: Em Elaboração  
@@ -39,7 +39,7 @@ O objetivo é permitir rastreabilidade, revisão de conversas críticas e melhor
 **Benefício Esperado**:
 - Auditoria e rastreabilidade de decisões do sistema
 - Base para melhoria de prompts, RAG e gatilhos de escalonamento
-- Suporte a relatórios e dashboard em versões futuras
+- Suporte a relatórios em versões futuras (o painel do REQ-010 já cobre consulta básica no POC)
 
 ---
 
@@ -77,9 +77,10 @@ O objetivo é permitir rastreabilidade, revisão de conversas críticas e melhor
   - `Em atendimento humano` → `Finalização`
 
   **Gatilhos de `Finalização`** (ao menos um dos seguintes):
-  - Humano (Rita) sinaliza encerramento da conversa
-  - Orçamento enviado e conversa marcada como concluída
+  - Humano (Rita) sinaliza encerramento da conversa **explicitamente** pelo painel administrativo (REQ-010)
   - Cliente abandona a conversa por período prolongado (conforme REQ-002.22)
+
+  **Observação sobre orçamento enviado**: a marcação de um orçamento como `enviado` (REQ-006.8) **não encerra a conversa por si só**. A conversa pode continuar ativa enquanto o cliente fizer perguntas, negociar ou pedir esclarecimentos sobre o orçamento. A transição para `Finalização` exige sempre uma das duas ações acima (encerramento manual pela Rita ou abandono por inatividade).
 
   **Consulta em tempo real**: o estado atual de cada conversa deve ser consultável pelos demais módulos (REQ-002, REQ-003) para decidir se podem responder automaticamente, alinhado ao REQ-004.4.
 
@@ -163,7 +164,7 @@ O objetivo é permitir rastreabilidade, revisão de conversas críticas e melhor
 ## 6. Limitações Aceitas no POC
 
 - [ ] Registro de mensagens do humano (Rita) pode não ser completo se ela responder diretamente no WhatsApp sem passar pelo sistema
-- [ ] Sem dashboard de visualização (consulta pode ser via endpoint/admin simples)
+- [ ] Sem relatórios analíticos (gráficos, métricas agregadas, exportações). A consulta básica do histórico é atendida pelo painel administrativo do REQ-010 (telas de histórico de conversas e detalhes do orçamento)
 
 ---
 
@@ -210,6 +211,8 @@ O objetivo é permitir rastreabilidade, revisão de conversas críticas e melhor
 | 06/05/2026 | 1.2 | REQ-005.8 reescrito com definição explícita de dados de negócio vs. dados sensíveis e regras de tratamento quando aparecerem em mensagens recebidas | Kika |
 | 06/05/2026 | 1.3 | Adição de títulos descritivos a todos os requisitos do documento | Kika |
 | 11/05/2026 | 1.4 | REQ-005.3: substituição de "timeout a definir" por referência ao REQ-002.22 (Tratamento de abandono de conversa pelo cliente) | Kika |
+| 12/05/2026 | 1.5 | Atualização das menções a "dashboard" para referenciar o REQ-010 (Painel Administrativo POC), distinguindo consulta básica (já coberta) de relatórios analíticos (futuros) | Kika |
+| 12/05/2026 | 1.6 | REQ-005.3: refinamento dos gatilhos de `Finalização` — encerramento manual da Rita pelo painel (REQ-010) ou abandono por inatividade (REQ-002.22); esclarecido que a marcação de orçamento como `enviado` (REQ-006.8) não encerra a conversa por si só | Kika |
 
 ---
 
