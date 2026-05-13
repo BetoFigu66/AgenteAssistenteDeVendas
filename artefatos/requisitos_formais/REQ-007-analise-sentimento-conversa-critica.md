@@ -13,7 +13,7 @@
 **ID**: REQ-007  
 **Tipo**: Funcional  
 **Categoria**: Qualidade de Atendimento / Monitoramento  
-**Solicitante**: Requisito definido por Beto (conversas críticas) + necessidade operacional da Rita  
+**Solicitante**: Requisito definido por Beto (conversas críticas) + necessidade operacional do vendedor  
 
 ---
 

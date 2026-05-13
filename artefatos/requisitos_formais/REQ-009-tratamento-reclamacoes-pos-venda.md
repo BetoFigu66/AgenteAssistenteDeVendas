@@ -13,7 +13,7 @@
 **ID**: REQ-009  
 **Tipo**: Funcional  
 **Categoria**: Pós-venda / Reclamações / Suporte  
-**Solicitante**: Operação (Rita)  
+**Solicitante**: Operação (vendedor)  
 
 ---
 
@@ -24,7 +24,7 @@ O sistema deve identificar e tratar mensagens de pós-venda relacionadas a recla
 1. Identificar o número/contato do WhatsApp do cliente
 2. Buscar orçamentos e/ou registros relacionados ao cliente (via telefone e/ou CNPJ) para tentar identificar qual orçamento/pedido está relacionado ao assunto
 3. Apresentar ao cliente um resumo para confirmação (ex: empresa, produto, data do orçamento) antes de prosseguir
-4. Após confirmação, escalar para a Rita com a reclamação e dados do orçamento/pedido
+4. Após confirmação, escalar para o vendedor com a reclamação e dados do orçamento/pedido
 
 ---
 
@@ -32,11 +32,11 @@ O sistema deve identificar e tratar mensagens de pós-venda relacionadas a recla
 
 **Problema Atual**:
 - Reclamações de pós-venda (prazo, entrega, suporte) exigem resposta rápida e humana
-- Sem identificação do orçamento/pedido, a Rita perde tempo pedindo dados e buscando histórico
+- Sem identificação do orçamento/pedido, o vendedor perde tempo pedindo dados e buscando histórico
 
 **Benefício Esperado**:
 - Reduzir tempo de triagem e entendimento do problema
-- Encaminhar para a Rita com contexto completo
+- Encaminhar para o vendedor com contexto completo
 - Evitar resposta automática inadequada em situações críticas
 
 ---
@@ -69,19 +69,19 @@ O sistema deve identificar e tratar mensagens de pós-venda relacionadas a recla
   - empresa (razão social)
   - produto(s)
   - **data de referência**, escolhida conforme a regra abaixo:
-    - Se o orçamento estiver com status `convertido` (REQ-006.5) — ou seja, foi marcado como pedido efetivado pela Rita no painel administrativo (REQ-006.8 / REQ-010) — usar a **data da transição para `convertido`** (REQ-006.6) e referenciá-la ao cliente como **"data do pedido"**
+    - Se o orçamento estiver com status `convertido` (REQ-006.5) — ou seja, foi marcado como pedido efetivado pelo vendedor no painel administrativo (REQ-006.8 / REQ-010) — usar a **data da transição para `convertido`** (REQ-006.6) e referenciá-la ao cliente como **"data do pedido"**
     - Caso contrário, usar a **data do último orçamento enviado** ao cliente (timestamp de envio registrado pelo REQ-006.4) e referenciá-la como **"data do orçamento"**
 
 - [ ] **REQ-009.7 — Tratamento de orçamento incorreto identificado pelo cliente**: Quando o cliente indicar que o orçamento apresentado no REQ-009.6 **não é** o que ele quer tratar, o sistema deve seguir esta política:
   - **1ª tentativa adicional**: se houver outro orçamento associado ao mesmo telefone (lista do REQ-009.3 ordenada por recência), propor o **próximo da lista** e voltar ao REQ-009.6 para confirmação
   - **2ª tentativa adicional**: caso o cliente recuse novamente e ainda existam orçamentos não oferecidos, propor mais um. O limite total é de **até 2 propostas alternativas** após a primeira (3 tentativas no total) para evitar loops longos
   - **Sem mais opções por telefone**: se a lista terminar ou o limite for atingido sem confirmação, cair no fluxo do REQ-009.5 (pedir CNPJ ou e-mail usado no orçamento) e, ao localizar, reiniciar a confirmação pelo REQ-009.6
-  - **Desistência/escalonamento sem identificação**: se mesmo após o REQ-009.5 nada for localizado, o sistema deve **escalar mesmo assim** (REQ-009.8) marcando o evento com a flag `orcamento_nao_identificado` e enviando à Rita o texto da reclamação e os dados coletados (telefone, CNPJ/e-mail informados, se houver), para que ela conduza a triagem manualmente
+  - **Desistência/escalonamento sem identificação**: se mesmo após o REQ-009.5 nada for localizado, o sistema deve **escalar mesmo assim** (REQ-009.8) marcando o evento com a flag `orcamento_nao_identificado` e enviando ao vendedor o texto da reclamação e os dados coletados (telefone, CNPJ/e-mail informados, se houver), para que ele conduza a triagem manualmente
   - Cada proposta apresentada e cada "não" do cliente deve ser registrada como evento (REQ-005 / REQ-009.10)
 
-### 4.4 Escalonamento para a Rita
+### 4.4 Escalonamento para o vendedor
 
-- [ ] **REQ-009.8 — Escalonamento com contexto completo da reclamação**: Após confirmação do cliente, o sistema deve escalar imediatamente para a Rita (REQ-004), enviando:
+- [ ] **REQ-009.8 — Escalonamento com contexto completo da reclamação**: Após confirmação do cliente, o sistema deve escalar imediatamente para o vendedor (REQ-004), enviando:
   - identificação do cliente (telefone)
   - `orcamento_id` (se existir)
   - dados do orçamento (produto, empresa, data)
@@ -117,7 +117,7 @@ Cliente: "Sim"
 
 Sistema: "Certo. Vou acionar um atendente para te ajudar e já te retorno."
 
-(Sistema notifica Rita com os dados + reclamação)
+(Sistema notifica vendedor com os dados + reclamação)
 ```
 
 ---

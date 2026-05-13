@@ -13,7 +13,7 @@
 **ID**: REQ-004  
 **Tipo**: Funcional  
 **Categoria**: Operação / Atendimento  
-**Solicitante**: Rita (Inforrel) + requisitos definidos por Beto  
+**Solicitante**: vendedor (Inforrel) + requisitos definidos por Beto  
 
 ---
 
@@ -22,10 +22,10 @@
 O sistema deve identificar quando uma conversa exige intervenção humana e realizar o escalonamento (handoff) de forma segura, garantindo que:
 
 - O cliente saiba que será atendido por uma pessoa quando aplicável
-- Rita (ou outro atendente humano) seja notificada
+- vendedor (ou outro atendente humano) seja notificada
 - O histórico da conversa fique registrado
 
-No POC, o escalonamento deve notificar a Rita, que responderá ao cliente pelo próprio WhatsApp. O **painel administrativo do REQ-010** dá visibilidade aos escalonamentos pendentes (gestão), mas **não é** usado para responder ao cliente no POC. Em versões posteriores, o atendente poderá responder diretamente pelo painel.
+No POC, o escalonamento deve notificar o vendedor, que responderá ao cliente pelo próprio WhatsApp. O **painel administrativo do REQ-010** dá visibilidade aos escalonamentos pendentes (gestão), mas **não é** usado para responder ao cliente no POC. Em versões posteriores, o atendente poderá responder diretamente pelo painel.
 
 ---
 
@@ -53,15 +53,15 @@ No POC, o escalonamento deve notificar a Rita, que responderá ao cliente pelo p
 - [ ] **REQ-004.2 — Gerar resumo do contexto e notificar vendedor**: Quando decidir escalar, o sistema deve:
   - Registrar a conversa como “crítica”
   - Gerar um resumo do contexto (para o humano)
-  - Notificar a Rita
+  - Notificar o vendedor
 
-- [ ] **REQ-004.3 — Assumir conversa iniciada de forma manual pelo vendedor**: O sistema deve suportar **takeover iniciado pela operadora** (Rita), independente da existência de gatilhos do lado do cliente:
-  - A Rita pode solicitar assumir uma conversa em andamento a qualquer momento (POC: via procedimento combinado)
+- [ ] **REQ-004.3 — Assumir conversa iniciada de forma manual pelo vendedor**: O sistema deve suportar **takeover iniciado pela operadora** (vendedor), independente da existência de gatilhos do lado do cliente:
+  - O vendedor pode solicitar assumir uma conversa em andamento a qualquer momento (POC: via procedimento combinado)
   - Ao assumir, o sistema deve aplicar o mesmo tratamento de uma conversa escalada (REQ-004.2 e REQ-004.4): marcar a conversa como em atendimento humano, gerar resumo de contexto e bloquear respostas automáticas
   - Observação: o escalonamento iniciado por **pedido explícito do cliente** é tratado como gatilho explícito (REQ-004.1 + REQ-004.6), não por este requisito
 
 - [ ] **REQ-004.4 — Alterar conversa para estado "em atendimento humano"**: O sistema deve manter, por conversa, um **estado persistente** indicando se ela está em atendimento humano. Esse estado:
-  - É **ativado** no momento do handoff (REQ-004.2) ou quando a Rita assume manualmente (REQ-004.3)
+  - É **ativado** no momento do handoff (REQ-004.2) ou quando o vendedor assume manualmente (REQ-004.3)
   - É **desativado** apenas quando o humano sinalizar a finalização do atendimento
   - Deve ser consultável pelos demais módulos do sistema (REQ-002, REQ-003) para decidir se podem responder automaticamente
 
@@ -107,7 +107,7 @@ No POC, o escalonamento deve notificar a Rita, que responderá ao cliente pelo p
   - Cliente grande/projeto complexo
   Para identificar “cliente grande/projeto complexo”, o sistema deve considerar, no mínimo:
   - Quantidade de equipamentos (quando o cliente informar ou quando o sistema conseguir inferir): se quantidade >= 4 (catracas ou relógios), escalar
-  - Quantidade de funcionários (quando o cliente informar): se funcionários >= LIMIAR_FUNCIONARIOS (a definir com a Rita), escalar
+  - Quantidade de funcionários (quando o cliente informar): se funcionários >= LIMIAR_FUNCIONARIOS (a definir com o vendedor), escalar
 
 - [ ] **REQ-004.9 — Escalonamento por baixa confiança na resposta**: O sistema deve escalar quando não conseguir responder com segurança, por exemplo:
   - Base de conhecimento insuficiente
@@ -131,7 +131,7 @@ No POC, o escalonamento deve notificar a Rita, que responderá ao cliente pelo p
 
 ## 5. Notificação ao Humano (POC)
 
-No POC, a notificação deve ser feita via WhatsApp para a Rita.
+No POC, a notificação deve ser feita via WhatsApp para o vendedor.
 
 ### 5.1 Conteúdo mínimo da notificação
 - Identificação do cliente (nome/telefone)
@@ -172,7 +172,7 @@ O sistema deve gerar um resumo curto, orientado à ação, incluindo quando poss
 
 ## 8. Limitações Aceitas no POC
 
-- [ ] Sem resposta ao cliente pelo painel — Rita responde pelo WhatsApp (o painel do REQ-010 é apenas para gestão/visualização dos escalonamentos)
+- [ ] Sem resposta ao cliente pelo painel — vendedor responde pelo WhatsApp (o painel do REQ-010 é apenas para gestão/visualização dos escalonamentos)
 - [ ] Sem fila de atendimento (apenas notificação)
 - [ ] Sem roteamento entre múltiplos atendentes
 
@@ -187,7 +187,7 @@ O sistema deve gerar um resumo curto, orientado à ação, incluindo quando poss
 
 ### 9.2 Dependências de Negócio
 - Definição do canal de notificação (WhatsApp e número)
-- Lista de frases gatilho refinada com a Rita
+- Lista de frases gatilho refinada com o vendedor
 
 ---
 
@@ -220,7 +220,7 @@ O sistema deve gerar um resumo curto, orientado à ação, incluindo quando poss
 | Data | Versão | Alteração | Autor |
 |------|--------|-----------|-------|
 | 15/04/2026 | 1.0 | Criação inicial do requisito | Kika |
-| 06/05/2026 | 1.1 | Refatoração de REQ-004.1 (categorias explícito/implícito de gatilhos) e REQ-004.3 (escopo restrito a takeover iniciado pela Rita), eliminando sobreposição entre os dois requisitos | Kika |
+| 06/05/2026 | 1.1 | Refatoração de REQ-004.1 (categorias explícito/implícito de gatilhos) e REQ-004.3 (escopo restrito a takeover iniciado pelo vendedor), eliminando sobreposição entre os dois requisitos | Kika |
 | 06/05/2026 | 1.2 | Adição de títulos descritivos a todos os requisitos do documento e refatoração de REQ-004.4 (capacidade: estado persistente) e REQ-004.10 (regra: suspensão de respostas automáticas) para eliminar duplicação semântica | Kika |
 | 06/05/2026 | 1.3 | Fusão de REQ-004.5A e REQ-004.10A em um único requisito (REQ-004.5A) com a lista detalhada de campos mínimos para pré-qualificação; REQ-004.10A removido | Kika |
 | 06/05/2026 | 1.4 | Fusão de REQ-004.11 (mensagem de transição) e REQ-004.12 (tom empático em reclamação) em um único requisito (REQ-004.11) sobre comunicação com o cliente no momento do escalonamento; REQ-004.12 removido | Kika |

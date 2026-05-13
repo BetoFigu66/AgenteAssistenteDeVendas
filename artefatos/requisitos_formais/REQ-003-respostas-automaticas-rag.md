@@ -13,7 +13,7 @@
 **ID**: REQ-003  
 **Tipo**: Funcional  
 **Categoria**: Atendimento Automático / Base de Conhecimento  
-**Solicitante**: Rita (Inforrel)  
+**Solicitante**: vendedor (Inforrel)  
 
 ---
 
@@ -33,7 +33,7 @@ A resposta automática deve ser gerada com auxílio de IA, mas sempre baseada em
 ## 3. Justificativa de Negócio
 
 **Problema Atual**:
-- Rita responde repetidamente as mesmas perguntas (valor, modelos, prazo e instalação)
+- vendedor responde repetidamente as mesmas perguntas (valor, modelos, prazo e instalação)
 - Atendimento manual consome tempo e pode gerar atrasos
 
 **Benefício Esperado**:
@@ -195,7 +195,7 @@ Voltando ao seu orçamento: você prefere biométrico ou facial?"
 - Registro de histórico de conversa
 
 ### 8.2 Dependências de Negócio
-- Receber as respostas rápidas completas da Rita
+- Receber as respostas rápidas completas do vendedor
 - Receber catálogos e tabelas de preço atualizadas
 
 ---

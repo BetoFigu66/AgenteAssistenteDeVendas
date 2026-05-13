@@ -13,13 +13,13 @@
 **ID**: REQ-010  
 **Tipo**: Funcional  
 **Categoria**: Operação / Interface Administrativa  
-**Solicitante**: Necessidade do produto (operação da Rita)  
+**Solicitante**: Necessidade do produto (operação do vendedor)  
 
 ---
 
 ## 2. Descrição
 
-O sistema deve oferecer uma **interface administrativa web** (painel) que permita à Rita operar o sistema de atendimento sem depender exclusivamente do WhatsApp. O painel é o ponto único de:
+O sistema deve oferecer uma **interface administrativa web** (painel) que permita ao vendedor operar o sistema de atendimento sem depender exclusivamente do WhatsApp. O painel é o ponto único de:
 
 - Consulta de orçamentos (REQ-006)
 - Atualização manual do status de orçamentos (REQ-006.8)
@@ -36,7 +36,7 @@ Este requisito **formaliza** a interface administrativa que hoje é assumida imp
 
 **Problema Atual**:
 - REQ-006 exige operação manual (atualizar status, consultar orçamentos) sem interface definida
-- Sem um lugar único para gestão, a Rita acaba dependendo de planilhas paralelas, perdendo rastreabilidade
+- Sem um lugar único para gestão, o vendedor acaba dependendo de planilhas paralelas, perdendo rastreabilidade
 - Outros REQs apontam "sem dashboard" como limitação, mas isso conflita com a operação real
 
 **Benefício Esperado**:
@@ -54,7 +54,7 @@ Este requisito **formaliza** a interface administrativa que hoje é assumida imp
 
 - [ ] **REQ-010.2 — Identidade do usuário registrada**: Toda ação realizada no painel deve ser associada ao usuário autenticado, para fins de auditoria (REQ-006.10, REQ-005)
 
-- [ ] **REQ-010.3 — Usuário único no POC**: No POC, há apenas um usuário operacional (a Rita). A estrutura deve, no entanto, permitir adicionar novos usuários no futuro sem refatoração estrutural
+- [ ] **REQ-010.3 — Usuário único no POC**: No POC, há apenas um usuário operacional (o vendedor). A estrutura deve, no entanto, permitir adicionar novos usuários no futuro sem refatoração estrutural
 
 - [ ] **REQ-010.4 — Sessão com expiração**: Sessão autenticada deve expirar após período de inatividade (sugestão: 8 horas), exigindo novo login
 
@@ -102,7 +102,7 @@ Este requisito **formaliza** a interface administrativa que hoje é assumida imp
 
 ## 6. Limitações Aceitas no POC
 
-- [ ] Apenas a Rita como usuário operacional
+- [ ] Apenas o vendedor como usuário operacional
 - [ ] Sem perfis de permissão (todo usuário autenticado tem acesso pleno no POC)
 - [ ] Sem responder ao cliente diretamente pelo painel — resposta continua pelo WhatsApp (alinhado com REQ-004)
 - [ ] Sem relatórios analíticos avançados (gráficos, exportações, métricas de funil)
@@ -120,8 +120,8 @@ Este requisito **formaliza** a interface administrativa que hoje é assumida imp
 - Persistência já estabelecida pelos REQ-005 e REQ-006
 
 ### 7.2 Dependências de Negócio
-- Definir credencial inicial da Rita
-- Validar com a Rita as telas mínimas antes da implementação
+- Definir credencial inicial do vendedor
+- Validar com o vendedor as telas mínimas antes da implementação
 
 ---
 
@@ -130,7 +130,7 @@ Este requisito **formaliza** a interface administrativa que hoje é assumida imp
 | Risco | Probabilidade | Impacto | Mitigação |
 |-------|---------------|---------|-----------|
 | Painel virar "tudo ou nada" e atrasar o POC | Média | Alto | Manter escopo nas telas mínimas (4.2) e adiar relatórios |
-| Rita preferir continuar usando WhatsApp e ignorar o painel | Média | Médio | Validar UX com ela antes de implementar; tornar atualização de status simples |
+| Vendedor preferir continuar usando WhatsApp e ignorar o painel | Média | Médio | Validar UX com ele antes de implementar; tornar atualização de status simples |
 | Falta de autenticação robusta | Baixa | Alto | Usar biblioteca consolidada de auth no POC; revisar antes de produção |
 | Inconsistência entre dados do painel e do banco | Baixa | Alto | Painel sempre lê do banco oficial (sem cache local) |
 
@@ -146,7 +146,7 @@ Este requisito **formaliza** a interface administrativa que hoje é assumida imp
 | Tela de histórico de conversas (somente leitura) | 5h |
 | Tela de escalonamentos | 3h |
 | Endpoints backend para suportar as telas | 6h |
-| Testes e ajustes de UX com Rita | 4h |
+| Testes e ajustes de UX com o vendedor | 4h |
 | **Total** | **36h** |
 
 ---

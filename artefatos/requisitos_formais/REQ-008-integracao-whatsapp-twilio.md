@@ -13,7 +13,7 @@
 **ID**: REQ-008  
 **Tipo**: Funcional  
 **Categoria**: Integração / Canal de Atendimento  
-**Solicitante**: Necessidade do POC (Rita)  
+**Solicitante**: Necessidade do POC (vendedor)  
 
 ---
 
@@ -34,7 +34,7 @@ O sistema deve integrar com WhatsApp utilizando a infraestrutura da **Twilio**, 
 - Sem integração com WhatsApp, o POC não pode operar com clientes reais
 
 **Benefício Esperado**:
-- Canal de entrada/saída confiável para testes com a Rita
+- Canal de entrada/saída confiável para testes com o vendedor
 - Setup rápido para validação
 
 ---
