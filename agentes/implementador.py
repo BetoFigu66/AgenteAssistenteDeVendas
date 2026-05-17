@@ -1,12 +1,19 @@
 """
 Agente Implementador — responsável por implementar.
 
-Diferente dos outros agentes (analista, arquiteto, QA), o Implementador é operacional: é quem efetivamente escreve o código. 
-Seu principal artefato é o "harness" de diretrizes (artefatos/implementador/diretrizes.md), que registra regras de conduta 
-de implementação acumuladas ao longo do projeto.
+A fonte da verdade da identidade e do prompt deste agente esta em:
+    agentes/implementador.md
 
-O harness é o contrato que a IA implementadora (Cascade) deve seguir quando estiver codando neste repositório. 
-Diretrizes são acumulativas: uma vez registrada, vale para sempre (até ser revisada explicitamente).
+E o harness de diretrizes operacionais em:
+    artefatos/implementador/diretrizes.md
+
+Este modulo Python apenas:
+  - Carrega o prompt de sistema concatenando o .md de identidade + o .md de diretrizes
+  - Oferece utilitarios para registrar e listar diretrizes programaticamente
+
+Diferente dos outros agentes, o Implementador e operacional: e quem efetivamente
+escreve o codigo. Diretrizes sao acumulativas: uma vez registrada, vale para sempre
+(ate ser revisada explicitamente).
 """
 from datetime import datetime
 from pathlib import Path
@@ -17,6 +24,8 @@ from .base_agente import BaseAgente
 
 class Implementador(BaseAgente):
     """Agente que executa a implementação seguindo um conjunto versionado de diretrizes."""
+
+    PROMPT_MD = "agentes/implementador.md"
 
     def __init__(self, projeto_root: str = None):
         super().__init__(
@@ -108,13 +117,26 @@ class Implementador(BaseAgente):
     # BaseAgente hooks
     # ------------------------------------------------------------------
     def get_prompt_sistema(self) -> str:
+        """
+        Le o prompt de sistema concatenando:
+          1. agentes/implementador.md (identidade — fonte da verdade)
+          2. artefatos/implementador/diretrizes.md (harness operacional)
+        """
+        prompt_path = Path(self.projeto_root) / self.PROMPT_MD
+        if prompt_path.exists():
+            identidade = prompt_path.read_text(encoding="utf-8")
+        else:
+            # Fallback minimo caso o .md seja apagado
+            identidade = (
+                "Voce e o Agente Implementador do projeto Assistente de Vendas. "
+                "Sua funcao e escrever codigo de producao seguindo RIGOROSAMENTE o "
+                "harness de diretrizes abaixo. Diretrizes tem precedencia sobre atalhos, "
+                "conveniencia e problemas temporarios de ambiente. "
+                "(Prompt completo em agentes/implementador.md nao encontrado.)"
+            )
+
         diretrizes = self.carregar_diretrizes() or "(nenhuma diretriz registrada ainda)"
-        return (
-            "Você é o Agente Implementador do projeto Assistente de Vendas.\n"
-            "Sua função é escrever código de produção seguindo RIGOROSAMENTE o harness de diretrizes abaixo."
-            "Diretrizes têm precedência sobre atalhos, conveniência e problemas temporários de ambiente.\n\n"
-            f"{diretrizes}"
-        )
+        return f"{identidade}\n\n---\n\n{diretrizes}"
 
     def get_contexto(self) -> Dict:
         return {

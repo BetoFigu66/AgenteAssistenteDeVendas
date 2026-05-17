@@ -1,7 +1,15 @@
 """
 Agente Arquiteto de Sistemas
-Responsável por propor arquiteturas em diferentes níveis de maturidade do sistema.
+Responsavel por propor arquiteturas em diferentes niveis de maturidade do sistema.
+
+A fonte da verdade da identidade e do prompt deste agente esta em:
+    agentes/arquiteto_sistemas.md
+
+E o indice de diretrizes operacionais (A01-A0N, com pointers para os .md tematicos) em:
+    artefatos/arquiteto_de_sistemas/diretrizes.md
 """
+from pathlib import Path
+
 from .base_agente import BaseAgente
 
 
@@ -41,46 +49,33 @@ class ArquitetoSistemas(BaseAgente):
             }
         }
     
+    PROMPT_MD = "agentes/arquiteto_sistemas.md"
+    DIRETRIZES_MD = "artefatos/arquiteto_de_sistemas/diretrizes.md"
+
     def get_prompt_sistema(self) -> str:
-        return """Você é um Arquiteto de Sistemas sênior, especializado em sistemas distribuídos, IA e integrações.
+        """
+        Le o prompt de sistema concatenando:
+          1. agentes/arquiteto_sistemas.md (identidade — fonte da verdade)
+          2. artefatos/arquiteto_de_sistemas/diretrizes.md (indice A01-A0N)
+        """
+        prompt_path = Path(self.projeto_root) / self.PROMPT_MD
+        if prompt_path.exists():
+            identidade = prompt_path.read_text(encoding="utf-8")
+        else:
+            identidade = (
+                "Voce e um Arquiteto de Sistemas senior do projeto Assistente de Vendas. "
+                "Proponha arquiteturas adequadas para cada fase (POC, single-tenant, multi-tenant), "
+                "documente decisoes (ADRs) e justifique trade-offs entre custo, complexidade e funcionalidade. "
+                "(Prompt completo em agentes/arquiteto_sistemas.md nao encontrado.)"
+            )
 
-Seu papel é:
-1. Propor arquiteturas adequadas para cada fase do projeto
-2. Fazer trade-offs conscientes entre custo, complexidade e funcionalidade
-3. Documentar decisões arquiteturais (ADRs)
-4. Criar diagramas de arquitetura
-5. Definir stack tecnológica
-
-Contexto Técnico do Projeto:
-- Backend: Python/FastAPI (preferência do desenvolvedor)
-- IA: OpenAI/Anthropic com RAG
-- Canal: WhatsApp Business API
-- Banco: PostgreSQL sugerido
-- Desenvolvedor: Experiente, usa Windsurf Pro e CODEX como backup
-
-Três níveis de arquitetura:
-
-1. **POC (Prova de Conceito)**
-   - Objetivo: Validar ideia com custo mínimo
-   - Foco: Funcionar, não escalar
-   - Custo: Mínimo (free tiers quando possível)
-
-2. **Single-Tenant (Rita/Ivan)**
-   - Objetivo: Produção para um cliente
-   - Foco: Estabilidade e qualidade
-   - Custo: Moderado, justificável
-
-3. **Multi-Tenant (Escalável)**
-   - Objetivo: Múltiplos clientes
-   - Foco: Isolamento, escalabilidade, SaaS
-   - Custo: Proporcional ao uso
-
-Ao interagir:
-- Justifique escolhas técnicas
-- Considere custos de infraestrutura
-- Pense em manutenibilidade
-- Documente trade-offs
-- Sugira alternativas quando relevante"""
+        diretrizes_path = Path(self.projeto_root) / self.DIRETRIZES_MD
+        diretrizes = (
+            diretrizes_path.read_text(encoding="utf-8")
+            if diretrizes_path.exists()
+            else "(nenhuma diretriz registrada ainda)"
+        )
+        return f"{identidade}\n\n---\n\n{diretrizes}"
 
     def get_contexto(self) -> dict:
         return {
