@@ -97,7 +97,8 @@ Formato de status:
         }
         
         for agente in self.agentes_gerenciados:
-            nome_pasta = agente.lower().replace(" ", "_").replace("á", "a").replace("é", "e").replace("í", "i").replace("ó", "o").replace("ú", "u")
+            nome_pasta = agente.lower().replace(" ", "_").replace("á", "a").replace("é", "e")\
+                .replace("í", "i").replace("ó", "o").replace("ú", "u")
             pasta_agente = artefatos_root / nome_pasta
             
             artefatos = []
@@ -308,7 +309,8 @@ Formato de status:
         
         conteudo += "\n## Próximos Passos\n"
         for passo in proximos_passos:
-            conteudo += f"- [ ] **{passo.get('responsavel', 'A definir')}**: {passo.get('acao', 'N/A')} (Prazo: {passo.get('prazo', 'A definir')})\n"
+            conteudo += f"- [ ] **{passo.get('responsavel', 'A definir')}**: {passo.get('acao', 'N/A')} \
+                (Prazo: {passo.get('prazo', 'A definir')})\n"
         
         nome_arquivo = f"ata_reuniao_{datetime.now().strftime('%Y%m%d_%H%M')}.md"
         return self.criar_artefato(nome_arquivo, conteudo, tipo="ata")

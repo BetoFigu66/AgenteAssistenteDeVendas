@@ -11,15 +11,17 @@ O foco é:
 ## Estado atual
 
 1. Script de geração:
-   - `agentes/scripts/gera_sprint_report.py`
+   - `agentes/scripts/gerente_de_projetos/gera_sprint_report.py`
 2. Templates de report:
    - `artefatos/gerente_de_projetos/report_templates/template_sprint_review_interno.pptx`
    - `artefatos/gerente_de_projetos/report_templates/template_sprint_review_externo.pptx`
    - `artefatos/gerente_de_projetos/report_templates/template_sprint_interno.yaml`
    - `artefatos/gerente_de_projetos/report_templates/template_sprint_externo.yaml`
 3. Exemplos de execução:
-   - `agentes/scripts/gera_report_sprint_interno.sh`
-   - `agentes/scripts/gera_report_sprint_externo.sh`
+   - `agentes/scripts/gerente_de_projetos/gera_report_sprint_interno.sh`
+   - `agentes/scripts/gerente_de_projetos/gera_report_sprint_externo.sh`
+   - `agentes/scripts/gerente_de_projetos/gera_report_sprint_interno.bat`
+   - `agentes/scripts/gerente_de_projetos/gera_report_sprint_externo.bat`
 4. Saída esperada:
    - `artefatos/gerente_de_projetos/reports/*.pptx`
 
@@ -30,20 +32,40 @@ O foco é:
    - `source backend/venv/bin/activate`
 3. Rodar o script passando o arquivo YAML de dados e o template PPTX desejado.
 
-Exemplo interno:
+Exemplo interno (WSL/Linux/macOS):
 ```bash
-python agentes/scripts/gera_sprint_report.py \
+python agentes/scripts/gerente_de_projetos/gera_sprint_report.py \
   artefatos/gerente_de_projetos/reports/sprint_XX_interno.yaml \
   artefatos/gerente_de_projetos/report_templates/template_sprint_review_interno.pptx \
   -o ./artefatos/gerente_de_projetos/reports/sprint_XX_interno.pptx
 ```
 
-Exemplo externo:
+Exemplo externo (WSL/Linux/macOS):
 ```bash
-python agentes/scripts/gera_sprint_report.py \
+python agentes/scripts/gerente_de_projetos/gera_sprint_report.py \
   artefatos/gerente_de_projetos/reports/sprint_XX_externo.yaml \
   artefatos/gerente_de_projetos/report_templates/template_sprint_review_externo.pptx \
   -o ./artefatos/gerente_de_projetos/reports/sprint_XX_externo.pptx
+```
+
+Exemplo interno (PowerShell):
+```powershell
+Set-Location -Path $PSScriptRoot\..\..\..
+.\.venv\Scripts\Activate.ps1
+python agentes\scripts\gerente_de_projetos\gera_sprint_report.py \
+  artefatos\gerente_de_projetos\reports\sprint_XX_interno.yaml \
+  artefatos\gerente_de_projetos\report_templates\template_sprint_review_interno.pptx \
+  -o .\artefatos\gerente_de_projetos\reports\sprint_XX_interno.pptx
+```
+
+Exemplo externo (PowerShell):
+```powershell
+Set-Location -Path $PSScriptRoot\..\..\..
+.\.venv\Scripts\Activate.ps1
+python agentes\scripts\gerente_de_projetos\gera_sprint_report.py \
+  artefatos\gerente_de_projetos\reports\sprint_XX_externo.yaml \
+  artefatos\gerente_de_projetos\report_templates\template_sprint_review_externo.pptx \
+  -o .\artefatos\gerente_de_projetos\reports\sprint_XX_externo.pptx
 ```
 
 4. Revisar o arquivo gerado em `artefatos/gerente_de_projetos/reports/`.
@@ -102,7 +124,7 @@ python agentes/scripts/gera_sprint_report.py \
 
 ### Fase 1: estabilizar geração de reports
 
-- consolidar o fluxo atual de geração via `agentes/scripts/gera_sprint_report.py`
+- consolidar o fluxo atual de geração via `agentes/scripts/gerente_de_projetos/gera_sprint_report.py`
 - usar os templates existentes como base
 - documentar os campos obrigatórios do YAML
 - entregar tanto report interno quanto externo
@@ -128,6 +150,19 @@ python agentes/scripts/gera_sprint_report.py \
 - separar responsabilidades:
   - `gerente_de_projetos` cuida da geração e priorização de dados;
   - `report` ou `presentation` cuida da montagem final em PPTX.
+- considerar a migração para um formato Codex-friendly:
+  - `AGENTS.md` na raiz para regras gerais e seleção de agentes;
+  - `.codex/agents/*.toml` para subagents customizados como `implementador`, `qa_engineer`, `arquiteto_sistemas`;
+  - `.agents/skills/<nome>/SKILL.md` para workflows reutilizáveis como “registrar diretriz”, “revisar requisitos”, “fazer QA de migration”, “atualizar artefatos”.
+- lembrar que hoje a documentação indica que subagents são visíveis principalmente no Codex app e CLI; no VSCode a experiência completa de múltiplos subagentes ainda pode ser limitada, mas skills e Codex já funcionam.
+
+#### Referências de formato e documentação
+
+- Codex IDE extension: https://developers.openai.com/codex/ide
+- AGENTS.md: https://developers.openai.com/codex/guides/agents-md
+- Skills: https://developers.openai.com/codex/skills
+- Subagents/custom agents: https://developers.openai.com/codex/subagents
+- uma possível evolução seria criar `AGENTS.md` inicial e gerar `.codex/agents/implementador.toml`, `qa_engineer.toml`, `arquiteto_sistemas.toml`, etc., a partir dos arquivos de agentes atuais.
 
 ## Pontos importantes para a Kika
 

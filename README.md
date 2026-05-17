@@ -112,7 +112,24 @@ AgenteAssistenteDeVendas/
 - Valida fluxo de branches e PRs
 - Sugere melhorias de processo
 
-## 🚀 Como Executar
+## � Planejamento e documentação de agentes
+
+Arquivos-chave para orientar a evolução dos agentes e facilitar pesquisas futuras:
+
+- `AGENTS.md` — regras do projeto, seleção de agentes e convenções de uso.
+- `docs/prompts_agentes.md` — prompts e papéis base para cada agente.
+- `agentes/analista_requisitos.md` — fonte da verdade do agente Analista de Requisitos.
+- `agentes/plano_evolucao.md` — plano de evolução para o Gerente de Projetos e reportes de sprint.
+- `artefatos/gerente_de_projetos/` — templates de report, YAMLs de sprint e relatórios gerados.
+- `artefatos/arquiteto_de_sistemas/planos_executados/` — planos estratégicos de RAG e QA e estudos de execução.
+- `artefatos/arquiteto_de_sistemas/analise_agentes_vs_skills_vs_harness.md` — comparação de abordagens de agente/skill/harness.
+- `AnotacoesPessoais/Beto/pendencia_01.txt` — análise pessoal sobre agentes e migração para formato Codex/skills.
+- `AnotacoesPessoais/Beto/planejamento_rag_folders_produtos.md` — planejamento de RAG para dúvidas de produtos.
+- `AnotacoesPessoais/files_to_review.yml` — arquivo de revisão que contém observações e itens pendentes de agentes.
+
+> Dica: para encontrar rapidamente o material relacionado a agentes, use `git grep -n "agente"`, `git grep -n "plano"` ou pesquise por `AGENTS.md`.
+
+## �🚀 Como Executar
 
 ### Opção 1: Docker (Recomendado)
 

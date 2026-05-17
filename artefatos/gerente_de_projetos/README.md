@@ -2,6 +2,8 @@
 
 Diretório dos artefatos gerados pelo agente `GerenteDeProjetos`. O principal fluxo é o **Sprint Review**, que segue a diretriz **D03** (`artefatos/implementador/diretrizes.md`).
 
+Os scripts auxiliares de geração estão em `agentes/scripts/gerente_de_projetos/` e incluem versões para WSL/Linux/macOS (`.sh`) e Windows (`.bat`).
+
 ---
 
 ## Fluxo Sprint Review
@@ -10,7 +12,7 @@ Diretório dos artefatos gerados pelo agente `GerenteDeProjetos`. O principal fl
 gerar_dados_sprint_yaml(...)    →  sprint_NN_YYYYMMDD.yaml     (FONTE ÚNICA, versionado)
                                            │
                                            ▼
-python gera_sprint_report.py <yaml> [template.pptx] -o <saida.pptx>
+python agentes/scripts/gerente_de_projetos/gera_sprint_report.py <yaml> [template.pptx] -o <saida.pptx>
                                   usando  sprint_review_template_v01.pptx
 ```
 
@@ -43,7 +45,27 @@ yaml_path = gp.gerar_dados_sprint_yaml(
 )
 
 # Gerar o PPTX a partir do YAML:
-# python gera_sprint_report.py artefatos/gerente_projetos/sprint_02_20260510_externo.yaml artefatos/gerente_projetos/sprint_review_template_externo_v01.pptx -o /tmp/sprint_02_20260510_externo.pptx
+# bash/WSL:
+# python agentes/scripts/gerente_de_projetos/gera_sprint_report.py artefatos/gerente_de_projetos/sprint_02_20260510_externo.yaml artefatos/gerente_de_projetos/sprint_review_template_externo_v01.pptx -o /tmp/sprint_02_20260510_externo.pptx
+# PowerShell / cmd:
+# .\.venv\Scripts\Activate.ps1
+# python agentes\scripts\gerente_de_projetos\gera_sprint_report.py artefatos\gerente_de_projetos\sprint_02_20260510_externo.yaml artefatos\gerente_de_projetos\sprint_review_template_externo_v01.pptx -o C:\tmp\sprint_02_20260510_externo.pptx
+```
+
+## Executar via script
+
+### WSL / Linux / macOS
+```bash
+./agentes/scripts/gerente_de_projetos/gera_report_sprint_interno.sh
+./agentes/scripts/gerente_de_projetos/gera_report_sprint_externo.sh
+```
+
+### PowerShell / cmd
+```powershell
+.
+# ou, se estiver em PowerShell:
+Start-Process -NoNewWindow -FilePath ".\agentes\scripts\gerente_de_projetos\gera_report_sprint_interno.bat"
+Start-Process -NoNewWindow -FilePath ".\agentes\scripts\gerente_de_projetos\gera_report_sprint_externo.bat"
 ```
 
 ---
@@ -133,7 +155,7 @@ Se quiser que um **slide inteiro** seja replicado uma vez por item, use `{{SLIDE
 2. No slide desejado, clicar na caixa de texto e digitar o token exatamente como documentado, **sem formatação extra no meio** (ex: evitar `{{` e `}}` com fontes diferentes, o que quebra a substituição).
 3. Para listas: colocar **um único** parágrafo com o token. Se o parágrafo estiver com bullet, todos os itens gerados herdam o bullet.
 4. Para métricas em tabela: colocar o token na célula correspondente.
-5. Salvar o template e rodar `python gera_sprint_report.py`.
+5. Salvar o template e rodar `python agentes/scripts/gerente_de_projetos/gera_sprint_report.py`.
 
 > **Dica:** se um token não estiver sendo substituído, o motivo mais comum é que o PowerPoint dividiu `{{...}}` em múltiplos "runs" com formatação diferente. Solução: selecionar o token inteiro, aplicar a mesma formatação ou retipar o texto.
 

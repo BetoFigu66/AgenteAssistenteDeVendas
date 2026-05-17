@@ -37,7 +37,7 @@ Este documento é o **contrato de conduta** que toda implementação neste repos
 - **Revisada em:** 2026-04-29
 - **Regra:** O Sprint Review (a cada 2 semanas) é composto por dois artefatos gerados pelo `GerenteDeProjetos`:
   1. **`sprint_NN_YYYYMMDD.yaml`** — **fonte única da verdade**, versionado. Gerado por `gerar_dados_sprint_yaml()`. Contém: `feito`, `proximo_sprint`, `backlog_pendente`, `bloqueios`, `metricas`, `insights`.
-  2. **`sprint_review_NN_YYYYMMDD.pptx`** — derivado do YAML via `python gera_sprint_report.py`, preenchendo o template `sprint_review_template_v01.pptx` por substituição de tokens `{{...}}`. **Não é versionado** (ver `.gitignore`) e não deve ser editado diretamente exceto para ajustes puramente visuais.
+  2. **`sprint_review_NN_YYYYMMDD.pptx`** — derivado do YAML via `python agentes/scripts/gerente_de_projetos/gera_sprint_report.py`, preenchendo o template `sprint_review_template_v01.pptx` por substituição de tokens `{{...}}`. **Não é versionado** (ver `.gitignore`) e não deve ser editado diretamente exceto para ajustes puramente visuais.
 - **Motivação:** Um único formato estruturado elimina retrabalho de copiar dados do `.md` para o `.pptx`. YAML é legível/editável por humano, fácil de revisar em PR. O `.pptx` passa a ser artefato descartável de apresentação, regerado sempre que o YAML mudar.
 - **Contexto originário:** A versão anterior gerava um `.md` que depois era copiado manualmente para o `.pptx`. O usuário pediu para automatizar. Decidimos unificar no YAML e eliminar o `.md` para evitar ter duas fontes de verdade.
 - **Aplicação prática:**
@@ -45,7 +45,7 @@ Este documento é o **contrato de conduta** que toda implementação neste repos
     ```python
     gp = GerenteDeProjetos()
     yaml_path = gp.gerar_dados_sprint_yaml(sprint_numero=1, data_inicio=..., data_fim=..., feito=[...], proximo_sprint=[...], backlog_pendente=[...], bloqueios=[...])
-    python gera_sprint_report.py
+    python agentes/scripts/gerente_de_projetos/gera_sprint_report.py
     ```
   - ✅ Editar conteúdo só no YAML; regerar o PPTX.
   - ✅ Tokens aceitos pelo template documentados em `artefatos/gerente_de_projetos/README.md`.
