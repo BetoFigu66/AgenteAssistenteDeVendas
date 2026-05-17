@@ -32,6 +32,14 @@ function AcompanhamentoPage() {
   const [justificativaReprovacao, setJustificativaReprovacao] = useState('')
   const [enviandoReprovacao, setEnviandoReprovacao] = useState(false)
 
+  // Estado do rascunho Q&A dentro do modal de reprovação
+  const [perguntaQA, setPerguntaQA] = useState('')
+  const [contextoQA, setContextoQA] = useState('')
+  const [respostaQA, setRespostaQA] = useState('')
+  const [pendentesQA, setPendentesQA] = useState([])
+  const [carregandoPendentesQA, setCarregandoPendentesQA] = useState(false)
+  const [confirmandoPendentesQA, setConfirmandoPendentesQA] = useState(false)
+
   // Carregar negociações e usuários ao montar
   useEffect(() => {
     carregarNegociacoes()
@@ -47,6 +55,29 @@ function AcompanhamentoPage() {
       setMensagensNegociacao([])
     }
   }, [negociacaoSelecionada])
+
+  // Pré-preenche pergunta com a última mensagem do cliente ao abrir modal
+  useEffect(() => {
+    if (mensagemReprovando) {
+      const idx = mensagensNegociacao.findIndex(m => m.id === mensagemReprovando.id)
+      const msgCliente = mensagensNegociacao.slice(0, idx).reverse().find(m => m.origem === 'user')
+      setPerguntaQA(msgCliente?.conteudo || '')
+      setContextoQA('')
+      setRespostaQA('')
+      setPendentesQA([])
+      setConfirmandoPendentesQA(false)
+    }
+  }, [mensagemReprovando])
+
+  const fecharModalReprovacao = () => {
+    setMensagemReprovando(null)
+    setJustificativaReprovacao('')
+    setPerguntaQA('')
+    setContextoQA('')
+    setRespostaQA('')
+    setPendentesQA([])
+    setConfirmandoPendentesQA(false)
+  }
 
   const carregarNegociacoes = async () => {
     setCarregandoNegociacoes(true)
@@ -139,23 +170,49 @@ function AcompanhamentoPage() {
       alert('Selecione um usuário para reprovar a mensagem')
       return
     }
+
+    // Se há nova resposta e ainda não confirmou pendentes, verificar antes
+    if (respostaQA.trim() && !confirmandoPendentesQA) {
+      setCarregandoPendentesQA(true)
+      try {
+        const data = await api.listarPendentesAprovacaoQA(contextoQA || undefined)
+        if (data.total > 0) {
+          setPendentesQA(data.pares)
+          setConfirmandoPendentesQA(true)
+          return
+        }
+      } catch {
+        // falha silenciosa — prossegue sem verificação
+      } finally {
+        setCarregandoPendentesQA(false)
+      }
+    }
+
     setEnviandoReprovacao(true)
     try {
-      // Chama endpoint de reprovação (cria report vinculado à mensagem)
-      await api.reprovarMensagem(
-        mensagemReprovando.id,
-        justificativaReprovacao.trim(),
-        userSelecionado
-      )
-      // Fecha modal e limpa estado
-      setMensagemReprovando(null)
-      setJustificativaReprovacao('')
-      // Recarrega dados
+      await api.reprovarMensagem(mensagemReprovando.id, justificativaReprovacao.trim(), userSelecionado)
+
+      let mensagemAlerta = 'Mensagem reprovada com sucesso'
+      if (respostaQA.trim() && perguntaQA.trim()) {
+        try {
+          await api.criarParQA({
+            pergunta: perguntaQA.trim(),
+            resposta: respostaQA.trim(),
+            contexto: contextoQA || null,
+            criado_por: String(userSelecionado),
+          })
+          mensagemAlerta = 'Mensagem reprovada · Rascunho Q&A salvo para revisão'
+        } catch (errQA) {
+          mensagemAlerta = `Mensagem reprovada · Falha ao salvar rascunho Q&A: ${errQA.message}`
+        }
+      }
+
+      fecharModalReprovacao()
       if (negociacaoSelecionada) {
         carregarMensagensNegociacao(negociacaoSelecionada.telefone)
       }
       carregarNegociacoes()
-      alert('Mensagem reprovada e report criado com sucesso')
+      alert(mensagemAlerta)
     } catch (error) {
       console.error('Erro ao reprovar mensagem:', error)
       alert('Erro ao reprovar mensagem: ' + error.message)
@@ -609,17 +666,14 @@ function AcompanhamentoPage() {
       {mensagemReprovando && (
         <DetalheModal
           titulo="Reprovar Mensagem"
-          onClose={() => {
-            setMensagemReprovando(null)
-            setJustificativaReprovacao('')
-          }}
+          onClose={fecharModalReprovacao}
         >
           <div className="p-4 space-y-4">
             <div className="p-3 bg-yellow-50 border border-yellow-200 rounded-md">
               <p className="text-sm text-yellow-800 font-medium mb-1">Mensagem a ser reprovada:</p>
               <p className="text-sm text-gray-700">{mensagemReprovando.conteudo}</p>
             </div>
-            
+
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 Justificativa da reprovação <span className="text-red-500">*</span>
@@ -629,37 +683,99 @@ function AcompanhamentoPage() {
                 onChange={(e) => setJustificativaReprovacao(e.target.value)}
                 placeholder="Descreva o problema com esta mensagem..."
                 className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-inforrel-primary resize-none"
-                rows={4}
+                rows={3}
               />
               <p className="text-xs text-gray-500 mt-1">
                 Esta justificativa será registrada como um report de problema vinculado à mensagem.
               </p>
             </div>
 
+            {/* Seção opcional: registrar nova resposta como rascunho Q&A */}
+            <div className="border border-gray-200 rounded-md">
+              <div className="px-3 py-2 bg-gray-50 border-b border-gray-200 rounded-t-md">
+                <p className="text-sm font-medium text-gray-700">Registrar nova resposta (opcional)</p>
+                <p className="text-xs text-gray-500">Se preenchida, será salva como rascunho para revisão na Base Q&A.</p>
+              </div>
+              <div className="p-3 space-y-3">
+                <div>
+                  <label className="block text-xs font-medium text-gray-600 mb-1">
+                    Pergunta do cliente (pré-preenchida, editável)
+                  </label>
+                  <textarea
+                    value={perguntaQA}
+                    onChange={(e) => { setPerguntaQA(e.target.value); setConfirmandoPendentesQA(false); setPendentesQA([]) }}
+                    placeholder="Pergunta que gerou esta resposta inadequada..."
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-inforrel-primary resize-none text-sm"
+                    rows={2}
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-gray-600 mb-1">Contexto</label>
+                  <select
+                    value={contextoQA}
+                    onChange={(e) => { setContextoQA(e.target.value); setConfirmandoPendentesQA(false); setPendentesQA([]) }}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-inforrel-primary text-sm"
+                  >
+                    <option value="">— geral —</option>
+                    <option value="catraca">Catraca</option>
+                    <option value="relogio_ponto">Relógio de Ponto</option>
+                    <option value="facial">Leitor Facial</option>
+                    <option value="controle_acesso">Controle de Acesso</option>
+                    <option value="bastao_ronda">Bastão de Ronda</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-gray-600 mb-1">
+                    Resposta correta <span className="text-gray-400">(obrigatória para salvar)</span>
+                  </label>
+                  <textarea
+                    value={respostaQA}
+                    onChange={(e) => { setRespostaQA(e.target.value); setConfirmandoPendentesQA(false); setPendentesQA([]) }}
+                    placeholder="Como o assistente deveria ter respondido..."
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-inforrel-primary resize-none text-sm"
+                    rows={3}
+                  />
+                </div>
+                {confirmandoPendentesQA && pendentesQA.length > 0 && (
+                  <div className="p-3 bg-orange-50 border border-orange-300 rounded-md">
+                    <p className="text-sm font-medium text-orange-800 mb-2">
+                      ⚠️ Já existem {pendentesQA.length} rascunho(s) aguardando aprovação{contextoQA ? ` no contexto "${contextoQA}"` : ''}:
+                    </p>
+                    <ul className="space-y-1 max-h-32 overflow-y-auto">
+                      {pendentesQA.map(p => (
+                        <li key={p.id} className="text-xs text-orange-700 bg-white border border-orange-200 rounded px-2 py-1">
+                          <span className="font-medium">#{p.id}</span> — {p.pergunta?.slice(0, 80)}{p.pergunta?.length > 80 ? '...' : ''}
+                        </li>
+                      ))}
+                    </ul>
+                    <p className="text-xs text-orange-700 mt-2">Clique em "Reprovar" novamente para confirmar mesmo assim.</p>
+                  </div>
+                )}
+              </div>
+            </div>
+
             <div className="flex justify-end gap-2">
               <button
-                onClick={() => {
-                  setMensagemReprovando(null)
-                  setJustificativaReprovacao('')
-                }}
+                onClick={fecharModalReprovacao}
                 className="px-4 py-2 text-gray-600 hover:text-gray-800 transition"
               >
                 Cancelar
               </button>
               <button
                 onClick={handleReprovarMensagem}
-                disabled={!justificativaReprovacao.trim() || enviandoReprovacao}
+                disabled={!justificativaReprovacao.trim() || enviandoReprovacao || carregandoPendentesQA}
                 className="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 transition disabled:opacity-50 flex items-center gap-2"
               >
-                {enviandoReprovacao ? (
+                {(enviandoReprovacao || carregandoPendentesQA) ? (
                   <>
                     <RefreshCw size={16} className="animate-spin" />
-                    Enviando...
+                    {carregandoPendentesQA ? 'Verificando...' : 'Enviando...'}
                   </>
                 ) : (
                   <>
                     <XCircle size={16} />
-                    Reprovar Mensagem
+                    {confirmandoPendentesQA ? 'Reprovar mesmo assim' : 'Reprovar Mensagem'}
+                    {respostaQA.trim() ? ' + Salvar rascunho' : ''}
                   </>
                 )}
               </button>
