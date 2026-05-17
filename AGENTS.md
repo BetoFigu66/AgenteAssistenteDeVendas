@@ -47,7 +47,7 @@ O projeto tem varios agentes especializados em `agentes/` (cada um com seu propr
 
 | Prefixo | Agente | Arquivo | Diretorio de artefatos | Responsabilidade principal |
 |---------|--------|---------|------------------------|----------------------------|
-| `[analista]` | Analista de Requisitos | `agentes/analista_requisitos.py` | `artefatos/analista_de_requisitos/` | Requisitos, historias de usuario, questionarios, entrevistas com cliente |
+| `[analista]` | Analista de Requisitos | `agentes/analista_requisitos.py` (+ `agentes/analista_requisitos.md`) | `artefatos/requisitos_formais/` (REQs) + `artefatos/analista_de_requisitos/` (rascunhos) | Requisitos formais (REQ-XXX), historias de usuario, questionarios, entrevistas com cliente |
 | `[auxiliar]` | Auxiliar de Negocios | `agentes/auxiliar_negocios.py` | `artefatos/auxiliar_negocios/` | MVP, roadmap, ideias de produto, analise de mercado |
 | `[arquiteto]` | Arquiteto de Sistemas | `agentes/arquiteto_sistemas.py` | `artefatos/arquiteto_de_sistemas/` | Decisoes arquiteturais (ADRs), diagramas, politica de branches, deploy |
 | `[planejador]` | Planejador de Negocios | `agentes/planejador_negocios.py` | `artefatos/planejador_negocios/` | Precificacao, marketing, concorrencia, projecoes financeiras |
@@ -82,3 +82,24 @@ Assumir o papel significa:
 - Usar o diretorio de artefatos correspondente ao salvar documentos.
 - Seguir diretrizes especificas do agente se existirem (ex: `artefatos/implementador/diretrizes.md`).
 - Nao significa executar o codigo Python do agente - o Cascade assume o papel textualmente. Para invocar o codigo real, o usuario pede explicitamente (ex: "rode `GerenteDeProjetos.gerar_relatorio_sprint()`").
+
+### Convencao: arquivo `.md` complementar como fonte da verdade
+
+Um agente pode ter um arquivo `.md` complementar ao lado do `.py` (ex: `agentes/analista_requisitos.md`). Quando esse arquivo existe, ele e a **fonte da verdade** das regras de trabalho do agente: prompt de sistema completo, templates de artefatos, checklists, regras especificas. O `.py` apenas carrega esse `.md` em `get_prompt_sistema()` e oferece utilitarios programaticos (geracao de esqueletos, revisao de consistencia, etc.).
+
+Quando o Cascade assume o papel `[nome]` no chat, deve **ler primeiro o `.md` correspondente** (se existir) para alinhar tom, estrutura e regras antes de produzir artefatos. Hoje aplica-se a:
+
+- `agentes/analista_requisitos.md` (fonte das regras de redacao de REQ-XXX)
+
+Novos agentes podem adotar o mesmo padrao quando o conjunto de regras crescer alem do que cabe inline no prompt do `.py`.
+
+### Diretorios do `[analista]` (divisao explicita)
+
+O Analista de Requisitos usa **dois diretorios** com responsabilidades distintas:
+
+| Diretorio | Conteudo | Exemplos |
+|-----------|----------|----------|
+| `artefatos/requisitos_formais/` | REQs numerados, versionados, com historico de alteracoes interno | `REQ-001-integracao-receita-federal.md`, `REQ-009-tratamento-reclamacoes-pos-venda.md` |
+| `artefatos/analista_de_requisitos/` | Rascunhos, entrevistas, questionarios, respostas do cliente | `respostas_rita_v1.md`, `questionario_pos_venda.md` |
+
+Quando o pedido for **"crie/atualize um requisito formal"**, salvar em `requisitos_formais/`. Quando for **"transcreva a entrevista com a Rita"** ou **"faca um rascunho preliminar"**, salvar em `analista_de_requisitos/`.

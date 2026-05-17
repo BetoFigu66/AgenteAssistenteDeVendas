@@ -409,6 +409,29 @@ Tambem pode ser ativado pelo menu: `View` -> `Word Wrap`.
 
 Observacao: isso altera apenas a visualizacao no editor, sem modificar o arquivo.
 
+### Renderizar diagramas Mermaid no preview de Markdown
+
+O preview nativo do VSCode/Windsurf nao renderiza Mermaid; mostra como texto. Para renderizar:
+
+1. Abrir Extensions (`Ctrl + Shift + X`)
+2. Instalar **Markdown Preview Mermaid Support** (autor: `bierner`)
+3. Reabrir o preview (`Ctrl + Shift + V`)
+
+Alternativas:
+
+- **GitHub** renderiza Mermaid nativamente ao visualizar `.md` no repositorio
+- Para editar/exportar PNG/SVG: site [mermaid.live](https://mermaid.live) ou extensao **Mermaid Editor** (`tomoyukim`)
+- Para realce de sintaxe: **Mermaid Markdown Syntax Highlighting** (`bpruitt-goddard`, opcional)
+
+Sintaxe minima para testar (cole dentro de um arquivo `.md`):
+
+~~~markdown
+```mermaid
+sequenceDiagram
+    A->>B: teste
+```
+~~~
+
 ---
 
 ## Cloudflare Tunnel (deploy zero-custo para Kika/Rita)

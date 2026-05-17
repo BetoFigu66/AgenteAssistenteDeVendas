@@ -1,6 +1,6 @@
 # REQ-002: Fluxo Conversacional Guiado
 
-**Versão**: 1.14  
+**Versão**: 1.17  
 **Data**: 2026-05-08  
 **Autor**: Kika (Analista de Requisitos)  
 **Status**: Em Elaboração  
@@ -13,7 +13,7 @@
 **ID**: REQ-002  
 **Tipo**: Funcional  
 **Categoria**: UX/Conversação  
-**Solicitante**: Rita (Inforrel)  
+**Solicitante**: vendedor (Inforrel)  
 
 ---
 
@@ -31,7 +31,7 @@ O sistema deve conduzir conversas de forma estruturada, porém **adaptativa**, c
 ## 3. Justificativa de Negócio
 
 **Problema Atual**:
-- Rita precisa fazer as mesmas perguntas repetidamente
+- vendedor precisa fazer as mesmas perguntas repetidamente
 - Processo manual e suscetível a esquecimentos
 - Clientes podem não fornecer todas as informações necessárias
 
@@ -41,7 +41,7 @@ O sistema deve conduzir conversas de forma estruturada, porém **adaptativa**, c
 - Melhor experiência para o cliente
 - Dados completos para elaboração de orçamentos
 
-**Feedback da Rita**: "seria interessante se tivesse algumas perguntas. Ex: qual o CNPJ, após ele responder o sistema faz outra pergunta e assim vai."
+**Feedback do vendedor**: "seria interessante se tivesse algumas perguntas. Ex: qual o CNPJ, após ele responder o sistema faz outra pergunta e assim vai."
 
 ---
 
@@ -129,18 +129,32 @@ O sistema deve conduzir conversas de forma estruturada, porém **adaptativa**, c
 
 - [ ] **REQ-002.15 — Quantidade opcional para catraca com software existente**: Para catracas, se o cliente já tiver software de controle de acesso, a quantidade/faixa de pessoas pode ser tratada como opcional; se o cliente não souber ou não quiser informar, o sistema deve seguir o fluxo e solicitar apenas os demais campos pendentes
 
-- [ ] **REQ-002.16 — Confirmação dos dados extraídos da mensagem inicial**: Quando o sistema extrair um ou mais dados da mensagem inicial do cliente (REQ-002.2), antes de prosseguir com a próxima pergunta dinâmica deve **ecoar ao cliente os dados entendidos** para que ele possa corrigir, se necessário
+- [ ] **REQ-002.16 — Confirmação dos dados extraídos da mensagem inicial**: Quando o sistema extrair um ou mais dados da mensagem inicial do cliente (REQ-002.2), antes de prosseguir com a próxima pergunta dinâmica deve **ecoar ao cliente os dados entendidos** para que ele possa corrigir, se necessário.
+
+  **Interação com REQ-001.4 (CNPJ)**: quando um dos dados extraídos for o **CNPJ**, a confirmação desse campo é satisfeita pelo **REQ-001.4** (exibição dos dados retornados pela Receita Federal para confirmação). O REQ-002.16 não deve gerar uma segunda solicitação de confirmação do CNPJ; o eco do REQ-002.16 cobre apenas os **demais campos** extraídos (ex: tipo de produto, modelo, quantidade, endereço, contato). Quando possível, o sistema pode consolidar tudo (CNPJ + demais campos) numa **única mensagem de resumo** para evitar dupla confirmação.
 
 - [ ] **REQ-002.17 — Consulta à base de respostas automáticas durante a qualificação**: Durante o fluxo de qualificação, se o cliente enviar uma **pergunta sobre produto/serviço** (ex: características técnicas, compatibilidade, preço, prazos, catálogo, serviços prestados), o sistema deve:
   - Delegar a resposta ao REQ-003 (Base de Conhecimento / RAG)
   - Após responder a dúvida, **retomar a qualificação** no ponto em que estava, reapresentando a última pergunta pendente
   - Não descartar os dados já capturados
 
+- [ ] **REQ-002.22 — Tratamento de abandono de conversa pelo cliente**: Se o cliente parar de responder durante o fluxo de qualificação, o sistema deve:
+  - Considerar a conversa **inativa** após **24 horas** sem nova mensagem do cliente
+  - Enviar **uma única mensagem de reengajamento** perguntando se o cliente quer continuar (ex: “Você ainda está aí? Posso continuar de onde paramos?”)
+  - Após **72 horas totais** sem resposta do cliente (24h iniciais + 48h após o reengajamento), transicionar a conversa para o estado `Finalização` (REQ-005.3) com motivo `abandono`
+  - **Preservar os dados já capturados** no histórico (não descartar)
+  - Se o cliente voltar a enviar mensagens depois da finalização por abandono, **iniciar uma nova conversa** (passando novamente pelo classificador do REQ-002.1); quando se tratar do mesmo telefone/CNPJ, o sistema pode oferecer retomar de onde a conversa anterior parou (ex: “Vi que você já tinha conversado conosco. Quer continuar de onde paramos?”)
+
 ### 4.3 Requisitos Não-Funcionais
 
 - [ ] **REQ-002.19 — Tempo de resposta entre perguntas**: Tempo de resposta entre perguntas: < 2 segundos
 - [ ] **REQ-002.20 — Naturalidade da conversa**: Conversa deve parecer natural, não robótica
-- [ ] **REQ-002.21 — Tratamento de respostas ambíguas**: Sistema deve lidar com respostas ambíguas
+- [ ] **REQ-002.21 — Tratamento de respostas ambíguas**: O sistema deve lidar com respostas ambíguas do cliente seguindo esta política:
+  - **Reconhecimento de ambiguidade**: considerar ambígua qualquer resposta que (a) não satisfaça a validação do REQ-002.6, (b) admita mais de uma interpretação plausível para o campo em questão, ou (c) seja vazia / desviada do tema
+  - **Pergunta de esclarecimento dirigida**: na primeira ocorrência, reformular a pergunta de forma mais específica e, quando possível, oferecer **opções enumeradas** (ex: "Você quer (1) Pedestal, (2) Giratória ou (3) Cancela?") para reduzir o espaço de resposta
+  - **Limite de tentativas por campo**: até **2 tentativas adicionais** de esclarecimento por campo (3 interações no total para o mesmo campo). Esgotadas as tentativas sem clareza, o sistema deve **escalar para humano** (REQ-004.9 — baixa confiança) com o contexto da pergunta, as respostas recebidas e os campos já capturados, **preservando os dados válidos** (alinhado a REQ-002.22)
+  - **Pergunta sobre produto camuflada de resposta**: se a resposta ambígua for, na verdade, uma pergunta sobre produto/serviço, aplicar o REQ-002.17 (delegar ao REQ-003) em vez de consumir tentativa
+  - **Auditoria**: cada esclarecimento e seu desfecho devem ser registrados como evento (REQ-005.1 / REQ-005.2)
 
 ### 4.4 Terminologia
 
@@ -283,7 +297,7 @@ Cliente: "Facial."
 - Completude dos dados coletados: > 90%
 
 ### 9.2 Condições de Aceite Final
-- Rita aprova o fluxo conversacional
+- vendedor aprova o fluxo conversacional
 - Sistema coleta todos os dados necessários
 - Clientes completam o fluxo sem dificuldades
 
@@ -334,6 +348,9 @@ Cliente: "Facial."
 | 08/05/2026 | 1.12 | Reescrita do REQ-002.16 para focar apenas no comportamento único de confirmação/eco dos dados extraídos (a parte "perguntar só o que falta" já está coberta por REQ-002.4) | Kika |
 | 08/05/2026 | 1.13 | Reescrita do REQ-002.18 deixando explícito o papel de **roteador** entre REQ-002, REQ-003 e REQ-004 (porta de entrada do sistema); renomeação do REQ-002.17 para "Consulta à base de respostas automáticas durante a qualificação" | Kika |
 | 08/05/2026 | 1.14 | Unificação de REQ-002.1 e REQ-002.18 no REQ-002.1 ("Classificação e roteamento das mensagens do cliente"), agora com quatro categorias incluindo "intenção de compra/orçamento (mensagem inicial)"; remoção do REQ-002.18 | Kika |
+| 11/05/2026 | 1.15 | Criação do REQ-002.22 (Tratamento de abandono de conversa pelo cliente): inatividade de 24h, mensagem única de reengajamento, finalização em 72h totais, preservação dos dados e oferta de retomada quando o mesmo cliente voltar | Kika |
+| 12/05/2026 | 1.16 | REQ-002.16 esclarecido: a confirmação do **CNPJ** é coberta pelo REQ-001.4 (não duplicar); o eco do REQ-002.16 trata apenas dos demais campos extraídos, podendo ser consolidado em uma única mensagem de resumo | Kika |
+| 13/05/2026 | 1.17 | REQ-002.21 enriquecido com política de retry (até 2 esclarecimentos por campo), uso de opções enumeradas, fallback via REQ-004.9 após esgotar tentativas, proteção contra falso positivo (perguntas do REQ-002.17) e registro auditavel | Kika |
 
 ---
 

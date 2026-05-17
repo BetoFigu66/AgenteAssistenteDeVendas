@@ -1,6 +1,6 @@
 # REQ-003: Respostas Automáticas com Base de Conhecimento (RAG)
 
-**Versão**: 1.2  
+**Versão**: 1.8  
 **Data**: 2026-05-06  
 **Autor**: Kika (Analista de Requisitos)  
 **Status**: Em Elaboração  
@@ -13,7 +13,7 @@
 **ID**: REQ-003  
 **Tipo**: Funcional  
 **Categoria**: Atendimento Automático / Base de Conhecimento  
-**Solicitante**: Rita (Inforrel)  
+**Solicitante**: vendedor (Inforrel)  
 
 ---
 
@@ -33,7 +33,7 @@ A resposta automática deve ser gerada com auxílio de IA, mas sempre baseada em
 ## 3. Justificativa de Negócio
 
 **Problema Atual**:
-- Rita responde repetidamente as mesmas perguntas (valor, modelos, prazo e instalação)
+- vendedor responde repetidamente as mesmas perguntas (valor, modelos, prazo e instalação)
 - Atendimento manual consome tempo e pode gerar atrasos
 
 **Benefício Esperado**:
@@ -53,12 +53,13 @@ A resposta automática deve ser gerada com auxílio de IA, mas sempre baseada em
 
 - [ ] **REQ-003.3 — Geração de resposta baseada em referências**: Sistema deve gerar resposta usando IA com base no conteúdo recuperado (não inventar)
 
-- [ ] **REQ-003.4 — Tópicos mínimos suportados**: Sistema deve suportar no mínimo os tópicos:
-  - Valor / preço
-  - Modelos disponíveis
-  - Prazos (com as restrições de regra de negócio)
-  - Instalação (condições gerais)
-  - Envio de catálogo quando solicitado
+- [ ] **REQ-003.4 — Informações essenciais da base de conhecimento**: A base de conhecimento (REQ-003.2) deve cobrir, no mínimo, os seguintes tópicos para que o sistema consiga gerar respostas automáticas (REQ-003.3) sobre os produtos da Inforrel:
+  - **Preços e valores** dos produtos (respeitando o REQ-003.8 — sem negociação de desconto)
+  - **Modelos disponíveis** de catracas, relógios de ponto e demais produtos do catálogo
+  - **Prazos** de entrega/instalação (respeitando o REQ-003.6 — sem promessa de prazo)
+  - **Condições gerais de instalação** (ex: requisitos físicos, infraestrutura mínima)
+  - **Compatibilidade com sistemas do cliente**, orientando que a validação técnica deve ser feita com o fornecedor do software; quando a base não tiver informação suficiente, aplicar o REQ-003.7 (fallback) e, se necessário, escalar para humano
+  - **Envio do catálogo** ao cliente quando solicitado
 
 - [ ] **REQ-003.5 — Registro da pergunta, referências e resposta**: Sistema deve registrar a pergunta, as referências do RAG utilizadas (fonte + id do item) e a resposta enviada no histórico de conversa
 
@@ -66,27 +67,34 @@ A resposta automática deve ser gerada com auxílio de IA, mas sempre baseada em
 
 - [ ] **REQ-003.6 — Proibição de prometer prazo de entrega**: O sistema **NUNCA** deve prometer prazo de entrega; quando questionado, deve responder de forma segura e condicional (ex: “depende do modelo e disponibilidade; posso confirmar com o time e retorno”)
 
-- [ ] **REQ-003.7 — Tratamento de perguntas sobre compatibilidade**: Caso a pergunta envolva compatibilidade com sistema do cliente, o sistema deve orientar validação com o fornecedor do software e/ou escalar para humano quando necessário
-
-- [ ] **REQ-003.8 — Fallback para informação insuficiente**: Caso a IA não encontre informação suficiente na base, deve:
+- [ ] **REQ-003.7 — Fallback para informação insuficiente**: Caso a IA não encontre informação suficiente na base, deve:
   - Informar que precisa confirmar
   - Fazer no máximo 1 pergunta de clarificação
   - Se ainda assim não houver base, escalar para humano
 
-- [ ] **REQ-003.9 — Não negociar desconto em perguntas de preço**: Para perguntas de preço, o sistema não deve negociar desconto; pode mencionar que valores podem variar por quantidade e condições, e que o vendedor pode avaliar
+- [ ] **REQ-003.8 — Tratamento de resposta sobre orçamento e preço dos produtos**: Para perguntas sobre preço ou orçamento, o sistema deve:
+  - **Não negociar desconto**
+  - Esclarecer que **valores podem variar** por quantidade e condições, e que o vendedor pode avaliar
+  - Informar que o **orçamento será enviado posteriormente**, com base nos detalhes coletados durante a qualificação (REQ-002)
 
-- [ ] **REQ-003.13 — Devolver controle ao REQ-002 após responder**: Quando o cliente estiver em meio a um fluxo de qualificação (REQ-002) e fizer uma **pergunta sobre produto/serviço**, o REQ-003 deve:
+- [ ] **REQ-003.9 — Devolver controle ao REQ-002 após responder**: Quando o cliente estiver em meio a um fluxo de qualificação (REQ-002) e fizer uma **pergunta sobre produto/serviço**, o REQ-003 deve:
   - Responder a dúvida com base no conteúdo recuperado
   - Ao final da resposta, **devolver o controle ao REQ-002**, sinalizando para retomar a qualificação na última pergunta pendente
   - Não solicitar dados de qualificação (CNPJ, endereço, contato etc.) — isso é responsabilidade do REQ-002
 
-- [ ] **REQ-003.14 — Não acionar para respostas de qualificação**: O REQ-003 não deve ser acionado para mensagens que sejam **resposta direta a uma pergunta de qualificação** feita pelo sistema (ex: cliente enviando CNPJ, quantidade de funcionários, endereço). Essas mensagens pertencem ao REQ-002.
+- [ ] **REQ-003.10 — Não acionar para respostas de qualificação**: O REQ-003 não deve ser acionado para mensagens que sejam **resposta direta a uma pergunta de qualificação** feita pelo sistema (ex: cliente enviando CNPJ, quantidade de funcionários, endereço). Essas mensagens pertencem ao REQ-002.
+
+- [ ] **REQ-003.11 — Envio de catálogo de produtos ao cliente**: Quando o cliente solicitar o catálogo, o sistema deve:
+  - Identificar **qual catálogo** o cliente quer (ex: catracas, relógios de ponto, outro produto). Se não estiver claro, perguntar antes de enviar
+  - Enviar o **link público** do catálogo correspondente (preferencialmente link, não anexo, por compatibilidade com WhatsApp)
+  - Registrar no histórico (REQ-005) qual catálogo foi enviado e quando
+  - Os links dos catálogos por tipo de produto devem ser **configuráveis** (não fixos no código), permitindo atualização sem mudança de implementação
 
 ### 4.3 Requisitos Não-Funcionais
 
-- [ ] **REQ-003.10 — Tempo alvo de resposta**: Tempo alvo de resposta: < 5 segundos em condições normais
-- [ ] **REQ-003.11 — Respostas curtas e objetivas para WhatsApp**: Respostas devem ser curtas e objetivas para WhatsApp
-- [ ] **REQ-003.12 — Auditabilidade das respostas automáticas**: Todas as respostas automáticas devem ser auditáveis (conteúdo-base + resposta)
+- [ ] **REQ-003.12 — Tempo alvo de resposta**: Tempo alvo de resposta: < 5 segundos em condições normais
+- [ ] **REQ-003.13 — Respostas curtas e objetivas para WhatsApp**: Respostas devem ser curtas e objetivas para WhatsApp
+- [ ] **REQ-003.14 — Auditabilidade das respostas automáticas**: Todas as respostas automáticas devem ser auditáveis (conteúdo-base + resposta)
 
 ### 4.4 Terminologia
 
@@ -94,7 +102,7 @@ Para alinhamento com o REQ-002, este requisito adota:
 
 - **Pergunta sobre produto/serviço**: mensagem do **cliente** com dúvida que exige consulta à base de conhecimento (catálogo, FAQ, manuais, preços, prazos, compatibilidade, serviços prestados, características técnicas). Escopo do REQ-003.
 - **Pergunta de qualificação**: pergunta feita pelo **sistema** para coletar dado necessário ao orçamento. Escopo do REQ-002 (fora do REQ-003).
-- **Pergunta ambigua**: mensagem que poderia ser de qualificação ou de conhecimento; nesse caso, aplicar REQ-003.1 (classificação) e, se necessário, REQ-003.8 (uma pergunta de clarificação).
+- **Pergunta ambigua**: mensagem que poderia ser de qualificação ou de conhecimento; nesse caso, aplicar REQ-003.1 (classificação) e, se necessário, REQ-003.7 (uma pergunta de clarificação).
 
 ---
 
@@ -174,7 +182,7 @@ reconhece pelo rosto — mais rápido e sem contato.
 
 Voltando ao seu orçamento: você prefere biométrico ou facial?"
 
-→ REQ-003.13: devolve controle ao REQ-002 reapresentando a última pergunta pendente
+→ REQ-003.9: devolve controle ao REQ-002 reapresentando a última pergunta pendente
 ```
 
 ---
@@ -187,7 +195,7 @@ Voltando ao seu orçamento: você prefere biométrico ou facial?"
 - Registro de histórico de conversa
 
 ### 8.2 Dependências de Negócio
-- Receber as respostas rápidas completas da Rita
+- Receber as respostas rápidas completas do vendedor
 - Receber catálogos e tabelas de preço atualizadas
 
 ---
@@ -222,6 +230,12 @@ Voltando ao seu orçamento: você prefere biométrico ou facial?"
 | 15/04/2026 | 1.0 | Criação inicial do requisito | Kika |
 | 05/05/2026 | 1.1 | Adicionada terminologia (seção 4.4), regras de interação com REQ-002 (REQ-003.13 e REQ-003.14) e exemplo 7.4 de pergunta sobre produto no meio da qualificação | Kika |
 | 06/05/2026 | 1.2 | Adição de títulos descritivos a todos os requisitos do documento | Kika |
+| 11/05/2026 | 1.3 | Reorganização da numeração para que 4.2 (Regras de Negócio) e 4.3 (Não-Funcionais) fiquem contíguas: REQ-003.13→10, REQ-003.14→11, REQ-003.10→12, REQ-003.11→13, REQ-003.12→14; atualização de referência cruzada no exemplo 7.4 | Kika |
+| 11/05/2026 | 1.4 | Reescrita do REQ-003.4 com título mais específico ("Tópicos mínimos cobertos pela base de conhecimento") e referências cruzadas explícitas a REQ-003.2, REQ-003.3, REQ-003.6 e REQ-003.9 | Kika |
+| 11/05/2026 | 1.5 | Renomeação do REQ-003.4 para "Informações essenciais da base de conhecimento" | Kika |
+| 11/05/2026 | 1.6 | Reescrita do REQ-003.9 ("Tratamento de resposta sobre orçamento e preço dos produtos"): estruturação em itens e inclusão da regra de que o orçamento será enviado posteriormente, com base nos dados coletados na qualificação (REQ-002) | Kika |
+| 11/05/2026 | 1.7 | Criação do REQ-003.15 (Envio de catálogo de produtos ao cliente): identificação do catálogo solicitado, envio por link público, registro no histórico e configurabilidade dos links | Kika |
+| 11/05/2026 | 1.8 | Remoção do REQ-003.7 (Tratamento de perguntas sobre compatibilidade), por estar coberto pelo fallback genérico (atual REQ-003.7) e por ser conteúdo de base de conhecimento; inclusão de "Compatibilidade com sistemas do cliente" como tópico essencial em REQ-003.4; renumeração: REQ-003.8→7, REQ-003.9→8, REQ-003.10→9, REQ-003.11→10, REQ-003.15→11; atualização de referências cruzadas (REQ-003.4, terminologia 4.4 e exemplo 7.4) | Kika |
 
 ---
 
