@@ -1,0 +1,60 @@
+# Template de dados do Sprint Review.
+# Este arquivo é referência. Para gerar um YAML real do sprint, use:
+#   GerenteDeProjetos().gerar_dados_sprint_yaml(...)
+# A saída é um arquivo sprint_NN_YYYYMMDD.yaml neste mesmo diretório.
+# Tokens aceitos no template .pptx estão documentados em README.md.
+
+sprint_numero: 0
+data_inicio: "AAAA-MM-DD"
+data_fim: "AAAA-MM-DD"
+duracao_dias: 14
+objetivos: 
+  - "Objetivo 1"
+  - "Objetivo 2"
+proximo_sprint_numero: 0
+proximo_sprint_inicio: "AAAA-MM-DD"
+proximo_sprint_fim: "AAAA-MM-DD"
+proximo_duracao_dias: 0
+proximo_objetivos: 
+  - "Objetivo 1 do próximo sprint"
+  - "Objetivo 2 do próximo sprint"
+
+feito:
+  - titulo: "Título da entrega 1"
+    agente: "Nome do agente/responsável 1"
+    descricao: "Descrição curta do que foi entregue 1"
+  - titulo: "Título da entrega 2"
+    agente: "Nome do agente/responsável 2"
+    descricao: "Descrição curta do que foi entregue 2"
+
+proximo_sprint:
+  - titulo: "Item planejado"
+    prioridade: "alta"   # alta | media | baixa
+
+backlog_pendente:
+  - titulo: "Item do escopo total ainda não iniciado"
+proximasprint:
+  - "Objetivo ou item planejado para o próximo sprint 1"
+  - "Objetivo ou item planejado para o próximo sprint 2"
+
+backlogpendente: 
+  - "Item do escopo total ainda não iniciado 1"
+  - "Item do escopo total ainda não iniciado 2"
+
+bloqueios:
+  - "Descrição do bloqueio ou risco"
+
+metricas:
+  artefatos_criados: 0
+  pendencias_resolvidas: 0
+  pendencias_novas: 0
+  bugs_corrigidos: 0
+  reports_total: 0
+  reports_resolvidos: 0
+  diretrizes_novas: 0
+  passos_qa_pairs_concluidos: 0
+  cobertura_req_atendidos: 0
+
+insights:
+  - "Observação livre sobre velocidade, qualidade ou priorização 1"
+  - "Observação livre sobre velocidade, qualidade ou priorização 2"
