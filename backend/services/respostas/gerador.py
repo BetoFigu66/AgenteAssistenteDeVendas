@@ -59,14 +59,12 @@ Regras OBRIGATÓRIAS:
 - Use no máximo 1 emoji por resposta."""
 
 _REGRA_SUGESTAO_ON = (
-    "- Você pode sugerir uma opção de produto quando os trechos deixarem claro "
-    "que ela faz sentido, sempre com linguagem cautelosa (ex: \"uma opção que pode fazer sentido é...\") "
-    "e oferecendo confirmação com um vendedor."
+    "- Você pode sugerir uma opção de produto quando os trechos deixarem claro que ela faz sentido, "
+    "sempre com linguagem cautelosa (ex: \"uma opção que pode fazer sentido é...\") e oferecendo confirmação com um vendedor."
 )
 _REGRA_SUGESTAO_OFF = (
-    "- NÃO sugira um modelo específico como recomendação. "
-    "Apenas explique as opções mencionadas nos trechos e colete informações "
-    "para que um vendedor humano confirme a melhor configuração."
+    "- NÃO sugira um modelo específico como recomendação. Apenas explique as opções mencionadas nos trechos"
+    " e colete informações para que um vendedor humano confirme a melhor configuração."
 )
 
 
@@ -93,8 +91,7 @@ class GeradorRespostas:
             contexto: Dict com variáveis para preencher o template
             personalizar: Se True, passa pela LLM para suavizar o tom
             mensagem_cliente: Mensagem original do cliente (para contexto à LLM)
-            template_nome: Nome identificador do template para auditoria
-                          (ex: "SAUDACAO_NOVO_CONTATO"). Se None, tenta inferir.
+            template_nome: Nome identificador do template para auditoria (ex: "SAUDACAO_NOVO_CONTATO"). Se None, tenta inferir.
         
         Returns:
             RespostaGerada com texto e metadados.
@@ -142,13 +139,10 @@ class GeradorRespostas:
 
         Args:
             pergunta_cliente: Mensagem original do cliente.
-            trechos: Lista de `DocumentoRecuperado` (ou objetos com `titulo`,
-                `conteudo`, `score`, `metadados`). Quando vazia, retorna o
-                template de fallback.
-            permitir_sugestao_produto: Se True, o prompt libera sugestao
-                cautelosa de modelo; se False, pede apenas explicacao + coleta.
-            template_fallback: Template usado quando `trechos` e vazia ou
-                quando a LLM nao esta disponivel.
+            trechos: Lista de `DocumentoRecuperado` (ou objetos com `titulo`, `conteudo`, `score`, `metadados`). 
+                Quando vazia, retorna o template de fallback.
+            permitir_sugestao_produto: Se True, o prompt libera sugestao cautelosa de modelo; se False, pede apenas explicacao + coleta.
+            template_fallback: Template usado quando `trechos` e vazia ou quando a LLM nao esta disponivel.
             template_fallback_nome: Nome do template de fallback para auditoria.
 
         Returns:

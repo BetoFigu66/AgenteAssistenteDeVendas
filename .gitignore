@@ -74,6 +74,7 @@ list_files_to_review.sh
 
 # Apresentacoes .pptx geradas pelo Gerente de Projetos (derivadas do YAML).
 # Os templates ficam versionados; as saidas nao.
-artefatos/gerente_projetos/*.pptx
-!artefatos/gerente_projetos/*template*.pptx
+artefatos/gerente_de_projetos/*.pptx
+!artefatos/gerente_de_projetos/*template*.pptx
+list_files_to*
 

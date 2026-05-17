@@ -1,10 +1,15 @@
 """
 Agente Gerente de Projetos
 Responsável por gestão ágil do projeto, relatórios de Sprint e coordenação dos agentes.
+
+Exemplo de uso:
+    Atue como #agentes\gerente_de_projetos.py e gere um relatório da Sprint2.
 """
 from .base_agente import BaseAgente
 from pathlib import Path
 import json
+from pptx.enum.shapes import MSO_SHAPE_TYPE
+import re
 from datetime import datetime, timedelta
 from typing import List, Dict, Optional
 
@@ -135,7 +140,7 @@ Formato de status:
 
         O YAML e a FONTE UNICA da verdade do Sprint Review e eh o unico
         artefato versionado. A apresentacao .pptx eh derivada dele via
-        `gerar_apresentacao_pptx()` e NAO deve ser editada diretamente
+        `gera_sprint_report.py` e NAO deve ser editada diretamente
         (exceto para formatacao visual).
 
         Args:
@@ -199,263 +204,6 @@ Formato de status:
         )
         return caminho
 
-    def gerar_apresentacao_pptx(
-        self,
-        yaml_path,
-        template_path=None,
-        saida=None,
-    ) -> Path:
-        """
-        Gera a apresentacao .pptx a partir do YAML + template.
-
-        O arquivo gerado NAO eh versionado (ver .gitignore) e serve apenas
-        para a cerimonia de Sprint Review. Ajustes de conteudo devem ser
-        feitos no YAML, nao no .pptx.
-
-        Args:
-            yaml_path: Caminho do .yaml gerado por `gerar_dados_sprint_yaml()`.
-            template_path: Caminho do template .pptx. Se None, usa
-                `artefatos/gerente_projetos/sprint_review_template_v01.pptx`.
-            saida: Caminho do .pptx de saida. Se None, gera nome automatico
-                no diretorio do agente.
-
-        Returns:
-            Path do .pptx gerado.
-        """
-        import yaml
-        from pptx import Presentation
-
-        yaml_path = Path(yaml_path)
-        with open(yaml_path, "r", encoding="utf-8") as f:
-            dados = yaml.safe_load(f)
-
-        if template_path is None:
-            template_path = (
-                self.artefatos_dir / "sprint_review_template_v01.pptx"
-            )
-        template_path = Path(template_path)
-        if not template_path.exists():
-            raise FileNotFoundError(
-                f"Template pptx nao encontrado: {template_path}"
-            )
-
-        tokens_simples, tokens_lista = self._preparar_tokens_pptx(dados)
-
-        prs = Presentation(str(template_path))
-        for slide in prs.slides:
-            for shape in slide.shapes:
-                if shape.has_text_frame:
-                    self._substituir_tokens_em_textframe(
-                        shape.text_frame, tokens_simples, tokens_lista
-                    )
-                if shape.has_table:
-                    for row in shape.table.rows:
-                        for cell in row.cells:
-                            self._substituir_tokens_em_textframe(
-                                cell.text_frame, tokens_simples, tokens_lista
-                            )
-
-        if saida is None:
-            sprint_n = int(dados.get("sprint_numero", 0))
-            data_fim_str = str(dados.get("data_fim", "")).replace("-", "")
-            saida = (
-                self.artefatos_dir
-                / f"sprint_review_{sprint_n:02d}_{data_fim_str}.pptx"
-            )
-        saida = Path(saida)
-        prs.save(str(saida))
-
-        self.registrar_interacao(
-            tipo="geracao_apresentacao_sprint",
-            conteudo=f"Apresentacao gerada: {saida.name}",
-            participantes=[self.nome],
-        )
-        return saida
-
-    def _preparar_tokens_pptx(self, dados: Dict):
-        """
-        Monta os dicts de tokens (simples e lista) a partir dos dados YAML.
-
-        Returns:
-            (tokens_simples, tokens_lista):
-            - tokens_simples: {str: str} substituicao direta dentro do texto.
-            - tokens_lista: {str: List[str]} quando o parrafo eh duplicado,
-              uma copia por item (preservando formatacao do paragrafo).
-        """
-        metricas = dados.get("metricas") or {}
-
-        def _fmt_data(s: str) -> str:
-            try:
-                return datetime.strptime(s, "%Y-%m-%d").strftime("%d/%m/%Y")
-            except Exception:
-                return s or ""
-
-        tokens_simples = {
-            "{{sprint_numero}}": f"{int(dados.get('sprint_numero', 0)):02d}",
-            "{{data_inicio}}": _fmt_data(dados.get("data_inicio", "")),
-            "{{data_fim}}": _fmt_data(dados.get("data_fim", "")),
-            "{{duracao_dias}}": str(dados.get("duracao_dias", "")),
-            "{{proximo_sprint_inicio}}": _fmt_data(
-                dados.get("proximo_sprint_inicio", "")
-            ),
-            "{{proximo_sprint_fim}}": _fmt_data(
-                dados.get("proximo_sprint_fim", "")
-            ),
-            "{{gerado_em}}": dados.get("gerado_em", ""),
-            "{{metrica_artefatos_criados}}": str(
-                metricas.get("artefatos_criados", 0)
-            ),
-            "{{metrica_pendencias_resolvidas}}": str(
-                metricas.get("pendencias_resolvidas", 0)
-            ),
-            "{{metrica_pendencias_novas}}": str(
-                metricas.get("pendencias_novas", 0)
-            ),
-            "{{metrica_bugs_corrigidos}}": str(
-                metricas.get("bugs_corrigidos", 0)
-            ),
-            "{{metrica_reports_total}}": str(metricas.get("reports_total", 0)),
-            "{{metrica_reports_resolvidos}}": str(
-                metricas.get("reports_resolvidos", 0)
-            ),
-        }
-
-        emoji_prio = {"alta": "🔴", "media": "🟡", "baixa": "🟢"}
-
-        def _fmt_feito(item: Dict) -> str:
-            titulo = item.get("titulo", "Sem titulo")
-            agente = item.get("agente", "Time")
-            desc = item.get("descricao", "")
-            if desc:
-                return f"{titulo} — {agente}: {desc}"
-            return f"{titulo} — {agente}"
-
-        def _fmt_proximo(item: Dict) -> str:
-            prio = item.get("prioridade", "media")
-            return f"{emoji_prio.get(prio, '⚪')} {item.get('titulo', 'Sem titulo')} ({prio})"
-
-        def _fmt_backlog(item: Dict) -> str:
-            return item.get("titulo", "Sem titulo")
-
-        tokens_lista = {
-            "{{feito}}": [_fmt_feito(i) for i in (dados.get("feito") or [])]
-            or ["(nenhum)"],
-            "{{proximo_sprint}}": [
-                _fmt_proximo(i) for i in (dados.get("proximo_sprint") or [])
-            ]
-            or ["(nenhum)"],
-            "{{backlog_pendente}}": [
-                _fmt_backlog(i) for i in (dados.get("backlog_pendente") or [])
-            ]
-            or ["(nenhum)"],
-            "{{bloqueios}}": list(dados.get("bloqueios") or [])
-            or ["(nenhum bloqueio)"],
-            "{{insights}}": list(dados.get("insights") or [])
-            or ["(sem observacoes)"],
-        }
-        return tokens_simples, tokens_lista
-
-    @staticmethod
-    def _substituir_tokens_em_textframe(text_frame, tokens_simples, tokens_lista):
-        """
-        Substitui tokens dentro de um text_frame do python-pptx.
-
-        - Tokens simples: substituicao de texto direto.
-        - Tokens de lista: o paragrafo que contem o token eh duplicado
-          uma vez por item da lista, preservando a formatacao.
-        """
-        from copy import deepcopy
-
-        # Primeira passada: duplicar paragrafos para tokens de lista.
-        paragrafos = list(text_frame.paragraphs)
-        for paragraph in paragrafos:
-            texto_paragrafo = "".join(run.text for run in paragraph.runs)
-            token_lista_encontrado = None
-            for token in tokens_lista:
-                if token in texto_paragrafo:
-                    token_lista_encontrado = token
-                    break
-            if not token_lista_encontrado:
-                continue
-
-            itens = tokens_lista[token_lista_encontrado]
-            # Substitui o token no paragrafo original pelo primeiro item.
-            GerenteDeProjetos._substituir_texto_no_paragrafo(
-                paragraph,
-                token_lista_encontrado,
-                itens[0] if itens else "",
-            )
-            # Para os itens restantes, duplica o paragrafo apos o original.
-            p_anchor = paragraph._p
-            for item in itens[1:]:
-                novo_p = deepcopy(paragraph._p)
-                p_anchor.addnext(novo_p)
-                p_anchor = novo_p
-                # Substituicao no novo paragrafo (ainda contem o token original
-                # antes da substituicao). Precisamos trocar pelo valor do item.
-                # Reusa helper via wrapper leve.
-                GerenteDeProjetos._substituir_texto_em_p_xml(
-                    novo_p, itens[0] if itens else "", item
-                )
-
-        # Segunda passada: tokens simples em todos os paragrafos (inclusive
-        # os recem-duplicados).
-        for paragraph in text_frame.paragraphs:
-            for token, valor in tokens_simples.items():
-                texto = "".join(run.text for run in paragraph.runs)
-                if token in texto:
-                    GerenteDeProjetos._substituir_texto_no_paragrafo(
-                        paragraph, token, valor
-                    )
-
-    @staticmethod
-    def _substituir_texto_no_paragrafo(paragraph, alvo: str, novo: str):
-        """
-        Substitui `alvo` por `novo` dentro de um paragrafo, preservando a
-        formatacao do primeiro run que contem o alvo.
-
-        Estrategia: concatena o texto de todos os runs, aplica replace,
-        coloca o resultado inteiro no primeiro run e zera os demais.
-        """
-        if not paragraph.runs:
-            return
-        texto_total = "".join(run.text for run in paragraph.runs)
-        if alvo not in texto_total:
-            return
-        novo_texto = texto_total.replace(alvo, novo)
-        paragraph.runs[0].text = novo_texto
-        for run in paragraph.runs[1:]:
-            run.text = ""
-
-    @staticmethod
-    def _substituir_texto_em_p_xml(p_element, alvo: str, novo: str):
-        """
-        Variante de `_substituir_texto_no_paragrafo` operando direto em um
-        elemento <a:p> (lxml). Usada para paragrafos recem-duplicados antes
-        de serem reencontrados pela API de alto nivel.
-        """
-        from pptx.oxml.ns import qn
-
-        runs = p_element.findall(qn("a:r"))
-        if not runs:
-            return
-        textos = []
-        for r in runs:
-            t = r.find(qn("a:t"))
-            textos.append(t.text or "" if t is not None else "")
-        texto_total = "".join(textos)
-        if alvo not in texto_total:
-            return
-        novo_texto = texto_total.replace(alvo, novo)
-        primeiro_t = runs[0].find(qn("a:t"))
-        if primeiro_t is None:
-            return
-        primeiro_t.text = novo_texto
-        for r in runs[1:]:
-            t = r.find(qn("a:t"))
-            if t is not None:
-                t.text = ""
-    
     def _calcular_metricas_sprint(self, data_inicio: datetime, data_fim: datetime) -> Dict:
         """Calcula métricas automáticas do período do Sprint."""
         status = self.obter_status_geral()
@@ -516,7 +264,7 @@ Formato de status:
 - **Status geral**: {"🟢 Saudável" if total_pendencias < 5 else "🟡 Atenção" if total_pendencias < 10 else "🔴 Crítico"}
 
 ---
-*Para o Sprint Review, use `gerar_dados_sprint_yaml()` seguido de `gerar_apresentacao_pptx()`*
+*Para o Sprint Review, use `gerar_dados_sprint_yaml()` e gere a apresentação com `gera_sprint_report.py`.*
 """
         
         return str(self.criar_artefato(

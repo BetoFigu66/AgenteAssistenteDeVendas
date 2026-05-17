@@ -1,6 +1,8 @@
 """
 Agente Auxiliar de Desenvolvimento de Negócios
 Responsável por transformar a ideia em produto para o mercado.
+
+Beto: Revisar para separar o genérico do específico.
 """
 from .base_agente import BaseAgente
 

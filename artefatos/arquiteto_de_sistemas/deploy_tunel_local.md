@@ -89,11 +89,6 @@ Validar localmente:
 - Frontend: http://localhost:3000
 - Backend:  http://localhost:8000/docs
 
-################################################
-Beto: Lido até aqui.
-  OK - Entender melhor o que é o cloudflared e como ele funciona.
-################################################
-
 ### 4.3 Abrir o túnel para o frontend
 
 Em um terminal dedicado (deixar aberto):

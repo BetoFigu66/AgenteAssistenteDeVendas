@@ -53,7 +53,7 @@ O projeto tem varios agentes especializados em `agentes/` (cada um com seu propr
 | `[planejador]` | Planejador de Negocios | `agentes/planejador_negocios.py` | `artefatos/planejador_negocios/` | Precificacao, marketing, concorrencia, projecoes financeiras |
 | `[qa]` | QA Engineer | `agentes/qa_engineer.py` | `artefatos/qa/` | Testes, cobertura, revisao de PRs, qualidade de processo |
 | `[implementador]` | Implementador | `agentes/implementador.py` | `artefatos/implementador/` | Codificacao de backend/frontend, migrations, fixes, diretrizes de implementacao |
-| `[gerente]` | Gerente de Projetos | `agentes/gerente_de_projetos.py` | `artefatos/gerente_projetos/` | Coordenacao, relatorios de sprint, acompanhamento de pendencias, atas |
+| `[gerente]` | Gerente de Projetos | `agentes/gerente_de_projetos.py` | `artefatos/gerente_de_projetos/` | Coordenacao, relatorios de sprint, acompanhamento de pendencias, atas |
 
 ### Como usar
 

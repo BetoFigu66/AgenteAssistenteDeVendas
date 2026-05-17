@@ -1,6 +1,6 @@
 """
 Agente Arquiteto de Sistemas
-Responsável por propor arquiteturas em diferentes níveis de maturidade.
+Responsável por propor arquiteturas em diferentes níveis de maturidade do sistema.
 """
 from .base_agente import BaseAgente
 

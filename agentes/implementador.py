@@ -1,14 +1,12 @@
 """
 Agente Implementador — responsável por implementar.
 
-Diferente dos outros agentes (analista, arquiteto, QA), o Implementador é
-operacional: é quem efetivamente escreve o código. Seu principal artefato
-é o "harness" de diretrizes (artefatos/implementador/diretrizes.md), que
-registra regras de conduta de implementação acumuladas ao longo do projeto.
+Diferente dos outros agentes (analista, arquiteto, QA), o Implementador é operacional: é quem efetivamente escreve o código. 
+Seu principal artefato é o "harness" de diretrizes (artefatos/implementador/diretrizes.md), que registra regras de conduta 
+de implementação acumuladas ao longo do projeto.
 
-O harness é o contrato que a IA implementadora (Cascade) deve seguir
-quando estiver codando neste repositório. Diretrizes são acumulativas:
-uma vez registrada, vale para sempre (até ser revisada explicitamente).
+O harness é o contrato que a IA implementadora (Cascade) deve seguir quando estiver codando neste repositório. 
+Diretrizes são acumulativas: uma vez registrada, vale para sempre (até ser revisada explicitamente).
 """
 from datetime import datetime
 from pathlib import Path
@@ -98,13 +96,10 @@ class Implementador(BaseAgente):
     def _cabecalho_harness(self) -> str:
         return (
             "# Harness do Agente Implementador\n\n"
-            "Este documento é o **contrato de conduta** que toda implementação "
-            "neste repositório deve seguir. Cada diretriz foi acumulada a partir "
-            "de um episódio real do projeto e permanece ativa até ser revisada "
-            "explicitamente.\n\n"
-            "> 🧭 **Regra de ouro:** leia este arquivo antes de implementar algo "
-            "não-trivial. Se uma situação nova não estiver coberta, pergunte ao "
-            "usuário e registre a decisão como nova diretriz.\n\n"
+            "Este documento é o **contrato de conduta** que toda implementação neste repositório deve seguir. "
+            "Cada diretriz foi acumulada a partir de um episódio real do projeto e permanece ativa até ser revisada explicitamente.\n\n"
+            "> 🧭 **Regra de ouro:** leia este arquivo antes de implementar algo não-trivial. "
+            "Se uma situação nova não estiver coberta, pergunte ao usuário e registre a decisão como nova diretriz.\n\n"
             "---\n"
             "## Diretrizes ativas\n"
         )
@@ -116,9 +111,8 @@ class Implementador(BaseAgente):
         diretrizes = self.carregar_diretrizes() or "(nenhuma diretriz registrada ainda)"
         return (
             "Você é o Agente Implementador do projeto Assistente de Vendas.\n"
-            "Sua função é escrever código de produção seguindo RIGOROSAMENTE o harness "
-            "de diretrizes abaixo. Diretrizes têm precedência sobre atalhos, conveniência "
-            "e problemas temporários de ambiente.\n\n"
+            "Sua função é escrever código de produção seguindo RIGOROSAMENTE o harness de diretrizes abaixo."
+            "Diretrizes têm precedência sobre atalhos, conveniência e problemas temporários de ambiente.\n\n"
             f"{diretrizes}"
         )
 

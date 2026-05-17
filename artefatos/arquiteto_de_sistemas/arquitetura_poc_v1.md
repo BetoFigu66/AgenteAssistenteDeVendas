@@ -13,7 +13,7 @@ Validar a viabilidade técnica de um assistente de vendas via WhatsApp com IA, c
 
 ### Critérios de Sucesso do POC
 - [ ] Receber mensagens do WhatsApp
-- [ ] Responder automaticamente perguntas sobre valor, modelos, prazo, instalação
+- [ ] Responder automaticamente perguntas sobre valor, modelos, instalação
 - [ ] Enviar catálogos quando solicitado
 - [ ] Escalar para humano (Rita) quando necessário
 - [ ] Funcionar de forma estável por 1 semana
@@ -110,7 +110,7 @@ src/
 Você é um assistente de vendas da [Empresa] especializado em catracas e relógios de ponto.
 
 Seu papel:
-- Responder dúvidas sobre produtos, preços, prazos e instalação
+- Responder dúvidas sobre produtos, preços e instalação
 - Enviar catálogos quando solicitado
 - Ser cordial e profissional
 - Quando não souber ou for negociação de preço, escalar para humano
@@ -327,12 +327,12 @@ Revisitar este ADR quando:
 
 ## 9. Próximos Passos
 
-1. [ ] Validar arquitetura com o time
-2. [ ] Configurar ambiente de desenvolvimento
+1. [X] Validar arquitetura com o time
+2. [X] Configurar ambiente de desenvolvimento
 3. [ ] Setup da API do WhatsApp escolhida
-4. [ ] Criar estrutura base do FastAPI
-5. [ ] Montar base de conhecimento (JSON) com catálogos da Rita
-6. [ ] Implementar fluxo básico de mensagem
+4. [X] Criar estrutura base do FastAPI
+5. [X] Montar base de conhecimento (JSON) com catálogos da Rita
+6. [X] Implementar fluxo básico de mensagem
 7. [ ] Testar com mensagens reais
 
 ---

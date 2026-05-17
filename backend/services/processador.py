@@ -50,9 +50,8 @@ from services.respostas import templates as T
 logger = logging.getLogger(__name__)
 
 
-# Intencoes que disparam busca na RAG. PERGUNTAR_PRECO esta presente para que
-# possamos registrar os trechos relacionados em auditoria, mas a resposta
-# continua sendo o template padrao de encaminhamento para orcamento humano.
+# Intencoes que disparam busca na RAG. PERGUNTAR_PRECO esta presente para que possamos registrar os trechos 
+# relacionados em auditoria, mas a resposta continua sendo o template padrao de encaminhamento para orcamento humano.
 _INTENCOES_RAG = frozenset({
     "perguntar_produto",
     "perguntar_preco",
@@ -139,7 +138,7 @@ class ProcessadorMensagem:
 
         # Logger de debug vinculado a esta mensagem (prefixo para grep por telefone:msg_id)
         dlog = DebugLogger(telefone=telefone_norm, msg_id=msg_in.id)
-        dlog.log("entrada", f'msg="{conteudo[:120].replace(chr(10), " ")}"')
+        dlog.log("entrada", f'msg="{conteudo.replace(chr(10), " ")}"')
 
         # 2. Identifica remetente
         identificacao = identificar_por_telefone(db, telefone_norm)
@@ -734,8 +733,7 @@ def _anexar_trechos_para_auditoria(
 ) -> None:
     """Popula `trechos_rag` e `rag_score_maximo` sem alterar o texto da resposta.
 
-    Usado quando a RAG e acionada apenas para auditoria (ex: PERGUNTAR_PRECO),
-    mantendo o template padrao como resposta ao cliente.
+    Usado quando a RAG e acionada apenas para auditoria (ex: PERGUNTAR_PRECO), mantendo o template padrao como resposta ao cliente.
     """
     if not trechos:
         return
