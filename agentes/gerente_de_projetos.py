@@ -1,9 +1,15 @@
 """
 Agente Gerente de Projetos
-Responsável por gestão ágil do projeto, relatórios de Sprint e coordenação dos agentes.
+Responsavel por gestao agil do projeto, relatorios de Sprint e coordenacao dos agentes.
+
+A fonte da verdade da identidade e do prompt deste agente esta em:
+    agentes/gerente_de_projetos.md
+
+E o harness de diretrizes operacionais em:
+    artefatos/gerente_de_projetos/diretrizes.md
 
 Exemplo de uso:
-    Atue como #agentes\gerente_de_projetos.py e gere um relatório da Sprint2.
+    Atue como [gerente] e gere um relatorio da Sprint 2.
 """
 from .base_agente import BaseAgente
 from pathlib import Path
@@ -27,6 +33,9 @@ class GerenteDeProjetos(BaseAgente):
     - Manter visão geral do projeto
     """
     
+    PROMPT_MD = "agentes/gerente_de_projetos.md"
+    DIRETRIZES_MD = "artefatos/gerente_de_projetos/diretrizes.md"
+
     def __init__(self, projeto_root: str = None):
         super().__init__(
             nome="Gerente de Projetos",
@@ -42,40 +51,34 @@ class GerenteDeProjetos(BaseAgente):
             "Implementador"
         ]
         
-        # Configurações de Sprint (padrão: 2 semanas)
+        # Configurações de Sprint (padrão: 2 semanas) — ver diretriz G02
         self.duracao_sprint_dias = 14
     
     def get_prompt_sistema(self) -> str:
-        return """Você é o Gerente de Projetos do projeto, responsável por conduzir o desenvolvimento de forma ágil.
+        """
+        Le o prompt de sistema concatenando:
+          1. agentes/gerente_de_projetos.md (identidade — fonte da verdade)
+          2. artefatos/gerente_de_projetos/diretrizes.md (diretrizes operacionais G01-G0N)
+        """
+        prompt_path = Path(self.projeto_root) / self.PROMPT_MD
+        if prompt_path.exists():
+            identidade = prompt_path.read_text(encoding="utf-8")
+        else:
+            # Fallback minimo caso o .md seja apagado
+            identidade = (
+                "Voce e o Gerente de Projetos do projeto Assistente de Vendas. "
+                "Conduza o desenvolvimento de forma agil, gere relatorios de Sprint "
+                "a cada 2 semanas e coordene os demais agentes. "
+                "(Prompt completo em agentes/gerente_de_projetos.md nao encontrado.)"
+            )
 
-Seu papel é:
-1. **Gestão de Sprint**: Relatórios a cada 2 semanas (feito → próximo → pendente)
-2. **Cerimônias ágeis**: Planning, daily, review, retrospectiva
-3. **Priorização**: Ordenar backlog e pendências por valor/urgência
-4. **Coordenação**: Alinhar trabalho entre agentes e remover impedimentos
-5. **Comunicação**: Relatórios claros de progresso para stakeholders
-
-Agentes sob sua coordenação:
-1. **Analista de Requisitos**: Brainstorms e documentação de requisitos
-2. **Auxiliar de Negócios**: Transformar ideia em produto
-3. **Arquiteto de Sistemas**: Propor arquiteturas (POC, single, multi-tenant)
-4. **Planejador de Negócios**: Monetização e estratégia comercial
-5. **QA Engineer**: Qualidade de código e processos
-6. **Implementador**: Governança e padrões de implementação
-
-Estrutura de Relatório de Sprint:
-- 📊 **Visão Geral**: Resumo executivo do Sprint
-- ✅ **Feito (Done)**: O que foi entregue neste Sprint
-- 🎯 **Próximo Sprint**: O que está planejado para as próximas 2 semanas
-- 📋 **Backlog Pendente**: O que ainda falta do escopo total
-- 🚨 **Bloqueios/Riscos**: Impedimentos e mitigações
-- 📈 **Métricas**: Artefatos criados, pendências resolvidas/novas, bugs corrigidos
-
-Formato de status:
-- 🟢 Concluído
-- 🟡 Em andamento
-- 🔴 Bloqueado
-- ⚪ Não iniciado"""
+        diretrizes_path = Path(self.projeto_root) / self.DIRETRIZES_MD
+        diretrizes = (
+            diretrizes_path.read_text(encoding="utf-8")
+            if diretrizes_path.exists()
+            else "(nenhuma diretriz registrada ainda)"
+        )
+        return f"{identidade}\n\n---\n\n{diretrizes}"
 
     def get_contexto(self) -> dict:
         return {

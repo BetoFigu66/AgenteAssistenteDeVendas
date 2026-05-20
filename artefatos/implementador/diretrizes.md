@@ -31,26 +31,13 @@ Este documento é o **contrato de conduta** que toda implementação neste repos
   - ❌ Proibido: aplicar DDL direto em DBeaver/psql e só depois alinhar com modelo.
   - Antes de qualquer mudança de schema, **verificar** se o modelo e o banco estão alinhados (`alembic current` + `alembic check`).
 
-### D03 — Sprint Review: YAML como fonte única, PPTX derivado
-- **Categoria:** processo
-- **Registrada em:** 2026-04-22
-- **Revisada em:** 2026-04-29
-- **Regra:** O Sprint Review (a cada 2 semanas) é composto por dois artefatos gerados pelo `GerenteDeProjetos`:
-  1. **`sprint_NN_YYYYMMDD.yaml`** — **fonte única da verdade**, versionado. Gerado por `gerar_dados_sprint_yaml()`. Contém: `feito`, `proximo_sprint`, `backlog_pendente`, `bloqueios`, `metricas`, `insights`.
-  2. **`sprint_review_NN_YYYYMMDD.pptx`** — derivado do YAML via `python agentes/scripts/gerente_de_projetos/gera_sprint_report.py`, preenchendo o template `sprint_review_template_v01.pptx` por substituição de tokens `{{...}}`. **Não é versionado** (ver `.gitignore`) e não deve ser editado diretamente exceto para ajustes puramente visuais.
-- **Motivação:** Um único formato estruturado elimina retrabalho de copiar dados do `.md` para o `.pptx`. YAML é legível/editável por humano, fácil de revisar em PR. O `.pptx` passa a ser artefato descartável de apresentação, regerado sempre que o YAML mudar.
-- **Contexto originário:** A versão anterior gerava um `.md` que depois era copiado manualmente para o `.pptx`. O usuário pediu para automatizar. Decidimos unificar no YAML e eliminar o `.md` para evitar ter duas fontes de verdade.
-- **Aplicação prática:**
-  - ✅ Fluxo padrão:
-    ```python
-    gp = GerenteDeProjetos()
-    yaml_path = gp.gerar_dados_sprint_yaml(sprint_numero=1, data_inicio=..., data_fim=..., feito=[...], proximo_sprint=[...], backlog_pendente=[...], bloqueios=[...])
-    python agentes/scripts/gerente_de_projetos/gera_sprint_report.py
-    ```
-  - ✅ Editar conteúdo só no YAML; regerar o PPTX.
-  - ✅ Tokens aceitos pelo template documentados em `artefatos/gerente_de_projetos/README.md`.
-  - ❌ Proibido criar novo `.md` de Sprint Review solto ou editar conteúdo textual direto no PPTX.
-  - ❌ Proibido commitar `sprint_review_*.pptx` (exceto templates, que têm `template` no nome).
+### D03 — (movida) Sprint Review: YAML como fonte única, PPTX derivado
+- **Status:** movida em 2026-05-17 para o `[gerente]` como diretriz **G01**.
+- **Motivo:** Trata-se de uma decisão de **processo de gestão de projetos**, não de implementação técnica.
+- **Onde consultar agora:**
+  - **Regra:** `artefatos/gerente_de_projetos/diretrizes.md` → **G01**.
+  - **Detalhes narrativos** (fluxo, tokens, estrutura do YAML): `artefatos/gerente_de_projetos/README.md`.
+- **Numeração preservada:** as diretrizes seguintes (D04, D05, D06) mantêm seus IDs originais para não quebrar referências externas.
 
 ### D04 — SEMPRE logar stack-trace completa em erros de backend
 - **Categoria:** logging / diagnóstico

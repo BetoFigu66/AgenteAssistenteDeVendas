@@ -1,6 +1,10 @@
 # Gerente de Projetos — Artefatos
 
-Diretório dos artefatos gerados pelo agente `GerenteDeProjetos`. O principal fluxo é o **Sprint Review**, que segue a diretriz **D03** (`artefatos/implementador/diretrizes.md`).
+Diretório dos artefatos gerados pelo agente `GerenteDeProjetos`. O principal fluxo é o **Sprint Review**, regido pelas diretrizes [`G01`](./diretrizes.md#g01--sprint-review-yaml-é-fonte-única-pptx-é-derivado), [`G03`](./diretrizes.md#g03--versionamento-da-pasta-de-sprint-review), [`G04`](./diretrizes.md#g04--tokens-do-template-e-yaml-devem-casar) e [`G05`](./diretrizes.md#g05--pptx-é-editável-apenas-para-formatação-visual) deste agente.
+
+> **Estrutura dos arquivos deste diretório:**
+> - [`diretrizes.md`](./diretrizes.md) — regras numeradas (G01-G0N), curtas e estáveis. **Fonte da verdade das regras.**
+> - `README.md` (este arquivo) — documentação narrativa: como o fluxo funciona, lista de tokens do template, estrutura do YAML, exemplos de uso.
 
 Os scripts auxiliares de geração estão em `agentes/scripts/gerente_de_projetos/` e incluem versões para WSL/Linux/macOS (`.sh`) e Windows (`.bat`).
 

@@ -83,15 +83,42 @@ Assumir o papel significa:
 - Seguir diretrizes especificas do agente se existirem (ex: `artefatos/implementador/diretrizes.md`).
 - Nao significa executar o codigo Python do agente - o Cascade assume o papel textualmente. Para invocar o codigo real, o usuario pede explicitamente (ex: "rode `GerenteDeProjetos.gerar_relatorio_sprint()`").
 
-### Convencao: arquivo `.md` complementar como fonte da verdade
+### Convencao: dois arquivos por agente (identidade + diretrizes)
 
-Um agente pode ter um arquivo `.md` complementar ao lado do `.py` (ex: `agentes/analista_requisitos.md`). Quando esse arquivo existe, ele e a **fonte da verdade** das regras de trabalho do agente: prompt de sistema completo, templates de artefatos, checklists, regras especificas. O `.py` apenas carrega esse `.md` em `get_prompt_sistema()` e oferece utilitarios programaticos (geracao de esqueletos, revisao de consistencia, etc.).
+Cada agente tem **dois arquivos** com papeis bem definidos:
 
-Quando o Cascade assume o papel `[nome]` no chat, deve **ler primeiro o `.md` correspondente** (se existir) para alinhar tom, estrutura e regras antes de produzir artefatos. Hoje aplica-se a:
+| Arquivo | Funcao | Quando criar |
+|---------|--------|--------------|
+| `agentes/<nome>.md` | **Identidade e prompt do agente:** papel, tom, escopo, templates de saida, checklists. E a **fonte da verdade** do `get_prompt_sistema()` — o `.py` apenas carrega este `.md`. | Sempre que o agente existir. Estavel, raramente muda. |
+| `artefatos/<nome>/diretrizes.md` | **Diretrizes operacionais numeradas** (D01, D02, …) — regras tecnicas/processuais que emergiram do trabalho real. Cada diretriz tem ID estavel, categoria, motivacao, contexto e aplicacao pratica. | Quando ha regras a registrar. Cresce ao longo do tempo. |
 
-- `agentes/analista_requisitos.md` (fonte das regras de redacao de REQ-XXX)
+**Distincao critica:**
 
-Novos agentes podem adotar o mesmo padrao quando o conjunto de regras crescer alem do que cabe inline no prompt do `.py`.
+- `agentes/<nome>.md` = "quem o agente e e como ele se comunica".
+- `artefatos/<nome>/diretrizes.md` = "regras que ele segue ao produzir artefatos".
+
+**Regras de manutencao das diretrizes:**
+
+- IDs **nunca** sao reciclados. Quando uma diretriz e movida para outro lugar (ex.: D03 do `[implementador]` foi para o README do `[gerente]`), o ID original vira **pointer** para preservar referencias externas. Ver exemplo em `artefatos/implementador/diretrizes.md` na D03.
+- Toda diretriz deve ter: **ID, titulo, categoria, data de registro, regra, motivacao, contexto originario e aplicacao pratica** (com exemplos do que e permitido / proibido).
+- Antes de criar uma nova diretriz, verificar se ja existe uma equivalente no proprio agente ou em outro (evitar duplicacao).
+
+**Quando o Cascade assume o papel `[nome]`:**
+
+1. Ler primeiro `agentes/<nome>.md` (identidade) para alinhar tom e templates.
+2. Consultar `artefatos/<nome>/diretrizes.md` (se existir) antes de produzir artefatos, para nao violar regras ja registradas.
+
+**Estado atual da adocao:**
+
+| Agente | `agentes/<nome>.md` | `artefatos/<nome>/diretrizes.md` |
+|--------|---------------------|----------------------------------|
+| `[analista]` | OK | nao se aplica (sem regras registradas) |
+| `[implementador]` | OK | OK |
+| `[gerente]` | OK | OK (G01-G05; `README.md` mantido como narrativa) |
+| `[arquiteto]` | OK | OK (indice A01-A05 com pointers para `.md` tematicos) |
+| `[qa]`, `[auxiliar]`, `[planejador]` | pendente (prompt ainda no `.py`) | criar quando surgirem regras |
+
+A migracao para o padrao acontece de forma incremental — nao e necessario criar arquivos vazios so para satisfazer a tabela. Cada agente migra quando houver conteudo real a registrar.
 
 ### Diretorios do `[analista]` (divisao explicita)
 
