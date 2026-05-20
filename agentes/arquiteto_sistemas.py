@@ -53,9 +53,9 @@ Seu papel é:
 
 Contexto Técnico do Projeto:
 - Backend: Python/FastAPI (preferência do desenvolvedor)
-- IA: OpenAI/Anthropic com RAG
+- IA: Groq para geração de texto + OpenAI (ou outro provider configurável) para embeddings/RAG
 - Canal: WhatsApp Business API
-- Banco: PostgreSQL sugerido
+- Banco: PostgreSQL 16 com pgvector para RAG
 - Desenvolvedor: Experiente, usa Windsurf Pro e CODEX como backup
 
 Três níveis de arquitetura:
@@ -106,9 +106,9 @@ Validar a viabilidade técnica com custo mínimo e tempo reduzido.
         ↓
 [FastAPI - Local/Railway]
         ↓
-[OpenAI API]
+[Groq API + Embeddings]
         ↓
-[PostgreSQL local]
+[PostgreSQL local + pgvector]
 ```
 
 ## Stack Tecnológica
@@ -116,28 +116,28 @@ Validar a viabilidade técnica com custo mínimo e tempo reduzido.
 | Componente | Tecnologia | Custo |
 |------------|------------|-------|
 | Backend | FastAPI (Python) | Grátis |
-| Banco de dados | PostgreSQL | Grátis |
-| IA | OpenAI API | ~$5-20/mês |
+| Banco de dados | PostgreSQL 16 + pgvector | Grátis |
+| IA | Groq + OpenAI embeddings | ~$10-20/mês |
 | WhatsApp | Twilio Sandbox | Grátis (dev) |
 | Hospedagem | Local + ngrok | Grátis |
 
 ## Funcionalidades POC
 - [x] Receber mensagens do WhatsApp
-- [x] Processar com IA (GPT)
+- [x] Processar com IA (Groq + embeddings)
 - [x] Responder automaticamente
 - [x] Fallback para humano (palavra-chave)
-- [ ] Sem RAG (conhecimento no prompt)
+- [x] RAG leve via PostgreSQL/pgvector
 - [ ] Sem painel web
 
 ## Limitações Aceitas
 - Sem alta disponibilidade
 - Sem monitoramento
-- Conhecimento limitado (no prompt)
+- Conhecimento limitado com RAG leve
 - Apenas um número WhatsApp
-- Sem controle de acesso por ligin/senha
+- Sem controle de acesso por login/senha
 
 ## Custos Mensais Estimados
-- OpenAI: ~$10-20
+- IA (Groq + embeddings): ~$10-20
 - Twilio (produção): ~$15 + uso
 - **Total POC**: ~$25-35/mês
 """
@@ -165,7 +165,7 @@ Sistema de produção estável para atender um cliente com qualidade.
         ↓
 [Redis (cache/sessões)]
         ↓
-[Painel Web (React/Next.js)]
+[Painel Web (React/Vite)]
 ```
 
 ## Stack Tecnológica
@@ -176,10 +176,10 @@ Sistema de produção estável para atender um cliente com qualidade.
 | Banco | PostgreSQL (Supabase/Railway) | $0-25/mês |
 | Vetores | pgvector | Incluso |
 | Cache | Redis (Upstash) | $0-10/mês |
-| IA | OpenAI API | $20-50/mês |
+| IA | Groq + OpenAI embeddings | $20-50/mês |
 | WhatsApp | Twilio/360dialog | $15 + uso |
 | Hospedagem | Railway/Render | $5-20/mês |
-| Frontend | Vercel | $0-20/mês |
+| Frontend | React + Vite | $0-20/mês |
 
 ## Funcionalidades
 - [x] Receber/enviar mensagens WhatsApp
@@ -261,10 +261,10 @@ Plataforma SaaS para atender múltiplos clientes com isolamento e escalabilidade
 | Vetores | pgvector / Pinecone | Isolamento |
 | Cache | Redis Cluster | Sessões/cache |
 | Queue | RabbitMQ / SQS | Processamento async |
-| IA | OpenAI API | Billing por tenant |
+| IA | Groq + OpenAI embeddings | Billing por tenant |
 | WhatsApp | 360dialog / Meta direto | Multi-número |
 | Hospedagem | AWS/GCP/Railway | Auto-scaling |
-| Frontend | Next.js + Vercel | Multi-tenant |
+| Frontend | React + Vite | Multi-tenant |
 | Auth | Auth0 / Supabase Auth | SSO ready |
 
 ## Funcionalidades Adicionais

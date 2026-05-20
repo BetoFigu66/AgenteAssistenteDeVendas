@@ -107,7 +107,7 @@ backend_1   | INFO:     Uvicorn running on http://0.0.0.0:8000
 | **Frontend** | http://localhost:3000 |
 | **Backend API** | http://localhost:8000 |
 | **Documentação API** | http://localhost:8000/docs |
-| **PostgreSQL** | localhost:5432 (user: `inforrel`, pass: `inforrel_dev`, db: `assistente_vendas`) |
+| **PostgreSQL** | localhost:5433 (user: `inforrel`, pass: `inforrel_dev`, db: `assistente_vendas`) |
 
 ### Passo 4: Parar o projeto
 
@@ -210,7 +210,7 @@ Edite o arquivo `.env` conforme necessário:
 DATABASE_URL=postgresql://inforrel:inforrel_dev@postgres:5432/assistente_vendas
 
 # Backend rodando local, postgres no docker
-DATABASE_URL=postgresql://inforrel:inforrel_dev@localhost:5432/assistente_vendas
+DATABASE_URL=postgresql://inforrel:inforrel_dev@localhost:5433/assistente_vendas
 ```
 
 ---
