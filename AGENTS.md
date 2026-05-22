@@ -54,6 +54,7 @@ O projeto tem varios agentes especializados em `agentes/` (cada um com seu propr
 | `[qa]` | QA Engineer | `agentes/qa_engineer.py` | `artefatos/qa/` | Testes, cobertura, revisao de PRs, qualidade de processo |
 | `[implementador]` | Implementador | `agentes/implementador.py` | `artefatos/implementador/` | Codificacao de backend/frontend, migrations, fixes, diretrizes de implementacao |
 | `[gerente]` | Gerente de Projetos | `agentes/gerente_de_projetos.py` | `artefatos/gerente_de_projetos/` | Coordenacao, relatorios de sprint, acompanhamento de pendencias, atas |
+| `[ia_expert]` | Especialista em IA | `agentes/ia_expert.md` | `artefatos/ia_expert/` | Governanca de IA, revisao de prompts/harness, tendencias, benchmark interno de uso de IA |
 
 ### Como usar
 
@@ -116,9 +117,12 @@ Cada agente tem **dois arquivos** com papeis bem definidos:
 | `[implementador]` | OK | OK |
 | `[gerente]` | OK | OK (G01-G05; `README.md` mantido como narrativa) |
 | `[arquiteto]` | OK | OK (indice A01-A05 com pointers para `.md` tematicos) |
+| `[ia_expert]` | OK | OK (IA01) |
 | `[qa]`, `[auxiliar]`, `[planejador]` | pendente (prompt ainda no `.py`) | criar quando surgirem regras |
 
 A migracao para o padrao acontece de forma incremental — nao e necessario criar arquivos vazios so para satisfazer a tabela. Cada agente migra quando houver conteudo real a registrar.
+
+> **IA01:** novos agentes devem ser definidos como `agentes/<nome>.md` (sem `.py` correspondente), salvo quando houver logica Python executavel real. Ver `artefatos/ia_expert/diretrizes.md` → IA01.
 
 ### Diretorios do `[analista]` (divisao explicita)
 
