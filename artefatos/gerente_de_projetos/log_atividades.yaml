@@ -1,0 +1,5 @@
+# Log de execuções das atividades periódicas
+# Não editar manualmente — use o script:
+#   python scripts/verificar_atividades.py --registrar <id> --responsavel "Nome" --notas "..."
+
+registros: []

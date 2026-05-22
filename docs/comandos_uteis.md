@@ -460,6 +460,46 @@ cloudflared tunnel run inforrel-poc
 
 ---
 
+## Atividades Periódicas
+
+Config: `artefatos/gerente_de_projetos/atividades_periodicas.yaml`
+Log:    `artefatos/gerente_de_projetos/log_atividades.yaml`
+
+```bash
+# Verificar quais atividades estão em atraso
+python scripts/verificar_atividades.py
+
+# Verificar + falhar se houver atraso (para pre-commit)
+python scripts/verificar_atividades.py --strict
+
+# Registrar que uma atividade foi concluída
+python scripts/verificar_atividades.py --registrar qa_check_semanal --responsavel "Beto"
+python scripts/verificar_atividades.py --registrar auditoria_ia_sprint --responsavel "Beto" --notas "3 melhorias identificadas"
+```
+
+IDs disponíveis (ver config para a lista completa):
+| ID | Frequência | Tipo |
+|----|-----------|------|
+| `qa_check_semanal` | semanal | script |
+| `auditoria_ia_sprint` | sprint | prompt_agente |
+| `revisao_readme_mensal` | mensal | revisao_manual |
+| `atualizacao_tendencias_mensal` | mensal | prompt_agente |
+
+**Integração pre-commit** (adicionar em `.pre-commit-config.yaml`):
+```yaml
+- repo: local
+  hooks:
+    - id: verificar-atividades-periodicas
+      name: Atividades periódicas em atraso
+      entry: python scripts/verificar_atividades.py
+      language: python
+      pass_filenames: false
+      always_run: true
+```
+> Usa `--strict` na `entry` se quiser bloquear o commit em caso de atraso.
+
+---
+
 ## Histórico de Dúvidas
 
 | Data | Quem | Dúvida | Comando/Solução |
