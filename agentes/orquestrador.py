@@ -1,40 +1,35 @@
 """
 Orquestrador de Agentes
 Interface principal para interação com todos os agentes do sistema.
+
+Nota: [auxiliar], [arquiteto] e [planejador] foram convertidos para .md (IA01)
+e não possuem mais classes Python. O orquestrador gerencia apenas os agentes
+com lógica executável real.
 """
 from pathlib import Path
 from datetime import datetime
 import json
 
 from .analista_requisitos import AnalistaRequisitos
-from .auxiliar_negocios import AuxiliarNegocios
-from .arquiteto_sistemas import ArquitetoSistemas
-from .planejador_negocios import PlanejadorNegocios
 from .gerente_de_projetos import GerenteDeProjetos
 
 
 class OrquestradorAgentes:
     """
-    Orquestrador central que gerencia todos os agentes.
+    Orquestrador central que gerencia agentes com lógica Python executável.
     Facilita a interação e coordenação entre agentes.
     """
-    
+
     def __init__(self, projeto_root: str = None):
         self.projeto_root = projeto_root or str(Path(__file__).parent.parent)
-        
-        # Inicializa todos os agentes
+
+        # Agentes com lógica Python executável
         self.analista = AnalistaRequisitos(self.projeto_root)
-        self.auxiliar_negocios = AuxiliarNegocios(self.projeto_root)
-        self.arquiteto = ArquitetoSistemas(self.projeto_root)
-        self.planejador = PlanejadorNegocios(self.projeto_root)
         self.gerente_de_projetos = GerenteDeProjetos(self.projeto_root)
-        
+
         self.agentes = {
             "analista": self.analista,
-            "auxiliar": self.auxiliar_negocios,
-            "arquiteto": self.arquiteto,
-            "planejador": self.planejador,
-            "gerente_de_projetos": self.gerente_de_projetos
+            "gerente_de_projetos": self.gerente_de_projetos,
         }
     
     def obter_agente(self, nome: str):
@@ -70,18 +65,12 @@ class OrquestradorAgentes:
         """
         Inicializa o projeto criando estrutura base e artefatos iniciais.
         """
-        # Cria pendências iniciais para cada agente
+        # Cria pendências iniciais para agentes com lógica Python executável
+        # [auxiliar], [arquiteto] e [planejador] são .md-only (IA01) — sem pendências programáticas
         pendencias_iniciais = [
             ("analista", "Realizar brainstorm inicial sobre funcionalidades do MVP", "alta"),
             ("analista", "Documentar requisitos funcionais principais", "alta"),
             ("analista", "Criar histórias de usuário para o MVP", "media"),
-            ("auxiliar", "Definir escopo do MVP", "alta"),
-            ("auxiliar", "Criar roadmap de desenvolvimento", "media"),
-            ("auxiliar", "Documentar análise do cliente inicial (Rita/Ivan)", "alta"),
-            ("arquiteto", "Propor arquitetura para POC", "alta"),
-            ("arquiteto", "Documentar decisões técnicas iniciais", "media"),
-            ("planejador", "Pesquisar concorrentes no mercado", "media"),
-            ("planejador", "Propor modelo de precificação inicial", "media"),
             ("gerente_de_projetos", "Gerar primeiro relatório de status", "baixa"),
         ]
         
