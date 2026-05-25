@@ -79,6 +79,16 @@ Este documento é o **contrato de conduta** que toda implementação neste repos
   - ✅ Rodar manualmente: `python scripts/qa_check.py [--escopo X] [--check Y] [--listar]`.
   - ❌ Não criar scripts de verificação fora do registry (fica invisível ao QA Engineer e ao pre-commit).
 
+### D07 — Nomenclatura de Migrations
+- **Categoria:** migrations
+- **Registrada em:** 2026-05-22
+
+- **Regra:** Toda migration criada deve ter o nome no formato `YYYYMMDDHH_<NomeDaMigration>[optional_suffix com um sequencial se necessário para diferenciar].py`.
+- **Motivação:** Facilitar a visualização da ordem de execução das migrations.
+- **Contexto originário:** Dificuldade de encontrar a cadeia de migrations.
+- **Aplicação prática:**
+  - ✅ Nova regra verificável → criar novo arquivo de migration com o nome no formato correto.
+
 ---
 
 ## Como registrar novas diretrizes
