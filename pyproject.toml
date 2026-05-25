@@ -1,0 +1,53 @@
+[project]
+name = "assistente-vendas"
+version = "0.1.0"
+description = "Assistente de vendas via WhatsApp com IA"
+requires-python = ">=3.10"
+readme = "README.md"
+
+[project.optional-dependencies]
+dev = [
+    "ruff>=0.4.0",
+    "pytest>=8.0",
+    "pre-commit>=3.8.0",
+]
+
+[tool.ruff]
+# Linha máxima (ajuste conforme preferência)
+line-length = 120
+
+# Regras habilitadas: E (erros), F (pyflakes), I (isort), W (warnings)
+select = ["E", "F", "I", "W"]
+
+# Ignorar E501 (linha longa) se quiser ser mais flexível
+# ignore = ["E501"]
+
+# Diretórios a ignorar
+exclude = [
+    ".git",
+    ".venv",
+    "venv",
+    "__pycache__",
+    "node_modules",
+    "dist",
+    "build",
+    ".pytest_cache",
+    "backend/alembic/versions",  # migrations geradas automaticamente
+    "WebScrapping",
+]
+
+[tool.ruff.lint.isort]
+known-first-party = ["agentes", "backend"]
+
+[tool.ruff.lint.per-file-ignores]
+# Arquivos de testes podem ter regras mais flexíveis
+"backend/tests/**/*.py" = ["S101"]  # allow assert
+
+[tool.ruff.lint.mccabe]
+max-complexity = 10
+
+[tool.ruff.lint.pylint]
+max-args = 5
+max-branches = 12
+max-returns = 5
+max-statements = 50
