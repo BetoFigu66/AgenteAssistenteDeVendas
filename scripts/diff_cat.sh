@@ -5,6 +5,9 @@ git status --porcelain | while IFS= read -r line; do
     file="${line:3}"
 
     case "$status" in
+        " D"|"D ")
+            echo "git add \"$file\" # deleted"
+            ;;
         " M"|"M ")
             echo "clear; git diff \"$file\""
             ;;
