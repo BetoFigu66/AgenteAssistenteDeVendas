@@ -33,6 +33,7 @@ class CheckResult:
     passou: bool
     severidade: str = "warning"  # sobrescreve a severidade default do Check
     findings: List[str] = field(default_factory=list)
+    comandos_uteis: List[str] = field(default_factory=list)
     mensagem: str = ""
     dica_correcao: str = ""
 
@@ -141,16 +142,21 @@ def _iter_arquivos(raiz: Path, nome_exato: Optional[str] = None,
 def _check_gitkeep_redundantes(raiz: Path) -> CheckResult:
     """`.gitkeep` so faz sentido em diretorios vazios. Acusa os demais."""
     redundantes: List[str] = []
+    comandos: List[str] = []
     for gitkeep in _iter_arquivos(raiz, nome_exato=".gitkeep"):
         try:
             irmaos = [p for p in gitkeep.parent.iterdir() if p.name != ".gitkeep"]
         except OSError:
             continue
         if irmaos:
-            redundantes.append(str(gitkeep.relative_to(raiz)).replace("\\", "/"))
+            root = str(gitkeep.relative_to(raiz)).replace("\\", "/")
+            redundantes.append(root)
+            comandos.append(f"ls {root.replace('.gitkeep', '')}")
+            comandos.append(f"rm {root}")
     return CheckResult(
         passou=not redundantes,
         findings=redundantes,
+        comandos_uteis=comandos,
         mensagem=(
             f"{len(redundantes)} .gitkeep(s) redundante(s) encontrados"
             if redundantes
@@ -309,6 +315,53 @@ def _check_pgvector_op_sem_return_type(raiz: Path) -> CheckResult:
     )
 
 
+@registrar_check(
+    id="ruff-lint",
+    titulo="Lint e imports via Ruff",
+    severidade="error",
+    escopos=["sempre", "pre-commit"],
+)
+def _check_ruff(raiz: Path) -> CheckResult:
+    """
+    Invoca Ruff para verificar qualidade de codigo e imports.
+    Ruff cobre: imports nao usados, isort, erros de sintaxe, warnings, etc.
+    Configuracao em pyproject.toml.
+    """
+    import subprocess
+
+    try:
+        result = subprocess.run(
+            ["ruff", "check", str(raiz)],
+            capture_output=True,
+            text=True,
+            timeout=30,
+        )
+    except FileNotFoundError:
+        return CheckResult(
+            passou=True,
+            mensagem="Ruff nao instalado; check ignorado. Instale: pip install ruff",
+        )
+    except subprocess.TimeoutExpired:
+        return CheckResult(
+            passou=False,
+            severidade="warning",
+            mensagem="Ruff timeout (30s); check ignorado.",
+        )
+
+    passou = result.returncode == 0
+    findings = result.stdout.splitlines() if not passou else []
+    comandos = ["ruff check .", "ruff check --fix ."] if not passou else []
+
+    return CheckResult(
+        passou=passou,
+        severidade="error",
+        findings=findings,
+        comandos_uteis=comandos,
+        mensagem="Ruff: OK" if passou else f"Ruff: {len(findings)} problema(s)",
+        dica_correcao="Rode `ruff check --fix .` para correcoes automaticas.",
+    )
+
+
 # ----------------------------------------------------------------------
 # QAEngineer — agente executor da checklist
 # ----------------------------------------------------------------------
@@ -462,6 +515,7 @@ class QAEngineer(BaseAgente):
                     "severidade": severidade_efetiva,
                     "passou": result.passou,
                     "findings": result.findings,
+                    "comandos_uteis": result.comandos_uteis,
                     "mensagem": result.mensagem,
                     "dica_correcao": result.dica_correcao,
                 }

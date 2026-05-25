@@ -17,12 +17,30 @@ import argparse
 import sys
 from pathlib import Path
 
-# Garante que a raiz do projeto esta no sys.path para importar `agentes`
+# Importa QAEngineer diretamente do arquivo, sem carregar agentes/__init__.py
+# (evita dependencias pesadas como python-pptx usadas por outros agentes)
+import importlib.util
+
 RAIZ = Path(__file__).resolve().parent.parent
 if str(RAIZ) not in sys.path:
     sys.path.insert(0, str(RAIZ))
 
-from agentes.qa_engineer import QAEngineer  # noqa: E402
+# Pre-registra base_agente em sys.modules para que o import relativo do
+# qa_engineer.py nao dispare o agentes/__init__.py (que carrega deps pesadas)
+_base_path = RAIZ / "agentes" / "base_agente.py"
+_base_spec = importlib.util.spec_from_file_location("agentes.base_agente", _base_path)
+_base_module = importlib.util.module_from_spec(_base_spec)
+_base_module.__package__ = "agentes"
+sys.modules["agentes.base_agente"] = _base_module
+_base_spec.loader.exec_module(_base_module)
+
+_qa_path = RAIZ / "agentes" / "qa_engineer.py"
+_spec = importlib.util.spec_from_file_location("agentes.qa_engineer", _qa_path)
+_qa_module = importlib.util.module_from_spec(_spec)
+_qa_module.__package__ = "agentes"
+sys.modules["agentes.qa_engineer"] = _qa_module
+_spec.loader.exec_module(_qa_module)
+QAEngineer = _qa_module.QAEngineer
 
 
 CORES = {
@@ -87,6 +105,12 @@ def imprimir_relatorio(relatorio: dict, usar_cor: bool) -> None:
                 print(f"      ... (+{len(r['findings']) - 50} ocultados)")
         if not r["passou"] and r["dica_correcao"]:
             print(f"    {_c('Dica:', 'dim', usar_cor)} {r['dica_correcao']}")
+        if r["comandos_uteis"]:
+            print("    Comandos uteis:")
+            for f in r["comandos_uteis"][:50]:
+                print(f"      - {f}")
+            if len(r["comandos_uteis"]) > 50:
+                print(f"      ... (+{len(r['findings']) - 50} ocultados)")
 
     print(_c("\n" + "-" * 70, "dim", usar_cor))
     total = relatorio["total"]

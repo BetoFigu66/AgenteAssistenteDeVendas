@@ -409,6 +409,15 @@ Tambem pode ser ativado pelo menu: `View` -> `Word Wrap`.
 
 Observacao: isso altera apenas a visualizacao no editor, sem modificar o arquivo.
 
+### Debugar backend FastAPI no VSCode
+
+A configuracao de execucao esta em `.vscode/launch.json` (nome: **Backend FastAPI**).  
+Para iniciar:
+
+- `F5` ou painel `Run and Debug` (`Ctrl+Shift+D`) → selecionar **Backend FastAPI**
+
+Ela usa o ambiente virtual `backend/venv` com reload automatico em `main:app`.
+
 ### Renderizar diagramas Mermaid no preview de Markdown
 
 O preview nativo do VSCode/Windsurf nao renderiza Mermaid; mostra como texto. Para renderizar:
@@ -497,6 +506,58 @@ IDs disponíveis (ver config para a lista completa):
       always_run: true
 ```
 > Usa `--strict` na `entry` se quiser bloquear o commit em caso de atraso.
+
+---
+
+## QA Checks (`scripts/qa_check.py`)
+
+Executa os checks de qualidade registrados pelo agente `[qa]`.
+Não requer venv especial — usa apenas bibliotecas built-in do Python.
+
+```bash
+# Listar checks disponíveis
+python scripts/qa_check.py --listar
+
+# Rodar todos os checks
+python scripts/qa_check.py
+
+# Só checks do escopo pre-commit (rápidos)
+python scripts/qa_check.py --escopo pre-commit
+
+# Rodar um check específico
+python scripts/qa_check.py --check gitkeep-redundantes
+```
+
+Saída:
+- `0` — tudo passou (ou só warnings/infos, não bloqueia commit)
+- `1` — ao menos um check `error` falhou (bloqueia commit)
+
+> Rode sempre da **raiz do projeto** — o script ajusta `sys.path` automaticamente.
+
+---
+
+## Ruff (Lint e Imports)
+
+Ferramenta rápida (Rust) para lint, formatação e verificação de imports. Configurado em `pyproject.toml`.
+
+```bash
+# Instalar
+pip install ruff
+
+# Verificar problemas
+ruff check .
+
+# Corrigir automaticamente
+ruff check --fix .
+
+# Verificar apenas imports (isort)
+ruff check --select I .
+
+# Formatar código
+ruff format .
+```
+
+O check `ruff-lint` do QA Engineer invoca `ruff check` automaticamente no pre-commit.
 
 ---
 
