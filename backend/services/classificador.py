@@ -7,7 +7,7 @@ Estratégia:
 
 Também extrai entidades: CNPJ, nome, quantidades, tipos de produto.
 """
-import json
+
 import logging
 import re
 import time
@@ -22,6 +22,7 @@ logger = logging.getLogger(__name__)
 
 class Intencao(str, Enum):
     """Intenções reconhecidas pelo classificador."""
+
     SAUDACAO = "saudacao"
     FORNECER_CNPJ = "fornecer_cnpj"
     FORNECER_NOME = "fornecer_nome"
@@ -42,6 +43,7 @@ class Intencao(str, Enum):
 @dataclass
 class EntidadesExtraidas:
     """Entidades extraídas de uma mensagem."""
+
     cnpjs: List[str] = field(default_factory=list)
     nomes: List[str] = field(default_factory=list)
     tipos_produto: List[str] = field(default_factory=list)  # ex: "catraca", "relogio_ponto"
@@ -52,6 +54,7 @@ class EntidadesExtraidas:
 @dataclass
 class ResultadoClassificacao:
     """Resultado da classificação de uma mensagem."""
+
     intencao: Intencao
     confianca: float  # 0.0 a 1.0
     entidades: EntidadesExtraidas
@@ -67,46 +70,76 @@ class ResultadoClassificacao:
 # =============================================================================
 
 _REGRAS_INTENCAO: list[tuple[Intencao, re.Pattern]] = [
-    (Intencao.SAUDACAO, re.compile(
-        r"\b(oi|ol[aá]|bom\s+dia|boa\s+tarde|boa\s+noite|e\s*a[ií]|hey|hi|hello|salve)\b",
-        re.IGNORECASE,
-    )),
-    (Intencao.ESCALAR_HUMANO, re.compile(
-        r"\b(atendente|humano|pessoa|vendedor(a)?|gerente|falar\s+com\s+algu[eé]m)\b",
-        re.IGNORECASE,
-    )),
-    (Intencao.APROVAR_ORCAMENTO, re.compile(
-        r"\b(aprovad[oa]|pode\s+fechar|fechad[oa]|pode\s+mandar|confirmo\s+o\s+or[çc]amento)\b",
-        re.IGNORECASE,
-    )),
-    (Intencao.REPROVAR_ORCAMENTO, re.compile(
-        r"\b(n[aã]o\s+vamos\s+fechar|desistimos|recusado|n[aã]o\s+aprovado)\b",
-        re.IGNORECASE,
-    )),
-    (Intencao.RECLAMAR, re.compile(
-        r"\b(reclama[çc][aã]o|problema|defeito|n[aã]o\s+funciona|quebrou|parou\s+de\s+funcionar)\b",
-        re.IGNORECASE,
-    )),
-    (Intencao.PEDIR_ORCAMENTO, re.compile(
-        r"\b(or[çc]amento|cota[çc][aã]o|quanto\s+sai|quanto\s+custa|pre[çc]o)\b",
-        re.IGNORECASE,
-    )),
-    (Intencao.PERGUNTAR_PRAZO, re.compile(
-        r"\b(prazo|entrega|quando\s+(chega|entrega|recebo)|em\s+quantos?\s+dias)\b",
-        re.IGNORECASE,
-    )),
-    (Intencao.PERGUNTAR_PRODUTO, re.compile(
-        r"\b(catraca|rel[oó]gio\s+de\s+ponto|biom[eé]trico|cart[aã]o|facial|modelo)\b",
-        re.IGNORECASE,
-    )),
-    (Intencao.CONFIRMAR, re.compile(
-        r"^\s*(sim|isso|correto|confirmo|ok|certo|isso\s+mesmo|exato|perfeito)\s*[.!]?\s*$",
-        re.IGNORECASE,
-    )),
-    (Intencao.NEGAR, re.compile(
-        r"^\s*(n[aã]o|nao|errado|incorreto)\s*[.!]?\s*$",
-        re.IGNORECASE,
-    )),
+    (
+        Intencao.SAUDACAO,
+        re.compile(
+            r"\b(oi|ol[aá]|bom\s+dia|boa\s+tarde|boa\s+noite|e\s*a[ií]|hey|hi|hello|salve)\b",
+            re.IGNORECASE,
+        ),
+    ),
+    (
+        Intencao.ESCALAR_HUMANO,
+        re.compile(
+            r"\b(atendente|humano|pessoa|vendedor(a)?|gerente|falar\s+com\s+algu[eé]m)\b",
+            re.IGNORECASE,
+        ),
+    ),
+    (
+        Intencao.APROVAR_ORCAMENTO,
+        re.compile(
+            r"\b(aprovad[oa]|pode\s+fechar|fechad[oa]|pode\s+mandar|confirmo\s+o\s+or[çc]amento)\b",
+            re.IGNORECASE,
+        ),
+    ),
+    (
+        Intencao.REPROVAR_ORCAMENTO,
+        re.compile(
+            r"\b(n[aã]o\s+vamos\s+fechar|desistimos|recusado|n[aã]o\s+aprovado)\b",
+            re.IGNORECASE,
+        ),
+    ),
+    (
+        Intencao.RECLAMAR,
+        re.compile(
+            r"\b(reclama[çc][aã]o|problema|defeito|n[aã]o\s+funciona|quebrou|parou\s+de\s+funcionar)\b",
+            re.IGNORECASE,
+        ),
+    ),
+    (
+        Intencao.PEDIR_ORCAMENTO,
+        re.compile(
+            r"\b(or[çc]amento|cota[çc][aã]o|quanto\s+sai|quanto\s+custa|pre[çc]o)\b",
+            re.IGNORECASE,
+        ),
+    ),
+    (
+        Intencao.PERGUNTAR_PRAZO,
+        re.compile(
+            r"\b(prazo|entrega|quando\s+(chega|entrega|recebo)|em\s+quantos?\s+dias)\b",
+            re.IGNORECASE,
+        ),
+    ),
+    (
+        Intencao.PERGUNTAR_PRODUTO,
+        re.compile(
+            r"\b(catraca|rel[oó]gio\s+de\s+ponto|biom[eé]trico|cart[aã]o|facial|modelo)\b",
+            re.IGNORECASE,
+        ),
+    ),
+    (
+        Intencao.CONFIRMAR,
+        re.compile(
+            r"^\s*(sim|isso|correto|confirmo|ok|certo|isso\s+mesmo|exato|perfeito)\s*[.!]?\s*$",
+            re.IGNORECASE,
+        ),
+    ),
+    (
+        Intencao.NEGAR,
+        re.compile(
+            r"^\s*(n[aã]o|nao|errado|incorreto)\s*[.!]?\s*$",
+            re.IGNORECASE,
+        ),
+    ),
 ]
 
 
@@ -126,8 +159,22 @@ _REGEX_NOME = re.compile(
 
 # Palavras que não devem ser confundidas com nome próprio quando o regex capturar.
 _STOPWORDS_NOME = {
-    "e", "o", "a", "meu", "minha", "seu", "sua", "nome", "da", "de", "do",
-    "empresa", "inforrel", "cnpj", "pessoa", "cliente",
+    "e",
+    "o",
+    "a",
+    "meu",
+    "minha",
+    "seu",
+    "sua",
+    "nome",
+    "da",
+    "de",
+    "do",
+    "empresa",
+    "inforrel",
+    "cnpj",
+    "pessoa",
+    "cliente",
 }
 
 
@@ -141,6 +188,7 @@ def _limpar_nome(bruto: str) -> Optional[str]:
         return None
     # Capitaliza cada parte ("beto figueiredo" -> "Beto Figueiredo").
     return " ".join(p.capitalize() for p in partes)
+
 
 _TIPOS_PRODUTO_PALAVRAS = {
     "catraca": "catraca",
@@ -158,17 +206,13 @@ def extrair_entidades(texto: str) -> EntidadesExtraidas:
     """Extrai CNPJs, emails, quantidades e tipos de produto via regex."""
     if not texto:
         return EntidadesExtraidas()
-    
+
     cnpjs = _REGEX_CNPJ.findall(texto)
     emails = _REGEX_EMAIL.findall(texto)
-    
+
     # Quantidades (pega apenas números razoáveis: 1-9999)
-    quantidades = [
-        int(m.group(1))
-        for m in _REGEX_QUANTIDADE.finditer(texto)
-        if 1 <= int(m.group(1)) <= 9999
-    ]
-    
+    quantidades = [int(m.group(1)) for m in _REGEX_QUANTIDADE.finditer(texto) if 1 <= int(m.group(1)) <= 9999]
+
     texto_lower = texto.lower()
     tipos_produto = []
     for palavra, tipo in _TIPOS_PRODUTO_PALAVRAS.items():
@@ -194,21 +238,21 @@ def extrair_entidades(texto: str) -> EntidadesExtraidas:
 def classificar_por_regras(texto: str) -> tuple[Intencao, float]:
     """
     Classifica a intenção usando regras/regex.
-    
+
     Returns:
         Tupla (Intencao, confianca). Se não achou, retorna (DESCONHECIDO, 0.0).
     """
     if not texto or not texto.strip():
         return Intencao.DESCONHECIDO, 0.0
-    
+
     # Se a mensagem contém CNPJ, prioriza FORNECER_CNPJ
     if _REGEX_CNPJ.search(texto):
         return Intencao.FORNECER_CNPJ, 0.9
-    
+
     for intencao, padrao in _REGRAS_INTENCAO:
         if padrao.search(texto):
             return intencao, 0.75
-    
+
     return Intencao.DESCONHECIDO, 0.0
 
 
@@ -258,14 +302,14 @@ async def classificar_por_llm(
 ) -> tuple[Intencao, float, EntidadesExtraidas, dict, int]:
     """
     Classifica a mensagem usando LLM.
-    
+
     Returns:
         Tupla (Intencao, confianca, EntidadesExtraidas, raw_json, latencia_ms).
     """
     prompt_usuario = f"Mensagem do cliente: {texto}"
     if contexto:
         prompt_usuario = f"Contexto anterior: {contexto}\n\n{prompt_usuario}"
-    
+
     inicio = time.monotonic()
     try:
         resultado = await llm.completar_json(
@@ -277,17 +321,17 @@ async def classificar_por_llm(
         logger.error(f"[Classificador] Erro na LLM: {e}")
         latencia_ms = int((time.monotonic() - inicio) * 1000)
         return Intencao.DESCONHECIDO, 0.0, EntidadesExtraidas(), {}, latencia_ms
-    
+
     latencia_ms = int((time.monotonic() - inicio) * 1000)
-    
+
     # Parse
     try:
         intencao = Intencao(resultado.get("intencao", "desconhecido"))
     except ValueError:
         intencao = Intencao.DESCONHECIDO
-    
+
     confianca = float(resultado.get("confianca", 0.0))
-    
+
     ent = resultado.get("entidades") or {}
     entidades = EntidadesExtraidas(
         cnpjs=[str(c) for c in ent.get("cnpjs") or []],
@@ -296,7 +340,7 @@ async def classificar_por_llm(
         quantidades=[int(q) for q in ent.get("quantidades") or [] if str(q).isdigit()],
         emails=[str(e) for e in ent.get("emails") or []],
     )
-    
+
     return intencao, confianca, entidades, resultado, latencia_ms
 
 
@@ -314,31 +358,28 @@ async def classificar(
 ) -> ResultadoClassificacao:
     """
     Classifica a mensagem de forma híbrida: primeiro regras, depois LLM.
-    
+
     Args:
         texto: Texto da mensagem
         llm: Provedor LLM (opcional, se None só usa regras)
         contexto: Contexto adicional para a LLM
-    
+
     Returns:
         ResultadoClassificacao com intenção, confiança, entidades e origem.
     """
     entidades_regra = extrair_entidades(texto)
     intencao_regra, confianca_regra = classificar_por_regras(texto)
-    
+
     # Se regras têm alta confiança, usa direto
     if confianca_regra >= LIMITE_CONFIANCA_REGRAS:
-        logger.debug(
-            f"[Classificador] Usando regra: {intencao_regra.value} "
-            f"(confiança={confianca_regra})"
-        )
+        logger.debug(f"[Classificador] Usando regra: {intencao_regra.value} (confiança={confianca_regra})")
         return ResultadoClassificacao(
             intencao=intencao_regra,
             confianca=confianca_regra,
             entidades=entidades_regra,
             origem="regra",
         )
-    
+
     # Caso contrário, tenta LLM
     if llm is None:
         return ResultadoClassificacao(
@@ -347,11 +388,9 @@ async def classificar(
             entidades=entidades_regra,
             origem="regra",
         )
-    
-    intencao_llm, confianca_llm, entidades_llm, raw, latencia_ms = await classificar_por_llm(
-        texto, llm, contexto
-    )
-    
+
+    intencao_llm, confianca_llm, entidades_llm, raw, latencia_ms = await classificar_por_llm(texto, llm, contexto)
+
     # Combina entidades de regras + LLM (regras são mais confiáveis para CNPJ/email;
     # para nomes, regra e LLM se complementam — mantém os dois).
     nomes_combinados: List[str] = []
@@ -365,12 +404,9 @@ async def classificar(
         quantidades=entidades_regra.quantidades or entidades_llm.quantidades,
         emails=list({*entidades_regra.emails, *entidades_llm.emails}),
     )
-    
-    logger.debug(
-        f"[Classificador] Usando LLM: {intencao_llm.value} "
-        f"(confiança={confianca_llm}, latência={latencia_ms}ms)"
-    )
-    
+
+    logger.debug(f"[Classificador] Usando LLM: {intencao_llm.value} (confiança={confianca_llm}, latência={latencia_ms}ms)")
+
     return ResultadoClassificacao(
         intencao=intencao_llm,
         confianca=confianca_llm,

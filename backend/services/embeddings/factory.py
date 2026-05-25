@@ -2,6 +2,7 @@
 Factory para instanciar o EmbeddingProvider configurado.
 Permite trocar de provider alterando apenas EMBEDDING_PROVIDER no .env.
 """
+
 from functools import lru_cache
 
 from config import settings
@@ -31,11 +32,6 @@ def get_embedding_provider() -> EmbeddingProvider:
         )
 
     if provider == "ollama":
-        raise NotImplementedError(
-            "OllamaEmbeddingProvider ainda nao implementado"
-        )
+        raise NotImplementedError("OllamaEmbeddingProvider ainda nao implementado")
 
-    raise ValueError(
-        f"EMBEDDING_PROVIDER '{provider}' nao suportado. "
-        f"Opcoes: openai, ollama"
-    )
+    raise ValueError(f"EMBEDDING_PROVIDER '{provider}' nao suportado. Opcoes: openai, ollama")

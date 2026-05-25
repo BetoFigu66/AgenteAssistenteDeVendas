@@ -19,6 +19,7 @@ Uso:
 
 Executar a partir de `backend/` com o .env configurado (EMBEDDING_API_KEY etc.).
 """
+
 from __future__ import annotations
 
 import argparse
@@ -31,18 +32,15 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Iterable, Iterator
 
-
 BACKEND_DIR = Path(__file__).resolve().parents[1]
 if str(BACKEND_DIR) not in sys.path:
     sys.path.insert(0, str(BACKEND_DIR))
 
-from sqlalchemy import create_engine, select, update  # noqa: E402
-from sqlalchemy.orm import sessionmaker  # noqa: E402
-
 from config import settings  # noqa: E402
 from models import ParQA  # noqa: E402
 from services.embeddings import EmbeddingProvider, get_embedding_provider  # noqa: E402
-
+from sqlalchemy import create_engine, select, update  # noqa: E402
+from sqlalchemy.orm import sessionmaker  # noqa: E402
 
 ENTRADA_PADRAO = BACKEND_DIR / "data" / "seed_pares_qa.json"
 RESUMO_PADRAO = BACKEND_DIR / "data" / "ingestao_pares_qa_resumo.json"
@@ -52,6 +50,7 @@ LOTE_EMBEDDINGS_PADRAO = 32
 @dataclass
 class EstatisticasIngestao:
     """Contadores finais da execucao."""
+
     total_lidos: int = 0
     duplicados_na_entrada: int = 0
     novos: int = 0
@@ -216,19 +215,11 @@ async def ingerir(
 
         embeddings: list[list[float]] = []
         if total_embed > 0:
-            print(
-                f"[ingestao_qa] gerando {total_embed} embedding(s) em lotes de "
-                f"{tamanho_lote} (provider={provider.nome} modelo={provider.modelo})"
-            )
+            print(f"[ingestao_qa] gerando {total_embed} embedding(s) em lotes de {tamanho_lote} (provider={provider.nome} modelo={provider.modelo})")
             textos = [p["pergunta"] for p in para_inserir + para_atualizar]
-            embeddings = await gerar_embeddings_em_lote(
-                textos, provider, tamanho_lote, stats
-            )
+            embeddings = await gerar_embeddings_em_lote(textos, provider, tamanho_lote, stats)
             if len(embeddings) != total_embed:
-                raise RuntimeError(
-                    "Quantidade de embeddings retornada difere do esperado: "
-                    f"{len(embeddings)} != {total_embed}"
-                )
+                raise RuntimeError(f"Quantidade de embeddings retornada difere do esperado: {len(embeddings)} != {total_embed}")
 
         offset = 0
         for par in para_inserir:
@@ -289,9 +280,7 @@ def _salvar_resumo(caminho: Path, stats: EstatisticasIngestao) -> None:
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(
-        description="Ingere pares Q&A curados na tabela pares_qa."
-    )
+    parser = argparse.ArgumentParser(description="Ingere pares Q&A curados na tabela pares_qa.")
     parser.add_argument(
         "--arquivo",
         type=Path,

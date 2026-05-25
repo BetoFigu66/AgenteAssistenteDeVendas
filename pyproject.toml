@@ -14,7 +14,7 @@ dev = [
 
 [tool.ruff]
 # Linha máxima (ajuste conforme preferência)
-line-length = 120
+line-length = 250
 
 # Regras habilitadas: E (erros), F (pyflakes), I (isort), W (warnings)
 select = ["E", "F", "I", "W"]

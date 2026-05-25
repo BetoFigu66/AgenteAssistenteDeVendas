@@ -9,7 +9,7 @@ git status --porcelain | while IFS= read -r line; do
             echo "git add \"$file\" # deleted"
             ;;
         " M"|"M ")
-            echo "clear; git diff \"$file\""
+            echo "clear; git diff --ws-error-highlight=all \"$file\""
             ;;
         "??")
             if [ -f "$file" ]; then

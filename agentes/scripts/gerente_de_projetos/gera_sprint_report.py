@@ -1,8 +1,9 @@
-from pathlib import Path
-from datetime import datetime
-from copy import deepcopy
-import re
 import argparse
+import re
+from copy import deepcopy
+from datetime import datetime
+from pathlib import Path
+
 import yaml
 from pptx import Presentation
 from pptx.oxml.ns import qn
@@ -202,10 +203,7 @@ def _process_slide_list_limits(prs, dados):
         chunk_token = _wrap_token(raw_token)
         for slide_instance, chunk in zip([slide] + clones, chunks):
             replacements[id(slide_instance)] = {
-                chunk_token: [
-                    _format_list_item(base, item) if isinstance(item, dict) else str(item)
-                    for item in chunk
-                ]
+                chunk_token: [_format_list_item(base, item) if isinstance(item, dict) else str(item) for item in chunk]
             }
 
     return replacements
@@ -474,7 +472,7 @@ def _processar_slides_replicados(prs, dados: dict, tokens_usados: set = None, me
         tokens_usados = set()
     if metadata is None:
         metadata = _build_yaml_metadata(dados)
-    
+
     SLIDE_TOKEN_RE = re.compile(r"\{\{SLIDE:(\w+)\}\}")
 
     def _detectar_chave(slide):
@@ -501,7 +499,11 @@ def _processar_slides_replicados(prs, dados: dict, tokens_usados: set = None, me
         slide_template = prs.slides[idx]
         itens = dados.get(chave_real) or []
         if not itens:
-            itens = [f"(sem itens em '{chave}')"] if chave in ("bloqueios", "insights", "backlogpendente", "objetivos", "proximo_objetivos") else [{"titulo": f"(sem itens em '{chave}')"}]
+            itens = (
+                [f"(sem itens em '{chave}')"]
+                if chave in ("bloqueios", "insights", "backlogpendente", "objetivos", "proximo_objetivos")
+                else [{"titulo": f"(sem itens em '{chave}')"}]
+            )
 
         novos_slides = []
         for item in itens:
@@ -550,13 +552,13 @@ def gerar_apresentacao_pptx(yaml_path, template_path=None, saida=None) -> Path:
     flat_dados = _flatten_dict(dados)
     todas_chaves_yaml.update(flat_dados.keys())
     todas_chaves_yaml.update(tokens_lista.keys())
-    todas_chaves_yaml.update(token.replace('{{', '').replace('}}', '') for token in tokens_lista.keys())
+    todas_chaves_yaml.update(token.replace("{{", "").replace("}}", "") for token in tokens_lista.keys())
 
     prs = Presentation(str(template_path))
-    
+
     # DEBUG: Track used tokens
     tokens_usados = set()
-    
+
     slide_replacements = _process_slide_list_limits(prs, dados)
     _processar_slides_replicados(prs, dados, tokens_usados, metadata)
 
@@ -565,11 +567,15 @@ def gerar_apresentacao_pptx(yaml_path, template_path=None, saida=None) -> Path:
         # print(f"DEBUG: Processando slide '{slide.shapes.title.text if slide.shapes.title else 'Sem título'}'")
         for shape in slide.shapes:
             if shape.has_text_frame:
-                _substituir_tokens_em_textframe(shape.text_frame, tokens_simples, tokens_lista, tokens_usados, dados, slide_replacements=slide_token_replacements)
+                _substituir_tokens_em_textframe(
+                    shape.text_frame, tokens_simples, tokens_lista, tokens_usados, dados, slide_replacements=slide_token_replacements
+                )
             if shape.has_table:
                 for row in shape.table.rows:
                     for cell in row.cells:
-                        _substituir_tokens_em_textframe(cell.text_frame, tokens_simples, tokens_lista, tokens_usados, dados, slide_replacements=slide_token_replacements)
+                        _substituir_tokens_em_textframe(
+                            cell.text_frame, tokens_simples, tokens_lista, tokens_usados, dados, slide_replacements=slide_token_replacements
+                        )
     # DEBUG: Print YAML keys that were not used
     chaves_nao_usadas = todas_chaves_yaml - tokens_usados
     if chaves_nao_usadas:
@@ -588,9 +594,7 @@ def gerar_apresentacao_pptx(yaml_path, template_path=None, saida=None) -> Path:
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(
-        description="Gerar PPTX de sprint a partir de um arquivo YAML e template PPTX."
-    )
+    parser = argparse.ArgumentParser(description="Gerar PPTX de sprint a partir de um arquivo YAML e template PPTX.")
     parser.add_argument("yaml_file", help="Arquivo YAML com os dados da sprint")
     parser.add_argument(
         "template_file",

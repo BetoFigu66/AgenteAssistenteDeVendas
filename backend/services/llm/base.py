@@ -2,6 +2,7 @@
 Interface base para provedores de LLM.
 Permite trocar de LLM (Groq, OpenAI, Gemini, Ollama) sem alterar código cliente.
 """
+
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from typing import Optional
@@ -10,6 +11,7 @@ from typing import Optional
 @dataclass
 class LLMResponse:
     """Resposta padronizada de uma LLM."""
+
     conteudo: str
     modelo: str
     tokens_input: Optional[int] = None
@@ -20,10 +22,10 @@ class LLMResponse:
 class LLMProvider(ABC):
     """
     Interface abstrata para provedores de LLM.
-    
+
     Implementações concretas: GroqProvider, OpenAIProvider, etc.
     """
-    
+
     @abstractmethod
     async def completar(
         self,
@@ -34,18 +36,18 @@ class LLMProvider(ABC):
     ) -> LLMResponse:
         """
         Envia um prompt e retorna a completion.
-        
+
         Args:
             prompt_sistema: Instruções/persona para a LLM
             prompt_usuario: Mensagem/pergunta do usuário
             temperatura: Controle de aleatoriedade (0.0 - 1.0)
             max_tokens: Limite de tokens na resposta
-        
+
         Returns:
             LLMResponse com conteúdo e metadados.
         """
         ...
-    
+
     @abstractmethod
     async def completar_json(
         self,
@@ -56,12 +58,12 @@ class LLMProvider(ABC):
         """
         Envia um prompt e exige que a resposta seja um JSON válido.
         Útil para classificação estruturada e extração de entidades.
-        
+
         Returns:
             Dicionário parseado da resposta.
         """
         ...
-    
+
     @property
     @abstractmethod
     def nome(self) -> str:

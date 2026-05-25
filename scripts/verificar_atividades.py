@@ -13,10 +13,11 @@ Arquivos:
     artefatos/gerente_de_projetos/atividades_periodicas.yaml  — configuração das atividades
     artefatos/gerente_de_projetos/log_atividades.yaml          — histórico de execuções
 """
-import sys
+
 import argparse
-from pathlib import Path
+import sys
 from datetime import date, timedelta
+from pathlib import Path
 
 import yaml
 
@@ -57,9 +58,7 @@ def _parse_date(valor) -> date | None:
 def ultimo_registro(log, atividade_id) -> date | None:
     """Retorna a data do último registro de uma atividade, ou None."""
     datas = [
-        _parse_date(r.get("data"))
-        for r in (log.get("registros") or [])
-        if r.get("id") == atividade_id and _parse_date(r.get("data")) is not None
+        _parse_date(r.get("data")) for r in (log.get("registros") or []) if r.get("id") == atividade_id and _parse_date(r.get("data")) is not None
     ]
     return max(datas) if datas else None
 
@@ -70,9 +69,7 @@ def verificar_atrasos(config, log, hoje: date | None = None) -> list[dict]:
     """
     hoje = hoje or date.today()
 
-    frequencias: dict[str, int] = config.get("frequencias", {
-        "semanal": 7, "sprint": 14, "mensal": 30
-    })
+    frequencias: dict[str, int] = config.get("frequencias", {"semanal": 7, "sprint": 14, "mensal": 30})
 
     atrasos = []
     for ativ in config.get("atividades", []):
@@ -89,20 +86,22 @@ def verificar_atrasos(config, log, hoje: date | None = None) -> list[dict]:
             dias_atraso = (hoje - prazo).days
 
         if dias_atraso > 0:
-            atrasos.append({
-                "id": aid,
-                "descricao": ativ.get("descricao", aid),
-                "frequencia": freq_nome,
-                "freq_dias": freq_dias,
-                "ultimo_registro": ultimo.isoformat() if ultimo else "nunca",
-                "prazo": prazo.isoformat(),
-                "dias_atraso": dias_atraso,
-                "tipo": ativ.get("tipo", ""),
-                "comando": ativ.get("comando", ""),
-                "agente": ativ.get("agente", ""),
-                "prompt": ativ.get("prompt", "").strip(),
-                "arquivos": ativ.get("arquivos", []),
-            })
+            atrasos.append(
+                {
+                    "id": aid,
+                    "descricao": ativ.get("descricao", aid),
+                    "frequencia": freq_nome,
+                    "freq_dias": freq_dias,
+                    "ultimo_registro": ultimo.isoformat() if ultimo else "nunca",
+                    "prazo": prazo.isoformat(),
+                    "dias_atraso": dias_atraso,
+                    "tipo": ativ.get("tipo", ""),
+                    "comando": ativ.get("comando", ""),
+                    "agente": ativ.get("agente", ""),
+                    "prompt": ativ.get("prompt", "").strip(),
+                    "arquivos": ativ.get("arquivos", []),
+                }
+            )
 
     return sorted(atrasos, key=lambda x: -x["dias_atraso"])
 
@@ -129,9 +128,7 @@ def formatar_saida(atrasos: list[dict]) -> str:
         linhas.append("")
 
     linhas.append(
-        "Para registrar uma execução após concluir:\n"
-        "  python scripts/verificar_atividades.py --registrar <id>"
-        " [--responsavel <nome>] [--notas \"...\"]"
+        'Para registrar uma execução após concluir:\n  python scripts/verificar_atividades.py --registrar <id> [--responsavel <nome>] [--notas "..."]'
     )
     return "\n".join(linhas)
 
@@ -185,10 +182,7 @@ def main():
     if args.registrar:
         ids_validos = {a["id"] for a in config.get("atividades", [])}
         if args.registrar not in ids_validos:
-            print(
-                f"❌  ID '{args.registrar}' não encontrado.\n"
-                f"IDs válidos: {', '.join(sorted(ids_validos))}"
-            )
+            print(f"❌  ID '{args.registrar}' não encontrado.\nIDs válidos: {', '.join(sorted(ids_validos))}")
             sys.exit(1)
         registrar_execucao(log, args.registrar, args.responsavel, args.notas)
         return

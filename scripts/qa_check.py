@@ -11,15 +11,16 @@ Codigos de saida:
     0 -> tudo passou OU so ha warnings/infos (nao bloqueia commit)
     1 -> ao menos um check com severidade `error` falhou (bloqueia commit)
 """
+
 from __future__ import annotations
 
 import argparse
-import sys
-from pathlib import Path
 
 # Importa QAEngineer diretamente do arquivo, sem carregar agentes/__init__.py
 # (evita dependencias pesadas como python-pptx usadas por outros agentes)
 import importlib.util
+import sys
+from pathlib import Path
 
 RAIZ = Path(__file__).resolve().parent.parent
 if str(RAIZ) not in sys.path:
@@ -77,10 +78,7 @@ def imprimir_listagem(qa: QAEngineer, escopo: str | None, usar_cor: bool) -> Non
     print(_c(f"Checks registrados ({len(checks)}):", "bold", usar_cor))
     for c in checks:
         escopos = ",".join(c["escopos"])
-        print(
-            f"  - {c['id']:<30} [{c['severidade']:<7}] "
-            f"escopos={escopos}\n    {c['titulo']}"
-        )
+        print(f"  - {c['id']:<30} [{c['severidade']:<7}] escopos={escopos}\n    {c['titulo']}")
 
 
 def imprimir_relatorio(relatorio: dict, usar_cor: bool) -> None:
@@ -92,11 +90,7 @@ def imprimir_relatorio(relatorio: dict, usar_cor: bool) -> None:
         cor = "green" if r["passou"] else ("red" if r["severidade"] == "error" else "yellow")
         status = _emoji_resultado(r["passou"], r["severidade"])
         severidade_tag = "" if r["passou"] else f" [{r['severidade']}]"
-        print(
-            f"\n{_c(status, cor, usar_cor)} "
-            f"{_c(r['id'], 'bold', usar_cor)}"
-            f"{severidade_tag} — {r['titulo']}"
-        )
+        print(f"\n{_c(status, cor, usar_cor)} {_c(r['id'], 'bold', usar_cor)}{severidade_tag} — {r['titulo']}")
         print(f"    {r['mensagem']}")
         if r["findings"]:
             for f in r["findings"][:50]:

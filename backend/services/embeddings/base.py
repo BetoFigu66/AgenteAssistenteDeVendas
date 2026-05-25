@@ -2,6 +2,7 @@
 Interface base para provedores de embeddings.
 Permite trocar de provider (OpenAI, Ollama local, etc.) sem alterar codigo cliente.
 """
+
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from typing import List, Optional
@@ -10,6 +11,7 @@ from typing import List, Optional
 @dataclass
 class EmbeddingResponse:
     """Resposta padronizada de uma chamada de embeddings."""
+
     embeddings: List[List[float]]
     modelo: str
     dimensoes: int

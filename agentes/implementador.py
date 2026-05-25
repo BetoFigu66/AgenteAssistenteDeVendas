@@ -15,9 +15,10 @@ Diferente dos outros agentes, o Implementador e operacional: e quem efetivamente
 escreve o codigo. Diretrizes sao acumulativas: uma vez registrada, vale para sempre
 (ate ser revisada explicitamente).
 """
+
 from datetime import datetime
 from pathlib import Path
-from typing import List, Dict, Optional
+from typing import Dict, List
 
 from .base_agente import BaseAgente
 
@@ -68,12 +69,7 @@ class Implementador(BaseAgente):
 
         data = datetime.now().strftime("%Y-%m-%d")
         numero = conteudo.count("\n### D") + 1
-        bloco = (
-            f"\n### D{numero:02d} — {titulo}\n"
-            f"- **Categoria:** {categoria}\n"
-            f"- **Registrada em:** {data}\n"
-            f"- **Regra:** {regra}\n"
-        )
+        bloco = f"\n### D{numero:02d} — {titulo}\n- **Categoria:** {categoria}\n- **Registrada em:** {data}\n- **Regra:** {regra}\n"
         if motivacao:
             bloco += f"- **Motivação:** {motivacao}\n"
         if contexto:

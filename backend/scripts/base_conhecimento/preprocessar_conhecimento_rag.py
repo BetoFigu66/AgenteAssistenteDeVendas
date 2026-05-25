@@ -8,6 +8,7 @@ Saidas padrao:
     backend/data/rag/documentos_normalizados.jsonl
     backend/data/rag/preprocessamento_resumo.json
 """
+
 from __future__ import annotations
 
 import argparse
@@ -19,16 +20,13 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-
 RAIZ_PROJETO = Path(__file__).resolve().parents[2]
 INVENTARIO_PADRAO = RAIZ_PROJETO / "backend" / "data" / "rag" / "inventario_fontes.json"
 SAIDA_PADRAO = RAIZ_PROJETO / "backend" / "data" / "rag" / "documentos_normalizados.jsonl"
 RESUMO_PADRAO = RAIZ_PROJETO / "backend" / "data" / "rag" / "preprocessamento_resumo.json"
 
 URL_RE = re.compile(r"https?://[^\s)>\]]+")
-WHATSAPP_MSG_RE = re.compile(
-    r"^(\d{2}/\d{2}/\d{4})\s+(\d{2}:\d{2})\s+-\s+([^:]+):\s?(.*)$"
-)
+WHATSAPP_MSG_RE = re.compile(r"^(\d{2}/\d{2}/\d{4})\s+(\d{2}:\d{2})\s+-\s+([^:]+):\s?(.*)$")
 PHONE_RE = re.compile(r"(\+?\d[\d\s().-]{7,}\d)")
 EMAIL_RE = re.compile(r"[\w.\-+]+@[\w.\-]+\.\w+")
 ENDERECO_RE = re.compile(
@@ -291,11 +289,7 @@ def limpar_conversa_whatsapp(texto: str) -> tuple[str, dict[str, Any]]:
     if mensagem_atual:
         mensagens.append(mensagem_atual)
 
-    linhas_saida = [
-        f"{msg['papel'].upper()}: {msg['conteudo'].strip()}"
-        for msg in mensagens
-        if msg["conteudo"].strip()
-    ]
+    linhas_saida = [f"{msg['papel'].upper()}: {msg['conteudo'].strip()}" for msg in mensagens if msg["conteudo"].strip()]
     return normalizar_espacos("\n".join(linhas_saida)), {
         "mensagens": len(mensagens),
         "anexos_removidos": len(anexos),

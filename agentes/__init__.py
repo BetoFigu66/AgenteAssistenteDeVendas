@@ -14,12 +14,12 @@
 
 from .analista_requisitos import AnalistaRequisitos
 from .gerente_de_projetos import GerenteDeProjetos
-from .qa_engineer import QAEngineer
 from .implementador import Implementador
+from .qa_engineer import QAEngineer
 
 __all__ = [
-    'AnalistaRequisitos',
-    'GerenteDeProjetos',
-    'QAEngineer',
-    'Implementador',
+    "AnalistaRequisitos",
+    "GerenteDeProjetos",
+    "QAEngineer",
+    "Implementador",
 ]

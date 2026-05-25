@@ -8,6 +8,7 @@ Saidas padrao:
     backend/data/rag/chunks_conhecimento.jsonl
     backend/data/rag/chunking_resumo.json
 """
+
 from __future__ import annotations
 
 import argparse
@@ -18,7 +19,6 @@ from collections import Counter
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
-
 
 RAIZ_PROJETO = Path(__file__).resolve().parents[2]
 ENTRADA_PADRAO = RAIZ_PROJETO / "backend" / "data" / "rag" / "documentos_consolidados.jsonl"

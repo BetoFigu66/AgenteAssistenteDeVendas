@@ -5,6 +5,7 @@ Regressão para o report: "O CNPJ da empresa é X e meu nome é Beto Figueiredo"
 onde o nome não estava sendo extraído quando a regra detectava CNPJ e
 desviava do caminho da LLM.
 """
+
 import sys
 from pathlib import Path
 
@@ -12,7 +13,6 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 import pytest
-
 from services.classificador import extrair_entidades
 
 

@@ -20,6 +20,7 @@ Uso:
 
 Executar a partir de `backend/` com o .env configurado (EMBEDDING_API_KEY etc.).
 """
+
 from __future__ import annotations
 
 import argparse
@@ -31,20 +32,17 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Iterable, Iterator
 
-
 # Permite rodar tanto como `python -m scripts.ingerir_conhecimento_rag`
 # quanto como `python scripts/ingerir_conhecimento_rag.py` a partir de backend/.
 BACKEND_DIR = Path(__file__).resolve().parents[1]
 if str(BACKEND_DIR) not in sys.path:
     sys.path.insert(0, str(BACKEND_DIR))
 
-from sqlalchemy import create_engine, select, update  # noqa: E402
-from sqlalchemy.orm import sessionmaker  # noqa: E402
-
 from config import settings  # noqa: E402
 from models import DocumentoConhecimento  # noqa: E402
 from services.embeddings import EmbeddingProvider, get_embedding_provider  # noqa: E402
-
+from sqlalchemy import create_engine, select, update  # noqa: E402
+from sqlalchemy.orm import sessionmaker  # noqa: E402
 
 RAIZ_PROJETO = BACKEND_DIR.parent
 ENTRADA_PADRAO = BACKEND_DIR / "data" / "rag" / "chunks_conhecimento.jsonl"
@@ -55,6 +53,7 @@ LOTE_EMBEDDINGS_PADRAO = 64
 @dataclass
 class EstatisticasIngestao:
     """Contadores finais da execucao."""
+
     total_lidos: int = 0
     duplicados_na_entrada: int = 0
     novos: int = 0
@@ -216,20 +215,12 @@ async def ingerir(
 
         embeddings: list[list[float]] = []
         if total_embed > 0:
-            print(
-                f"[ingestao] gerando {total_embed} embedding(s) em lotes de "
-                f"{tamanho_lote} (provider={provider.nome} modelo={provider.modelo})"
-            )
+            print(f"[ingestao] gerando {total_embed} embedding(s) em lotes de {tamanho_lote} (provider={provider.nome} modelo={provider.modelo})")
             textos = [c["conteudo"] for c in para_inserir + para_atualizar]
-            embeddings = await gerar_embeddings_em_lote(
-                textos, provider, tamanho_lote, stats
-            )
+            embeddings = await gerar_embeddings_em_lote(textos, provider, tamanho_lote, stats)
 
             if len(embeddings) != total_embed:
-                raise RuntimeError(
-                    "Quantidade de embeddings retornada difere do esperado: "
-                    f"{len(embeddings)} != {total_embed}"
-                )
+                raise RuntimeError(f"Quantidade de embeddings retornada difere do esperado: {len(embeddings)} != {total_embed}")
 
         offset = 0
         for chunk in para_inserir:
@@ -271,17 +262,9 @@ async def ingerir(
             stats.atualizados += 1
 
         if desativar_removidos:
-            a_desativar = [
-                id_externo
-                for id_externo, prev in existentes.items()
-                if id_externo not in ids_entrada and prev["ativo"]
-            ]
+            a_desativar = [id_externo for id_externo, prev in existentes.items() if id_externo not in ids_entrada and prev["ativo"]]
             if a_desativar:
-                session.execute(
-                    update(DocumentoConhecimento)
-                    .where(DocumentoConhecimento.id_externo.in_(a_desativar))
-                    .values(ativo=False)
-                )
+                session.execute(update(DocumentoConhecimento).where(DocumentoConhecimento.id_externo.in_(a_desativar)).values(ativo=False))
                 stats.desativados = len(a_desativar)
 
         session.commit()
@@ -306,9 +289,7 @@ def _salvar_resumo(caminho: Path, stats: EstatisticasIngestao) -> None:
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(
-        description="Ingere chunks da RAG na tabela documentos_conhecimento."
-    )
+    parser = argparse.ArgumentParser(description="Ingere chunks da RAG na tabela documentos_conhecimento.")
     parser.add_argument("--entrada", type=Path, default=ENTRADA_PADRAO)
     parser.add_argument("--resumo", type=Path, default=RESUMO_PADRAO)
     parser.add_argument(
