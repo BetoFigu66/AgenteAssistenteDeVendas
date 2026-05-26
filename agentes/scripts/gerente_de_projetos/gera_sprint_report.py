@@ -1,3 +1,4 @@
+import sys
 from pathlib import Path
 from datetime import datetime
 from copy import deepcopy
@@ -6,6 +7,16 @@ import argparse
 import yaml
 from pptx import Presentation
 from pptx.oxml.ns import qn
+
+# Reconfigurar stdout/stderr para UTF-8 com fallback. No Windows, o console
+# padrao (PowerShell/cmd) usa cp1252 e prints de DEBUG com caracteres
+# Unicode (emojis, pontuacao tipografica, U+FFFD) derrubam o script ANTES
+# de prs.save(...), deixando o PPTX antigo corrompido no disco.
+for _stream in (sys.stdout, sys.stderr):
+    try:
+        _stream.reconfigure(encoding="utf-8", errors="replace")
+    except (AttributeError, ValueError):
+        pass
 
 PROJECT_ROOT = Path(__file__).resolve().parent
 DEFAULT_TEMPLATE = PROJECT_ROOT / "artefatos" / "gerente_de_projetos" / "sprint_review_template_v01.pptx"
@@ -37,6 +48,15 @@ def _is_iso_date(value):
 def _to_scalar_string(value):
     if _is_iso_date(value):
         return _fmt_data(value)
+    if isinstance(value, list):
+        # Lista vira "a, b, c" em vez de "['a', 'b', 'c']" (colchetes e aspas
+        # ficam feios quando renderizados em texto no PPT).
+        return ", ".join(_to_scalar_string(v) for v in value)
+    if isinstance(value, str):
+        # YAML folded scalars (`>`) preservam newline final por padrao, o que
+        # vira linha em branco quando concatenado a outro texto no template.
+        # Strip de bordas resolve sem afetar conteudo interno.
+        return value.strip()
     return str(value or "")
 
 
@@ -44,6 +64,10 @@ ALIASED_KEYS = {
     "backlogpendente": "backlog_pendente",
     "proximasprint": "proximo_sprint",
     "backlog": "backlogpendente",
+    # Renomeacao: bloqueios -> riscos_e_impedimentos (estrutura agora e
+    # lista de dicts com {nome, tipo, motivo, acao_esperada}, nao mais
+    # lista de strings). O alias mantem compat com templates antigos.
+    "bloqueios": "riscos_e_impedimentos",
 }
 ALIASED_KEYS.update({v: k for k, v in list(ALIASED_KEYS.items())})
 
@@ -116,6 +140,12 @@ def _resolve_yaml_path_value(path_parts: list, dados: dict):
                 if all(isinstance(item, dict) for item in current):
                     return [_format_list_item(chave, item) for item in current]
                 return [str(item) for item in current]
+            if isinstance(current, dict):
+                # Dict no final do path: vira lista de bullets (uma linha por
+                # chave). Caso de uso: {{cobertura_sprint.por_req}}.
+                if current:
+                    return [_formatar_cobertura_req_item(k, v) for k, v in current.items()]
+                return "(vazio)"
             return _to_scalar_string(current)
 
         part, rest = parts[0], parts[1:]
@@ -179,7 +209,12 @@ def _process_slide_list_limits(prs, dados):
     original_slides = list(prs.slides)
     sldIdLst = prs.slides._sldIdLst
 
-    for idx, slide in enumerate(original_slides):
+    # Processar em ordem reversa: clones de iteracoes posteriores ja estarao
+    # posicionados quando processarmos um slide de indice menor, garantindo
+    # que all_sldIds[idx] continue apontando para o template correto. Sem
+    # isso, os clones inseridos em iteracoes anteriores deslocam os indices
+    # e o template original (chunk[0]) acaba sendo movido para o fim do deck.
+    for idx, slide in reversed(list(enumerate(original_slides))):
         placeholders = _collect_slide_limit_placeholders(slide, dados)
         if not placeholders:
             continue
@@ -280,38 +315,66 @@ def _preparar_tokens_pptx(dados: dict, metadata: dict):
     return tokens_simples, tokens_lista
 
 
-def _substituir_texto_no_paragrafo(paragraph, alvo: str, novo: str):
-    if not paragraph.runs:
-        return
-    texto_total = "".join(run.text for run in paragraph.runs)
-    if alvo not in texto_total:
-        return
-    novo_texto = texto_total.replace(alvo, novo)
-    paragraph.runs[0].text = novo_texto
-    for run in paragraph.runs[1:]:
-        run.text = ""
-
-
 def _substituir_texto_em_p_xml(p_element, alvo: str, novo: str):
+    """Substitui ocorrencias do token preservando a formatacao por run.
+
+    O token frequentemente cruza varios runs (ex.: "{{", "nome", "}}"), e o
+    parágrafo pode ter runs com formatacao diferente antes/depois do token
+    (ex.: "Severidade" em bold antes de ": {{token}}" em fonte normal).
+
+    Algoritmo: para cada ocorrencia, localiza o run/offset do inicio e fim
+    do token. O texto substituto fica no run que contem o inicio (herdando
+    seu estilo), runs intermediarios sao zerados, e o restante do run final
+    (o que vier depois de "}}") e mantido. Assim, runs antes do inicio do
+    token preservam integralmente texto e estilo.
+    """
     runs = p_element.findall(qn("a:r"))
     if not runs:
         return
+    a_t_elements = []
     textos = []
     for r in runs:
         t = r.find(qn("a:t"))
+        a_t_elements.append(t)
         textos.append(t.text or "" if t is not None else "")
-    texto_total = "".join(textos)
-    if alvo not in texto_total:
-        return
-    novo_texto = texto_total.replace(alvo, novo)
-    primeiro_t = runs[0].find(qn("a:t"))
-    if primeiro_t is None:
-        return
-    primeiro_t.text = novo_texto
-    for r in runs[1:]:
-        t = r.find(qn("a:t"))
-        if t is not None:
-            t.text = ""
+
+    while True:
+        total = "".join(textos)
+        idx_start = total.find(alvo)
+        if idx_start < 0:
+            break
+        idx_end = idx_start + len(alvo)
+
+        run_start = run_end = None
+        offset_start = offset_end = 0
+        acc = 0
+        for i, t in enumerate(textos):
+            nxt = acc + len(t)
+            if run_start is None and idx_start < nxt:
+                run_start, offset_start = i, idx_start - acc
+            if idx_end <= nxt:
+                run_end, offset_end = i, idx_end - acc
+                break
+            acc = nxt
+        if run_start is None or run_end is None:
+            break
+
+        if run_start == run_end:
+            r = textos[run_start]
+            textos[run_start] = r[:offset_start] + novo + r[offset_end:]
+        else:
+            textos[run_start] = textos[run_start][:offset_start] + novo
+            for i in range(run_start + 1, run_end):
+                textos[i] = ""
+            textos[run_end] = textos[run_end][offset_end:]
+
+    for t_elem, novo_t in zip(a_t_elements, textos):
+        if t_elem is not None:
+            t_elem.text = novo_t
+
+
+def _substituir_texto_no_paragrafo(paragraph, alvo: str, novo: str):
+    _substituir_texto_em_p_xml(paragraph._p, alvo, novo)
 
 
 def _replace_tokens_in_paragraph(paragraph, replacements, tokens_usados):
@@ -367,6 +430,16 @@ def _substituir_tokens_em_textframe(text_frame, tokens_simples, tokens_lista, to
             else:
                 valor = ""
 
+            # Dict resolvido vira lista de bullets (uma linha por chave).
+            # Caso de uso principal: {{cobertura_sprint.por_req}} e similares,
+            # onde cada entrada e { antes, depois, delta_pp }. Itens que nao
+            # tem esse formato caem no fallback "chave: valor".
+            if isinstance(valor, dict):
+                if valor:
+                    valor = [_formatar_cobertura_req_item(k, v) for k, v in valor.items()]
+                else:
+                    valor = "(vazio)"
+
             replacements[raw_token] = valor
             if isinstance(valor, list):
                 list_tokens.append(raw_token)
@@ -411,29 +484,87 @@ def _substituir_tokens_em_textframe(text_frame, tokens_simples, tokens_lista, to
             print(f"DEBUG: Token não substituído no template: {token}")
 
 
-def _subtokens_por_item(chave: str, item, metadata: dict = None) -> dict:
-    tokens = {}
+def _formatar_cobertura_req_item(req_name: str, info) -> str:
+    """Formata uma entrada de cobertura_req como linha legivel.
+
+    Exemplos:
+      REQ-010: {antes: "~10%", depois: "~30%", delta_pp: "+20"}
+        -> "REQ-010: antes ~10%, depois ~30%, delta +20"
+      obs: "infra de suporte..."
+        -> "obs: infra de suporte..."
+    """
+    if isinstance(info, dict):
+        if {"antes", "depois", "delta_pp"} <= set(info.keys()):
+            return f"{req_name}: antes {info['antes']}, depois {info['depois']}, delta {info['delta_pp']}"
+        # fallback: junta os campos disponiveis
+        partes = ", ".join(f"{k} {v}" for k, v in info.items())
+        return f"{req_name}: {partes}"
+    return f"{req_name}: {info}"
+
+
+def _subtokens_por_item(chave: str, item, metadata: dict = None):
+    """Retorna (tokens_simples, tokens_lista) para um item replicado por {{SLIDE:chave}}.
+
+    Campos cujo valor e dict (ex.: feito.cobertura_req) sao convertidos em lista
+    de linhas formatadas, indo para tokens_lista (renderizados como bullets pelo
+    _substituir_tokens_em_textframe).
+    """
+    tokens_simples = {}
+    tokens_lista = {}
+
     if isinstance(item, dict):
         for field, valor in item.items():
-            for token_key in _token_key_variants(chave):
-                tokens[_wrap_token(f"{token_key}.{field}")] = _to_scalar_string(valor)
-                tokens[_wrap_token(f"{token_key}_{field}")] = _to_scalar_string(valor)
+            if isinstance(valor, dict):
+                # Dict aninhado: vira lista de bullets (uma linha por entrada).
+                if field == "cobertura_req":
+                    linhas = [_formatar_cobertura_req_item(k, v) for k, v in valor.items()]
+                else:
+                    linhas = [f"{k}: {_to_scalar_string(v)}" for k, v in valor.items()]
+                if not linhas:
+                    linhas = ["(vazio)"]
+                for token_key in _token_key_variants(chave):
+                    tokens_lista[_wrap_token(f"{token_key}.{field}")] = linhas
+                    tokens_lista[_wrap_token(f"{token_key}_{field}")] = linhas
+            else:
+                for token_key in _token_key_variants(chave):
+                    tokens_simples[_wrap_token(f"{token_key}.{field}")] = _to_scalar_string(valor)
+                    tokens_simples[_wrap_token(f"{token_key}_{field}")] = _to_scalar_string(valor)
         for token_key in _token_key_variants(chave):
-            tokens[_wrap_token(f"{token_key}_texto")] = _format_list_item(chave, item)
-            tokens[_wrap_token(token_key)] = _format_list_item(chave, item)
-        return tokens
+            tokens_simples[_wrap_token(f"{token_key}_texto")] = _format_list_item(chave, item)
+            tokens_simples[_wrap_token(token_key)] = _format_list_item(chave, item)
+        return tokens_simples, tokens_lista
 
     if isinstance(item, list):
         texto = ", ".join(str(v) for v in item)
         for token_key in _token_key_variants(chave):
-            tokens[_wrap_token(token_key)] = texto
-            tokens[_wrap_token(f"{token_key}_texto")] = texto
-        return tokens
+            tokens_simples[_wrap_token(token_key)] = texto
+            tokens_simples[_wrap_token(f"{token_key}_texto")] = texto
+        return tokens_simples, tokens_lista
 
     for token_key in _token_key_variants(chave):
-        tokens[_wrap_token(token_key)] = _to_scalar_string(item)
-        tokens[_wrap_token(f"{token_key}_texto")] = _to_scalar_string(item)
-    return tokens
+        tokens_simples[_wrap_token(token_key)] = _to_scalar_string(item)
+        tokens_simples[_wrap_token(f"{token_key}_texto")] = _to_scalar_string(item)
+    return tokens_simples, tokens_lista
+
+
+def _ajustar_numeracao_sequencial(slide, start_at: int):
+    """Injeta startAt em todos os <a:buAutoNum> dos paragrafos do slide.
+
+    Por padrao, PPTX reinicia auto-numeracao em cada slide. Quando o slide
+    e clonado N vezes (uma por item), todos comecam em "1.". Para numerar
+    sequencialmente, basta setar startAt=N no buAutoNum de cada paragrafo
+    numerado do clone N.
+    """
+    for shape in slide.shapes:
+        if not shape.has_text_frame:
+            continue
+        for para in shape.text_frame.paragraphs:
+            pPr = para._pPr
+            if pPr is None:
+                continue
+            buAutoNum = pPr.find(qn("a:buAutoNum"))
+            if buAutoNum is not None:
+                buAutoNum.set("startAt", str(start_at))
 
 
 def _clonar_slide(prs, slide):
@@ -497,24 +628,36 @@ def _processar_slides_replicados(prs, dados: dict, tokens_usados: set = None, me
 
     sldIdLst = prs.slides._sldIdLst
 
+    # Bug do python-pptx: PresentationPart._next_slide_partname usa
+    # `len(sldIdLst) + 1` para gerar partnames de novos slides. Se removermos
+    # sldIds do template DENTRO do loop, len(sldIdLst) diminui e o proximo
+    # add_slide aloca um partname que ja esta em uso (colisao -> .pptx
+    # corrompido com "Duplicate name" no zip). Solucao: adiar todas as
+    # remocoes para o fim, depois que todos os clones ja foram criados.
+    templates_para_remover = []
+
     for idx, chave, chave_real in reversed(slides_replicar):
         slide_template = prs.slides[idx]
         itens = dados.get(chave_real) or []
         if not itens:
-            itens = [f"(sem itens em '{chave}')"] if chave in ("bloqueios", "insights", "backlogpendente", "objetivos", "proximo_objetivos") else [{"titulo": f"(sem itens em '{chave}')"}]
+            itens = [f"(sem itens em '{chave}')"] if chave in ("insights", "backlogpendente", "objetivos", "proximo_objetivos") else [{"titulo": f"(sem itens em '{chave}')"}]
 
         novos_slides = []
-        for item in itens:
+        for item_idx, item in enumerate(itens, start=1):
             novo = _clonar_slide(prs, slide_template)
-            subtokens = _subtokens_por_item(chave, item, metadata)
-            subtokens[f"{{{{SLIDE:{chave}}}}}"] = ""
+            sub_simples, sub_lista = _subtokens_por_item(chave, item, metadata)
+            sub_simples[f"{{{{SLIDE:{chave}}}}}"] = ""
             for shape in novo.shapes:
                 if shape.has_text_frame:
-                    _substituir_tokens_em_textframe(shape.text_frame, subtokens, {}, set(), dados)
+                    _substituir_tokens_em_textframe(shape.text_frame, sub_simples, sub_lista, set(), dados)
                 if shape.has_table:
                     for row in shape.table.rows:
                         for cell in row.cells:
-                            _substituir_tokens_em_textframe(cell.text_frame, subtokens, {}, set(), dados)
+                            _substituir_tokens_em_textframe(cell.text_frame, sub_simples, sub_lista, set(), dados)
+            # Numeracao sequencial entre clones: PPTX reinicia auto-num em
+            # cada slide, entao injetamos startAt no <a:buAutoNum> de cada
+            # paragrafo numerado para que o item N comece em N.
+            _ajustar_numeracao_sequencial(novo, item_idx)
             novos_slides.append(novo)
 
         all_sldIds = sldIdLst.findall(qn("p:sldId"))
@@ -522,9 +665,20 @@ def _processar_slides_replicados(prs, dados: dict, tokens_usados: set = None, me
         n = len(novos_slides)
         novos_sldIds = all_sldIds[-n:]
 
-        for sldId in reversed(novos_sldIds):
+        # addprevious(X) insere X imediatamente antes do template_sldId.
+        # Iterando em ordem direta [c1, c2, c3], o resultado e:
+        #   addprevious(c1) -> [c1, template]
+        #   addprevious(c2) -> [c1, c2, template]
+        #   addprevious(c3) -> [c1, c2, c3, template]
+        # Iterar em reversed produziria a ordem invertida.
+        for sldId in novos_sldIds:
             template_sldId.addprevious(sldId)
 
+        templates_para_remover.append(template_sldId)
+
+    # Remover sldIds dos templates somente APOS todos os clones terem sido
+    # criados, garantindo que len(sldIdLst) nao decresca durante add_slide.
+    for template_sldId in templates_para_remover:
         sldIdLst.remove(template_sldId)
 
 

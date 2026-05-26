@@ -1,0 +1,111 @@
+# Histórico longitudinal de cobertura dos REQs por sprint.
+#
+# OBJETIVO: fonte única para visualização da evolução do projeto sprint a sprint.
+# Cada entrada `sprints[i]` é um snapshot ao final daquela sprint.
+#
+# CAMPOS DE TOPO:
+#   - peso_reqs: tamanho relativo de cada REQ no projeto (em %, soma=100).
+#       Estimativa subjetiva baseada em escopo técnico (complexidade,
+#       integrações, UI, NFRs). NÃO é contagem de subitens. Mantido
+#       manualmente no YAML — script preserva e reordena, mas não recalcula.
+#       Útil para projeção ponderada:
+#         cobertura_ponderada = sum(peso_reqs[req] * por_req[req]) / 100
+#       Revisar a cada replanejamento de escopo significativo.
+#
+# CAMPOS DE SPRINT:
+#   - numero: número da sprint
+#   - data_fim: data de fechamento (YYYY-MM-DD)
+#   - origem: como o snapshot foi obtido
+#       * "snapshot_formal" = veio do cobertura_sprint.por_req do yaml do report
+#       * "reconstrucao_retroativa" = estimado a posteriori (menos confiável)
+#   - media_projeto: média simples dos % dos REQs acompanhados na sprint
+#   - por_req: mapa REQ → % estimado ao final da sprint
+#
+# METODOLOGIA: percentuais derivados da contagem ponderada de subitens
+# (✅=1.0, 🟡=0.5, 🔴=0.0) — ver cobertura_reqs_sprint02.md §1.1 para detalhes
+# e limitações. Tratar números como ordem de grandeza, não métrica precisa.
+#
+# COMO ATUALIZAR: NÃO editar manualmente sprints com origem snapshot_formal.
+# Em vez disso, rodar:
+#     python agentes/scripts/gerente_de_projetos/atualiza_cobertura_evolucao.py
+# que regera este arquivo a partir dos sprint_NN_*_interno.yaml em reports/.
+# Diretriz aplicável: G06 (artefatos/gerente_de_projetos/diretrizes.md).
+#
+# ARQUIVO GERADO POR SCRIPT — edições manuais em sprints snapshot_formal serão sobrescritas.
+
+projeto: Assistente de Vendas via WhatsApp com IA
+total_reqs_acompanhados: 14
+peso_reqs:
+  REQ-001: 5
+  REQ-002: 12
+  REQ-003: 10
+  REQ-004: 10
+  REQ-005: 8
+  REQ-006: 7
+  REQ-007: 4
+  REQ-008: 12
+  REQ-009: 5
+  REQ-010: 10
+  REQ-011: 5
+  REQ-012: 5
+  REQ-013: 4
+  REQ-014: 3
+ultima_atualizacao: '2026-05-15'
+sprints:
+- numero: 1
+  data_fim: '2026-04-26'
+  origem: reconstrucao_retroativa
+  nota: 'Snapshot estimado a posteriori (não havia processo de cobertura formalizado
+    durante a Sprint 1). Valores derivados subtraindo os deltas atribuídos à Sprint
+    2 dos snapshots formais de fim da Sprint 2.
+
+    '
+  media_projeto: ~20%
+  por_req:
+    REQ-001: ~40%
+    REQ-002: ~25%
+    REQ-003: ~5%
+    REQ-004: ~30%
+    REQ-005: ~55%
+    REQ-006: ~25%
+    REQ-007: ~5%
+    REQ-008: ~20%
+    REQ-009: 0%
+    REQ-010: ~10%
+    REQ-011: 0%
+    REQ-012: ~70%
+    REQ-013: 0%
+    REQ-014: 0%
+  cobertura_ponderada: ~22%
+- numero: 2
+  data_fim: '2026-05-15'
+  origem: snapshot_formal
+  media_projeto: ~34%
+  cobertura_ponderada: ~34%
+  por_req:
+    REQ-001: ~40%
+    REQ-002: ~25%
+    REQ-003: ~60%
+    REQ-004: ~30%
+    REQ-005: ~55%
+    REQ-006: ~25%
+    REQ-007: ~5%
+    REQ-008: ~20%
+    REQ-009: 0%
+    REQ-010: ~30%
+    REQ-011: ~25%
+    REQ-012: ~70%
+    REQ-013: ~70%
+    REQ-014: ~25%
+resumo:
+  delta_por_sprint:
+    sprint_1: n/a (sem baseline anterior formalizada)
+    sprint_2: +14 pp (~20% → ~34%)
+  delta_ponderado_por_sprint:
+    sprint_1: n/a
+    sprint_2: +12 pp (~22% → ~34%)
+  reqs_concluidos: 0
+  reqs_acima_50pct: 4
+  reqs_25_a_49pct: 7
+  reqs_abaixo_25pct: 3
+  proxima_revisao: fim Sprint 3

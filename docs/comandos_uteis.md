@@ -319,6 +319,39 @@ pre-commit run --all-files
 
 ---
 
+### Cobertura de REQs — atualizar `cobertura_evolucao.yaml`
+
+Histórico longitudinal da cobertura dos REQs sprint a sprint vive em
+`artefatos/gerente_de_projetos/cobertura_evolucao.yaml`. **Não editar à mão**
+sprints com `origem: snapshot_formal` — o arquivo é gerado a partir dos
+`sprint_NN_*_interno.yaml` em `artefatos/gerente_de_projetos/reports/`.
+
+**Regerar manualmente (recomendado ao fechar uma sprint):**
+```powershell
+python agentes/scripts/gerente_de_projetos/atualiza_cobertura_evolucao.py
+```
+
+**Enforcement automático:** o check `cobertura-evolucao-desatualizada`
+(`@registrar_check` em `agentes/qa_engineer.py`, escopo `pre-commit`,
+severidade `error`) garante que o arquivo nunca fique desincronizado.
+
+**Comportamento (padrão auto-fix tipo black):** se o arquivo divergir do
+esperado ao tentar comitar, o hook **regenera o arquivo automaticamente**
+no disco e bloqueia o commit pedindo `git add` + retry. Fluxo:
+
+```powershell
+git commit -m "..."                                                   # falha
+# Hook regenera cobertura_evolucao.yaml e mostra a dica.
+git add artefatos/gerente_de_projetos/cobertura_evolucao.yaml
+git commit -m "..."                                                   # passa
+```
+
+Resultado: **1 commit no histórico**, 2 tentativas de `git commit` na primeira vez.
+
+Diretriz aplicável: G06 em `artefatos/gerente_de_projetos/diretrizes.md`.
+
+---
+
 ### Conexão DBeaver / cliente externo
 
 | Campo | Valor |

@@ -114,7 +114,7 @@ Coloque **um parágrafo** no slide contendo o token. O gerador duplica o parágr
 | `{{feito.agente}}` | `feito[].agente` | agente de cada item |
 | `{{proximasprint}}` / `{{proximo_sprint}}` | `proximasprint[]` ou `proximo_sprint[]` | texto literal de cada item |
 | `{{backlogpendente}}` / `{{backlog_pendente}}` / `{{backlog}}` | `backlogpendente[]` ou `backlog_pendente[]` | texto literal de cada item |
-| `{{bloqueios}}` | `bloqueios[]` | texto literal do item |
+| `{{riscos_e_impedimentos}}` / `{{bloqueios}}` *(alias legado)* | `riscos_e_impedimentos[]` (lista de dicts com `nome`, `tipo`, `motivo`, `acao_esperada`) | concatenação dos itens — use preferencialmente `{{SLIDE:riscos_e_impedimentos}}` |
 | `{{insights}}` | `insights[]` | texto literal do item |
 | `{{objetivos}}` | `objetivos[]` | texto literal do item |
 | `{{proximo_objetivos}}` | `proximo_objetivos[]` | texto literal do item |
@@ -141,7 +141,7 @@ Se quiser que um **slide inteiro** seja replicado uma vez por item, use `{{SLIDE
 | `{{SLIDE:feito}}` | `feito` | `{{feito_titulo}}`, `{{feito_agente}}`, `{{feito_descricao}}` |
 | `{{SLIDE:proximasprint}}` / `{{SLIDE:proximo_sprint}}` | `proximasprint` / `proximo_sprint` | `{{proximo_sprint_titulo}}`, `{{proximo_sprint_prioridade}}`, `{{proximo_sprint_emoji}}` |
 | `{{SLIDE:backlogpendente}}` / `{{SLIDE:backlog_pendente}}` / `{{SLIDE:backlog}}` | `backlogpendente` / `backlog_pendente` | `{{backlog_titulo}}` |
-| `{{SLIDE:bloqueios}}` | `bloqueios` | `{{bloqueio_texto}}` |
+| `{{SLIDE:riscos_e_impedimentos}}` / `{{SLIDE:bloqueios}}` *(alias legado)* | `riscos_e_impedimentos` | `{{riscos_e_impedimentos_nome}}`, `{{riscos_e_impedimentos_tipo}}`, `{{riscos_e_impedimentos_motivo}}`, `{{riscos_e_impedimentos_acao_esperada}}` (e equivalentes com ponto: `{{riscos_e_impedimentos.nome}}`, etc.) |
 | `{{SLIDE:insights}}` | `insights` | `{{insight_texto}}` |
 | `{{SLIDE:objetivos}}` | `objetivos` | `{{objetivo_texto}}` |
 | `{{SLIDE:proximo_objetivos}}` | `proximo_objetivos` | `{{proximo_objetivo_texto}}` |
@@ -190,8 +190,11 @@ proximasprint:
 backlogpendente:
   - "Multi-tenancy"
 
-bloqueios:
-  - "Decidir provider LLM de produção"
+riscos_e_impedimentos:
+  - nome: "Decidir provider LLM de produção"
+    tipo: "🔴 alta"          # 🔴 alta | 🟡 media | 🟢 baixa
+    motivo: "Sem decisão, deploy fica inviável (rate limits ou custo)."
+    acao_esperada: "ADR conjunto [arquiteto] + [planejador] antes da Sprint N+1."
 
 metricas:
   artefatos_criados: 12

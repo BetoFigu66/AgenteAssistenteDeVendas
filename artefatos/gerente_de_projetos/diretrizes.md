@@ -75,6 +75,19 @@
   - ✅ Mover caixa de texto, mudar cor de fundo, ajustar tamanho da fonte — OK.
   - ❌ Trocar "Refatorar provider LLM" por "Refatorou provider LLM" direto no PPTX — proibido. Editar no YAML.
 
+### G06 — Atualizar `cobertura_evolucao.yaml` ao fechar sprint
+- **Categoria:** processo / artefatos
+- **Registrada em:** 2026-05-19
+- **Regra:** Ao fechar uma sprint, **antes de finalizar o Sprint Review**, regenerar `artefatos/gerente_de_projetos/cobertura_evolucao.yaml` executando o script `agentes/scripts/gerente_de_projetos/atualiza_cobertura_evolucao.py`. O script lê todos os `sprint_NN_*_interno.yaml` em `artefatos/gerente_de_projetos/reports/` e reconstrói o histórico longitudinal automaticamente a partir do bloco `cobertura_sprint.por_req` de cada report.
+- **Motivação:** sem essa atualização, o histórico de cobertura "trava" e perde valor como métrica de evolução do projeto. Manter manualmente é frágil (esquece-se de copiar valores ou inverte deltas). O script é determinístico e idempotente.
+- **Aplicação prática:**
+  - ✅ Cada `sprint_NN_*_interno.yaml` deve ter o bloco `cobertura_sprint.por_req` preenchido com `{antes, depois, delta_pp}` por REQ avançado.
+  - ✅ Rodar o script ao fim de cada sprint e revisar o diff antes de commitar.
+  - ✅ Sprints sem yaml de report (ex: Sprint 1, reconstrução retroativa) são preservadas pelo script se tiverem `origem: reconstrucao_retroativa` no arquivo atual.
+  - ❌ Não editar `cobertura_evolucao.yaml` manualmente para sprints que possuem yaml de report — a verdade é o report, e a edição manual será sobrescrita na próxima execução do script.
+  - ❌ Não pular a atualização "porque a sprint não avançou nada" — o snapshot ainda precisa ser registrado para preservar a continuidade da série temporal.
+- **Enforcement automático:** check `cobertura-evolucao-desatualizada` no QA harness (`agentes/qa_engineer.py`, escopo `pre-commit`, severidade `error`). Se o arquivo divergir do esperado, o check **regenera o arquivo automaticamente** e bloqueia o commit pedindo `git add` + retry. Fluxo: 1 commit no histórico, 2 tentativas de `git commit` na primeira vez.
+
 ---
 
 ## Diretrizes movidas / revogadas
@@ -88,3 +101,4 @@
 | Data | Mudança |
 |------|---------|
 | 2026-05-17 | Criação do arquivo. G01 importada do `[implementador]` (era D03, agora pointer lá). G02-G05 extraídas do `README.md` deste diretório. |
+| 2026-05-19 | G06 adicionada: regenerar `cobertura_evolucao.yaml` via script ao fechar sprint. |

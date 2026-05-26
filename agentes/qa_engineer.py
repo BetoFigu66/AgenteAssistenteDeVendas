@@ -309,6 +309,112 @@ def _check_pgvector_op_sem_return_type(raiz: Path) -> CheckResult:
     )
 
 
+@registrar_check(
+    id="cobertura-evolucao-desatualizada",
+    titulo="cobertura_evolucao.yaml desincronizado dos sprint_NN_*_interno.yaml",
+    severidade="error",
+    escopos=["sempre", "pre-commit"],
+)
+def _check_cobertura_evolucao_desatualizada(raiz: Path) -> CheckResult:
+    """
+    Verifica se `artefatos/gerente_de_projetos/cobertura_evolucao.yaml` está
+    em sincronia com os yaml de report (`sprint_NN_*_interno.yaml`).
+
+    Comportamento (padrão B + bypass, ver discussão na implementação da G06):
+    - Se o conteúdo bate com o esperado → passa em silêncio.
+    - Se diverge → **reescreve o arquivo** com o conteúdo correto e falha,
+      pedindo `git add` + retry do commit.
+
+    Diretriz relacionada: G06 (artefatos/gerente_de_projetos/diretrizes.md).
+    """
+    # Import preguiçoso para evitar custo quando o check não roda.
+    script_path = (
+        raiz / "agentes" / "scripts" / "gerente_de_projetos"
+        / "atualiza_cobertura_evolucao.py"
+    )
+    if not script_path.exists():
+        return CheckResult(
+            passou=True,
+            mensagem=(
+                "Script atualiza_cobertura_evolucao.py nao encontrado; "
+                "check ignorado."
+            ),
+        )
+
+    import importlib.util
+
+    spec = importlib.util.spec_from_file_location(
+        "atualiza_cobertura_evolucao", script_path
+    )
+    if spec is None or spec.loader is None:
+        return CheckResult(
+            passou=True,
+            mensagem="Nao foi possivel carregar atualiza_cobertura_evolucao.py; check ignorado.",
+        )
+    modulo = importlib.util.module_from_spec(spec)
+    try:
+        spec.loader.exec_module(modulo)
+    except Exception as exc:  # pragma: no cover - defensivo
+        return CheckResult(
+            passou=False,
+            severidade="error",
+            mensagem=f"Erro ao carregar atualiza_cobertura_evolucao.py: {exc}",
+            dica_correcao=(
+                "Corrija o script atualiza_cobertura_evolucao.py antes de comitar."
+            ),
+        )
+
+    try:
+        esperado = modulo.gerar_conteudo_esperado()
+        atual = modulo.ler_conteudo_atual()
+    except Exception as exc:
+        return CheckResult(
+            passou=False,
+            severidade="error",
+            mensagem=f"Erro ao calcular conteudo esperado: {exc}",
+            dica_correcao=(
+                "Rode 'python agentes/scripts/gerente_de_projetos/"
+                "atualiza_cobertura_evolucao.py' manualmente para reproduzir o erro."
+            ),
+        )
+
+    if atual == esperado:
+        return CheckResult(
+            passou=True,
+            mensagem="cobertura_evolucao.yaml esta atualizado.",
+        )
+
+    # Diverge: reescreve o arquivo (bypass quando ja estava certo evita esta linha).
+    try:
+        modulo.EVOLUCAO_PATH.parent.mkdir(parents=True, exist_ok=True)
+        modulo.EVOLUCAO_PATH.write_text(esperado, encoding="utf-8")
+    except OSError as exc:
+        return CheckResult(
+            passou=False,
+            severidade="error",
+            mensagem=f"Nao foi possivel reescrever cobertura_evolucao.yaml: {exc}",
+            dica_correcao=(
+                "Verifique permissoes de escrita em "
+                "artefatos/gerente_de_projetos/cobertura_evolucao.yaml."
+            ),
+        )
+
+    rel = modulo.EVOLUCAO_PATH.relative_to(raiz).as_posix()
+    return CheckResult(
+        passou=False,
+        severidade="error",
+        findings=[f"{rel} foi regenerado automaticamente."],
+        mensagem=(
+            "cobertura_evolucao.yaml estava desatualizado e foi regenerado "
+            "automaticamente a partir dos sprint_NN_*_interno.yaml."
+        ),
+        dica_correcao=(
+            f"Rode 'git add {rel}' e tente o commit novamente. "
+            "O arquivo correto ja esta no disco; basta inclui-lo no stage."
+        ),
+    )
+
+
 # ----------------------------------------------------------------------
 # QAEngineer — agente executor da checklist
 # ----------------------------------------------------------------------
