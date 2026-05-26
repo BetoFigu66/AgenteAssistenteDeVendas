@@ -38,6 +38,10 @@ env/
 .DS_Store
 Thumbs.db
 
+# MS Office / LibreOffice lock files (criados quando arquivos estao abertos).
+# Causam PermissionError em ferramentas que iteram sobre arquivos do repo.
+~$*
+
 # Logs
 *.log
 
