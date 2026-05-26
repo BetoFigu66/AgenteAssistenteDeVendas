@@ -19,7 +19,8 @@ class Database:
         self._garantir_diretorio()
 
         self.engine = create_engine(
-            self.database_url, echo=settings.DEBUG, connect_args={"check_same_thread": False} if "sqlite" in self.database_url else {}
+            self.database_url, echo=settings.DEBUG, 
+            connect_args={"check_same_thread": False} if "sqlite" in self.database_url else {}
         )
 
         self.SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=self.engine)

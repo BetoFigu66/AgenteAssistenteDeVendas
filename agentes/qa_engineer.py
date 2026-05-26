@@ -165,7 +165,10 @@ def _check_gitkeep_redundantes(raiz: Path) -> CheckResult:
         passou=not redundantes,
         findings=redundantes,
         comandos_uteis=comandos,
-        mensagem=(f"{len(redundantes)} .gitkeep(s) redundante(s) encontrados" if redundantes else "Nenhum .gitkeep redundante."),
+        mensagem=(
+            f"{len(redundantes)} .gitkeep(s) redundante(s) encontrados" if redundantes 
+                else "Nenhum .gitkeep redundante."
+        ),
         dica_correcao="Remova os arquivos .gitkeep listados (o diretorio ja tem conteudo).",
     )
 
@@ -206,7 +209,9 @@ def _check_imports_quebrados(raiz: Path) -> CheckResult:
     return CheckResult(
         passou=not quebrados,
         findings=quebrados,
-        mensagem=(f"{len(quebrados)} import(s) relativo(s) quebrado(s)" if quebrados else "Nenhum import relativo quebrado."),
+        mensagem=(
+            f"{len(quebrados)} import(s) relativo(s) quebrado(s)" if quebrados else "Nenhum import relativo quebrado."
+        ),
         dica_correcao="Corrija o nome do modulo ou remova o import se obsoleto.",
     )
 
@@ -571,7 +576,10 @@ class QAEngineer(BaseAgente):
         Returns:
             Relatório com findings e sugestões
         """
-        return {"tipo": "revisao_processo", "checklist": self.checklists["processo"], "findings": [], "sugestoes": [], "status": "pendente"}
+        return {
+            "tipo": "revisao_processo", 
+            "checklist": self.checklists["processo"], "findings": [], "sugestoes": [], "status": "pendente"
+        }
 
     def checklist_release(self, versao: str, requisitos: List[str]) -> Dict:
         """

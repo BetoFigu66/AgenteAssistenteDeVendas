@@ -58,7 +58,9 @@ def _parse_date(valor) -> date | None:
 def ultimo_registro(log, atividade_id) -> date | None:
     """Retorna a data do último registro de uma atividade, ou None."""
     datas = [
-        _parse_date(r.get("data")) for r in (log.get("registros") or []) if r.get("id") == atividade_id and _parse_date(r.get("data")) is not None
+        data
+        for r in (log.get("registros") or [])
+        if r.get("id") == atividade_id and (data := _parse_date(r.get("data")))
     ]
     return max(datas) if datas else None
 
@@ -127,9 +129,8 @@ def formatar_saida(atrasos: list[dict]) -> str:
             linhas.append(f"     ▶ Revisar manualmente: {', '.join(a['arquivos'])}")
         linhas.append("")
 
-    linhas.append(
-        'Para registrar uma execução após concluir:\n  python scripts/verificar_atividades.py --registrar <id> [--responsavel <nome>] [--notas "..."]'
-    )
+    linhas.append('''Para registrar uma execução após concluir:
+      python scripts/verificar_atividades.py --registrar <id> [--responsavel <nome>] [--notas "..."]''')
     return "\n".join(linhas)
 
 

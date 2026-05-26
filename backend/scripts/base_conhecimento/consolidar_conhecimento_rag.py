@@ -182,7 +182,8 @@ def remover_duplicatas_exatas(
 
 def gerar_assinaturas(documentos: list[dict[str, Any]]) -> dict[str, set[str]]:
     return {
-        documento["id_documento"]: normalizar_tokens(f"{documento.get('titulo', '')}\n{documento.get('conteudo', '')}") for documento in documentos
+        documento["id_documento"]: normalizar_tokens(
+            f"{documento.get('titulo', '')}\n{documento.get('conteudo', '')}") for documento in documentos
     }
 
 
@@ -248,7 +249,9 @@ def marcar_similares(documentos: list[dict[str, Any]], similares: list[dict[str,
             documento = por_id[item["id_documento"]]
             consolidacao = documento.setdefault("metadata", {}).setdefault("consolidacao", {})
             consolidacao["status"] = (
-                "representante_duplicata_exata" if consolidacao.get("status") == "representante_duplicata_exata" else "similar_precisa_revisao"
+                "representante_duplicata_exata"
+                if consolidacao.get("status") == "representante_duplicata_exata"
+                else "similar_precisa_revisao"
             )
             consolidacao["precisa_revisao"] = True
             consolidacao.setdefault("grupos_similares", []).append(
@@ -260,7 +263,9 @@ def marcar_similares(documentos: list[dict[str, Any]], similares: list[dict[str,
             )
 
 
-def consolidar(documentos: list[dict[str, Any]], similaridade_minima: float) -> tuple[list[dict[str, Any]], dict[str, Any]]:
+ResultadoConsolidacao = tuple[list[dict[str, Any]], dict[str, Any]]
+
+def consolidar(documentos: list[dict[str, Any]], similaridade_minima: float) -> ResultadoConsolidacao:
     consolidados, duplicatas_removidas, representantes_exatos = remover_duplicatas_exatas(documentos)
     similares = detectar_similares(consolidados, similaridade_minima)
     marcar_similares(consolidados, similares)

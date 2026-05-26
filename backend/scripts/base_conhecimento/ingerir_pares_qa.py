@@ -215,11 +215,13 @@ async def ingerir(
 
         embeddings: list[list[float]] = []
         if total_embed > 0:
-            print(f"[ingestao_qa] gerando {total_embed} embedding(s) em lotes de {tamanho_lote} (provider={provider.nome} modelo={provider.modelo})")
+            print(f"[ingestao_qa] gerando {total_embed} embedding(s) em lotes de {tamanho_lote}" 
+                f" (provider={provider.nome} modelo={provider.modelo})")
             textos = [p["pergunta"] for p in para_inserir + para_atualizar]
             embeddings = await gerar_embeddings_em_lote(textos, provider, tamanho_lote, stats)
             if len(embeddings) != total_embed:
-                raise RuntimeError(f"Quantidade de embeddings retornada difere do esperado: {len(embeddings)} != {total_embed}")
+                raise RuntimeError("Quantidade de embeddings retornada difere do esperado:" 
+                    f" {len(embeddings)} != {total_embed}")
 
         offset = 0
         for par in para_inserir:

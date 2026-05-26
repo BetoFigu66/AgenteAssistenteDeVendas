@@ -69,7 +69,9 @@ class Implementador(BaseAgente):
 
         data = datetime.now().strftime("%Y-%m-%d")
         numero = conteudo.count("\n### D") + 1
-        bloco = f"\n### D{numero:02d} — {titulo}\n- **Categoria:** {categoria}\n- **Registrada em:** {data}\n- **Regra:** {regra}\n"
+        bloco = (f"\n### D{numero:02d} — {titulo}\n- **Categoria:** {categoria}\n- **Registrada em:**" +
+            f" {data}\n- **Regra:** {regra}\n"
+        )
         if motivacao:
             bloco += f"- **Motivação:** {motivacao}\n"
         if contexto:
@@ -100,11 +102,11 @@ class Implementador(BaseAgente):
     # ------------------------------------------------------------------
     def _cabecalho_harness(self) -> str:
         return (
-            "# Harness do Agente Implementador\n\n"
-            "Este documento é o **contrato de conduta** que toda implementação neste repositório deve seguir. "
-            "Cada diretriz foi acumulada a partir de um episódio real do projeto e permanece ativa até ser revisada explicitamente.\n\n"
-            "> 🧭 **Regra de ouro:** leia este arquivo antes de implementar algo não-trivial. "
-            "Se uma situação nova não estiver coberta, pergunte ao usuário e registre a decisão como nova diretriz.\n\n"
+            "# Harness do Agente Implementador\n\nEste documento é o **contrato de conduta**"
+            " que toda implementação neste repositório deve seguir. Cada diretriz foi acumulada a partir de um "
+            "episódio real do projeto e permanece ativa até ser revisada explicitamente.\n\n"
+            "> 🧭 **Regra de ouro:** leia este arquivo antes de implementar algo não-trivial. Se uma situação"
+            " nova não estiver coberta, pergunte ao usuário e registre a decisão como nova diretriz.\n\n"
             "---\n"
             "## Diretrizes ativas\n"
         )

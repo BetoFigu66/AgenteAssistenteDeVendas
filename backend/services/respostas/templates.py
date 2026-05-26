@@ -8,7 +8,8 @@ Regras de negócio aplicadas:
 """
 
 # Saudações e identificação inicial
-SAUDACAO_NOVO_CONTATO = "Olá! 👋 Sou o assistente da Inforrel. Para te atender melhor, poderia me informar o CNPJ da sua empresa e seu nome?"
+SAUDACAO_NOVO_CONTATO = """Olá! 👋 Sou o assistente da Inforrel.
+Para te atender melhor, poderia me informar o CNPJ da sua empresa e seu nome?"""
 
 SAUDACAO_COM_NOME = "Olá, {nome}! 👋 Como posso te ajudar hoje?"
 
@@ -16,10 +17,12 @@ PERGUNTAR_CNPJ = "Para prosseguir, você poderia me informar o CNPJ da sua empre
 
 PERGUNTAR_NOME = "Como posso te chamar? 😊"
 
-CONFIRMAR_EMPRESA = "Identifiquei que você está falando em nome da empresa *{empresa}* (CNPJ {cnpj}). Está correto?"
+CONFIRMAR_EMPRESA = """Identifiquei que você está falando em nome da empresa *{empresa}* (CNPJ {cnpj}).
+Está correto?"""
 
 MULTIPLAS_EMPRESAS = (
-    "Vi que este número está associado a mais de uma empresa: {empresas}. Sobre qual delas vamos conversar hoje? Pode me informar o CNPJ, por favor."
+    """Vi que este número está associado a mais de uma empresa: {empresas}.
+Sobre qual delas vamos conversar hoje? Pode me informar o CNPJ, por favor."""
 )
 
 CNPJ_INVALIDO = "Hmm, não consegui validar esse CNPJ. Pode conferir e me enviar novamente?"
@@ -28,7 +31,9 @@ CNPJ_CONSULTADO_OK = "Ótimo! Confirmei os dados da empresa *{nome}*. Em que pos
 
 # Orçamento / produtos
 PEDIR_TIPO_PRODUTO = (
-    "Que tipo de equipamento você precisa? Trabalhamos com:\n• Catracas (torniquetes, balcão, etc.)\n• Relógios de ponto (biométrico, facial, cartão)"
+    """Que tipo de equipamento você precisa? Trabalhamos com:
+• Catracas (torniquetes, balcão, etc.)
+• Relógios de ponto (biométrico, facial, cartão)"""
 )
 
 PEDIR_QUANTIDADE = "Para montar o orçamento, quantas unidades você precisa de *{tipo_produto}*?"
@@ -52,24 +57,29 @@ COMPATIBILIDADE_SISTEMA = (
 )
 
 # Escalonamento
-ESCALADO_HUMANO = "Claro! Vou passar sua solicitação para um de nossos atendentes. Em breve alguém entrará em contato por aqui. 🙋"
+ESCALADO_HUMANO = """Claro! Vou passar sua solicitação para um de nossos atendentes.
+Em breve alguém entrará em contato por aqui. 🙋"""
 
-RECLAMACAO_ESCALADA = "Lamento pelo inconveniente! Vou escalar sua solicitação para nosso time de suporte. Em breve alguém entrará em contato."
+RECLAMACAO_ESCALADA = """Lamento pelo inconveniente! Vou escalar sua solicitação para nosso time de suporte.
+Em breve alguém entrará em contato."""
 
 # Fallback
-NAO_ENTENDI = "Desculpa, não entendi muito bem. Pode reformular sua mensagem? Se preferir, posso transferir para um atendente humano."
+NAO_ENTENDI = """Desculpa, não entendi muito bem. Pode reformular sua mensagem?
+Se preferir, posso transferir para um atendente humano."""
 
-FORA_CONTEXTO = "Sou o assistente de vendas da Inforrel e posso ajudar com catracas e relógios de ponto. Em que posso te ajudar?"
+FORA_CONTEXTO = """Sou o assistente de vendas da Inforrel e posso ajudar com catracas e relógios de ponto.
+Em que posso te ajudar?"""
 
 # Fallback quando RAG nao encontra trechos com score suficiente
-PRODUTO_SEM_CONTEXTO = (
-    "Ainda não tenho uma resposta precisa sobre isso por aqui. Posso te passar para um de nossos atendentes para te ajudar melhor? 🙋"
-)
+PRODUTO_SEM_CONTEXTO = """Ainda não tenho uma resposta precisa sobre isso por aqui.
+Posso te passar para um de nossos atendentes para te ajudar melhor? 🙋"""
 
 # Orçamento (status)
-ORCAMENTO_APROVADO = "Perfeito! Orçamento aprovado registrado. Nosso time comercial dará continuidade ao processo e entrará em contato em breve. 🎉"
+ORCAMENTO_APROVADO = """Perfeito! Orçamento aprovado registrado.
+Nosso time comercial dará continuidade ao processo e entrará em contato em breve. 🎉"""
 
-ORCAMENTO_REPROVADO = "Tudo bem, agradeço o retorno. Se mudar de ideia ou precisar de algo mais, estou à disposição."
+ORCAMENTO_REPROVADO = """Tudo bem, agradeço o retorno.
+Se mudar de ideia ou precisar de algo mais, estou à disposição."""
 
 
 def formatar(template: str, **kwargs) -> str:

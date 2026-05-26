@@ -78,7 +78,10 @@ async def lifespan(app: FastAPI):
     logger.info("Encerrando aplicação...")
 
 
-app = FastAPI(title="Assistente de Vendas API", description="API para integração com WhatsApp via Twilio", version="0.1.0", lifespan=lifespan)
+app = FastAPI(
+    title="Assistente de Vendas API", description="API para integração com WhatsApp via Twilio", 
+    version="0.1.0", lifespan=lifespan
+)
 
 app.add_middleware(
     CORSMiddleware,
@@ -104,7 +107,12 @@ async def validation_exception_handler(request: Request, exc: RequestValidationE
     logger.error(f"[ERRO 422] Detalhes: {exc.errors()}")
     logger.error(f"[ERRO 422] Stack trace:\n{stack_trace}")
     return JSONResponse(
-        status_code=422, content={"detail": exc.errors(), "message": "Erro de validação nos dados enviados", "type": "validation_error"}
+        status_code=422, 
+        content={
+            "detail": exc.errors(), 
+            "message": "Erro de validação nos dados enviados", 
+            "type": "validation_error"
+        }
     )
 
 
@@ -784,7 +792,10 @@ async def atualizar_report(report_id: int, payload: AtualizarReportRequest):
 async def listar_reports_problema(processamento_id: int):
     """Lista reports de problema associados a um processamento."""
     with db.get_session() as session:
-        reports = session.query(ReportProblema).filter_by(processamento_id=processamento_id).order_by(ReportProblema.created_at.desc()).all()
+        reports = session.query(ReportProblema).filter_by(
+            processamento_id=processamento_id).order_by(
+                ReportProblema.created_at.desc()
+            ).all()
         return {"reports": [r.to_dict() for r in reports]}
 
 
@@ -806,7 +817,9 @@ async def listar_todos_reports(
         if status_enum:
             q = q.filter(ReportProblema.status == status_enum)
         elif apenas_abertos:
-            q = q.filter(ReportProblema.status.in_([StatusReport.ABERTO, StatusReport.EM_ANALISE, StatusReport.AGUARDANDO_FIX]))
+            q = q.filter(
+                ReportProblema.status.in_([StatusReport.ABERTO, StatusReport.EM_ANALISE, StatusReport.AGUARDANDO_FIX])
+            )
         if categoria_enum:
             q = q.filter(ReportProblema.categoria == categoria_enum)
         if severidade_enum:
@@ -845,9 +858,13 @@ async def stats_reports():
 
     with db.get_session() as session:
         total = session.query(func.count(ReportProblema.id)).scalar()
-        por_status = dict(session.query(ReportProblema.status, func.count(ReportProblema.id)).group_by(ReportProblema.status).all())
+        por_status = dict(session.query(
+            ReportProblema.status, func.count(ReportProblema.id)).group_by(
+                ReportProblema.status).all())
         por_categoria = dict(session.query(ReportProblema.categoria, func.count(ReportProblema.id)).group_by(ReportProblema.categoria).all())
-        por_severidade = dict(session.query(ReportProblema.severidade, func.count(ReportProblema.id)).group_by(ReportProblema.severidade).all())
+        por_severidade = dict(session.query(
+                ReportProblema.severidade, func.count(ReportProblema.id)
+            ).group_by(ReportProblema.severidade).all())
         return {
             "total": total,
             "por_status": {k.value if k else "null": v for k, v in por_status.items()},
@@ -890,7 +907,9 @@ async def obter_contexto_report(report_id: int, antes: int = 3, depois: int = 3)
                 .limit(depois)
                 .all()
             )
-            contexto_msgs = [m.to_dict() for m in reversed(antes_q)] + [msg.to_dict()] + [m.to_dict() for m in depois_q]
+            contexto_msgs = [
+                m.to_dict() for m in reversed(antes_q)] + [msg.to_dict()] + [m.to_dict() for m in depois_q
+            ]
 
         return {
             "report": report.to_dict(),

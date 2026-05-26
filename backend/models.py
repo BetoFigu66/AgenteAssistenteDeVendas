@@ -112,14 +112,18 @@ class Mensagem(Base):
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
     telefone: Mapped[str] = mapped_column(String(20), nullable=False, index=True)
     conteudo: Mapped[str] = mapped_column(Text, nullable=False)
-    origem: Mapped[OrigemMensagem] = mapped_column(Enum(OrigemMensagem, values_callable=lambda x: [e.value for e in x]), nullable=False)
+    origem: Mapped[OrigemMensagem] = mapped_column(
+        Enum(OrigemMensagem, values_callable=lambda x: [e.value for e in x]), nullable=False
+    )
     message_sid: Mapped[Optional[str]] = mapped_column(String(50), nullable=True, unique=True)
     timestamp: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False)
 
     # Novos campos - relacionamentos
     contato_id: Mapped[Optional[int]] = mapped_column(ForeignKey("contatos.id"), nullable=True, index=True)
     negociacao_id: Mapped[Optional[int]] = mapped_column(ForeignKey("negociacoes.id"), nullable=True, index=True)
-    processamento_id: Mapped[Optional[int]] = mapped_column(ForeignKey("processamentos_mensagem.id"), nullable=True, index=True)
+    processamento_id: Mapped[Optional[int]] = mapped_column(
+        ForeignKey("processamentos_mensagem.id"), nullable=True, index=True
+    )
 
     # Aprovação de mensagens geradas pelo agente (REQ-aprovação)
     aprovador_id: Mapped[Optional[int]] = mapped_column(ForeignKey("users.id"), nullable=True, index=True)
@@ -128,8 +132,12 @@ class Mensagem(Base):
     # Relacionamentos
     contato: Mapped[Optional["Contato"]] = relationship(back_populates="mensagens")
     negociacao: Mapped[Optional["Negociacao"]] = relationship(back_populates="mensagens")
-    processamento: Mapped[Optional["ProcessamentoMensagem"]] = relationship(back_populates="mensagem", foreign_keys=[processamento_id])
-    aprovador: Mapped[Optional["User"]] = relationship(back_populates="mensagens_aprovadas", foreign_keys=[aprovador_id])
+    processamento: Mapped[Optional["ProcessamentoMensagem"]] = relationship(
+        back_populates="mensagem", foreign_keys=[processamento_id]
+    )
+    aprovador: Mapped[Optional["User"]] = relationship(
+        back_populates="mensagens_aprovadas", foreign_keys=[aprovador_id]
+    )
 
     __table_args__ = (
         Index("idx_mensagens_telefone_timestamp", "telefone", "timestamp"),
@@ -208,7 +216,9 @@ class Empresa(Base):
     # Dados básicos
     nome: Mapped[str] = mapped_column(String(200), nullable=False)
     fantasia: Mapped[Optional[str]] = mapped_column(String(200), nullable=True)
-    tipo: Mapped[Optional[TipoEmpresa]] = mapped_column(Enum(TipoEmpresa, values_callable=lambda x: [e.value for e in x]), nullable=True)
+    tipo: Mapped[Optional[TipoEmpresa]] = mapped_column(
+        Enum(TipoEmpresa, values_callable=lambda x: [e.value for e in x]), nullable=True
+    )
     porte: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
     natureza_juridica: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
     capital_social: Mapped[Optional[Decimal]] = mapped_column(Numeric(15, 2), nullable=True)
@@ -245,7 +255,9 @@ class Empresa(Base):
     # Controle
     ultima_atualizacao_api: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False)
-    updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False
+    )
 
     # Relacionamentos
     atividades: Mapped[List["AtividadeEmpresa"]] = relationship(back_populates="empresa", cascade="all, delete-orphan")
@@ -352,7 +364,10 @@ class Contato(Base):
 
     def to_dict(self) -> dict:
         """Converte o modelo para dicionário."""
-        return {"id": self.id, "empresa_id": self.empresa_id, "nome": self.nome, "telefone": self.telefone, "email": self.email, "cargo": self.cargo}
+        return {
+            "id": self.id, "empresa_id": self.empresa_id, "nome": self.nome, 
+            "telefone": self.telefone, "email": self.email, "cargo": self.cargo
+        }
 
 
 class Negociacao(Base):
@@ -369,7 +384,8 @@ class Negociacao(Base):
     titulo: Mapped[Optional[str]] = mapped_column(String(200), nullable=True)
     descricao: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     status: Mapped[StatusNegociacao] = mapped_column(
-        Enum(StatusNegociacao, values_callable=lambda x: [e.value for e in x]), default=StatusNegociacao.NOVO, nullable=False
+        Enum(StatusNegociacao, values_callable=lambda x: [e.value for e in x]), 
+        default=StatusNegociacao.NOVO, nullable=False
     )
     modo_operacao: Mapped[ModoOperacao] = mapped_column(
         Enum(ModoOperacao, values_callable=lambda x: [e.value for e in x], name="modooperacao"),
@@ -379,7 +395,9 @@ class Negociacao(Base):
     )
     valor_estimado: Mapped[Optional[Decimal]] = mapped_column(Numeric(15, 2), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False)
-    updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False
+    )
 
     # Relacionamentos
     contato: Mapped["Contato"] = relationship(back_populates="negociacoes")
@@ -387,7 +405,9 @@ class Negociacao(Base):
     mensagens: Mapped[List["Mensagem"]] = relationship(back_populates="negociacao")
     orcamentos: Mapped[List["Orcamento"]] = relationship(back_populates="negociacao", cascade="all, delete-orphan")
     itens: Mapped[List["ItemNegociacao"]] = relationship(back_populates="negociacao", cascade="all, delete-orphan")
-    informacoes: Mapped[List["NegociacaoInfo"]] = relationship(back_populates="negociacao", cascade="all, delete-orphan")
+    informacoes: Mapped[List["NegociacaoInfo"]] = relationship(
+        back_populates="negociacao", cascade="all, delete-orphan"
+    )
 
     def to_dict(self) -> dict:
         """Converte o modelo para dicionário."""
@@ -415,13 +435,16 @@ class Orcamento(Base):
     negociacao_id: Mapped[int] = mapped_column(ForeignKey("negociacoes.id"), nullable=False, index=True)
     numero: Mapped[Optional[str]] = mapped_column(String(50), nullable=True, unique=True)
     status: Mapped[StatusOrcamento] = mapped_column(
-        Enum(StatusOrcamento, values_callable=lambda x: [e.value for e in x]), default=StatusOrcamento.EM_ELABORACAO, nullable=False
+        Enum(StatusOrcamento, values_callable=lambda x: [e.value for e in x]), 
+        default=StatusOrcamento.EM_ELABORACAO, nullable=False
     )
     valor_total: Mapped[Optional[Decimal]] = mapped_column(Numeric(15, 2), nullable=True)
     validade: Mapped[Optional[date]] = mapped_column(Date, nullable=True)
     observacoes: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False)
-    updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False
+    )
 
     # Relacionamentos
     negociacao: Mapped["Negociacao"] = relationship(back_populates="orcamentos")
@@ -478,7 +501,9 @@ class Produto(Base):
     categoria: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
     ativo: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False)
-    updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False
+    )
 
     # Relacionamentos
     tipo_produto: Mapped["TipoProduto"] = relationship(back_populates="produtos")
@@ -646,7 +671,9 @@ class ItemNegociacao(Base):
     quantidade: Mapped[Decimal] = mapped_column(Numeric(10, 3), nullable=False, default=1)
     observacoes: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False)
-    updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False
+    )
 
     # Relacionamentos
     negociacao: Mapped["Negociacao"] = relationship(back_populates="itens")
@@ -690,9 +717,13 @@ class NegociacaoInfo(Base):
     chave: Mapped[str] = mapped_column(String(100), nullable=False)
     valor: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     pendente: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
-    origem: Mapped[Optional[OrigemInfo]] = mapped_column(Enum(OrigemInfo, values_callable=lambda x: [e.value for e in x]), nullable=True)
+    origem: Mapped[Optional[OrigemInfo]] = mapped_column(
+        Enum(OrigemInfo, values_callable=lambda x: [e.value for e in x]), nullable=True
+    )
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False)
-    updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False
+    )
 
     # Relacionamentos
     negociacao: Mapped["Negociacao"] = relationship(back_populates="informacoes")

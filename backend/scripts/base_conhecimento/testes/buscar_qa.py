@@ -35,7 +35,8 @@ async def _executar(args: argparse.Namespace) -> int:
 
     print(f"Query   : {args.query!r}")
     print(
-        f"Filtros : contexto={args.contexto!r}  score_min={args.score_minimo}  apenas_aprovados={not args.nao_apenas_aprovados}  top_k={args.top_k}"
+        f"Filtros : contexto={args.contexto!r}  score_min={args.score_minimo}"
+        "  apenas_aprovados={not args.nao_apenas_aprovados}  top_k={args.top_k}"
     )
     print(f"Encontrados: {len(resultados)}")
 

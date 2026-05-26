@@ -14,10 +14,10 @@ dev = [
 
 [tool.ruff]
 # Linha máxima (ajuste conforme preferência)
-line-length = 250
+line-length = 120
 
 # Regras habilitadas: E (erros), F (pyflakes), I (isort), W (warnings)
-select = ["E", "F", "I", "W"]
+lint.select = ["E", "F", "I", "W"]
 
 # Ignorar E501 (linha longa) se quiser ser mais flexível
 # ignore = ["E501"]

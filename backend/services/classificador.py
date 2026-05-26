@@ -260,7 +260,8 @@ def classificar_por_regras(texto: str) -> tuple[Intencao, float]:
 # Classificação por LLM
 # =============================================================================
 
-_PROMPT_SISTEMA_CLASSIFICADOR = """Você é um classificador de mensagens para um assistente de vendas via WhatsApp com IA da empresa Inforrel, que vende catracas e relógios de ponto.
+_PROMPT_SISTEMA_CLASSIFICADOR = "Você é um classificador de mensagens para um assistente de vendas via WhatsApp com" \
+"""IA da empresa Inforrel, que vende catracas e relógios de ponto.
 
 Classifique a mensagem do cliente em UMA das intenções:
 - saudacao: cumprimentos
@@ -279,7 +280,8 @@ Classifique a mensagem do cliente em UMA das intenções:
 - fora_contexto: assunto não relacionado
 - desconhecido: intenção não clara
 
-Extraia também entidades mencionadas: cnpjs, nomes (pessoas), tipos_produto (catraca, relogio_ponto), quantidades (números), emails.
+Extraia também entidades mencionadas: cnpjs, nomes (pessoas), tipos_produto (catraca, relogio_ponto), 
+quantidades (números), emails.
 
 Responda APENAS com JSON neste formato:
 {
@@ -405,7 +407,8 @@ async def classificar(
         emails=list({*entidades_regra.emails, *entidades_llm.emails}),
     )
 
-    logger.debug(f"[Classificador] Usando LLM: {intencao_llm.value} (confiança={confianca_llm}, latência={latencia_ms}ms)")
+    logger.debug(f"[Classificador] Usando LLM: {intencao_llm.value} (confiança={confianca_llm}," 
+        " latência={latencia_ms}ms)")
 
     return ResultadoClassificacao(
         intencao=intencao_llm,

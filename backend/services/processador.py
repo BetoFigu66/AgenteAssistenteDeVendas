@@ -160,7 +160,8 @@ class ProcessadorMensagem:
         # 3. Classifica intenção e extrai entidades
         resultado_class = await classificar(conteudo, llm=self._llm)
         logger.info(
-            f"[Processador] Intenção: {resultado_class.intencao.value} (confiança={resultado_class.confianca:.2f}, via {resultado_class.origem})"
+            f"[Processador] Intenção: {resultado_class.intencao.value} (confiança={resultado_class.confianca:.2f},"
+            f" via {resultado_class.origem})"
         )
         _ent = resultado_class.entidades
         _ent_str = (
@@ -170,7 +171,8 @@ class ProcessadorMensagem:
         )
         dlog.log(
             "intent",
-            f"intencao={resultado_class.intencao.value} confianca={resultado_class.confianca:.2f} via={resultado_class.origem}{_ent_str}",
+            f"intencao={resultado_class.intencao.value} confianca={resultado_class.confianca:.2f}" 
+            f" via={resultado_class.origem}{_ent_str}",
         )
 
         # 4. Verifica modo de operação da negociação ativa (se existir)
@@ -179,7 +181,8 @@ class ProcessadorMensagem:
         negociacao_inicial = self._negociacao_ativa(db, contato_inicial) if contato_inicial else None
         modo_humano = negociacao_inicial is not None and negociacao_inicial.modo_operacao == ModoOperacao.HUMANO
         if modo_humano:
-            logger.info(f"[Processador] Negociação {negociacao_inicial.id} em modo HUMANO — não gerando resposta automática.")
+            logger.info(f"[Processador] Negociação {negociacao_inicial.id} em modo HUMANO — " 
+                "não gerando resposta automática.")
         dlog.log("modo", "HUMANO → resposta suprimida" if modo_humano else "AGENTE")
 
         # 5. Roteia conforme estado de identificação + intenção (só no modo AGENTE)
@@ -729,7 +732,8 @@ def _anexar_trechos_para_auditoria(
 ) -> None:
     """Popula `trechos_rag` e `rag_score_maximo` sem alterar o texto da resposta.
 
-    Usado quando a RAG e acionada apenas para auditoria (ex: PERGUNTAR_PRECO), mantendo o template padrao como resposta ao cliente.
+    Usado quando a RAG e acionada apenas para auditoria (ex: PERGUNTAR_PRECO), 
+    mantendo o template padrao como resposta ao cliente.
     """
     if not trechos:
         return

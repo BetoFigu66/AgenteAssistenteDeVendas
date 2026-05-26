@@ -33,7 +33,8 @@ class RespostaGerada:
     rag_score_maximo: Optional[float] = None
 
 
-_PROMPT_SISTEMA_PERSONALIZACAO = """Você é um assistente de vendas via WhatsApp com IA da Inforrel (catracas e relógios de ponto).
+_PROMPT_SISTEMA_PERSONALIZACAO = \
+"""Você é um assistente de vendas via WhatsApp com IA da Inforrel (catracas e relógios de ponto).
 
 Regras OBRIGATÓRIAS:
 - Responda em português brasileiro, tom cordial e profissional
@@ -48,7 +49,8 @@ Regras OBRIGATÓRIAS:
 Você vai receber uma resposta padrão como base e deve personalizá-la mantendo o sentido."""
 
 
-_PROMPT_SISTEMA_RAG_BASE = """Você é o assistente de vendas via WhatsApp da Inforrel (catracas, relógios de ponto e controle de acesso).
+_PROMPT_SISTEMA_RAG_BASE = \
+"""Você é o assistente de vendas via WhatsApp da Inforrel (catracas, relógios de ponto e controle de acesso).
 
 Regras OBRIGATÓRIAS:
 - Responda em português brasileiro, tom cordial e profissional.
@@ -61,8 +63,8 @@ Regras OBRIGATÓRIAS:
 - Use no máximo 1 emoji por resposta."""
 
 _REGRA_SUGESTAO_ON = (
-    "- Você pode sugerir uma opção de produto quando os trechos deixarem claro que ela faz sentido, "
-    'sempre com linguagem cautelosa (ex: "uma opção que pode fazer sentido é...") e oferecendo confirmação com um vendedor.'
+    "- Você pode sugerir uma opção de produto quando os trechos deixarem claro que ela faz sentido, sempre "
+    'com linguagem cautelosa (ex: "uma opção que pode fazer sentido é...") e oferecendo confirmação com um vendedor.'
 )
 _REGRA_SUGESTAO_OFF = (
     "- NÃO sugira um modelo específico como recomendação. Apenas explique as opções mencionadas nos trechos"
@@ -93,7 +95,8 @@ class GeradorRespostas:
             contexto: Dict com variáveis para preencher o template
             personalizar: Se True, passa pela LLM para suavizar o tom
             mensagem_cliente: Mensagem original do cliente (para contexto à LLM)
-            template_nome: Nome identificador do template para auditoria (ex: "SAUDACAO_NOVO_CONTATO"). Se None, tenta inferir.
+            template_nome: Nome identificador do template para auditoria (ex: "SAUDACAO_NOVO_CONTATO"). 
+                Se None, tenta inferir.
 
         Returns:
             RespostaGerada com texto e metadados.

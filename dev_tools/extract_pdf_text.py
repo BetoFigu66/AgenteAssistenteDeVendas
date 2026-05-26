@@ -22,8 +22,6 @@ def extract_text_from_pdf(pdf_path: Path) -> str:
     text_parts = []
 
     with fitz.open(pdf_path) as doc:
-        total_pages = len(doc)
-
         for page_num, page in enumerate(doc, 1):
             text = page.get_text()
             text_parts.append(f"--- Página {page_num} ---\n{text}")

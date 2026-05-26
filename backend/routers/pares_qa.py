@@ -143,7 +143,7 @@ async def obter_par_qa(par_id: int):
 async def listar_pendentes_aprovacao(contexto: Optional[str] = None):
     """Lista pares ativos ainda não aprovados (rascunhos para revisão)."""
     with _db.get_session() as session:
-        q = session.query(ParQA).filter(ParQA.ativo == True, ParQA.aprovado == False)
+        q = session.query(ParQA).filter(ParQA.ativo, not ParQA.aprovado)
         if contexto:
             q = q.filter(ParQA.contexto == contexto)
         pares = q.order_by(ParQA.criado_em.desc()).all()
