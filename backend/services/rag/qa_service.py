@@ -10,19 +10,20 @@ Fluxo de `buscar`:
 
 Defaults de `top_k` e `score_minimo` vem de `settings.QA_TOP_K` e `settings.QA_SCORE_MINIMO`, mas podem ser sobrepostos por chamada.
 """
+
 from __future__ import annotations
 
 import logging
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from functools import lru_cache
 from typing import Any, Optional
 
-from sqlalchemy import Float, bindparam, create_engine, select
-from sqlalchemy.engine import Engine
-from sqlalchemy.orm import Session, sessionmaker
-
 from config import settings
 from models import ParQA, Vector
+from sqlalchemy import Float, bindparam, create_engine, select
+from sqlalchemy.engine import Engine
+from sqlalchemy.orm import sessionmaker
+
 from services.embeddings import EmbeddingProvider, get_embedding_provider
 
 logger = logging.getLogger(__name__)
@@ -67,9 +68,7 @@ class QAService:
     ):
         self._embeddings = embedding_provider
         self._engine = engine
-        self._SessionLocal = sessionmaker(
-            bind=engine, autocommit=False, autoflush=False
-        )
+        self._SessionLocal = sessionmaker(bind=engine, autocommit=False, autoflush=False)
         self._top_k_padrao = top_k_padrao
         self._score_minimo_padrao = score_minimo_padrao
 
@@ -190,6 +189,7 @@ class QAService:
 # ----------------------------------------------------------------------
 # Factory singleton (para uso com FastAPI Depends / app)
 # ----------------------------------------------------------------------
+
 
 @lru_cache(maxsize=1)
 def get_qa_service() -> QAService:

@@ -8,6 +8,7 @@ Saidas padrao:
     backend/data/rag/documentos_consolidados.jsonl
     backend/data/rag/consolidacao_resumo.json
 """
+
 from __future__ import annotations
 
 import argparse
@@ -17,7 +18,6 @@ from collections import Counter, defaultdict
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
-
 
 RAIZ_PROJETO = Path(__file__).resolve().parents[2]
 ENTRADA_PADRAO = RAIZ_PROJETO / "backend" / "data" / "rag" / "documentos_normalizados.jsonl"
@@ -140,9 +140,7 @@ def remover_duplicatas_exatas(
     documentos: list[dict[str, Any]],
 ) -> tuple[list[dict[str, Any]], list[dict[str, Any]], dict[str, str]]:
     grupos = criar_grupos_exatos(documentos)
-    representante_por_hash = {
-        hash_: escolher_representante(grupo) for hash_, grupo in grupos.items()
-    }
+    representante_por_hash = {hash_: escolher_representante(grupo) for hash_, grupo in grupos.items()}
     removidos = []
     representantes = {}
 
@@ -184,10 +182,7 @@ def remover_duplicatas_exatas(
 
 def gerar_assinaturas(documentos: list[dict[str, Any]]) -> dict[str, set[str]]:
     return {
-        documento["id_documento"]: normalizar_tokens(
-            f"{documento.get('titulo', '')}\n{documento.get('conteudo', '')}"
-        )
-        for documento in documentos
+        documento["id_documento"]: normalizar_tokens(f"{documento.get('titulo', '')}\n{documento.get('conteudo', '')}") for documento in documentos
     }
 
 
@@ -253,9 +248,7 @@ def marcar_similares(documentos: list[dict[str, Any]], similares: list[dict[str,
             documento = por_id[item["id_documento"]]
             consolidacao = documento.setdefault("metadata", {}).setdefault("consolidacao", {})
             consolidacao["status"] = (
-                "representante_duplicata_exata"
-                if consolidacao.get("status") == "representante_duplicata_exata"
-                else "similar_precisa_revisao"
+                "representante_duplicata_exata" if consolidacao.get("status") == "representante_duplicata_exata" else "similar_precisa_revisao"
             )
             consolidacao["precisa_revisao"] = True
             consolidacao.setdefault("grupos_similares", []).append(

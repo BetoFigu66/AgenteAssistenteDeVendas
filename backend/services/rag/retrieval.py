@@ -11,6 +11,7 @@ Fluxo de `buscar`:
 Defaults de `top_k` e `score_minimo` vem de `settings.RAG_TOP_K` e
 `settings.RAG_SCORE_MINIMO`, mas podem ser sobrepostos por chamada.
 """
+
 from __future__ import annotations
 
 import logging
@@ -18,12 +19,12 @@ from dataclasses import dataclass, field
 from functools import lru_cache
 from typing import Any, Optional, Sequence
 
-from sqlalchemy import Float, bindparam, create_engine, select
-from sqlalchemy.engine import Engine
-from sqlalchemy.orm import Session, sessionmaker
-
 from config import settings
 from models import DocumentoConhecimento, Vector
+from sqlalchemy import Float, bindparam, create_engine, select
+from sqlalchemy.engine import Engine
+from sqlalchemy.orm import sessionmaker
+
 from services.embeddings import EmbeddingProvider, get_embedding_provider
 
 logger = logging.getLogger(__name__)
@@ -69,9 +70,7 @@ class RetrievalService:
     ):
         self._embeddings = embedding_provider
         self._engine = engine
-        self._SessionLocal = sessionmaker(
-            bind=engine, autocommit=False, autoflush=False
-        )
+        self._SessionLocal = sessionmaker(bind=engine, autocommit=False, autoflush=False)
         self._top_k_padrao = top_k_padrao
         self._score_minimo_padrao = score_minimo_padrao
 
@@ -104,9 +103,7 @@ class RetrievalService:
             return []
 
         top_k_efetivo = top_k if top_k is not None else self._top_k_padrao
-        score_min = (
-            score_minimo if score_minimo is not None else self._score_minimo_padrao
-        )
+        score_min = score_minimo if score_minimo is not None else self._score_minimo_padrao
         if top_k_efetivo <= 0:
             return []
 
@@ -128,8 +125,7 @@ class RetrievalService:
         filtrados = [r for r in resultados if r.score >= score_min]
 
         logger.debug(
-            "[RAG] buscar(query=%r tipo=%s tipos=%s): "
-            "retornados=%d filtrados=%d score_min=%.3f top_k=%d",
+            "[RAG] buscar(query=%r tipo=%s tipos=%s): retornados=%d filtrados=%d score_min=%.3f top_k=%d",
             query[:80],
             tipo,
             list(tipos) if tipos else None,
@@ -141,10 +137,7 @@ class RetrievalService:
         if filtrados:
             logger.debug(
                 "[RAG] melhores: %s",
-                [
-                    (r.titulo[:60], round(r.score, 3))
-                    for r in filtrados[:3]
-                ],
+                [(r.titulo[:60], round(r.score, 3)) for r in filtrados[:3]],
             )
         return filtrados
 
@@ -167,11 +160,7 @@ class RetrievalService:
         param = bindparam("q_emb", value=vetor, type_=Vector(dim))
         distancia_expr = DocumentoConhecimento.embedding.op("<=>", return_type=Float())(param)
 
-        stmt = (
-            select(DocumentoConhecimento, distancia_expr.label("distancia"))
-            .order_by(distancia_expr)
-            .limit(top_k)
-        )
+        stmt = select(DocumentoConhecimento, distancia_expr.label("distancia")).order_by(distancia_expr).limit(top_k)
         if apenas_ativos:
             stmt = stmt.where(DocumentoConhecimento.ativo.is_(True))
         if tipos:
@@ -209,6 +198,7 @@ class RetrievalService:
 # ----------------------------------------------------------------------
 # Factory singleton (para uso com FastAPI Depends / app)
 # ----------------------------------------------------------------------
+
 
 @lru_cache(maxsize=1)
 def get_retrieval_service() -> RetrievalService:

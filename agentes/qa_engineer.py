@@ -33,6 +33,7 @@ class CheckResult:
     passou: bool
     severidade: str = "warning"  # sobrescreve a severidade default do Check
     findings: List[str] = field(default_factory=list)
+    comandos_uteis: List[str] = field(default_factory=list)
     mensagem: str = ""
     dica_correcao: str = ""
 
@@ -76,9 +77,7 @@ def registrar_check(
     def decorator(funcao: Callable[[Path], CheckResult]) -> Callable[[Path], CheckResult]:
         if id in _REGISTRY:
             raise ValueError(f"Check duplicado: {id}")
-        _REGISTRY[id] = Check(
-            id=id, titulo=titulo, severidade=severidade, escopos=escopos, funcao=funcao
-        )
+        _REGISTRY[id] = Check(id=id, titulo=titulo, severidade=severidade, escopos=escopos, funcao=funcao)
         return funcao
 
     return decorator
@@ -86,9 +85,19 @@ def registrar_check(
 
 # Diretorios sempre ignorados pelas varreduras dos checks.
 _DIRS_IGNORADOS = {
-    ".git", ".idea", ".vscode", ".history", ".windsurf",
-    "__pycache__", "node_modules", "venv", ".venv",
-    "dist", "build", ".pytest_cache", "historico",
+    ".git",
+    ".idea",
+    ".vscode",
+    ".history",
+    ".windsurf",
+    "__pycache__",
+    "node_modules",
+    "venv",
+    ".venv",
+    "dist",
+    "build",
+    ".pytest_cache",
+    "historico",
 }
 
 
@@ -100,8 +109,7 @@ def _deve_ignorar(caminho: Path, raiz: Path) -> bool:
     return any(parte in _DIRS_IGNORADOS for parte in rel.parts)
 
 
-def _iter_arquivos(raiz: Path, nome_exato: Optional[str] = None,
-                   sufixo: Optional[str] = None) -> Iterable[Path]:
+def _iter_arquivos(raiz: Path, nome_exato: Optional[str] = None, sufixo: Optional[str] = None) -> Iterable[Path]:
     """
     Itera sobre arquivos do repositorio, tolerando erros de I/O do Windows
     (ex.: arquivos de lock do LibreOffice que disparam OSError em stat).
@@ -132,6 +140,7 @@ def _iter_arquivos(raiz: Path, nome_exato: Optional[str] = None,
 # Checks concretos
 # ----------------------------------------------------------------------
 
+
 @registrar_check(
     id="gitkeep-redundantes",
     titulo="Arquivos .gitkeep em diretorios nao-vazios",
@@ -141,21 +150,22 @@ def _iter_arquivos(raiz: Path, nome_exato: Optional[str] = None,
 def _check_gitkeep_redundantes(raiz: Path) -> CheckResult:
     """`.gitkeep` so faz sentido em diretorios vazios. Acusa os demais."""
     redundantes: List[str] = []
+    comandos: List[str] = []
     for gitkeep in _iter_arquivos(raiz, nome_exato=".gitkeep"):
         try:
             irmaos = [p for p in gitkeep.parent.iterdir() if p.name != ".gitkeep"]
         except OSError:
             continue
         if irmaos:
-            redundantes.append(str(gitkeep.relative_to(raiz)).replace("\\", "/"))
+            root = str(gitkeep.relative_to(raiz)).replace("\\", "/")
+            redundantes.append(root)
+            comandos.append(f"ls {root.replace('.gitkeep', '')}")
+            comandos.append(f"rm {root}")
     return CheckResult(
         passou=not redundantes,
         findings=redundantes,
-        mensagem=(
-            f"{len(redundantes)} .gitkeep(s) redundante(s) encontrados"
-            if redundantes
-            else "Nenhum .gitkeep redundante."
-        ),
+        comandos_uteis=comandos,
+        mensagem=(f"{len(redundantes)} .gitkeep(s) redundante(s) encontrados" if redundantes else "Nenhum .gitkeep redundante."),
         dica_correcao="Remova os arquivos .gitkeep listados (o diretorio ja tem conteudo).",
     )
 
@@ -192,26 +202,18 @@ def _check_imports_quebrados(raiz: Path) -> CheckResult:
             alvo_pacote = base.joinpath(*parts, "__init__.py")
             if not alvo_modulo.exists() and not alvo_pacote.exists():
                 rel = str(py_file.relative_to(raiz)).replace("\\", "/")
-                quebrados.append(
-                    f"{rel}:{node.lineno} — from {'.' * node.level}{node.module} (nao existe)"
-                )
+                quebrados.append(f"{rel}:{node.lineno} — from {'.' * node.level}{node.module} (nao existe)")
     return CheckResult(
         passou=not quebrados,
         findings=quebrados,
-        mensagem=(
-            f"{len(quebrados)} import(s) relativo(s) quebrado(s)"
-            if quebrados
-            else "Nenhum import relativo quebrado."
-        ),
+        mensagem=(f"{len(quebrados)} import(s) relativo(s) quebrado(s)" if quebrados else "Nenhum import relativo quebrado."),
         dica_correcao="Corrija o nome do modulo ou remova o import se obsoleto.",
     )
 
 
 # Regex para citacoes no formato `@<caminho absoluto>[:linhas]` em .md
 # Ex: @c:/proj/file.py:12-20  ou  @/home/u/file.ts:5
-_RE_CITACAO_MD = re.compile(
-    r"@([A-Za-z]:[\\/][^\s`\n]+|/[^\s`\n]+)"
-)
+_RE_CITACAO_MD = re.compile(r"@([A-Za-z]:[\\/][^\s`\n]+|/[^\s`\n]+)")
 
 
 @registrar_check(
@@ -250,11 +252,7 @@ def _check_referencias_orfas_em_docs(raiz: Path) -> CheckResult:
     return CheckResult(
         passou=not orfas,
         findings=orfas,
-        mensagem=(
-            f"{len(orfas)} citacao(oes) orfas em .md"
-            if orfas
-            else "Nenhuma citacao orfa."
-        ),
+        mensagem=(f"{len(orfas)} citacao(oes) orfas em .md" if orfas else "Nenhuma citacao orfa."),
         dica_correcao="Atualize o caminho na citacao ou remova a referencia.",
     )
 
@@ -290,9 +288,7 @@ def _check_pgvector_op_sem_return_type(raiz: Path) -> CheckResult:
         for i, linha in enumerate(texto.splitlines(), 1):
             if '.op("<=>"' in linha and "return_type=" not in linha:
                 rel = str(py_file.relative_to(raiz)).replace("\\", "/")
-                problemas.append(
-                    f"{rel}:{i} — .op('<=>') sem return_type=Float()"
-                )
+                problemas.append(f"{rel}:{i} — .op('<=>') sem return_type=Float()")
     return CheckResult(
         passou=not problemas,
         findings=problemas,
@@ -415,20 +411,68 @@ def _check_cobertura_evolucao_desatualizada(raiz: Path) -> CheckResult:
     )
 
 
+@registrar_check(
+    id="ruff-lint",
+    titulo="Lint e imports via Ruff",
+    severidade="error",
+    escopos=["sempre", "pre-commit"],
+)
+def _check_ruff(raiz: Path) -> CheckResult:
+    """
+    Invoca Ruff para verificar qualidade de codigo e imports.
+    Ruff cobre: imports nao usados, isort, erros de sintaxe, warnings, etc.
+    Configuracao em pyproject.toml.
+    """
+    import subprocess
+
+    try:
+        result = subprocess.run(
+            ["ruff", "check", str(raiz)],
+            capture_output=True,
+            text=True,
+            timeout=30,
+        )
+    except FileNotFoundError:
+        return CheckResult(
+            passou=True,
+            mensagem="Ruff nao instalado; check ignorado. Instale: pip install ruff",
+        )
+    except subprocess.TimeoutExpired:
+        return CheckResult(
+            passou=False,
+            severidade="warning",
+            mensagem="Ruff timeout (30s); check ignorado.",
+        )
+
+    passou = result.returncode == 0
+    findings = result.stdout.splitlines() if not passou else []
+    comandos = ["ruff check .", "ruff check --fix ."] if not passou else []
+
+    return CheckResult(
+        passou=passou,
+        severidade="error",
+        findings=findings,
+        comandos_uteis=comandos,
+        mensagem="Ruff: OK" if passou else f"Ruff: {len(findings)} problema(s)",
+        dica_correcao="Rode `ruff check --fix .` para correcoes automaticas.",
+    )
+
+
 # ----------------------------------------------------------------------
 # QAEngineer — agente executor da checklist
 # ----------------------------------------------------------------------
 
+
 class QAEngineer(BaseAgente):
     """
     Agente responsável pela qualidade geral do projeto.
-    
+
     Atua em três frentes:
     - Qualidade de Documentação
     - Qualidade de Código
     - Qualidade de Processo
     """
-    
+
     def __init__(self, projeto_root: str = None):
         super().__init__(
             nome="QA Engineer",
@@ -541,10 +585,7 @@ class QAEngineer(BaseAgente):
             if not checks:
                 raise KeyError(f"Check nao encontrado: {check_id}")
         else:
-            checks = [
-                c for c in _REGISTRY.values()
-                if escopo is None or escopo in c.escopos
-            ]
+            checks = [c for c in _REGISTRY.values() if escopo is None or escopo in c.escopos]
 
         resultados = []
         falharam_error = 0
@@ -568,6 +609,7 @@ class QAEngineer(BaseAgente):
                     "severidade": severidade_efetiva,
                     "passou": result.passou,
                     "findings": result.findings,
+                    "comandos_uteis": result.comandos_uteis,
                     "mensagem": result.mensagem,
                     "dica_correcao": result.dica_correcao,
                 }
@@ -592,10 +634,10 @@ class QAEngineer(BaseAgente):
     def revisar_documentacao(self, artefatos: List[str]) -> Dict:
         """
         Revisa a documentação do projeto.
-        
+
         Args:
             artefatos: Lista de caminhos dos artefatos a revisar
-            
+
         Returns:
             Relatório com findings e sugestões
         """
@@ -605,16 +647,16 @@ class QAEngineer(BaseAgente):
             "artefatos_revisados": artefatos,
             "findings": [],
             "sugestoes": [],
-            "status": "pendente"
+            "status": "pendente",
         }
-    
+
     def revisar_codigo(self, arquivos: List[str]) -> Dict:
         """
         Revisa a qualidade do código.
-        
+
         Args:
             arquivos: Lista de arquivos a revisar
-            
+
         Returns:
             Relatório com findings e sugestões
         """
@@ -625,32 +667,26 @@ class QAEngineer(BaseAgente):
             "findings": [],
             "sugestoes": [],
             "cobertura_testes": None,
-            "status": "pendente"
+            "status": "pendente",
         }
-    
+
     def revisar_processo(self) -> Dict:
         """
         Revisa o processo de desenvolvimento.
-        
+
         Returns:
             Relatório com findings e sugestões
         """
-        return {
-            "tipo": "revisao_processo",
-            "checklist": self.checklists["processo"],
-            "findings": [],
-            "sugestoes": [],
-            "status": "pendente"
-        }
-    
+        return {"tipo": "revisao_processo", "checklist": self.checklists["processo"], "findings": [], "sugestoes": [], "status": "pendente"}
+
     def checklist_release(self, versao: str, requisitos: List[str]) -> Dict:
         """
         Executa checklist de qualidade antes de release.
-        
+
         Args:
             versao: Versão a ser liberada
             requisitos: Lista de requisitos incluídos na versão
-            
+
         Returns:
             Checklist de release com status de cada item
         """
@@ -661,16 +697,16 @@ class QAEngineer(BaseAgente):
             "checklist": self.checklists["release"],
             "itens_verificados": [],
             "aprovado": False,
-            "observacoes": []
+            "observacoes": [],
         }
-    
+
     def sugerir_melhorias(self, area: str) -> List[str]:
         """
         Sugere melhorias para uma área específica.
-        
+
         Args:
             area: Área para sugestões (documentacao, codigo, processo)
-            
+
         Returns:
             Lista de sugestões de melhoria
         """
@@ -689,14 +725,14 @@ class QAEngineer(BaseAgente):
                 "Configurar CI/CD completo",
                 "Implementar code review obrigatório",
                 "Adicionar métricas de qualidade",
-            ]
+            ],
         }
         return sugestoes_base.get(area, [])
-    
+
     def gerar_relatorio_qualidade(self) -> Dict:
         """
         Gera relatório consolidado de qualidade do projeto.
-        
+
         Returns:
             Relatório com status geral e recomendações
         """
@@ -709,7 +745,7 @@ class QAEngineer(BaseAgente):
                 "processo": {"status": "pendente", "score": None},
             },
             "recomendacoes_prioritarias": [],
-            "proximos_passos": []
+            "proximos_passos": [],
         }
 
 

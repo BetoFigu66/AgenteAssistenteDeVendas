@@ -10,12 +10,11 @@ Fluxo:
 6. Gera resposta
 7. Salva resposta
 """
+
 import logging
 import time
-from dataclasses import dataclass, field
-from typing import List, Optional
-
-from sqlalchemy.orm import Session
+from dataclasses import dataclass
+from typing import Optional
 
 from config import settings
 from models import (
@@ -31,9 +30,12 @@ from models import (
     ProcessamentoMensagem,
     StatusNegociacao,
 )
+from sqlalchemy.orm import Session
+
 from services.classificador import Intencao, ResultadoClassificacao, classificar
 from services.cnpj import ConsultaCnpjError, obter_ou_criar_empresa
-from services.cnpj.receitaws import formatar_cnpj, normalizar_cnpj, validar_cnpj
+from services.cnpj.receitaws import validar_cnpj
+from services.debug_log import DebugLogger
 from services.identificador import (
     ResultadoIdentificacao,
     StatusIdentificacao,
@@ -42,7 +44,6 @@ from services.identificador import (
     normalizar_telefone,
 )
 from services.llm import LLMProvider
-from services.debug_log import DebugLogger
 from services.rag import DocumentoRecuperado, ParRecuperado, QAService, RetrievalService
 from services.respostas import GeradorRespostas, RespostaGerada
 from services.respostas import templates as T
@@ -50,18 +51,21 @@ from services.respostas import templates as T
 logger = logging.getLogger(__name__)
 
 
-# Intencoes que disparam busca na RAG. PERGUNTAR_PRECO esta presente para que possamos registrar os trechos 
+# Intencoes que disparam busca na RAG. PERGUNTAR_PRECO esta presente para que possamos registrar os trechos
 # relacionados em auditoria, mas a resposta continua sendo o template padrao de encaminhamento para orcamento humano.
-_INTENCOES_RAG = frozenset({
-    "perguntar_produto",
-    "perguntar_preco",
-    "fora_contexto",
-})
+_INTENCOES_RAG = frozenset(
+    {
+        "perguntar_produto",
+        "perguntar_preco",
+        "fora_contexto",
+    }
+)
 
 
 @dataclass
 class ResultadoProcessamento:
     """Resultado do processamento de uma mensagem."""
+
     resposta: str
     contato_id: Optional[int] = None
     negociacao_id: Optional[int] = None
@@ -85,6 +89,7 @@ class ProcessadorMensagem:
         if self._retrieval is None and settings.RAG_ENABLED:
             try:
                 from services.rag import get_retrieval_service
+
                 self._retrieval = get_retrieval_service()
                 logger.info("[Processador] RetrievalService inicializado para RAG")
             except Exception as e:
@@ -98,6 +103,7 @@ class ProcessadorMensagem:
         if self._qa is None and settings.QA_ENABLED:
             try:
                 from services.rag import get_qa_service
+
                 self._qa = get_qa_service()
                 logger.info("[Processador] QAService inicializado")
             except Exception as e:
@@ -106,11 +112,11 @@ class ProcessadorMensagem:
                     e,
                 )
                 self._qa = None
-    
+
     # ------------------------------------------------------------------
     # Ponto de entrada
     # ------------------------------------------------------------------
-    
+
     async def processar(
         self,
         db: Session,
@@ -125,7 +131,7 @@ class ProcessadorMensagem:
         telefone_norm = normalizar_telefone(telefone)
         inicio_ms = time.monotonic()
         erro_processamento: Optional[str] = None
-        
+
         # 1. Salva mensagem do cliente (ainda sem contato/negociação)
         msg_in = Mensagem(
             telefone=telefone_norm,
@@ -145,16 +151,16 @@ class ProcessadorMensagem:
         logger.info(f"[Processador] Identificação: {identificacao.status.value}")
         dlog.log(
             "identificacao",
-            "status=" + identificacao.status.value
+            "status="
+            + identificacao.status.value
             + (f" empresa='{identificacao.empresa.nome[:30]}'" if identificacao.empresa else "")
             + (f" contato_id={identificacao.contato.id}" if identificacao.contato else ""),
         )
-        
+
         # 3. Classifica intenção e extrai entidades
         resultado_class = await classificar(conteudo, llm=self._llm)
         logger.info(
-            f"[Processador] Intenção: {resultado_class.intencao.value} "
-            f"(confiança={resultado_class.confianca:.2f}, via {resultado_class.origem})"
+            f"[Processador] Intenção: {resultado_class.intencao.value} (confiança={resultado_class.confianca:.2f}, via {resultado_class.origem})"
         )
         _ent = resultado_class.entidades
         _ent_str = (
@@ -164,27 +170,18 @@ class ProcessadorMensagem:
         )
         dlog.log(
             "intent",
-            f"intencao={resultado_class.intencao.value} confianca={resultado_class.confianca:.2f}"
-            f" via={resultado_class.origem}{_ent_str}",
+            f"intencao={resultado_class.intencao.value} confianca={resultado_class.confianca:.2f} via={resultado_class.origem}{_ent_str}",
         )
-        
+
         # 4. Verifica modo de operação da negociação ativa (se existir)
         # Se modo=HUMANO, o sistema processa/classifica mas NÃO gera resposta.
         contato_inicial = identificacao.contato
-        negociacao_inicial = (
-            self._negociacao_ativa(db, contato_inicial) if contato_inicial else None
-        )
-        modo_humano = (
-            negociacao_inicial is not None
-            and negociacao_inicial.modo_operacao == ModoOperacao.HUMANO
-        )
+        negociacao_inicial = self._negociacao_ativa(db, contato_inicial) if contato_inicial else None
+        modo_humano = negociacao_inicial is not None and negociacao_inicial.modo_operacao == ModoOperacao.HUMANO
         if modo_humano:
-            logger.info(
-                f"[Processador] Negociação {negociacao_inicial.id} em modo HUMANO — "
-                f"não gerando resposta automática."
-            )
+            logger.info(f"[Processador] Negociação {negociacao_inicial.id} em modo HUMANO — não gerando resposta automática.")
         dlog.log("modo", "HUMANO → resposta suprimida" if modo_humano else "AGENTE")
-        
+
         # 5. Roteia conforme estado de identificação + intenção (só no modo AGENTE)
         if modo_humano:
             resposta = RespostaGerada(texto="", template_usado=None)
@@ -205,16 +202,16 @@ class ProcessadorMensagem:
                     texto="Desculpe, tive um problema ao processar sua mensagem.",
                     template_usado=None,
                 )
-        
+
         # 6. Recarrega identificação (pode ter sido criado contato agora)
         ident_final = identificar_por_telefone(db, telefone_norm)
         contato = ident_final.contato
         negociacao = self._negociacao_ativa(db, contato) if contato else None
-        
+
         # 7. Registra processamento (auditoria/debug) — sempre, independente do modo
         dlog.log(
             "saida",
-            f'template={resposta.template_usado or "nenhum"}'
+            f"template={resposta.template_usado or 'nenhum'}"
             f" rag={resposta.rag_utilizada}"
             f" llm={resposta.personalizado_via_llm}"
             f' texto="{resposta.texto[:80].replace(chr(10), " ")}"',
@@ -231,7 +228,7 @@ class ProcessadorMensagem:
             duracao_ms=duracao_ms,
             erro=erro_processamento,
         )
-        
+
         dlog.log("processamento_id", f"id={processamento.id} duracao={duracao_ms}ms")
 
         # 8. Vincula mensagem do cliente ao processamento/contato/negociação
@@ -240,7 +237,7 @@ class ProcessadorMensagem:
             msg_in.contato_id = contato.id
             if negociacao:
                 msg_in.negociacao_id = negociacao.id
-        
+
         # 9. Persiste resposta do sistema APENAS quando modo=AGENTE.
         # No modo HUMANO, o operador enviará a resposta manualmente pela UI.
         # Mensagem nasce pendente de aprovação: aprovador_id e timestamp_aprovacao
@@ -257,7 +254,7 @@ class ProcessadorMensagem:
             )
             db.add(msg_out)
         db.commit()
-        
+
         return ResultadoProcessamento(
             resposta=resposta.texto,
             contato_id=contato.id if contato else None,
@@ -266,11 +263,11 @@ class ProcessadorMensagem:
             intencao=resultado_class.intencao.value,
             origem_classificacao=resultado_class.origem,
         )
-    
+
     # ------------------------------------------------------------------
     # Registro de processamento (auditoria)
     # ------------------------------------------------------------------
-    
+
     def _criar_processamento(
         self,
         db: Session,
@@ -288,7 +285,7 @@ class ProcessadorMensagem:
             origem_enum = OrigemClassificacao(resultado_class.origem)
         except ValueError:
             origem_enum = None
-        
+
         entidades_dict = {
             "cnpjs": resultado_class.entidades.cnpjs,
             "nomes": resultado_class.entidades.nomes,
@@ -296,11 +293,11 @@ class ProcessadorMensagem:
             "quantidades": resultado_class.entidades.quantidades,
             "emails": resultado_class.entidades.emails,
         }
-        
+
         # Somatrio de tokens (classificação + personalização da resposta)
         tokens_in = (resultado_class.llm_tokens_input or 0) + (resposta.llm_tokens_input or 0) or None
         tokens_out = (resultado_class.llm_tokens_output or 0) + (resposta.llm_tokens_output or 0) or None
-        
+
         score_maximo = resposta.rag_score_maximo
         if score_maximo is not None:
             score_maximo = round(float(score_maximo), 4)
@@ -331,11 +328,11 @@ class ProcessadorMensagem:
         db.commit()
         db.refresh(proc)
         return proc
-    
+
     # ------------------------------------------------------------------
     # Roteamento de decisão
     # ------------------------------------------------------------------
-    
+
     async def _decidir_resposta(
         self,
         db: Session,
@@ -348,34 +345,36 @@ class ProcessadorMensagem:
         """Decide o que responder com base na identificação e intenção."""
         intencao = resultado_class.intencao
         entidades = resultado_class.entidades
-        
+
         # Regra: Escalar humano sempre tem prioridade
         if intencao == Intencao.ESCALAR_HUMANO:
             if dlog:
                 dlog.log("rota", "ESCALAR_HUMANO → ESCALADO_HUMANO")
             return await self._gerador.gerar(T.ESCALADO_HUMANO)
-        
+
         # Regra: Reclamação também escala
         if intencao == Intencao.RECLAMAR:
             if dlog:
                 dlog.log("rota", "RECLAMAR → RECLAMACAO_ESCALADA")
             return await self._gerador.gerar(T.RECLAMACAO_ESCALADA)
-        
+
         # Se o cliente forneceu CNPJ, processa
         if entidades.cnpjs:
             if dlog:
                 dlog.log("rota", f"cnpj_fornecido={entidades.cnpjs[0]}")
             return await self._processar_cnpj_fornecido(
-                db, telefone, entidades.cnpjs[0],
+                db,
+                telefone,
+                entidades.cnpjs[0],
                 nome_informado=entidades.nomes[0] if entidades.nomes else None,
             )
-        
+
         # Telefone novo ou sem empresa -> pedir identificação
         if identificacao.status == StatusIdentificacao.NOVO:
             if dlog:
                 dlog.log("rota", "NOVO → SAUDACAO_NOVO_CONTATO")
             return await self._gerador.gerar(T.SAUDACAO_NOVO_CONTATO)
-        
+
         if identificacao.status == StatusIdentificacao.MULTIPLO:
             if dlog:
                 dlog.log("rota", "MULTIPLO → MULTIPLAS_EMPRESAS")
@@ -384,27 +383,27 @@ class ProcessadorMensagem:
                 T.MULTIPLAS_EMPRESAS,
                 contexto={"empresas": nomes_empresas},
             )
-        
+
         if identificacao.status == StatusIdentificacao.SEM_EMPRESA:
             if dlog:
                 dlog.log("rota", "SEM_EMPRESA → PERGUNTAR_CNPJ")
             return await self._gerador.gerar(T.PERGUNTAR_CNPJ)
-        
+
         # A partir daqui: contato identificado com empresa
         contato = identificacao.contato
         empresa = identificacao.empresa
-        
+
         # Atualiza nome se cliente informou
         if entidades.nomes and contato and not contato.nome:
             contato.nome = entidades.nomes[0]
             db.commit()
-        
+
         # Carrega/cria negociação ativa
         negociacao = self._obter_ou_criar_negociacao(db, contato, empresa)
-        
+
         # Salva informações coletadas
         await self._atualizar_infos_negociacao(db, negociacao, resultado_class)
-        
+
         # Roteia por intenção
         return await self._gerar_resposta_por_intencao(
             intencao=intencao,
@@ -413,7 +412,7 @@ class ProcessadorMensagem:
             conteudo_cliente=conteudo,
             dlog=dlog,
         )
-    
+
     async def _gerar_resposta_por_intencao(
         self,
         intencao: Intencao,
@@ -426,12 +425,12 @@ class ProcessadorMensagem:
         nome = contato.nome or ""
         if dlog:
             dlog.log("rota", f"identificado empresa='{empresa.nome[:30]}' intencao={intencao.value}")
-        
+
         if intencao == Intencao.SAUDACAO:
             if nome:
                 return await self._gerador.gerar(T.SAUDACAO_COM_NOME, {"nome": nome})
             return await self._gerador.gerar(T.PERGUNTAR_NOME)
-        
+
         if intencao == Intencao.PERGUNTAR_PRAZO:
             return await self._gerador.gerar(
                 T.PRAZO_NAO_PROMETIDO,
@@ -465,10 +464,10 @@ class ProcessadorMensagem:
 
         if intencao == Intencao.APROVAR_ORCAMENTO:
             return await self._gerador.gerar(T.ORCAMENTO_APROVADO)
-        
+
         if intencao == Intencao.REPROVAR_ORCAMENTO:
             return await self._gerador.gerar(T.ORCAMENTO_REPROVADO)
-        
+
         if intencao == Intencao.FORA_CONTEXTO:
             return await self._responder_com_rag(
                 conteudo_cliente=conteudo_cliente,
@@ -512,8 +511,7 @@ class ProcessadorMensagem:
                 if dlog:
                     dlog.log(
                         "qa_resultado",
-                        f"hit score={top.score:.4f} id={top.id_externo}"
-                        f" pergunta='{top.pergunta[:50]}'",
+                        f"hit score={top.score:.4f} id={top.id_externo} pergunta='{top.pergunta[:50]}'",
                     )
                 return top
             if dlog:
@@ -545,8 +543,7 @@ class ProcessadorMensagem:
                     top = trechos[0]
                     dlog.log(
                         "rag_resultado",
-                        f"encontrados={len(trechos)} melhor_score={top.score:.4f}"
-                        f" titulo='{str(top.titulo)[:50]}'",
+                        f"encontrados={len(trechos)} melhor_score={top.score:.4f} titulo='{str(top.titulo)[:50]}'",
                     )
                 else:
                     dlog.log("rag_resultado", f"encontrados=0 (score_min={score_min})")
@@ -598,11 +595,11 @@ class ProcessadorMensagem:
             template_fallback=template_fallback,
             template_fallback_nome=template_fallback_nome,
         )
-    
+
     # ------------------------------------------------------------------
     # Processamento de CNPJ
     # ------------------------------------------------------------------
-    
+
     async def _processar_cnpj_fornecido(
         self,
         db: Session,
@@ -613,19 +610,15 @@ class ProcessadorMensagem:
         """Processa quando o cliente forneceu um CNPJ: consulta, cria empresa/contato."""
         if not validar_cnpj(cnpj):
             return await self._gerador.gerar(T.CNPJ_INVALIDO)
-        
+
         try:
             empresa = await obter_ou_criar_empresa(db, cnpj)
         except ConsultaCnpjError as e:
             logger.warning(f"[Processador] Falha ao consultar CNPJ: {e}")
             return await self._gerador.gerar(T.CNPJ_INVALIDO)
-        
+
         # Cria contato se ainda não existir para essa combinação telefone+empresa
-        contato_existente = (
-            db.query(Contato)
-            .filter_by(telefone=telefone, empresa_id=empresa.id)
-            .first()
-        )
+        contato_existente = db.query(Contato).filter_by(telefone=telefone, empresa_id=empresa.id).first()
         if not contato_existente:
             contato_existente = criar_contato(
                 db=db,
@@ -636,20 +629,20 @@ class ProcessadorMensagem:
         elif nome_informado and not contato_existente.nome:
             contato_existente.nome = nome_informado
             db.commit()
-        
+
         # Cria negociação ativa se ainda não houver
         self._obter_ou_criar_negociacao(db, contato_existente, empresa)
-        
+
         return await self._gerador.gerar(
             T.CNPJ_CONSULTADO_OK,
             contexto={"nome": empresa.nome},
             personalizar=False,
         )
-    
+
     # ------------------------------------------------------------------
     # Negociação e informações
     # ------------------------------------------------------------------
-    
+
     STATUS_ATIVOS = (
         StatusNegociacao.NOVO,
         StatusNegociacao.EM_CONTATO,
@@ -657,7 +650,7 @@ class ProcessadorMensagem:
         StatusNegociacao.ORCAMENTO_ENVIADO,
         StatusNegociacao.EM_NEGOCIACAO,
     )
-    
+
     def _negociacao_ativa(self, db: Session, contato: Contato) -> Optional[Negociacao]:
         """Retorna a negociação ativa do contato (se houver)."""
         return (
@@ -667,13 +660,18 @@ class ProcessadorMensagem:
             .order_by(Negociacao.created_at.desc())
             .first()
         )
-    
-    def _obter_ou_criar_negociacao(self, db: Session, contato: Contato, empresa: Empresa,) -> Negociacao:
+
+    def _obter_ou_criar_negociacao(
+        self,
+        db: Session,
+        contato: Contato,
+        empresa: Empresa,
+    ) -> Negociacao:
         """Retorna negociação ativa ou cria uma nova."""
         negociacao = self._negociacao_ativa(db, contato)
         if negociacao:
             return negociacao
-        
+
         negociacao = Negociacao(
             contato_id=contato.id,
             empresa_id=empresa.id,
@@ -685,7 +683,7 @@ class ProcessadorMensagem:
         db.refresh(negociacao)
         logger.info(f"[Processador] Negociação criada id={negociacao.id}")
         return negociacao
-    
+
     async def _atualizar_infos_negociacao(
         self,
         db: Session,
@@ -694,7 +692,7 @@ class ProcessadorMensagem:
     ):
         """Registra informações coletadas na NegociacaoInfo."""
         entidades = resultado_class.entidades
-        
+
         registros = []
         if entidades.nomes:
             registros.append(("nome_contato", entidades.nomes[0]))
@@ -704,25 +702,23 @@ class ProcessadorMensagem:
             registros.append(("tipos_produto", ",".join(entidades.tipos_produto)))
         if entidades.quantidades:
             registros.append(("quantidades", ",".join(str(q) for q in entidades.quantidades)))
-        
+
         for chave, valor in registros:
-            info = (
-                db.query(NegociacaoInfo)
-                .filter_by(negociacao_id=negociacao.id, chave=chave)
-                .first()
-            )
+            info = db.query(NegociacaoInfo).filter_by(negociacao_id=negociacao.id, chave=chave).first()
             if info:
                 info.valor = valor
                 info.pendente = False
             else:
-                db.add(NegociacaoInfo(
-                    negociacao_id=negociacao.id,
-                    chave=chave,
-                    valor=valor,
-                    pendente=False,
-                    origem=OrigemInfo.INFERIDO if resultado_class.origem == "llm" else OrigemInfo.USER,
-                ))
-        
+                db.add(
+                    NegociacaoInfo(
+                        negociacao_id=negociacao.id,
+                        chave=chave,
+                        valor=valor,
+                        pendente=False,
+                        origem=OrigemInfo.INFERIDO if resultado_class.origem == "llm" else OrigemInfo.USER,
+                    )
+                )
+
         if registros:
             db.commit()
 

@@ -6,6 +6,7 @@ Fluxo:
 2. Preenche com contexto (nome, empresa, etc.)
 3. Opcionalmente personaliza via LLM para tom mais natural
 """
+
 import logging
 from dataclasses import dataclass, field
 from typing import Any, List, Optional
@@ -20,6 +21,7 @@ logger = logging.getLogger(__name__)
 @dataclass
 class RespostaGerada:
     """Resposta gerada + metadados para auditoria/debug."""
+
     texto: str
     template_usado: Optional[str] = None
     personalizado_via_llm: bool = False
@@ -60,7 +62,7 @@ Regras OBRIGATÓRIAS:
 
 _REGRA_SUGESTAO_ON = (
     "- Você pode sugerir uma opção de produto quando os trechos deixarem claro que ela faz sentido, "
-    "sempre com linguagem cautelosa (ex: \"uma opção que pode fazer sentido é...\") e oferecendo confirmação com um vendedor."
+    'sempre com linguagem cautelosa (ex: "uma opção que pode fazer sentido é...") e oferecendo confirmação com um vendedor.'
 )
 _REGRA_SUGESTAO_OFF = (
     "- NÃO sugira um modelo específico como recomendação. Apenas explique as opções mencionadas nos trechos"
@@ -70,11 +72,11 @@ _REGRA_SUGESTAO_OFF = (
 
 class GeradorRespostas:
     """Gera respostas para o cliente com base na intenção e contexto."""
-    
+
     def __init__(self, llm: Optional[LLMProvider] = None, usar_llm: bool = True):
         self._llm = llm
         self._usar_llm = usar_llm and llm is not None
-    
+
     async def gerar(
         self,
         template: str,
@@ -85,28 +87,28 @@ class GeradorRespostas:
     ) -> RespostaGerada:
         """
         Gera uma resposta a partir de um template.
-        
+
         Args:
             template: String de template (veja templates.py)
             contexto: Dict com variáveis para preencher o template
             personalizar: Se True, passa pela LLM para suavizar o tom
             mensagem_cliente: Mensagem original do cliente (para contexto à LLM)
             template_nome: Nome identificador do template para auditoria (ex: "SAUDACAO_NOVO_CONTATO"). Se None, tenta inferir.
-        
+
         Returns:
             RespostaGerada com texto e metadados.
         """
         contexto = contexto or {}
         resposta_base = T.formatar(template, **contexto)
         nome = template_nome or _nome_template(template)
-        
+
         if not personalizar or not self._usar_llm:
             return RespostaGerada(texto=resposta_base, template_usado=nome)
-        
+
         prompt_usuario = f"Resposta padrão base: {resposta_base}"
         if mensagem_cliente:
             prompt_usuario = f"Mensagem do cliente: {mensagem_cliente}\n\n{prompt_usuario}"
-        
+
         try:
             resultado = await self._llm.completar(
                 prompt_sistema=_PROMPT_SISTEMA_PERSONALIZACAO,
@@ -139,7 +141,7 @@ class GeradorRespostas:
 
         Args:
             pergunta_cliente: Mensagem original do cliente.
-            trechos: Lista de `DocumentoRecuperado` (ou objetos com `titulo`, `conteudo`, `score`, `metadados`). 
+            trechos: Lista de `DocumentoRecuperado` (ou objetos com `titulo`, `conteudo`, `score`, `metadados`).
                 Quando vazia, retorna o template de fallback.
             permitir_sugestao_produto: Se True, o prompt libera sugestao cautelosa de modelo; se False, pede apenas explicacao + coleta.
             template_fallback: Template usado quando `trechos` e vazia ou quando a LLM nao esta disponivel.

@@ -1,0 +1,40 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "externo gera_sprint_report",
+      "type": "debugpy",
+      "request": "launch",
+      "program": "${workspaceFolder}/gera_sprint_report.py",
+      "console": "integratedTerminal",
+      "cwd": "${workspaceFolder}",
+      "args": [
+        "artefatos/gerente_projetos/sprint_02_20260510_externo.yaml",
+        "artefatos/gerente_projetos/sprint_review_template_externo_v01.pptx",
+        "-o",
+        "./artefatos/gerente_projetos/sprint_02_20260510_externo.pptx"
+      ],
+      "python": "${workspaceFolder}/backend/venv/bin/python",
+      "justMyCode": false
+    },
+    {
+      "name": "Backend FastAPI",
+      "type": "debugpy",
+      "request": "launch",
+      "module": "uvicorn",
+      "args": [
+        "main:app",
+        "--reload",
+        "--host",
+        "0.0.0.0",
+        "--port",
+        "8000"
+      ],
+      "jinja": true,
+      "cwd": "${workspaceFolder}/backend",
+      "python": "${workspaceFolder}/backend/venv/Scripts/python.exe",
+      "console": "integratedTerminal",
+      "justMyCode": true
+    }
+  ]
+}

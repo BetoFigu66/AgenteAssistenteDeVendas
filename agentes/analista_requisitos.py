@@ -10,9 +10,10 @@ Este modulo Python apenas provem utilitarios para:
   - Gerar um esqueleto de REQ formal seguindo a estrutura padrao
   - Executar um check de consistencia basico sobre os REQs existentes
 """
-from pathlib import Path
-from datetime import datetime
+
 import re
+from datetime import datetime
+from pathlib import Path
 
 from .base_agente import BaseAgente
 
@@ -303,14 +304,14 @@ class AnalistaRequisitos(BaseAgente):
 
             # Sub-requisitos sem titulo
             for m in padrao_subreq.finditer(texto):
-                linha = texto[:m.start()].count("\n") + 1
+                linha = texto[: m.start()].count("\n") + 1
                 sem_titulo.append(f"{f.name}:{linha} {m.group(0)}")
 
             # Referencias a REQs inexistentes
             for m in padrao_ref.finditer(texto):
                 ref = m.group(0)
                 if ref not in ids_existentes:
-                    linha = texto[:m.start()].count("\n") + 1
+                    linha = texto[: m.start()].count("\n") + 1
                     refs_quebradas.append(f"{f.name}:{linha} {ref}")
 
             # Sem historico

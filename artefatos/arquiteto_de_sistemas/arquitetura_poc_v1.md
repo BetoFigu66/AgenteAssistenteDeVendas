@@ -38,22 +38,16 @@ Validar a viabilidade técnica de um assistente de vendas via WhatsApp com IA, c
 ┌─────────────────────────────────────────────────────────────────┐
 │                      BACKEND (FastAPI)                          │
 │  ┌─────────────┐  ┌─────────────┐  ┌─────────────────────────┐  │
-│  │  Webhook    │  │ Orquestrador│  │  Gerenciador de         │  │
-│  │  Receiver   │─▶│ de Conversa │─▶│  Handoff                │  │
+│  │  /webhook   │  │ Processador │  │  QA / RAG               │  │
+│  │  + /api/*   │─▶│  de Mensagens│─▶│  (retrieval / embeddings)│  │
 │  └─────────────┘  └──────┬──────┘  └─────────────────────────┘  │
 │                          │                                       │
 │                          ▼                                       │
 │                   ┌─────────────┐                                │
 │                   │  Motor IA   │                                │
-│                   │  (OpenAI)   │                                │
-│                   └──────┬──────┘                                │
-│                          │                                       │
-│                          ▼                                       │
-│                   ┌─────────────┐                                │
-│                   │    RAG      │                                │
-│                   │ (Simples)   │                                │
+│                   │  (Groq)     │                                │
 │                   └─────────────┘                                │
-└─────────────────────┬───────────────────────────────────────────┘
+└─────────────────────────────────────────────────────────────────┘
                       │
                       ▼
 ┌─────────────────────────────────────────────────────────────────┐
@@ -80,79 +74,71 @@ Validar a viabilidade técnica de um assistente de vendas via WhatsApp com IA, c
 
 **Decisão POC**: **Twilio Sandbox** (grátis para dev, boa documentação, setup rápido)
 
+> Atualização de implementação: o código atual usa `backend/main.py` como entrypoint FastAPI e recebe o webhook do Twilio em `/webhook`.
+
 ### 3.2 Backend (FastAPI)
 
 ```
-src/
-├── main.py              # Aplicação FastAPI
-├── config.py            # Configurações
+backend/
+├── main.py                      # Aplicação FastAPI, webhook Twilio e endpoints REST
+├── config.py                    # Configurações de ambiente e variáveis .env
+├── database.py                  # Wrapper SQLAlchemy e sessões de banco
+├── models.py                    # SQLAlchemy models: conversas, empresas, contatos, RAG, LLM, auditoria
 ├── routers/
-│   └── webhook.py       # Recebe mensagens do WhatsApp
+│   └── pares_qa.py              # Endpoints de QA pair management e consulta QA
 ├── services/
-│   ├── whatsapp.py      # Envia mensagens
-│   ├── orquestrador.py  # Lógica de conversa
-│   ├── ia.py            # Integração OpenAI
-│   └── rag.py           # Busca na base de conhecimento
-├── models/
-│   └── conversa.py      # Modelos de dados
+│   ├── processador.py           # Orquestrador do cérebro de mensagens
+│   ├── llm/                      # Provider de LLMs
+│   │   ├── factory.py
+│   │   └── groq_provider.py
+│   ├── rag/                      # Retrieval service e QA service
+│   │   ├── retrieval.py
+│   │   └── qa_service.py
+│   ├── respostas/                # Templates e geração de respostas
+│   ├── classificador.py          # Classificação de intenção e extração de entidades
+│   ├── identificador.py          # Identificação de contato/empresa por telefone
+│   ├── cnpj/                     # Integração ReceitaWS para validação e busca de CNPJ
+│   └── debug_log.py             # Logs de debug de processamento
 └── data/
-    ├── produtos.json    # Catálogo de produtos
-    ├── precos.json      # Tabela de preços
-    └── faq.json         # Perguntas frequentes
+    ├── ingestao_pares_qa_resumo.json
+    ├── seed_pares_qa.json
+    ├── rag/                      # material e metadados de conhecimento usados pela RAG
+    └── conhecimento/             # pasta de apoio atualmente vazia
 ```
 
 ### 3.3 Motor de IA
 
-**Modelo**: GPT-4o-mini (custo-benefício)
+**Modelo**: implementação atual usa o provider Groq via `backend/services/llm/factory.py`.
+O provider padrão é `groq` com `LLM_MODEL=llama-3.1-8b-instant`.
 
-**Prompt base**:
-```
-Você é um assistente de vendas da [Empresa] especializado em catracas e relógios de ponto.
+**Prompt base**: o motor IA é usado para personalizar respostas e dar suporte à geração de texto,
+mas grande parte da lógica de roteamento ainda é baseada em templates e regras do `ProcessadorMensagem`.
 
-Seu papel:
-- Responder dúvidas sobre produtos, preços e instalação
-- Enviar catálogos quando solicitado
-- Ser cordial e profissional
-- Quando não souber ou for negociação de preço, escalar para humano
+### 3.4 RAG Atual (POC)
 
-Produtos disponíveis:
-[Injetado via RAG]
+A implementação atual não usa JSON estático para produtos. Em vez disso, a RAG é
+baseada em vetores e documentos armazenados em PostgreSQL com pgvector.
 
-Regras:
-- Nunca invente informações
-- Preços têm margem de negociação (mencione que pode haver desconto para quantidades)
-- Para instalação, informe que depende da região
-```
+O fluxo atual de RAG é:
+1. O usuário faz uma pergunta relevante.
+2. `services/rag/retrieval.py` gera embeddings via `services/embeddings`.
+3. A consulta é feita contra `DocumentoConhecimento` no banco usando distância de similaridade.
+4. Os trechos retornados são filtrados por score e usados como contexto de resposta.
 
-### 3.4 RAG Simplificado (POC)
+Além disso, há um `QAService` em `services/rag/qa_service.py` que pode buscar pares Q&A aprovados.
 
-Para o POC, RAG será **baseado em arquivos JSON**, sem banco vetorial:
+**Dados de conhecimento**:
+- `backend/data/seed_pares_qa.json`
+- `backend/data/ingestao_pares_qa_resumo.json`
+- `backend/data/rag/` (base de material de apoio)
 
-```json
-// produtos.json
-{
-  "catracas": [
-    {
-      "modelo": "Catraca Pedestal",
-      "descricao": "Catraca de acesso para academias e condomínios",
-      "preco_base": 2500,
-      "prazo_entrega": "5-10 dias úteis"
-    }
-  ],
-  "relogios": [
-    {
-      "modelo": "Relógio Biométrico RB-100",
-      "tecnologias": ["biometria", "cartão proximidade"],
-      "preco_base": 1200,
-      "prazo_entrega": "3-7 dias úteis"
-    }
-  ]
-}
-```
-
-**Busca**: Keyword matching simples + contexto injetado no prompt.
+**Observação**: o POC atual já considera RAG real com embeddings, não apenas keyword matching.
 
 ### 3.5 Lógica de Handoff
+
+> Observação: o código atual não implementa envio automático de PDF/catálogo via WhatsApp;
+> o fluxo é focado em webhook inbound, classificação e resposta baseada em templates/RAG.
+
 
 ```python
 ESCALAR_PARA_HUMANO = [
@@ -186,13 +172,13 @@ def deve_escalar(mensagem: str, confianca_ia: float) -> bool:
 | Componente | Tecnologia | Justificativa |
 |------------|------------|---------------|
 | Backend | **FastAPI** | Preferência do dev, async, rápido |
-| Banco | **PostgreSQL 16** | Robusto, suporta JSONB, padrão de mercado, roda em container |
-| IA | **OpenAI GPT-4o-mini** | Custo-benefício, boa qualidade |
-| WhatsApp | **Evolution API** ou **Twilio Sandbox** | Custo zero para POC |
+| Banco | **PostgreSQL 16** | Robusto, suporta JSONB e pgvector, padrão de mercado |
+| IA | **Groq** | Implementado como provider padrão via `backend/services/llm` |
+| WhatsApp | **Twilio Sandbox** | Webhook inbound e resposta TwiML já implementados |
 | Hospedagem | **Local + ngrok** | Grátis, rápido para testar |
 | Cache | **Não necessário** | Volume baixo (10-30/dia) |
 
-WhatsApp:  A prinípio escolhido o **Twilio Sandbox**
+WhatsApp:  A princípio escolhido o **Twilio Sandbox**
 ---
 
 ## 5. Fluxo de Mensagem
@@ -206,7 +192,7 @@ WhatsApp:  A prinípio escolhido o **Twilio Sandbox**
          ▼
 3. Orquestrador analisa:
    ├── É saudação? → Responde com boas-vindas
-   ├── Pede catálogo? → Envia PDF
+   ├── Pede catálogo? → Indica disponibilidade de catálogo / encaminha para humano
    ├── Pergunta sobre produto? → Consulta RAG + IA
    └── Precisa de humano? → Notifica Rita
          │

@@ -9,6 +9,7 @@ O inventario registra os arquivos raw usados como entrada para as proximas etapa
 Saida padrao:
     backend/data/rag/inventario_fontes.json
 """
+
 from __future__ import annotations
 
 import argparse
@@ -20,7 +21,6 @@ from dataclasses import asdict, dataclass
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Iterable
-
 
 RAIZ_PROJETO = Path(__file__).resolve().parents[2]
 SAIDA_PADRAO = RAIZ_PROJETO / "backend" / "data" / "rag" / "inventario_fontes.json"
@@ -110,10 +110,7 @@ def gerar_inventario() -> dict:
     return {
         "gerado_em": datetime.now(timezone.utc).isoformat(),
         "raiz_projeto": str(RAIZ_PROJETO),
-        "diretorios": {
-            tipo: caminho.relative_to(RAIZ_PROJETO).as_posix()
-            for tipo, caminho in FONTES_PADRAO.items()
-        },
+        "diretorios": {tipo: caminho.relative_to(RAIZ_PROJETO).as_posix() for tipo, caminho in FONTES_PADRAO.items()},
         "diretorios_ausentes": diretorios_ausentes,
         "resumo": {
             "total_arquivos": len(fontes),

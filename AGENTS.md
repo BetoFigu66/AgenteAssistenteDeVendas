@@ -47,13 +47,14 @@ O projeto tem varios agentes especializados em `agentes/` (cada um com seu propr
 
 | Prefixo | Agente | Arquivo | Diretorio de artefatos | Responsabilidade principal |
 |---------|--------|---------|------------------------|----------------------------|
-| `[analista]` | Analista de Requisitos | `agentes/analista_requisitos.py` (+ `agentes/analista_requisitos.md`) | `artefatos/requisitos_formais/` (REQs) + `artefatos/analista_de_requisitos/` (rascunhos) | Requisitos formais (REQ-XXX), historias de usuario, questionarios, entrevistas com cliente |
-| `[auxiliar]` | Auxiliar de Negocios | `agentes/auxiliar_negocios.py` | `artefatos/auxiliar_negocios/` | MVP, roadmap, ideias de produto, analise de mercado |
-| `[arquiteto]` | Arquiteto de Sistemas | `agentes/arquiteto_sistemas.py` | `artefatos/arquiteto_de_sistemas/` | Decisoes arquiteturais (ADRs), diagramas, politica de branches, deploy |
-| `[planejador]` | Planejador de Negocios | `agentes/planejador_negocios.py` | `artefatos/planejador_negocios/` | Precificacao, marketing, concorrencia, projecoes financeiras |
+| `[analista]` | Analista de Requisitos | `agentes/analista_requisitos.md` + `.py` | `artefatos/requisitos_formais/` (REQs) + `artefatos/analista_de_requisitos/` (rascunhos) | Requisitos formais (REQ-XXX), historias de usuario, questionarios, entrevistas com cliente |
+| `[auxiliar]` | Auxiliar de Negocios | `agentes/auxiliar_negocios.md` | `artefatos/auxiliar_negocios/` | MVP, roadmap, ideias de produto, analise de mercado |
+| `[arquiteto]` | Arquiteto de Sistemas | `agentes/arquiteto_sistemas.md` | `artefatos/arquiteto_de_sistemas/` | Decisoes arquiteturais (ADRs), diagramas, politica de branches, deploy |
+| `[planejador]` | Planejador de Negocios | `agentes/planejador_negocios.md` | `artefatos/planejador_negocios/` | Precificacao, marketing, concorrencia, projecoes financeiras |
 | `[qa]` | QA Engineer | `agentes/qa_engineer.py` | `artefatos/qa/` | Testes, cobertura, revisao de PRs, qualidade de processo |
-| `[implementador]` | Implementador | `agentes/implementador.py` | `artefatos/implementador/` | Codificacao de backend/frontend, migrations, fixes, diretrizes de implementacao |
-| `[gerente]` | Gerente de Projetos | `agentes/gerente_de_projetos.py` | `artefatos/gerente_de_projetos/` | Coordenacao, relatorios de sprint, acompanhamento de pendencias, atas |
+| `[implementador]` | Implementador | `agentes/implementador.md` + `.py` | `artefatos/implementador/` | Codificacao de backend/frontend, migrations, fixes, diretrizes de implementacao |
+| `[gerente]` | Gerente de Projetos | `agentes/gerente_de_projetos.md` + `.py` | `artefatos/gerente_de_projetos/` | Coordenacao, relatorios de sprint, acompanhamento de pendencias, atas |
+| `[ia_expert]` | Especialista em IA | `agentes/ia_expert.md` | `artefatos/ia_expert/` | Governanca de IA, revisao de prompts/harness, tendencias, benchmark interno de uso de IA |
 
 ### Como usar
 
@@ -116,9 +117,14 @@ Cada agente tem **dois arquivos** com papeis bem definidos:
 | `[implementador]` | OK | OK |
 | `[gerente]` | OK | OK (G01-G05; `README.md` mantido como narrativa) |
 | `[arquiteto]` | OK | OK (indice A01-A05 com pointers para `.md` tematicos) |
-| `[qa]`, `[auxiliar]`, `[planejador]` | pendente (prompt ainda no `.py`) | criar quando surgirem regras |
+| `[ia_expert]` | OK | OK (IA01) |
+| `[auxiliar]` | OK | criar quando surgirem regras |
+| `[planejador]` | OK | criar quando surgirem regras |
+| `[qa]` | pendente (prompt ainda no `.py`) | criar quando surgirem regras |
 
 A migracao para o padrao acontece de forma incremental — nao e necessario criar arquivos vazios so para satisfazer a tabela. Cada agente migra quando houver conteudo real a registrar.
+
+> **IA01:** novos agentes devem ser definidos como `agentes/<nome>.md` (sem `.py` correspondente), salvo quando houver logica Python executavel real. Ver `artefatos/ia_expert/diretrizes.md` → IA01.
 
 ### Diretorios do `[analista]` (divisao explicita)
 

@@ -1,0 +1,55 @@
+# Atividades periódicas do projeto
+# Gerenciado pelo agente [gerente].
+#
+# Para verificar atrasos:
+#   python scripts/verificar_atividades.py
+#
+# Para registrar uma execução:
+#   python scripts/verificar_atividades.py --registrar <id> --responsavel "Beto" --notas "ok"
+
+frequencias:
+  semanal: 7
+  sprint: 14
+  mensal: 30
+
+atividades:
+
+  # ── Semanal ──────────────────────────────────────────────────────────────────
+
+  - id: qa_check_semanal
+    descricao: "Executar qa_check.py para verificar qualidade do código"
+    frequencia: semanal
+    tipo: script
+    comando: "python scripts/qa_check.py"
+
+  # ── A cada Sprint ─────────────────────────────────────────────────────────────
+
+  - id: auditoria_ia_sprint
+    descricao: "[ia_expert] Auditoria rápida do uso de IA no projeto"
+    frequencia: sprint
+    tipo: prompt_agente
+    agente: ia_expert
+    prompt: >
+      Faça uma auditoria rápida do uso de IA no projeto. Analise o estado atual
+      dos agentes, harness e prompts e liste os 3 principais pontos de melhoria.
+      Salve o resultado em artefatos/ia_expert/analise_uso_ia_YYYYMMDD.md.
+
+  # ── Mensal ────────────────────────────────────────────────────────────────────
+
+  - id: revisao_readme_mensal
+    descricao: "Verificar se README.md ainda está atualizado"
+    frequencia: mensal
+    tipo: revisao_manual
+    arquivos:
+      - README.md
+
+  - id: atualizacao_tendencias_mensal
+    descricao: "[ia_expert] Atualizar radar de tendências e propor melhorias"
+    frequencia: mensal
+    tipo: prompt_agente
+    agente: ia_expert
+    prompt: >
+      Atualize o arquivo artefatos/ia_expert/tendencias_tecnologicas.md com as
+      últimas tendências relevantes para o projeto (LLMs, RAG, agentes, embeddings).
+      Para cada tendência nova, avalie relevância (alta/media/baixa) e gere uma
+      lista de propostas de melhorias concretas para o Sprint seguinte.

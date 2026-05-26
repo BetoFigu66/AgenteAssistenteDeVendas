@@ -6,6 +6,7 @@ Uso:
     python -m scripts.buscar_rag "catraca com QR Code" --top-k 6 --tipo produto
     python -m scripts.buscar_rag "facial para cozinha" --tipos produto,faq --score-minimo 0.6
 """
+
 from __future__ import annotations
 
 import argparse
@@ -13,7 +14,6 @@ import asyncio
 import json
 import sys
 from pathlib import Path
-
 
 BACKEND_DIR = Path(__file__).resolve().parents[1]
 if str(BACKEND_DIR) not in sys.path:

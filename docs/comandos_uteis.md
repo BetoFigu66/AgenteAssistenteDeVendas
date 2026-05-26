@@ -442,6 +442,15 @@ Tambem pode ser ativado pelo menu: `View` -> `Word Wrap`.
 
 Observacao: isso altera apenas a visualizacao no editor, sem modificar o arquivo.
 
+### Debugar backend FastAPI no VSCode
+
+A configuracao de execucao esta em `.vscode/launch.json` (nome: **Backend FastAPI**).  
+Para iniciar:
+
+- `F5` ou painel `Run and Debug` (`Ctrl+Shift+D`) → selecionar **Backend FastAPI**
+
+Ela usa o ambiente virtual `backend/venv` com reload automatico em `main:app`.
+
 ### Renderizar diagramas Mermaid no preview de Markdown
 
 O preview nativo do VSCode/Windsurf nao renderiza Mermaid; mostra como texto. Para renderizar:
@@ -490,6 +499,98 @@ cloudflared tunnel create inforrel-poc
 cloudflared tunnel route dns inforrel-poc app.seudominio.com
 cloudflared tunnel run inforrel-poc
 ```
+
+---
+
+## Atividades Periódicas
+
+Config: `artefatos/gerente_de_projetos/atividades_periodicas.yaml`
+Log:    `artefatos/gerente_de_projetos/log_atividades.yaml`
+
+```bash
+# Verificar quais atividades estão em atraso
+python scripts/verificar_atividades.py
+
+# Verificar + falhar se houver atraso (para pre-commit)
+python scripts/verificar_atividades.py --strict
+
+# Registrar que uma atividade foi concluída
+python scripts/verificar_atividades.py --registrar qa_check_semanal --responsavel "Beto"
+python scripts/verificar_atividades.py --registrar auditoria_ia_sprint --responsavel "Beto" --notas "3 melhorias identificadas"
+```
+
+IDs disponíveis (ver config para a lista completa):
+| ID | Frequência | Tipo |
+|----|-----------|------|
+| `qa_check_semanal` | semanal | script |
+| `auditoria_ia_sprint` | sprint | prompt_agente |
+| `revisao_readme_mensal` | mensal | revisao_manual |
+| `atualizacao_tendencias_mensal` | mensal | prompt_agente |
+
+**Integração pre-commit** (adicionar em `.pre-commit-config.yaml`):
+```yaml
+- repo: local
+  hooks:
+    - id: verificar-atividades-periodicas
+      name: Atividades periódicas em atraso
+      entry: python scripts/verificar_atividades.py
+      language: python
+      pass_filenames: false
+      always_run: true
+```
+> Usa `--strict` na `entry` se quiser bloquear o commit em caso de atraso.
+
+---
+
+## QA Checks (`scripts/qa_check.py`)
+
+Executa os checks de qualidade registrados pelo agente `[qa]`.
+Não requer venv especial — usa apenas bibliotecas built-in do Python.
+
+```bash
+# Listar checks disponíveis
+python scripts/qa_check.py --listar
+
+# Rodar todos os checks
+python scripts/qa_check.py
+
+# Só checks do escopo pre-commit (rápidos)
+python scripts/qa_check.py --escopo pre-commit
+
+# Rodar um check específico
+python scripts/qa_check.py --check gitkeep-redundantes
+```
+
+Saída:
+- `0` — tudo passou (ou só warnings/infos, não bloqueia commit)
+- `1` — ao menos um check `error` falhou (bloqueia commit)
+
+> Rode sempre da **raiz do projeto** — o script ajusta `sys.path` automaticamente.
+
+---
+
+## Ruff (Lint e Imports)
+
+Ferramenta rápida (Rust) para lint, formatação e verificação de imports. Configurado em `pyproject.toml`.
+
+```bash
+# Instalar
+pip install ruff
+
+# Verificar problemas
+ruff check .
+
+# Corrigir automaticamente
+ruff check --fix .
+
+# Verificar apenas imports (isort)
+ruff check --select I .
+
+# Formatar código
+ruff format .
+```
+
+O check `ruff-lint` do QA Engineer invoca `ruff check` automaticamente no pre-commit.
 
 ---
 

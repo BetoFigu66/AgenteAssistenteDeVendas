@@ -7,6 +7,7 @@ Uso:
     python -m scripts.buscar_qa "controle de ponto" --score-minimo 0.7 --top-k 5
     python -m scripts.buscar_qa "leitor facial" --nao-apenas-aprovados --json
 """
+
 from __future__ import annotations
 
 import argparse
@@ -14,7 +15,6 @@ import asyncio
 import json
 import sys
 from pathlib import Path
-
 
 BACKEND_DIR = Path(__file__).resolve().parents[1]
 if str(BACKEND_DIR) not in sys.path:
@@ -34,8 +34,9 @@ async def _executar(args: argparse.Namespace) -> int:
     )
 
     print(f"Query   : {args.query!r}")
-    print(f"Filtros : contexto={args.contexto!r}  score_min={args.score_minimo}  "
-          f"apenas_aprovados={not args.nao_apenas_aprovados}  top_k={args.top_k}")
+    print(
+        f"Filtros : contexto={args.contexto!r}  score_min={args.score_minimo}  apenas_aprovados={not args.nao_apenas_aprovados}  top_k={args.top_k}"
+    )
     print(f"Encontrados: {len(resultados)}")
 
     for i, r in enumerate(resultados, start=1):

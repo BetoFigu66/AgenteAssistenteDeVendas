@@ -14,6 +14,7 @@ Exemplos de grep:
     cat logs/debug_2026-05-02.log | grep "19991931176:42"     # tudo de uma mensagem
     cat logs/debug_2026-05-02.log | grep "19991931176:42.*rag" # só linhas RAG daquela msg
 """
+
 import logging
 from datetime import date
 from pathlib import Path

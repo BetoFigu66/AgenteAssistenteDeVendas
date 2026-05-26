@@ -10,6 +10,7 @@ Rotas:
     DELETE /api/pares-qa/{id}                   Soft delete (ativo=False)
     POST   /api/pares-qa/{id}/aprovar           Gera embedding e marca aprovado=True
 """
+
 from __future__ import annotations
 
 import hashlib
@@ -17,12 +18,10 @@ import logging
 from datetime import datetime
 from typing import Optional
 
-from fastapi import APIRouter, HTTPException
-from pydantic import BaseModel
-from sqlalchemy import update
-
 from database import Database
+from fastapi import APIRouter, HTTPException
 from models import ParQA
+from pydantic import BaseModel
 
 logger = logging.getLogger(__name__)
 
@@ -34,6 +33,7 @@ _db = Database()
 # ---------------------------------------------------------------------------
 # Schemas Pydantic
 # ---------------------------------------------------------------------------
+
 
 class CriarParQARequest(BaseModel):
     id_externo: Optional[str] = None
@@ -58,6 +58,7 @@ class AtualizarParQARequest(BaseModel):
 # Helpers
 # ---------------------------------------------------------------------------
 
+
 def _hash_pergunta(pergunta: str) -> str:
     return hashlib.sha256(pergunta.strip().lower().encode()).hexdigest()[:16]
 
@@ -72,6 +73,7 @@ def _resolver_id_externo(id_externo: Optional[str], contexto: Optional[str], per
 async def _gerar_embedding(texto: str) -> list[float]:
     """Gera embedding via provider configurado."""
     from services.embeddings import get_embedding_provider
+
     provider = get_embedding_provider()
     return await provider.embed_um(texto)
 
@@ -79,6 +81,7 @@ async def _gerar_embedding(texto: str) -> list[float]:
 # ---------------------------------------------------------------------------
 # GET /api/pares-qa
 # ---------------------------------------------------------------------------
+
 
 @router.get("")
 async def listar_pares_qa(
@@ -120,6 +123,7 @@ async def listar_pares_qa(
 # GET /api/pares-qa/{par_id}
 # ---------------------------------------------------------------------------
 
+
 @router.get("/{par_id}")
 async def obter_par_qa(par_id: int):
     """Retorna um par Q&A pelo id interno."""
@@ -133,6 +137,7 @@ async def obter_par_qa(par_id: int):
 # ---------------------------------------------------------------------------
 # POST /api/pares-qa
 # ---------------------------------------------------------------------------
+
 
 @router.get("/pendentes-aprovacao")
 async def listar_pendentes_aprovacao(contexto: Optional[str] = None):
@@ -186,6 +191,7 @@ async def criar_par_qa(payload: CriarParQARequest):
 # PATCH /api/pares-qa/{par_id}
 # ---------------------------------------------------------------------------
 
+
 @router.patch("/{par_id}")
 async def atualizar_par_qa(par_id: int, payload: AtualizarParQARequest):
     """
@@ -235,6 +241,7 @@ async def atualizar_par_qa(par_id: int, payload: AtualizarParQARequest):
 # DELETE /api/pares-qa/{par_id}  (soft delete)
 # ---------------------------------------------------------------------------
 
+
 @router.delete("/{par_id}", status_code=200)
 async def desativar_par_qa(par_id: int):
     """Soft delete: marca o par como ativo=False."""
@@ -254,6 +261,7 @@ async def desativar_par_qa(par_id: int):
 # ---------------------------------------------------------------------------
 # POST /api/pares-qa/{par_id}/aprovar
 # ---------------------------------------------------------------------------
+
 
 @router.post("/{par_id}/aprovar")
 async def aprovar_par_qa(par_id: int):

@@ -2,6 +2,7 @@
 Implementacao de EmbeddingProvider para OpenAI.
 https://platform.openai.com/docs/guides/embeddings
 """
+
 import logging
 from typing import List
 
@@ -31,9 +32,7 @@ class OpenAIEmbeddingProvider(EmbeddingProvider):
         dimensoes: int | None = None,
     ):
         if not api_key:
-            raise ValueError(
-                "OpenAI API key nao configurada (EMBEDDING_API_KEY)"
-            )
+            raise ValueError("OpenAI API key nao configurada (EMBEDDING_API_KEY)")
 
         self._client = AsyncOpenAI(api_key=api_key)
         self._modelo = modelo
