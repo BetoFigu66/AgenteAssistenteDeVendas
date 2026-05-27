@@ -23,6 +23,55 @@ PROJECT_ROOT = Path(__file__).resolve().parent
 DEFAULT_TEMPLATE = PROJECT_ROOT / "artefatos" / "gerente_de_projetos" / "sprint_review_template_v01.pptx"
 EMOJI_PRIO = {"alta": "🔴", "media": "🟡", "baixa": "🟢"}
 
+# Diretorio para PNGs de graficos gerados sob demanda durante a montagem do PPTX.
+GRAFICOS_DIR = Path(__file__).resolve().parents[2] / "artefatos" / "gerente_de_projetos" / "reports"
+
+GRAFICO_TOKEN_RE = re.compile(r"\{\{GRAFICO:(\w+)\}\}")
+
+
+def _gerar_grafico_png(nome: str, sprint_numero: int | None) -> Path:
+    """Gera o PNG do grafico identificado por `nome` para a sprint informada.
+
+    Dispatch atualmente conhece:
+      - cobertura_ponderada: barras empilhadas (realizado/faltante por REQ).
+    """
+    if nome == "cobertura_ponderada":
+        from gera_grafico_cobertura_ponderada import gerar_grafico, _saida_para_sprint, _ultima_sprint_numero
+        numero = sprint_numero if sprint_numero is not None else _ultima_sprint_numero()
+        saida = _saida_para_sprint(numero)
+        gerar_grafico(saida, sprint_numero=numero)
+        return saida
+    raise ValueError(f"Grafico desconhecido: {nome}")
+
+
+def _processar_graficos(prs, tokens_usados: set, sprint_numero: int | None = None):
+    """Substitui shapes cujo texto contem {{GRAFICO:nome}} por uma imagem PNG.
+
+    A imagem ocupa a mesma posicao/tamanho do shape original, que e removido.
+    O PNG e gerado on-demand via _gerar_grafico_png, usando sprint_numero
+    (extraido do YAML do report) quando aplicavel.
+    """
+    for slide in prs.slides:
+        # snapshot da lista de shapes para permitir remocao durante iteracao
+        for shape in list(slide.shapes):
+            if not shape.has_text_frame:
+                continue
+            texto = "\n".join("".join(r.text for r in p.runs) for p in shape.text_frame.paragraphs)
+            m = GRAFICO_TOKEN_RE.search(texto)
+            if not m:
+                continue
+            nome = m.group(1)
+            try:
+                png_path = _gerar_grafico_png(nome, sprint_numero)
+            except Exception as e:
+                print(f"[ERRO] Falha ao gerar grafico '{nome}': {e}", file=sys.stderr)
+                continue
+            left, top, width, height = shape.left, shape.top, shape.width, shape.height
+            sp = shape._element
+            sp.getparent().remove(sp)
+            slide.shapes.add_picture(str(png_path), left, top, width=width, height=height)
+            tokens_usados.add(f"GRAFICO:{nome}")
+
 
 def _flatten_dict(d: dict, parent_key: str = "") -> dict:
     result = {}
@@ -715,6 +764,12 @@ def gerar_apresentacao_pptx(yaml_path, template_path=None, saida=None) -> Path:
 
     slide_replacements = _process_slide_list_limits(prs, dados)
     _processar_slides_replicados(prs, dados, tokens_usados, metadata)
+    sprint_numero = dados.get("sprint_numero") or dados.get("numero_sprint") or dados.get("numero")
+    try:
+        sprint_numero = int(sprint_numero) if sprint_numero is not None else None
+    except (TypeError, ValueError):
+        sprint_numero = None
+    _processar_graficos(prs, tokens_usados, sprint_numero=sprint_numero)
 
     for slide in prs.slides:
         slide_token_replacements = slide_replacements.get(id(slide), {})
