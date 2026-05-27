@@ -69,6 +69,10 @@ cobertura_sprint:
     antes: "~20%"
     depois: "~34%"
     delta_pp: "+14"
+  cobertura_ponderada:
+    antes: "~22%"
+    depois: "~34%"
+    delta_pp: "+12"
   reqs_avancados: 5      # REQ-003, REQ-010, REQ-011, REQ-013, REQ-014
   reqs_novos_iniciados: 3 # REQ-011, REQ-013, REQ-014 (saíram de 0%)
   reqs_inalterados: 9     # REQ-001, 002, 004, 005, 006, 007, 008, 009, 012
