@@ -79,7 +79,7 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(
-    title="Assistente de Vendas API", description="API para integração com WhatsApp via Twilio", 
+    title="Assistente de Vendas API", description="API para integração com WhatsApp via Twilio",
     version="0.1.0", lifespan=lifespan
 )
 
@@ -107,10 +107,10 @@ async def validation_exception_handler(request: Request, exc: RequestValidationE
     logger.error(f"[ERRO 422] Detalhes: {exc.errors()}")
     logger.error(f"[ERRO 422] Stack trace:\n{stack_trace}")
     return JSONResponse(
-        status_code=422, 
+        status_code=422,
         content={
-            "detail": exc.errors(), 
-            "message": "Erro de validação nos dados enviados", 
+            "detail": exc.errors(),
+            "message": "Erro de validação nos dados enviados",
             "type": "validation_error"
         }
     )
@@ -861,7 +861,9 @@ async def stats_reports():
         por_status = dict(session.query(
             ReportProblema.status, func.count(ReportProblema.id)).group_by(
                 ReportProblema.status).all())
-        por_categoria = dict(session.query(ReportProblema.categoria, func.count(ReportProblema.id)).group_by(ReportProblema.categoria).all())
+        por_categoria = dict(session.query(
+            ReportProblema.categoria, func.count(ReportProblema.id)).group_by(ReportProblema.categoria).all()
+        )
         por_severidade = dict(session.query(
                 ReportProblema.severidade, func.count(ReportProblema.id)
             ).group_by(ReportProblema.severidade).all())

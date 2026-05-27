@@ -166,7 +166,7 @@ def _check_gitkeep_redundantes(raiz: Path) -> CheckResult:
         findings=redundantes,
         comandos_uteis=comandos,
         mensagem=(
-            f"{len(redundantes)} .gitkeep(s) redundante(s) encontrados" if redundantes 
+            f"{len(redundantes)} .gitkeep(s) redundante(s) encontrados" if redundantes
                 else "Nenhum .gitkeep redundante."
         ),
         dica_correcao="Remova os arquivos .gitkeep listados (o diretorio ja tem conteudo).",
@@ -683,7 +683,7 @@ class QAEngineer(BaseAgente):
             Relatório com findings e sugestões
         """
         return {
-            "tipo": "revisao_processo", 
+            "tipo": "revisao_processo",
             "checklist": self.checklists["processo"], "findings": [], "sugestoes": [], "status": "pendente"
         }
 

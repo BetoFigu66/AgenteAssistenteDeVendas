@@ -8,7 +8,7 @@ Fluxo de `buscar`:
     4. Converte distancia em score (`1 - distancia`) e aplica limiar minimo.
     5. Retorna lista ordenada de `ParRecuperado`.
 
-Defaults de `top_k` e `score_minimo` vem de `settings.QA_TOP_K` e `settings.QA_SCORE_MINIMO`, 
+Defaults de `top_k` e `score_minimo` vem de `settings.QA_TOP_K` e `settings.QA_SCORE_MINIMO`,
 mas podem ser sobrepostos por chamada.
 """
 

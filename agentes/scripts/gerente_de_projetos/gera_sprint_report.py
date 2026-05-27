@@ -1,6 +1,6 @@
-import sys
 import argparse
 import re
+import sys
 from copy import deepcopy
 from datetime import datetime
 from pathlib import Path
@@ -278,8 +278,10 @@ def _format_list_item(chave: str, item):
         #     texto = f"{item.get('titulo', '')} — {item.get('agente', '')}"
         #     return f"{texto}: {desc}" if desc else texto
         # if "titulo" in item and "prioridade" in item:
-        #     return f"{EMOJI_PRIO.get(item.get('prioridade', 'media'), '⚪')} {item.get('titulo', '')} ({item.get('prioridade', 'media')})"
-        # prioritized = [item.get(field) for field in ("titulo", "nome", "descricao", "agente", "prioridade") if field in item]
+        #     return f"{EMOJI_PRIO.get(item.get('prioridade', 'media'), '⚪')}
+        # {item.get('titulo', '')} ({item.get('prioridade', 'media')})"
+        # prioritized = [item.get(field) for field in (
+        # "titulo", "nome", "descricao", "agente", "prioridade") if field in item]
         # if prioritized:
         #     return " — ".join(str(v) for v in prioritized if v)
         return str(item)
@@ -296,7 +298,11 @@ def _preparar_tokens_pptx(dados: dict, metadata: dict):
             continue
 
         itens = dados.get(chave) or []
-        valores = [_format_list_item(chave, item) for item in itens] if meta["item_type"] == "dict" else [str(item) for item in itens]
+        valores = (
+            [_format_list_item(chave, item) for item in itens]
+            if meta["item_type"] == "dict"
+            else [str(item) for item in itens]
+        )
         valores = valores or ["(nenhum)"]
 
         for token_key in _token_key_variants(chave):
@@ -397,7 +403,9 @@ def _replace_tokens_in_p_element(p_element, replacements):
             _substituir_texto_em_p_xml(p_element, token, valor)
 
 
-def _substituir_tokens_em_textframe(text_frame, tokens_simples, tokens_lista, tokens_usados, dados=None, slide_replacements=None):
+def _substituir_tokens_em_textframe(
+    text_frame, tokens_simples, tokens_lista, tokens_usados, dados=None, slide_replacements=None
+):
     slide_replacements = slide_replacements or {}
     paragrafos = list(text_frame.paragraphs)
     for paragraph in paragrafos:
@@ -722,13 +730,15 @@ def gerar_apresentacao_pptx(yaml_path, template_path=None, saida=None) -> Path:
         for shape in slide.shapes:
             if shape.has_text_frame:
                 _substituir_tokens_em_textframe(
-                    shape.text_frame, tokens_simples, tokens_lista, tokens_usados, dados, slide_replacements=slide_token_replacements
+                    shape.text_frame, tokens_simples, tokens_lista,
+                    tokens_usados, dados, slide_replacements=slide_token_replacements
                 )
             if shape.has_table:
                 for row in shape.table.rows:
                     for cell in row.cells:
                         _substituir_tokens_em_textframe(
-                            cell.text_frame, tokens_simples, tokens_lista, tokens_usados, dados, slide_replacements=slide_token_replacements
+                            cell.text_frame, tokens_simples, tokens_lista,
+                            tokens_usados, dados, slide_replacements=slide_token_replacements
                         )
     # DEBUG: Print YAML keys that were not used
     chaves_nao_usadas = todas_chaves_yaml - tokens_usados

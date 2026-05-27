@@ -19,7 +19,7 @@ class Database:
         self._garantir_diretorio()
 
         self.engine = create_engine(
-            self.database_url, echo=settings.DEBUG, 
+            self.database_url, echo=settings.DEBUG,
             connect_args={"check_same_thread": False} if "sqlite" in self.database_url else {}
         )
 
@@ -64,7 +64,9 @@ class Database:
             ID da mensagem inserida
         """
         with self.get_session() as session:
-            mensagem = Mensagem(telefone=telefone, conteudo=conteudo, origem=OrigemMensagem(origem), message_sid=message_sid)
+            mensagem = Mensagem(
+                telefone=telefone, conteudo=conteudo, origem=OrigemMensagem(origem), message_sid=message_sid
+            )
             session.add(mensagem)
             session.flush()
             return mensagem.id

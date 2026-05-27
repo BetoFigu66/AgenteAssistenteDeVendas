@@ -86,7 +86,10 @@ class BaseAgente(ABC):
             f.write(conteudo)
 
         # Registra criação do artefato
-        self.registrar_interacao(tipo="criacao_artefato", conteudo=f"Artefato criado: {nome_arquivo} (tipo: {tipo})", participantes=[self.nome])
+        self.registrar_interacao(
+            tipo="criacao_artefato", conteudo=f"Artefato criado: {nome_arquivo} (tipo: {tipo})",
+            participantes=[self.nome]
+        )
 
         return caminho
 

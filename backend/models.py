@@ -185,7 +185,9 @@ class User(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False)
 
     # Relacionamentos
-    mensagens_aprovadas: Mapped[List["Mensagem"]] = relationship(back_populates="aprovador", foreign_keys="Mensagem.aprovador_id")
+    mensagens_aprovadas: Mapped[List["Mensagem"]] = relationship(
+        back_populates="aprovador", foreign_keys="Mensagem.aprovador_id"
+    )
 
     def to_dict(self) -> dict:
         return {
@@ -365,7 +367,7 @@ class Contato(Base):
     def to_dict(self) -> dict:
         """Converte o modelo para dicionário."""
         return {
-            "id": self.id, "empresa_id": self.empresa_id, "nome": self.nome, 
+            "id": self.id, "empresa_id": self.empresa_id, "nome": self.nome,
             "telefone": self.telefone, "email": self.email, "cargo": self.cargo
         }
 
@@ -384,7 +386,7 @@ class Negociacao(Base):
     titulo: Mapped[Optional[str]] = mapped_column(String(200), nullable=True)
     descricao: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     status: Mapped[StatusNegociacao] = mapped_column(
-        Enum(StatusNegociacao, values_callable=lambda x: [e.value for e in x]), 
+        Enum(StatusNegociacao, values_callable=lambda x: [e.value for e in x]),
         default=StatusNegociacao.NOVO, nullable=False
     )
     modo_operacao: Mapped[ModoOperacao] = mapped_column(
@@ -435,7 +437,7 @@ class Orcamento(Base):
     negociacao_id: Mapped[int] = mapped_column(ForeignKey("negociacoes.id"), nullable=False, index=True)
     numero: Mapped[Optional[str]] = mapped_column(String(50), nullable=True, unique=True)
     status: Mapped[StatusOrcamento] = mapped_column(
-        Enum(StatusOrcamento, values_callable=lambda x: [e.value for e in x]), 
+        Enum(StatusOrcamento, values_callable=lambda x: [e.value for e in x]),
         default=StatusOrcamento.EM_ELABORACAO, nullable=False
     )
     valor_total: Mapped[Optional[Decimal]] = mapped_column(Numeric(15, 2), nullable=True)

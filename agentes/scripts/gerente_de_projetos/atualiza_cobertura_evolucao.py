@@ -226,7 +226,6 @@ def construir_resumo(sprints: list[dict], peso_reqs: dict) -> dict:
 
     if sprints:
         ultimo = sprints[-1].get("por_req") or {}
-        valores = [parse_pct(v) for v in ultimo.values()]
         acima_50 = [k for k, v in ultimo.items() if parse_pct(v) >= 50]
         entre_25_49 = [k for k, v in ultimo.items() if 25 <= parse_pct(v) < 50]
         abaixo_25 = [k for k, v in ultimo.items() if parse_pct(v) < 25]

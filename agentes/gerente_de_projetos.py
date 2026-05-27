@@ -73,7 +73,11 @@ class GerenteDeProjetos(BaseAgente):
             )
 
         diretrizes_path = Path(self.projeto_root) / self.DIRETRIZES_MD
-        diretrizes = diretrizes_path.read_text(encoding="utf-8") if diretrizes_path.exists() else "(nenhuma diretriz registrada ainda)"
+        if diretrizes_path.exists():
+            diretrizes = diretrizes_path.read_text(encoding="utf-8")
+        else:
+            diretrizes = "(nenhuma diretriz registrada ainda)"
+
         return f"{identidade}\n\n---\n\n{diretrizes}"
 
     def get_contexto(self) -> dict:
@@ -222,7 +226,7 @@ class GerenteDeProjetos(BaseAgente):
 
         conteudo = f"""# 📋 Relatório de Status do Projeto
 
-**Data**: {datetime.now().strftime("%Y-%m-%d %H:%M")}  
+**Data**: {datetime.now().strftime("%Y-%m-%d %H:%M")}
 **Gerado por**: Gerente de Projetos
 
 ## Visão Geral por Agente
@@ -235,7 +239,12 @@ class GerenteDeProjetos(BaseAgente):
             total_artefatos += dados["total_artefatos"]
             total_pendencias += dados["pendencias_abertas"]
 
-            emoji = "🟢" if dados["pendencias_abertas"] == 0 and dados["total_artefatos"] > 0 else "🟡" if dados["total_artefatos"] > 0 else "⚪"
+            if dados["total_artefatos"] == 0:
+                emoji = "⚪"
+            elif dados["pendencias_abertas"] == 0:
+                emoji = "🟢"
+            else:
+                emoji = "🟡"
 
             conteudo += f"""### {emoji} {agente}
 - **Artefatos**: {dados["total_artefatos"]} | **Pendências abertas**: {dados["pendencias_abertas"]}
@@ -258,7 +267,9 @@ class GerenteDeProjetos(BaseAgente):
 *Para o Sprint Review, use `gerar_dados_sprint_yaml()` e gere a apresentação com `gera_sprint_report.py`.*
 """
 
-        return str(self.criar_artefato(f"relatorio_status_{datetime.now().strftime('%Y%m%d_%H%M')}.md", conteudo, tipo="relatorio_status"))
+        return str(self.criar_artefato(
+            f"relatorio_status_{datetime.now().strftime('%Y%m%d_%H%M')}.md", conteudo, tipo="relatorio_status"
+        ))
 
     def listar_historico(self, dias: int = 7) -> list:
         """Lista histórico de interações dos últimos N dias."""
@@ -338,6 +349,9 @@ class GerenteDeProjetos(BaseAgente):
         with open(arquivo_pendencias, "w", encoding="utf-8") as f:
             json.dump(pendencias, f, ensure_ascii=False, indent=2)
 
-        self.registrar_interacao(tipo="criacao_pendencia", conteudo=f"Pendência criada para {agente}: {descricao}", participantes=[self.nome, agente])
+        self.registrar_interacao(
+            tipo="criacao_pendencia", conteudo=f"Pendência criada para {agente}: {descricao}",
+            participantes=[self.nome, agente]
+        )
 
         return pendencia

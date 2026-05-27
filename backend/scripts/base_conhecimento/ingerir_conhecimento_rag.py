@@ -215,13 +215,13 @@ async def ingerir(
 
         embeddings: list[list[float]] = []
         if total_embed > 0:
-            print(f"[ingestao] gerando {total_embed} embedding(s) em lotes de " 
+            print(f"[ingestao] gerando {total_embed} embedding(s) em lotes de "
                 f"{tamanho_lote} (provider={provider.nome} modelo={provider.modelo})")
             textos = [c["conteudo"] for c in para_inserir + para_atualizar]
             embeddings = await gerar_embeddings_em_lote(textos, provider, tamanho_lote, stats)
 
             if len(embeddings) != total_embed:
-                raise RuntimeError("Quantidade de embeddings retornada difere do esperado:" 
+                raise RuntimeError("Quantidade de embeddings retornada difere do esperado:"
                     f" {len(embeddings)} != {total_embed}")
 
         offset = 0
@@ -265,8 +265,8 @@ async def ingerir(
 
         if desativar_removidos:
             a_desativar = [
-                id_externo 
-                for id_externo, prev in existentes.items() 
+                id_externo
+                for id_externo, prev in existentes.items()
                 if id_externo not in ids_entrada and prev["ativo"]
             ]
             if a_desativar:

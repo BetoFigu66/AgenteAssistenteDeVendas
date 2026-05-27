@@ -95,7 +95,7 @@ class GeradorRespostas:
             contexto: Dict com variáveis para preencher o template
             personalizar: Se True, passa pela LLM para suavizar o tom
             mensagem_cliente: Mensagem original do cliente (para contexto à LLM)
-            template_nome: Nome identificador do template para auditoria (ex: "SAUDACAO_NOVO_CONTATO"). 
+            template_nome: Nome identificador do template para auditoria (ex: "SAUDACAO_NOVO_CONTATO").
                 Se None, tenta inferir.
 
         Returns:
@@ -146,7 +146,8 @@ class GeradorRespostas:
             pergunta_cliente: Mensagem original do cliente.
             trechos: Lista de `DocumentoRecuperado` (ou objetos com `titulo`, `conteudo`, `score`, `metadados`).
                 Quando vazia, retorna o template de fallback.
-            permitir_sugestao_produto: Se True, o prompt libera sugestao cautelosa de modelo; se False, pede apenas explicacao + coleta.
+            permitir_sugestao_produto: Se True, o prompt libera sugestao cautelosa de modelo; se False,
+            pede apenas explicacao + coleta.
             template_fallback: Template usado quando `trechos` e vazia ou quando a LLM nao esta disponivel.
             template_fallback_nome: Nome do template de fallback para auditoria.
 

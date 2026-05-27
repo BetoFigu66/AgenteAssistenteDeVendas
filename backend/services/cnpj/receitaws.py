@@ -106,7 +106,7 @@ async def consultar_cnpj(cnpj: str, timeout_s: float = 15.0) -> dict:
             dados = resp.json()
     except httpx.HTTPStatusError as e:
         if e.response.status_code == 429:
-            raise ConsultaCnpjError("Limite de consultas ReceitaWS atingido (3/min no tier grátis)." 
+            raise ConsultaCnpjError("Limite de consultas ReceitaWS atingido (3/min no tier grátis)."
             "Aguarde e tente novamente.") from e
         raise ConsultaCnpjError(f"Erro HTTP {e.response.status_code} ao consultar CNPJ") from e
     except httpx.RequestError as e:

@@ -290,8 +290,8 @@ def limpar_conversa_whatsapp(texto: str) -> tuple[str, dict[str, Any]]:
         mensagens.append(mensagem_atual)
 
     linhas_saida = [
-        f"{msg['papel'].upper()}: {msg['conteudo'].strip()}" 
-        for msg in mensagens 
+        f"{msg['papel'].upper()}: {msg['conteudo'].strip()}"
+        for msg in mensagens
         if msg["conteudo"].strip()]
     return normalizar_espacos("\n".join(linhas_saida)), {
         "mensagens": len(mensagens),

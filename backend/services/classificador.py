@@ -280,7 +280,7 @@ Classifique a mensagem do cliente em UMA das intenções:
 - fora_contexto: assunto não relacionado
 - desconhecido: intenção não clara
 
-Extraia também entidades mencionadas: cnpjs, nomes (pessoas), tipos_produto (catraca, relogio_ponto), 
+Extraia também entidades mencionadas: cnpjs, nomes (pessoas), tipos_produto (catraca, relogio_ponto),
 quantidades (números), emails.
 
 Responda APENAS com JSON neste formato:
@@ -407,7 +407,7 @@ async def classificar(
         emails=list({*entidades_regra.emails, *entidades_llm.emails}),
     )
 
-    logger.debug(f"[Classificador] Usando LLM: {intencao_llm.value} (confiança={confianca_llm}," 
+    logger.debug(f"[Classificador] Usando LLM: {intencao_llm.value} (confiança={confianca_llm},"
         " latência={latencia_ms}ms)")
 
     return ResultadoClassificacao(

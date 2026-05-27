@@ -171,7 +171,7 @@ class ProcessadorMensagem:
         )
         dlog.log(
             "intent",
-            f"intencao={resultado_class.intencao.value} confianca={resultado_class.confianca:.2f}" 
+            f"intencao={resultado_class.intencao.value} confianca={resultado_class.confianca:.2f}"
             f" via={resultado_class.origem}{_ent_str}",
         )
 
@@ -181,7 +181,7 @@ class ProcessadorMensagem:
         negociacao_inicial = self._negociacao_ativa(db, contato_inicial) if contato_inicial else None
         modo_humano = negociacao_inicial is not None and negociacao_inicial.modo_operacao == ModoOperacao.HUMANO
         if modo_humano:
-            logger.info(f"[Processador] Negociação {negociacao_inicial.id} em modo HUMANO — " 
+            logger.info(f"[Processador] Negociação {negociacao_inicial.id} em modo HUMANO — "
                 "não gerando resposta automática.")
         dlog.log("modo", "HUMANO → resposta suprimida" if modo_humano else "AGENTE")
 
@@ -732,7 +732,7 @@ def _anexar_trechos_para_auditoria(
 ) -> None:
     """Popula `trechos_rag` e `rag_score_maximo` sem alterar o texto da resposta.
 
-    Usado quando a RAG e acionada apenas para auditoria (ex: PERGUNTAR_PRECO), 
+    Usado quando a RAG e acionada apenas para auditoria (ex: PERGUNTAR_PRECO),
     mantendo o template padrao como resposta ao cliente.
     """
     if not trechos:
