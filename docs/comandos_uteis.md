@@ -488,6 +488,7 @@ winget install --id Cloudflare.cloudflared
 docker-compose up -d
 
 # Quick Tunnel (URL temporária, sem login) - frontend
+# Obs: Rodar no cmd ou powershell
 cloudflared tunnel --url http://localhost:3000
 
 # Quick Tunnel para o backend (outro terminal)
