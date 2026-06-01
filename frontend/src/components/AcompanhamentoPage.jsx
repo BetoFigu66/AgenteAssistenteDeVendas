@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { Eye, CheckCircle, XCircle, Send, UserPlus, Users, RefreshCw, Bot, User, Brain, Flag } from 'lucide-react'
+import { Eye, CheckCircle, XCircle, Send, UserPlus, Users, RefreshCw, Bot, User, Brain, Flag, Clipboard } from 'lucide-react'
 import { api } from '../services/api'
 import DetalheModal from './DetalheModal'
 import ProcessamentoDetalhes from './ProcessamentoDetalhes'
@@ -142,6 +142,54 @@ function AcompanhamentoPage() {
     } catch (error) {
       console.error('Erro ao alterar modo:', error)
       alert('Erro ao alterar modo de operação: ' + error.message)
+    }
+  }
+
+  // Copia para a area de transferencia um JSON com o contexto da mensagem,
+  // para colar no QA Runner ao reportar um bug.
+  const handleCopiarContextoQA = async (msg) => {
+    try {
+      const idx = mensagensNegociacao.findIndex(m => m.id === msg.id)
+      let perguntaCliente = null
+      let respostaSistema = null
+      if (msg.origem === 'system') {
+        respostaSistema = msg
+        perguntaCliente = mensagensNegociacao
+          .slice(0, idx)
+          .reverse()
+          .find(m => m.origem === 'user') || null
+      } else {
+        perguntaCliente = msg
+        respostaSistema = mensagensNegociacao
+          .slice(idx + 1)
+          .find(m => m.origem === 'system') || null
+      }
+      const contexto = {
+        fonte: 'AcompanhamentoPage',
+        telefone: negociacaoSelecionada?.telefone || null,
+        negociacao_id: negociacaoSelecionada?.id || null,
+        modo_operacao: modoOperacao || null,
+        capturado_em: new Date().toISOString(),
+        pergunta_cliente: perguntaCliente ? {
+          mensagem_id: perguntaCliente.id,
+          timestamp: perguntaCliente.timestamp,
+          conteudo: perguntaCliente.conteudo,
+        } : null,
+        resposta_sistema: respostaSistema ? {
+          mensagem_id: respostaSistema.id,
+          timestamp: respostaSistema.timestamp,
+          conteudo: respostaSistema.conteudo,
+          pendente_aprovacao: !!respostaSistema.pendente_aprovacao,
+          processamento_id: respostaSistema.processamento_id || null,
+        } : null,
+      }
+      const texto = JSON.stringify(contexto, null, 2)
+      await navigator.clipboard.writeText(texto)
+      // Feedback visual minimo via alert (sem dependencia extra)
+      alert('Contexto copiado. Cole no QA Runner ao reportar um bug.')
+    } catch (error) {
+      console.error('Erro ao copiar contexto QA:', error)
+      alert('Falha ao copiar contexto: ' + error.message)
     }
   }
 
@@ -512,13 +560,25 @@ function AcompanhamentoPage() {
                                 console.log('[Debug] Abrindo raciocínio:', msg.processamento_id)
                                 setProcessamentoSelecionado(msg.processamento_id)
                               }}
-                              className="ml-auto text-gray-400 hover:text-inforrel-primary transition"
+                              className={`${msg.processamento_id ? 'ml-auto' : ''} text-gray-400 hover:text-inforrel-primary transition`}
                               title="Ver raciocínio do cérebro"
                               type="button"
                             >
                               <Brain size={14} />
                             </button>
                           )}
+                          {/* Botão copiar contexto para QA Runner */}
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              handleCopiarContextoQA(msg)
+                            }}
+                            className={`${msg.processamento_id ? '' : 'ml-auto'} text-gray-400 hover:text-inforrel-primary transition`}
+                            title="Copiar contexto desta mensagem para reportar bug no QA Runner"
+                            type="button"
+                          >
+                            <Clipboard size={14} />
+                          </button>
                         </div>
                         <p className="text-gray-800 text-sm">{msg.conteudo}</p>
 
