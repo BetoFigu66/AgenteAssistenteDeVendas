@@ -105,7 +105,10 @@ def gerar_grafico(saida: Path, sprint_numero: int | None = None) -> None:
     fig, ax = plt.subplots(figsize=(10, 6))
     label_anterior = f"Concluido ate Sprint {anterior['numero']}" if anterior else "Concluido em sprints anteriores"
     ax.barh(reqs_inv, anteriores_inv, color="#2ca02c", label=f"{label_anterior} (ponderado)")
-    ax.barh(reqs_inv, delta_inv, left=anteriores_inv, color="#1f77b4", label=f"Avanco na Sprint {numero_sprint} (ponderado)")
+    ax.barh(
+        reqs_inv, delta_inv, left=anteriores_inv,
+        color="#1f77b4", label=f"Avanco na Sprint {numero_sprint} (ponderado)"
+    )
     starts_red = [a + d for a, d in zip(anteriores_inv, delta_inv)]
     ax.barh(reqs_inv, faltantes_inv, left=starts_red, color="#d62728", label="Faltante (ponderado)")
 

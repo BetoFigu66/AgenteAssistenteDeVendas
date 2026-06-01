@@ -64,7 +64,7 @@ async def lifespan(app: FastAPI):
     except Exception as e:
         logger.warning(f"Não foi possível aplicar migrations automaticamente: {e}")
 
-    # Inicializa o cerebrio (LLM + processador)
+    # Inicializa o cérebro (LLM + processador)
     try:
         llm = get_llm_provider()
         logger.info(f"LLM Provider inicializado: {llm.nome} ({settings.LLM_MODEL})")
