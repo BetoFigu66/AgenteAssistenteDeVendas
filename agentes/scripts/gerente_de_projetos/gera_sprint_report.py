@@ -6,6 +6,7 @@ from datetime import datetime
 from pathlib import Path
 
 import yaml
+from gera_grafico_cobertura_ponderada import _saida_para_sprint, _ultima_sprint_numero, gerar_grafico
 from pptx import Presentation
 from pptx.oxml.ns import qn
 
@@ -36,7 +37,6 @@ def _gerar_grafico_png(nome: str, sprint_numero: int | None) -> Path:
       - cobertura_ponderada: barras empilhadas (realizado/faltante por REQ).
     """
     if nome == "cobertura_ponderada":
-        from gera_grafico_cobertura_ponderada import gerar_grafico, _saida_para_sprint, _ultima_sprint_numero
         numero = sprint_numero if sprint_numero is not None else _ultima_sprint_numero()
         saida = _saida_para_sprint(numero)
         gerar_grafico(saida, sprint_numero=numero)

@@ -51,3 +51,11 @@ max-args = 5
 max-branches = 12
 max-returns = 5
 max-statements = 50
+
+[tool.qa.max-lines-per-extension]
+# Limite máximo de linhas por extensão de arquivo (verificado pelo QAEngineer)
+py = 900
+yaml = 800
+yml = 800
+txt = 1500
+md = 1500

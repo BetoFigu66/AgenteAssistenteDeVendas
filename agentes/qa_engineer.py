@@ -10,6 +10,7 @@ Responsabilidades:
 """
 
 import ast
+import json
 import os
 import re
 from dataclasses import dataclass, field
@@ -17,6 +18,14 @@ from pathlib import Path
 from typing import Callable, Dict, Iterable, List, Optional
 
 from .base_agente import BaseAgente
+
+try:
+    import tomllib
+except ModuleNotFoundError:
+    try:
+        import tomli as tomllib
+    except ModuleNotFoundError:
+        tomllib = None
 
 # ----------------------------------------------------------------------
 # Infra de checks: resultado padronizado + registry global.
@@ -170,6 +179,89 @@ def _check_gitkeep_redundantes(raiz: Path) -> CheckResult:
                 else "Nenhum .gitkeep redundante."
         ),
         dica_correcao="Remova os arquivos .gitkeep listados (o diretorio ja tem conteudo).",
+    )
+
+
+@registrar_check(
+    id="max-linhas-por-extensao",
+    titulo="Arquivos excedendo o limite maximo de linhas por extensao",
+    severidade="warning",
+    escopos=["sempre", "pre-commit"],
+)
+def _check_max_linhas_por_extensao(raiz: Path) -> CheckResult:
+    """
+    Verifica se arquivos excedem o limite de linhas configurado no pyproject.toml.
+
+    Configuracao esperada (exemplo):
+        [tool.qa.max-lines-per-extension]
+        py = 900
+        yaml = 800
+        txt = 1500
+    """
+    if tomllib is None:
+        return CheckResult(
+            passou=True,
+            mensagem="tomllib/tomli nao disponivel; check ignorado.",
+        )
+
+    pyproject = raiz / "pyproject.toml"
+    if not pyproject.exists():
+        return CheckResult(
+            passou=True,
+            mensagem="pyproject.toml nao encontrado; check ignorado.",
+        )
+
+    try:
+        with pyproject.open("rb") as f:
+            config = tomllib.load(f)
+    except Exception as exc:
+        return CheckResult(
+            passou=False,
+            severidade="warning",
+            mensagem=f"Erro ao ler pyproject.toml: {exc}",
+            dica_correcao="Verifique sintaxe do pyproject.toml.",
+        )
+
+    limites = config.get("tool", {}).get("qa", {}).get("max-lines-per-extension", {})
+    if not limites:
+        return CheckResult(
+            passou=True,
+            mensagem="[tool.qa.max-lines-per-extension] nao configurado; check ignorado.",
+        )
+
+    excedentes: List[str] = []
+    comandos: List[str] = []
+
+    # Mapeia extensao (com ponto) -> limite
+    limites_normalizado = {ext if ext.startswith(".") else f".{ext}": limite for ext, limite in limites.items()}
+
+    for arquivo in _iter_arquivos(raiz):
+        if _deve_ignorar(arquivo, raiz):
+            continue
+        ext = arquivo.suffix.lower()
+        limite = limites_normalizado.get(ext)
+        if limite is None:
+            continue
+        try:
+            with arquivo.open("r", encoding="utf-8", errors="replace") as f:
+                total_linhas = sum(1 for _ in f)
+        except (OSError, UnicodeDecodeError):
+            continue
+        if total_linhas > limite:
+            rel = str(arquivo.relative_to(raiz)).replace("\\", "/")
+            excedentes.append(f"{rel} ({total_linhas} linhas, limite {limite})")
+            comandos.append(f"wc -l {rel}")
+
+    return CheckResult(
+        passou=not excedentes,
+        findings=excedentes,
+        comandos_uteis=comandos,
+        mensagem=(
+            f"{len(excedentes)} arquivo(s) excede(m) o limite de linhas"
+            if excedentes
+            else "Nenhum arquivo excede o limite de linhas."
+        ),
+        dica_correcao="Quebre arquivos grandes em modulos menores ou ajuste o limite em pyproject.toml.",
     )
 
 
@@ -565,6 +657,7 @@ class QAEngineer(BaseAgente):
         self,
         escopo: Optional[str] = None,
         check_id: Optional[str] = None,
+        formato: str = "dict",
     ) -> Dict:
         """
         Executa os checks registrados e retorna o relatorio consolidado.
@@ -573,6 +666,8 @@ class QAEngineer(BaseAgente):
             escopo: Filtra checks pelo escopo (pre-commit, pre-push, release, sempre).
                 Se None, roda TODOS os registrados.
             check_id: Se informado, roda apenas o check com esse id (ignora escopo).
+            formato: "dict" (padrao) retorna o dicionario; "json" retorna string
+                JSON formatada com indentacao, pronta para print.
 
         Returns:
             Dict com:
@@ -627,7 +722,7 @@ class QAEngineer(BaseAgente):
                 elif severidade_efetiva == "warning":
                     falharam_warning += 1
 
-        return {
+        relatorio = {
             "resultados": resultados,
             "total": len(checks),
             "passaram": passaram,
@@ -635,6 +730,9 @@ class QAEngineer(BaseAgente):
             "falharam_warning": falharam_warning,
             "bloqueia_commit": falharam_error > 0,
         }
+        if formato == "json":
+            return json.dumps(relatorio, indent=2, ensure_ascii=False)
+        return relatorio
 
     def revisar_documentacao(self, artefatos: List[str]) -> Dict:
         """
