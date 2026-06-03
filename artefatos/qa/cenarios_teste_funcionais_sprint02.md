@@ -205,6 +205,43 @@ Após **Execute**, o esperado é `Code: 200`. Em seguida, abrir o painel para ve
 **Resultado esperado:** o modal mostra trechos da base de conhecimento; a resposta gerada cita prazo (ou explicita falta de informação).
 **Status:** [ ]
 
+#### CTF-002-08 — Pergunta sobre catálogo da empresa é atendida pela base de Q&A
+**Cobre:** REQ-002.1, REQ-002.1A (caso 1 — confiança alta)
+**Pré-condição:** existir par Q&A aprovado e ativo equivalente a `"Quais produtos a Inforrel vende?"` (criar via `Base de Q&A` se necessário).
+**Passos:**
+1. Enviar `"Quais produtos a Inforrel vende?"` pelo telefone `5511999990020`.
+2. Abrir o modal de raciocínio da resposta no painel.
+**Resultado esperado:**
+- O sistema **responde** ao cliente com o conteúdo da Q&A (não retorna "não entendi").
+- O modal mostra a categoria classificada como **pergunta sobre produto/serviço/empresa** com confiança alta (rota direta para REQ-003).
+- O modal **não** indica fallback acionado (campo "fallback via REQ-003" = não aplicável ou false).
+**Status:** [ ]
+
+#### CTF-002-09 — Fallback condicional acionado em mensagem ambígua
+**Cobre:** REQ-002.1A (caso 2 — fallback por baixa confiança)
+**Pré-condição:** existir par Q&A aprovado equivalente ao tema da mensagem (ex.: catálogo, prazo, formas de pagamento). Mensagem propositalmente ambígua que tende a confundir o classificador.
+**Passos:**
+1. Enviar uma mensagem ambígua que toque em produto/serviço sem ser claramente uma pergunta direta — ex.: `"queria saber sobre as catracas de vocês"` pelo telefone `5511999990021`.
+2. Abrir o modal de raciocínio.
+**Resultado esperado:**
+- Se a confiança do classificador for **alta** em alguma categoria → comportamento conforme essa categoria (sem fallback).
+- Se a confiança for **baixa** ou retornar "não identificado" → o modal indica que houve **fallback via REQ-003**, mostra a confiança original do classificador, e a resposta entregue ao cliente vem da base.
+- **Em nenhum caso** o sistema deve responder "não entendi" sem antes ter tentado o fallback (anti-padrão do REQ-002.1A).
+**Status:** [ ]
+
+#### CTF-002-10 — Anti-padrão: fallback NÃO acontece em resposta de qualificação
+**Cobre:** REQ-002.1A (anti-padrão — não consultar REQ-003 em toda mensagem)
+**Pré-condição:** conversa em curso com qualificação ativa (ex.: sistema acabou de perguntar "qual a quantidade de catracas?").
+**Passos:**
+1. Em uma conversa já em qualificação, responder `"5"` ao prompt do sistema (telefone `5511999990022`).
+2. Abrir o modal de raciocínio dessa resposta.
+**Resultado esperado:**
+- Mensagem é classificada como **resposta a pergunta de qualificação em curso** (categoria 2 do REQ-002.1).
+- O campo "quantidade" é capturado na negociação.
+- O modal **não** indica consulta à base de Q&A nem trechos de RAG anexados (REQ-003 não foi acionado).
+- A resposta do agente **não** mistura conteúdo da base com a confirmação da qualificação.
+**Status:** [ ]
+
 ---
 
 ### REQ-003 — RAG / respostas automáticas
