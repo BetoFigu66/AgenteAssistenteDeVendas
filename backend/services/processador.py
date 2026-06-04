@@ -479,7 +479,23 @@ class ProcessadorMensagem:
                 dlog=dlog,
             )
 
-        # Fallback
+        # Fallback: tenta QA/RAG antes de NAO_ENTENDI
+        par = await self._buscar_resposta_qa(conteudo_cliente, dlog=dlog)
+        if par is not None:
+            if dlog:
+                dlog.log(
+                    "qa_decisao",
+                    f"hit QA (fallback) id={par.id_externo} score={par.score:.4f}",
+                )
+            return RespostaGerada(
+                texto=par.resposta,
+                template_usado="qa_pair",
+                personalizado_via_llm=False,
+                rag_utilizada=True,
+                trechos_rag=[par.to_dict()],
+                rag_score_maximo=par.score,
+            )
+
         if dlog:
             dlog.log("rota", f"intencao={intencao.value} não mapeada → NAO_ENTENDI")
         return await self._gerador.gerar(
