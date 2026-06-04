@@ -180,6 +180,112 @@ function carregarStatusLocal() {
 function salvarStatusLocal() {
   localStorage.setItem(STORAGE_KEY_STATUS, JSON.stringify(state.status));
   localStorage.setItem(STORAGE_KEY_BUGS, JSON.stringify(state.bugsPorCenario));
+  agendarSalvarStatusPasta();
+}
+
+// ---------------- Persistencia compartilhada (pasta de bugs) ------------
+// Sempre que o status mudar, escrevemos dois arquivos na pasta de bugs:
+//   _status_execucao.json  (re-importavel, fonte da verdade entre maquinas)
+//   _status_execucao.md    (tabela legivel para abrir no GitHub/IDE)
+// Assim, quem abrir a mesma pasta (ou olhar o repo) ve o estado real.
+
+let _saveTimer = null;
+function agendarSalvarStatusPasta() {
+  if (!state.pastaBugsHandle) return;
+  clearTimeout(_saveTimer);
+  _saveTimer = setTimeout(() => {
+    salvarStatusNaPasta().catch(e => console.error("auto-save status:", e));
+  }, 500);
+}
+
+async function salvarStatusNaPasta() {
+  if (!state.pastaBugsHandle) return;
+  if (!state.cenarios.length) return; // sem plano carregado nada a salvar
+  await escreverArquivoNaPasta(
+    "_status_execucao.json",
+    JSON.stringify(montarStatusJson(), null, 2)
+  );
+  await escreverArquivoNaPasta(
+    "_status_execucao.md",
+    montarStatusMd()
+  );
+}
+
+async function escreverArquivoNaPasta(nome, conteudo) {
+  const fh = await state.pastaBugsHandle.getFileHandle(nome, { create: true });
+  const w = await fh.createWritable();
+  await w.write(conteudo);
+  await w.close();
+}
+
+function montarStatusJson() {
+  return {
+    versao: 1,
+    plano: state.planoNome,
+    atualizado_em: new Date().toISOString(),
+    cenarios: state.cenarios.map(c => ({
+      id: c.id,
+      titulo: c.titulo,
+      cobre: c.cobre,
+      status: getStatus(c.id),
+      observacao: getObs(c.id),
+      bugs: state.bugsPorCenario[c.id] || [],
+    })),
+  };
+}
+
+function montarStatusMd() {
+  const totais = { PENDENTE: 0, OK: 0, FAIL: 0, "N/A": 0 };
+  for (const c of state.cenarios) totais[getStatus(c.id)]++;
+  const stamp = new Date().toISOString().slice(0, 16).replace("T", " ");
+  const total = state.cenarios.length;
+  const linhas = [];
+  linhas.push("# Status de execucao dos cenarios de teste");
+  linhas.push("");
+  linhas.push("> Arquivo gerado automaticamente pelo QA Runner. Nao editar a mao.");
+  linhas.push(">");
+  linhas.push(`> **Plano:** \`${state.planoNome || "\u2014"}\`  `);
+  linhas.push(`> **Atualizado em:** ${stamp} (UTC)  `);
+  linhas.push(`> **Resumo:** ${total} cenarios | OK ${totais.OK} | FAIL ${totais.FAIL} | N/A ${totais["N/A"]} | Pend ${totais.PENDENTE}`);
+  linhas.push("");
+  linhas.push("| Cenario | Titulo | Cobre | Status | Observacao | Bugs |");
+  linhas.push("|---------|--------|-------|--------|------------|------|");
+  const escapeCell = s => (s || "").replace(/\|/g, "\\|").replace(/\r?\n/g, " ");
+  for (const c of state.cenarios) {
+    const st = getStatus(c.id);
+    const bugs = (state.bugsPorCenario[c.id] || []).join("<br>") || "\u2014";
+    linhas.push(
+      `| \`${c.id}\` | ${escapeCell(c.titulo)} | ${escapeCell(c.cobre)} | ${st} | ${escapeCell(getObs(c.id)) || "\u2014"} | ${bugs} |`
+    );
+  }
+  linhas.push("");
+  return linhas.join("\n");
+}
+
+async function carregarStatusDaPasta() {
+  if (!state.pastaBugsHandle) return false;
+  try {
+    const fh = await state.pastaBugsHandle.getFileHandle("_status_execucao.json", { create: false });
+    const f = await fh.getFile();
+    const obj = JSON.parse(await f.text());
+    if (!obj?.cenarios?.length) return false;
+    const msg = `Encontrei _status_execucao.json na pasta (atualizado em ${obj.atualizado_em || "?"}, ${obj.cenarios.length} cenarios).\n\n` +
+                `Carregar este estado e sobrescrever o status local deste navegador?`;
+    if (!confirm(msg)) return false;
+    state.status = {};
+    for (const c of obj.cenarios) {
+      state.status[c.id] = {
+        status: c.status || "PENDENTE",
+        obs: c.observacao || "",
+      };
+    }
+    localStorage.setItem(STORAGE_KEY_STATUS, JSON.stringify(state.status));
+    return true;
+  } catch (e) {
+    if (e.name === "NotFoundError") return false;
+    console.error("carregarStatusDaPasta:", e);
+    return false;
+  }
 }
 
 // ---------------- Parser do plano (.md) ---------------------------------
@@ -361,10 +467,15 @@ document.getElementById("btnPastaBugs").addEventListener("click", async () => {
       state.bugsPorCenario[cenarioId].push(nome);
     }
     Object.values(state.bugsPorCenario).forEach(arr => arr.sort());
+    // Tenta carregar status compartilhado (gerado por outra maquina/sessao).
+    // Se nao existir ou usuario recusar, mantem o status do localStorage local.
+    await carregarStatusDaPasta();
     salvarStatusLocal();
     document.getElementById("infoPasta").textContent = state.pastaBugsHandle.name;
     document.getElementById("infoPasta").className = "text-slate-700";
     renderTabela();
+    // Garante que os arquivos _status_execucao.* existam na pasta apos selecao.
+    salvarStatusNaPasta().catch(e => console.error("save inicial:", e));
   } catch (e) {
     if (e.name !== "AbortError") console.error(e);
   }

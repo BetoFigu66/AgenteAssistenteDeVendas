@@ -1,0 +1,513 @@
+{
+  "versao": 1,
+  "plano": "cenarios_teste_funcionais_sprint02.md",
+  "atualizado_em": "2026-06-04T20:14:50.927Z",
+  "cenarios": [
+    {
+      "id": "CTF-001-01",
+      "titulo": "Cliente envia mensagem com CNPJ válido",
+      "cobre": "REQ-001.1, REQ-001.2, REQ-001.3, REQ-001.7",
+      "status": "OK",
+      "observacao": "",
+      "bugs": []
+    },
+    {
+      "id": "CTF-001-02",
+      "titulo": "Mensagem sem CNPJ válido",
+      "cobre": "REQ-001.2",
+      "status": "OK",
+      "observacao": "A mensagem que enviou foi \"Hmm, não consegui validar esse CNPJ. Pode conferir e me enviar novamente?\"",
+      "bugs": []
+    },
+    {
+      "id": "CTF-001-03",
+      "titulo": "Reuso de empresa já consultada",
+      "cobre": "REQ-001.7, REQ-002.10",
+      "status": "FAIL",
+      "observacao": "",
+      "bugs": [
+        "CTF-001-03-01.md"
+      ]
+    },
+    {
+      "id": "CTF-001-04",
+      "titulo": "Empresa visível em consulta direta",
+      "cobre": "REQ-001.7",
+      "status": "OK",
+      "observacao": "Está sendo exibido o CNPJ. Penso que o ideal é exibir o nome da empresa.",
+      "bugs": []
+    },
+    {
+      "id": "CTF-001-05",
+      "titulo": "Empresa associada à negociação",
+      "cobre": "REQ-001.5",
+      "status": "PENDENTE",
+      "observacao": "",
+      "bugs": []
+    },
+    {
+      "id": "CTF-002-01",
+      "titulo": "Saudação",
+      "cobre": "REQ-002.1",
+      "status": "OK",
+      "observacao": "",
+      "bugs": []
+    },
+    {
+      "id": "CTF-002-02",
+      "titulo": "Pergunta sobre preço aciona base de conhecimento",
+      "cobre": "REQ-002.1, REQ-003 (geração)",
+      "status": "PENDENTE",
+      "observacao": "",
+      "bugs": []
+    },
+    {
+      "id": "CTF-002-03",
+      "titulo": "Quantidade e tipo de produto extraídos",
+      "cobre": "REQ-002.2, REQ-002.3, REQ-002.3A",
+      "status": "FAIL",
+      "observacao": "",
+      "bugs": [
+        "CTF-002-03-01.md"
+      ]
+    },
+    {
+      "id": "CTF-002-04",
+      "titulo": "E-mail extraído",
+      "cobre": "REQ-002.2",
+      "status": "FAIL",
+      "observacao": "",
+      "bugs": [
+        "CTF-002-04-01.md"
+      ]
+    },
+    {
+      "id": "CTF-002-05",
+      "titulo": "Tipo de produto fora do catálogo suportado",
+      "cobre": "REQ-002.3A (limitação conhecida)",
+      "status": "PENDENTE",
+      "observacao": "",
+      "bugs": []
+    },
+    {
+      "id": "CTF-002-06",
+      "titulo": "Painel mostra estado dos campos da negociação",
+      "cobre": "REQ-002.3",
+      "status": "PENDENTE",
+      "observacao": "",
+      "bugs": []
+    },
+    {
+      "id": "CTF-002-07",
+      "titulo": "Pergunta livre durante qualificação consulta a base",
+      "cobre": "REQ-002.17",
+      "status": "PENDENTE",
+      "observacao": "",
+      "bugs": []
+    },
+    {
+      "id": "CTF-002-08",
+      "titulo": "Pergunta sobre catálogo da empresa é atendida pela base de Q&A",
+      "cobre": "REQ-002.1, REQ-002.1A (caso 1 — confiança alta)",
+      "status": "PENDENTE",
+      "observacao": "",
+      "bugs": []
+    },
+    {
+      "id": "CTF-002-09",
+      "titulo": "Fallback condicional acionado em mensagem ambígua",
+      "cobre": "REQ-002.1A (caso 2 — fallback por baixa confiança)",
+      "status": "PENDENTE",
+      "observacao": "",
+      "bugs": []
+    },
+    {
+      "id": "CTF-002-10",
+      "titulo": "Anti-padrão: fallback NÃO acontece em resposta de qualificação",
+      "cobre": "REQ-002.1A (anti-padrão — não consultar REQ-003 em toda mensagem)",
+      "status": "PENDENTE",
+      "observacao": "",
+      "bugs": []
+    },
+    {
+      "id": "CTF-003-01",
+      "titulo": "Pergunta técnica retorna conteúdo da base",
+      "cobre": "REQ-003.2, REQ-003.3",
+      "status": "PENDENTE",
+      "observacao": "",
+      "bugs": []
+    },
+    {
+      "id": "CTF-003-02",
+      "titulo": "Auditoria da resposta no painel",
+      "cobre": "REQ-003.5, REQ-005.6",
+      "status": "PENDENTE",
+      "observacao": "",
+      "bugs": []
+    },
+    {
+      "id": "CTF-003-03",
+      "titulo": "Par Q&A aprovado precede a base documental",
+      "cobre": "REQ-003 ↔ REQ-013",
+      "status": "FAIL",
+      "observacao": "",
+      "bugs": [
+        "CTF-003-03-01.md"
+      ]
+    },
+    {
+      "id": "CTF-003-04",
+      "titulo": "Mudança de configuração afeta busca",
+      "cobre": "REQ-014, REQ-003.2",
+      "status": "PENDENTE",
+      "observacao": "",
+      "bugs": []
+    },
+    {
+      "id": "CTF-004-01",
+      "titulo": "Cliente pede atendimento humano",
+      "cobre": "REQ-004.1, REQ-004.6",
+      "status": "PENDENTE",
+      "observacao": "",
+      "bugs": []
+    },
+    {
+      "id": "CTF-004-02",
+      "titulo": "Vendedor assume conversa pelo painel",
+      "cobre": "REQ-004.3, REQ-004.4",
+      "status": "PENDENTE",
+      "observacao": "",
+      "bugs": []
+    },
+    {
+      "id": "CTF-004-03",
+      "titulo": "Modo humano suspende respostas automáticas",
+      "cobre": "REQ-004.10",
+      "status": "PENDENTE",
+      "observacao": "",
+      "bugs": []
+    },
+    {
+      "id": "CTF-004-04",
+      "titulo": "Reclamação é detectada",
+      "cobre": "REQ-004.7",
+      "status": "PENDENTE",
+      "observacao": "",
+      "bugs": []
+    },
+    {
+      "id": "CTF-005-01",
+      "titulo": "Mensagem do cliente aparece no histórico",
+      "cobre": "REQ-005.1",
+      "status": "PENDENTE",
+      "observacao": "",
+      "bugs": []
+    },
+    {
+      "id": "CTF-005-02",
+      "titulo": "Resposta automática aparece no histórico",
+      "cobre": "REQ-005.2",
+      "status": "PENDENTE",
+      "observacao": "",
+      "bugs": []
+    },
+    {
+      "id": "CTF-005-03",
+      "titulo": "Auditoria completa por mensagem",
+      "cobre": "REQ-005.6",
+      "status": "PENDENTE",
+      "observacao": "",
+      "bugs": []
+    },
+    {
+      "id": "CTF-005-04",
+      "titulo": "Histórico por telefone",
+      "cobre": "REQ-005.5",
+      "status": "PENDENTE",
+      "observacao": "",
+      "bugs": []
+    },
+    {
+      "id": "CTF-005-05",
+      "titulo": "Listagem de negociações ativas no painel",
+      "cobre": "REQ-005.5, REQ-010.7",
+      "status": "PENDENTE",
+      "observacao": "",
+      "bugs": []
+    },
+    {
+      "id": "CTF-006-01",
+      "titulo": "Criar orçamento associado a cliente",
+      "cobre": "REQ-006.1, REQ-006.2",
+      "status": "PENDENTE",
+      "observacao": "",
+      "bugs": []
+    },
+    {
+      "id": "CTF-006-02",
+      "titulo": "Cliente pode ter múltiplos orçamentos",
+      "cobre": "REQ-006.3",
+      "status": "PENDENTE",
+      "observacao": "",
+      "bugs": []
+    },
+    {
+      "id": "CTF-006-03",
+      "titulo": "Item de orçamento",
+      "cobre": "REQ-006.4",
+      "status": "PENDENTE",
+      "observacao": "",
+      "bugs": []
+    },
+    {
+      "id": "CTF-008-01",
+      "titulo": "Webhook aceita mensagem entrante",
+      "cobre": "REQ-008.1, REQ-008.2",
+      "status": "PENDENTE",
+      "observacao": "",
+      "bugs": []
+    },
+    {
+      "id": "CTF-008-02",
+      "titulo": "Mensagens do mesmo telefone permanecem em uma conversa",
+      "cobre": "REQ-008.4",
+      "status": "OK",
+      "observacao": "Fiz o teste com o painel e deu certo, porém precisamos testar com o whatsapp pra garantir que está ok.",
+      "bugs": []
+    },
+    {
+      "id": "CTF-008-03",
+      "titulo": "Confirmação de gap: agente não envia mensagens reais",
+      "cobre": "REQ-008.5 (gap conhecido)",
+      "status": "PENDENTE",
+      "observacao": "",
+      "bugs": []
+    },
+    {
+      "id": "CTF-010-01",
+      "titulo": "Cockpit lista negociações",
+      "cobre": "REQ-010.7",
+      "status": "PENDENTE",
+      "observacao": "",
+      "bugs": []
+    },
+    {
+      "id": "CTF-010-02",
+      "titulo": "Detalhe da conversa",
+      "cobre": "REQ-010.7",
+      "status": "FAIL",
+      "observacao": "",
+      "bugs": [
+        "CTF-010-02-01.md"
+      ]
+    },
+    {
+      "id": "CTF-010-03",
+      "titulo": "Modal de raciocínio",
+      "cobre": "REQ-010.7, REQ-005.6",
+      "status": "PENDENTE",
+      "observacao": "",
+      "bugs": []
+    },
+    {
+      "id": "CTF-010-04",
+      "titulo": "Filtro por modo humano",
+      "cobre": "REQ-010.8",
+      "status": "PENDENTE",
+      "observacao": "",
+      "bugs": []
+    },
+    {
+      "id": "CTF-010-05",
+      "titulo": "Confirmação de gap: painel sem login",
+      "cobre": "REQ-010.1 (gap conhecido)",
+      "status": "PENDENTE",
+      "observacao": "",
+      "bugs": []
+    },
+    {
+      "id": "CTF-011-01",
+      "titulo": "Mensagem pendente aparece na fila",
+      "cobre": "REQ-011 (workflow)",
+      "status": "PENDENTE",
+      "observacao": "",
+      "bugs": []
+    },
+    {
+      "id": "CTF-011-02",
+      "titulo": "Aprovar uma mensagem",
+      "cobre": "REQ-011 (aprovação)",
+      "status": "PENDENTE",
+      "observacao": "",
+      "bugs": []
+    },
+    {
+      "id": "CTF-011-03",
+      "titulo": "Reprovar uma mensagem com resposta correta",
+      "cobre": "REQ-011 (reprovação) ↔ REQ-013 (criação de Q&A)",
+      "status": "PENDENTE",
+      "observacao": "",
+      "bugs": []
+    },
+    {
+      "id": "CTF-011-04",
+      "titulo": "Bug fix: mensagem reprovada não fica pendente",
+      "cobre": "REQ-011 (estabilização da Sprint 2)",
+      "status": "PENDENTE",
+      "observacao": "",
+      "bugs": []
+    },
+    {
+      "id": "CTF-011-05",
+      "titulo": "Confirmação de gap: três modos formais",
+      "cobre": "REQ-011 (gap conhecido)",
+      "status": "PENDENTE",
+      "observacao": "",
+      "bugs": []
+    },
+    {
+      "id": "CTF-012-01",
+      "titulo": "Criar report a partir do painel",
+      "cobre": "REQ-012 (criação)",
+      "status": "FAIL",
+      "observacao": "",
+      "bugs": []
+    },
+    {
+      "id": "CTF-012-02",
+      "titulo": "Filtrar reports por status",
+      "cobre": "REQ-012",
+      "status": "OK",
+      "observacao": "",
+      "bugs": []
+    },
+    {
+      "id": "CTF-012-03",
+      "titulo": "Detalhe do report",
+      "cobre": "REQ-012",
+      "status": "PENDENTE",
+      "observacao": "",
+      "bugs": []
+    },
+    {
+      "id": "CTF-012-04",
+      "titulo": "Transição de status",
+      "cobre": "REQ-012",
+      "status": "PENDENTE",
+      "observacao": "",
+      "bugs": []
+    },
+    {
+      "id": "CTF-013-01",
+      "titulo": "Listar Q&As",
+      "cobre": "REQ-013",
+      "status": "PENDENTE",
+      "observacao": "",
+      "bugs": []
+    },
+    {
+      "id": "CTF-013-02",
+      "titulo": "Criar par Q&A manualmente",
+      "cobre": "REQ-013",
+      "status": "PENDENTE",
+      "observacao": "",
+      "bugs": []
+    },
+    {
+      "id": "CTF-013-03",
+      "titulo": "Aprovar e usar par Q&A",
+      "cobre": "REQ-013, REQ-003",
+      "status": "PENDENTE",
+      "observacao": "",
+      "bugs": []
+    },
+    {
+      "id": "CTF-013-04",
+      "titulo": "Buscar Q&A no painel",
+      "cobre": "REQ-013",
+      "status": "PENDENTE",
+      "observacao": "",
+      "bugs": []
+    },
+    {
+      "id": "CTF-013-05",
+      "titulo": "Editar e desativar par",
+      "cobre": "REQ-013",
+      "status": "PENDENTE",
+      "observacao": "",
+      "bugs": []
+    },
+    {
+      "id": "CTF-013-06",
+      "titulo": "Par criado por reprovação aparece como rascunho",
+      "cobre": "REQ-013 ↔ REQ-011",
+      "status": "PENDENTE",
+      "observacao": "",
+      "bugs": []
+    },
+    {
+      "id": "CTF-014-01",
+      "titulo": "Consultar configuração atual",
+      "cobre": "REQ-014",
+      "status": "PENDENTE",
+      "observacao": "",
+      "bugs": []
+    },
+    {
+      "id": "CTF-014-02",
+      "titulo": "Alterar configuração",
+      "cobre": "REQ-014",
+      "status": "PENDENTE",
+      "observacao": "",
+      "bugs": []
+    },
+    {
+      "id": "CTF-014-03",
+      "titulo": "Configuração afeta o comportamento",
+      "cobre": "REQ-014, REQ-003",
+      "status": "PENDENTE",
+      "observacao": "",
+      "bugs": []
+    },
+    {
+      "id": "CTF-014-04",
+      "titulo": "Confirmação de gap: configuração de Q&A",
+      "cobre": "REQ-014 (gap conhecido)",
+      "status": "PENDENTE",
+      "observacao": "",
+      "bugs": []
+    },
+    {
+      "id": "CTF-014-05",
+      "titulo": "Confirmação de gap: persistência entre reinícios",
+      "cobre": "REQ-014 (gap conhecido)",
+      "status": "PENDENTE",
+      "observacao": "",
+      "bugs": []
+    },
+    {
+      "id": "CTF-E2E-01",
+      "titulo": "Conversa completa com qualificação",
+      "cobre": "REQ-001, REQ-002, REQ-003, REQ-005, REQ-008, REQ-011",
+      "status": "PENDENTE",
+      "observacao": "",
+      "bugs": []
+    },
+    {
+      "id": "CTF-E2E-02",
+      "titulo": "Reprovação vira par Q&A",
+      "cobre": "REQ-011, REQ-013, REQ-005",
+      "status": "PENDENTE",
+      "observacao": "",
+      "bugs": []
+    },
+    {
+      "id": "CTF-E2E-03",
+      "titulo": "Takeover humano interrompe agente",
+      "cobre": "REQ-004, REQ-010, REQ-005",
+      "status": "PENDENTE",
+      "observacao": "",
+      "bugs": []
+    }
+  ]
+}
