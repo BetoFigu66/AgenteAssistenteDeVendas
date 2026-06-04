@@ -1,7 +1,7 @@
 # REQ-006: Rastreamento de Orçamentos e Status de Conversão
 
-**Versão**: 1.6  
-**Data**: 2026-04-15  
+**Versão**: 1.7  
+**Data**: 2026-06-01  
 **Autor**: Kika (Analista de Requisitos)  
 **Status**: Em Elaboração  
 **Prioridade**: Média  
@@ -50,12 +50,13 @@ No POC, **todas** as transições de status do orçamento são feitas **manualme
 
 - [ ] **REQ-006.1 — Geração de identificador único do orçamento**: O sistema deve gerar um identificador único de orçamento (`orcamento_id`)
 
-- [ ] **REQ-006.2 — Associação do orçamento à conversa e ao cliente**: O sistema deve associar cada `orcamento_id` a:
+- [ ] **REQ-006.2 — Associação do orçamento à conversa, ao cliente e à negociação**: O sistema deve associar cada `orcamento_id` a:
   - `conversa_id`
   - `cliente_id` (telefone)
+  - `negociacao_id` (REQ-016) — **obrigatório**: todo orçamento pertence a exatamente uma negociação
   - Timestamp de criação
 
-- [ ] **REQ-006.3 — Múltiplos orçamentos por cliente**: O sistema deve permitir que um cliente tenha mais de um orçamento ao longo do tempo
+- [ ] **REQ-006.3 — Múltiplos orçamentos por cliente e por negociação**: O sistema deve permitir que um cliente tenha mais de um orçamento ao longo do tempo, e que uma mesma **negociação** (REQ-016) tenha múltiplos orçamentos vinculados (ex.: revisões, alternativas dentro da mesma intencao de compra). A numeração sequencial human-friendly da negociação (REQ-016.3) substitui a necessidade de numéros sequenciais próprios no orçamento.
 
 - [ ] **REQ-006.4 — Registro do conteúdo do orçamento enviado**: Para cada orçamento que chegar ao status `enviado` (REQ-006.5), o sistema deve persistir uma evidência do que foi entregue ao cliente, de forma que seja possível reconstituir o orçamento futuramente (consulta, auditoria e análise de conversão).
   - **Modos de armazenamento aceitos** (pelo menos um, conforme o caso):
@@ -136,6 +137,7 @@ No POC, **todas** as transições de status do orçamento são feitas **manualme
 - **REQ-002**: dados coletados durante a qualificação devem poder ser ligados ao orçamento
 - **REQ-004**: se houve escalonamento, deve constar no histórico do orçamento (quando aplicável)
 - **REQ-005**: eventos `orcamento_criado`, `orcamento_enviado`, `orcamento_convertido`, `orcamento_perdido` devem ser registrados como eventos auditáveis
+- **REQ-016**: todo orçamento pertence a uma negociação (`negociacao_id` obrigatório em REQ-006.2); o desfecho do orçamento (`convertido`/`perdido`) influencia transições de estado da negociação (REQ-016.4)
 
 ---
 
@@ -207,6 +209,7 @@ No POC, **todas** as transições de status do orçamento são feitas **manualme
 | 12/05/2026 | 1.4 | Atualização da referência ao painel administrativo no REQ-006.8 para apontar ao REQ-010 (Painel Administrativo POC), recém-criado | Kika |
 | 12/05/2026 | 1.5 | Esclarecimento de que no POC **todas** as transições de status do orçamento são manuais pelo vendedor no painel (REQ-010), inclusive `rascunho` → `enviado`; não há detecção automática de envio nesta fase (descrição em §2 e REQ-006.8 atualizados) | Kika |
 | 13/05/2026 | 1.6 | Decisão de produto registrada: **geração do orçamento** (cálculo, PDF/planilha, condições comerciais) permanece **manual e fora do escopo do POC**; o REQ-006 cobre apenas rastreamento. Atualizações em §2 (Descrição) e §7 (Limitações Aceitas no POC); será tratada em REQ futuro específico quando entrar em escopo | Kika |
+| 01/06/2026 | 1.7 | Vinculação ao novo REQ-016 (Negociações): REQ-006.2 agora exige `negociacao_id` obrigatório em todo orçamento; REQ-006.3 esclarece que múltiplos orçamentos podem pertencer à mesma negociação (revisões/alternativas) e que a numeração human-friendly fica no nível da negociação (REQ-016.3). Seção 5 atualizada com integração ao REQ-016. | Kika |
 
 ---
 

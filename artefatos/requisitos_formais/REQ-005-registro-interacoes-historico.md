@@ -1,7 +1,7 @@
 # REQ-005: Registro Completo de Interações e Histórico de Conversas
 
-**Versão**: 1.7  
-**Data**: 2026-05-06  
+**Versão**: 1.8  
+**Data**: 2026-06-01  
 **Autor**: Kika (Analista de Requisitos)  
 **Status**: Em Elaboração  
 **Prioridade**: Alta  
@@ -122,9 +122,16 @@ O objetivo é permitir rastreabilidade, revisão de conversas críticas e melhor
   - Quantidade de equipamentos / faixa de funcionários
   - Conteúdo das mensagens trocadas (REQ-005.1 e REQ-005.2)
 
+  **Dados pessoais com tratamento específico** (permitidos, mas com regras próprias de coleta, mascaramento e retenção):
+  - **CPF** — coleta, validação e tratamento LGPD definidos em **REQ-015**. Este requisito (REQ-005) deve respeitar:
+    - Mascaramento obrigatório em logs operacionais, modal de raciocinio (REQ-005.6) e exportações (ex.: `***.456.789-**`); CPF completo só aparece em telas estritamente necessárias ao orçamento
+    - Não indexar pelo RAG (REQ-003) nem ecoar em respostas automáticas
+    - Retenção conforme REQ-015.13 (vida útil da relação comercial / obrigação legal)
+    - Resultado da consulta de débitos (REQ-015.3) também sob mascaramento; persistir apenas o agregado, nunca a resposta crua do provedor
+
   **Dados sensíveis** (o sistema **não** deve solicitar ativamente, extrair, indexar nem usar em respostas automáticas):
-  - CPF e demais documentos de pessoa física (RG, CNH, título de eleitor)
-  - Nome completo e endereço residencial de pessoa física
+  - Demais documentos de pessoa física (RG, CNH, título de eleitor)
+  - Nome completo e endereço residencial de pessoa física (quando não forem o próprio endereço de entrega/instalação)
   - Data de nascimento
   - Dados bancários e de pagamento (cartão, conta, PIX, senhas, tokens)
   - Categorias especiais (saúde, religião, orientação política/sexual, biometria, etc.)
@@ -221,6 +228,7 @@ O objetivo é permitir rastreabilidade, revisão de conversas críticas e melhor
 | 12/05/2026 | 1.5 | Atualização das menções a "dashboard" para referenciar o REQ-010 (Painel Administrativo POC), distinguindo consulta básica (já coberta) de relatórios analíticos (futuros) | Kika |
 | 12/05/2026 | 1.6 | REQ-005.3: refinamento dos gatilhos de `Finalização` — encerramento manual do vendedor pelo painel (REQ-010) ou abandono por inatividade (REQ-002.22); esclarecido que a marcação de orçamento como `enviado` (REQ-006.8) não encerra a conversa por si só | Kika |
 | 13/05/2026 | 1.7 | REQ-005.4 expandido com a lista explícita dos **eventos do ciclo de orçamento** (`orcamento_criado`, `orcamento_enviado`, `orcamento_convertido`, `orcamento_perdido`), seus payloads mínimos e referências cruzadas a REQ-006.x; título do REQ-005.4 atualizado para refletir o novo escopo | Kika |
+| 01/06/2026 | 1.8 | REQ-005.8: CPF removido da lista de "dados sensíveis proibidos" e movido para nova categoria "dados pessoais com tratamento específico", com regras de mascaramento, não indexação pelo RAG e retenção referenciando REQ-015. Demais documentos de PF (RG, CNH, dados bancários, categorias especiais) permanecem na lista de proibidos. Ajuste decorrente do suporte a orçamento para Pessoa Física (REQ-015 + REQ-002.2A). | Kika |
 
 ---
 

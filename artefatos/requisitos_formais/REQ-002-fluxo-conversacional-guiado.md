@@ -1,7 +1,7 @@
 # REQ-002: Fluxo Conversacional Guiado
 
-**Versão**: 1.17  
-**Data**: 2026-05-08  
+**Versão**: 1.20  
+**Data**: 2026-06-03  
 **Autor**: Kika (Analista de Requisitos)  
 **Status**: Em Elaboração  
 **Prioridade**: Alta  
@@ -57,7 +57,41 @@ O sistema deve conduzir conversas de forma estruturada, porém **adaptativa**, c
 
   Este requisito é a **porta de entrada** do sistema: nenhuma mensagem do cliente deve ser processada sem antes passar por essa classificação. As regras específicas de cada fluxo (REQ-002.17, REQ-003.1, REQ-004.1) descrevem **o que fazer após** o roteamento.
 
+- [ ] **REQ-002.1A — Fallback condicional para classificação ambígua ou de baixa confiança**: O classificador do REQ-002.1 deve, junto com a categoria escolhida, expor um indicador de **confiança** (ou equivalente) na decisão. O sistema deve aplicar a seguinte ordem de tratamento:
+
+  **Caso 1 — Confiança alta**: rotear diretamente para o fluxo correspondente (REQ-002, REQ-003 ou REQ-004), sem consultas adicionais.
+
+  **Caso 2 — Confiança baixa OU classificador retornou "não identificado"**: antes de devolver mensagem de fallback genérica ao cliente, o sistema deve **tentar uma consulta à base de respostas automáticas (REQ-003)** como último recurso de compreensão:
+  - Se REQ-003 retornar resposta com **confiança aceitável** (par Q&A aprovado ou trecho de RAG com score acima do limiar configurado em REQ-014) → entrega a resposta ao cliente, registrando no modal de raciocínio (REQ-005.6) que houve **fallback via REQ-003** e qual foi a confiança do classificador original.
+  - Se REQ-003 **também** não retornar resposta confiável → segue para o tratamento de ambígua/não entendida já previsto em REQ-002.21 (pedir esclarecimento ao cliente; após tentativas esgotadas, escalar via REQ-004.9).
+
+  **Caso 3 — Confiança alta em categoria diferente de REQ-003, mas a mensagem contém clara forma interrogativa de produto/empresa** (heurística opcional): o sistema **pode** consultar REQ-003 como complemento da resposta, sem substituir o roteamento principal. Esta heurística é opcional e não deve ser aplicada em respostas a perguntas de qualificação em curso (categoria 2 do REQ-002.1) para evitar poluição de respostas.
+
+  **Justificativa**: o REQ-002.1 é válido como contrato arquitetural de roteamento, mas erros de classificação em casos limites (ex.: "Quais produtos a Inforrel vende?" — deveria ser categoria 3, mas pode ser confundida com categoria 1 por conter a palavra "produtos") não devem fazer o sistema desistir prematuramente. O REQ-003 é acionado **condicionalmente** como rede de segurança, não como caminho default — preservando custo, latência e auditabilidade do REQ-002.1 nos casos de alta confiança.
+
+  **Anti-padrão explícito**: é **incorreto** consultar REQ-003 em **toda** mensagem recebida (sem condicional de confiança), pois isso (i) dilui a responsabilidade do classificador, (ii) introduz custo e latência desnecessários em mensagens corretamente classificadas, (iii) pode poluir respostas de qualificação em curso (categoria 2) com trechos irrelevantes da base, e (iv) torna o roteamento não-auditável.
+
+  **Auditoria**: cada decisão de fallback deve ser registrada em REQ-005.6 contendo:
+  - categoria escolhida pelo classificador e sua confiança
+  - se houve fallback para REQ-003 (sim/não)
+  - resultado do fallback (resposta entregue / pediu esclarecimento / escalou)
+
+  **Calibração complementar**: este requisito não substitui a necessidade de manter o **prompt do classificador** com exemplos canonicos cobrindo cada categoria, especialmente casos limítrofes (ex.: "quais produtos vocês vendem?" → categoria 3; "quero comprar produtos" → categoria 1). O fallback existe para os casos genuinamente ambíguos, não para compensar prompt mal calibrado.
+
 - [ ] **REQ-002.2 — Identificar dados iniciais do cliente e armazená-los**: Sistema deve analisar a mensagem inicial e **pré-preencher** os dados já fornecidos pelo cliente (quando identificáveis)
+
+- [ ] **REQ-002.2A — Identificar tipo de cliente (Pessoa Física ou Pessoa Jurídica)**: Logo após a intenção de orçamento ser detectada (REQ-002.1) e antes de pedir documento fiscal, o sistema deve identificar se o solicitante é **Pessoa Física (PF)** ou **Pessoa Jurídica (PJ)**.
+
+  **Regras de inferência**:
+  - Se a mensagem inicial mencionar CNPJ, razão social, nome fantasia ou termos como "empresa", "minha empresa", "para a empresa", "escritório", "loja" → **PJ**
+  - Se a mensagem mencionar CPF, ou termos como "para mim", "residencial", "para minha casa", "pessoa física" → **PF**
+  - Em caso de ambiguidade, o sistema deve perguntar diretamente: "O orçamento é para uma **empresa** (CNPJ) ou para **pessoa física** (CPF)?"
+
+  **Roteamento**:
+  - **PJ** → segue REQ-001 (consulta CNPJ na Receita Federal)
+  - **PF** → segue REQ-015 (validação de CPF e consulta de débitos)
+
+  Os dois fluxos são mutuamente exclusivos na mesma conversa: nunca se pede CNPJ e CPF ao mesmo tempo. Se o cliente trocar de tipo no meio da conversa (ex: começa como PF e depois informa CNPJ da empresa), o sistema deve fazer uma confirmação pontual e reiniciar a coleta do documento fiscal apropriado, preservando os demais campos já capturados.
 
 - [ ] **REQ-002.3 — Controle de estado dos campos de qualificação**: Sistema deve manter um conjunto de informações necessárias para orçamento (campos) e marcar cada campo como:
   - Capturado
@@ -84,11 +118,14 @@ O sistema deve conduzir conversas de forma estruturada, porém **adaptativa**, c
   Quando o modelo não estiver claro, o sistema deve perguntar diretamente, oferecendo a lista de opções válidas para o tipo de produto correspondente.
 
 - [ ] **REQ-002.3C — Coletar informações adicionais para orçamento**: O sistema deve coletar os dados complementares que não pertencem nem ao tipo/modelo nem ao endereço de entrega:
+  - **Nome do solicitante** — **obrigatório para PF** (substitui a função identificadora da razão social, que existe apenas para PJ); **recomendado para PJ** quando informado pelo cliente (útil para tratamento personalizado, mas não bloqueia a qualificação se ausente)
   - Quantidade ou faixa de pessoas (funcionários/usuários)
   - Software de controle existente (controle de ponto ou controle de acesso), quando aplicável — quando o cliente mencionar um software, o sistema deve capturar o nome e, se necessário, pedir confirmação
   - Contato para envio do orçamento (e-mail e/ou telefone)
 
   Esta etapa aciona as regras específicas REQ-002.14 (faixa de funcionários em controle de ponto sem software), REQ-002.14A (quantidade de equipamentos em controle de acesso sem software) e REQ-002.15 (quantidade opcional para catraca com software existente). A flexibilidade de formato da quantidade/faixa é tratada pela validação em REQ-002.6.
+
+  **Observação sobre o nome do solicitante PF**: o nome capturado aqui é usado, entre outros, como identificador do cliente no painel administrativo (REQ-010.7A) substituindo o papel que a razão social cumpre para PJ. Por se tratar de dado pessoal, segue as mesmas regras LGPD aplicáveis ao CPF (REQ-015.13) no que diz respeito a uso restrito ao orçamento e não indexação pelo RAG (REQ-003).
 
 - [ ] **REQ-002.3D — Coletar informações de endereço de entrega/instalação**: O sistema deve coletar o endereço completo onde o produto será entregue ou instalado:
   - Logradouro, número, complemento, bairro
@@ -99,8 +136,10 @@ O sistema deve conduzir conversas de forma estruturada, porém **adaptativa**, c
 
 - [ ] **REQ-002.4 — Mecanismo geral de definição de perguntas dinâmicas**: Sistema deve solicitar **apenas** os campos pendentes (perguntas dinâmicas), podendo alterar a ordem conforme o contexto
 
-- [ ] **REQ-002.5 — Sumarização de dados de orçamento**: Visão consolidada dos campos coletados pelas etapas REQ-002.2, REQ-002.3A, REQ-002.3B, REQ-002.3C e REQ-002.3D. O sistema só deve considerar a qualificação concluída quando todos os campos abaixo estiverem capturados ou marcados como não aplicáveis:
-  - CNPJ (integrado com REQ-001) — capturado em REQ-002.2
+- [ ] **REQ-002.5 — Sumarização de dados de orçamento**: Visão consolidada dos campos coletados pelas etapas REQ-002.2, REQ-002.3A, REQ-002.3B, REQ-002.3C e REQ-002.3D. O conjunto de campos varia conforme o tipo de cliente identificado em REQ-002.2A. O sistema só deve considerar a qualificação concluída quando todos os campos abaixo estiverem capturados ou marcados como não aplicáveis.
+
+  **Campos comuns (PF e PJ)**:
+  - Tipo de cliente (PF/PJ) — capturado em REQ-002.2A
   - Tipo de produto/serviço — capturado em REQ-002.3A
   - Modelo/especificação do produto — capturado em REQ-002.3B
   - Quantidade/faixa de pessoas (obrigatória para controle de ponto e controle de acesso) — capturado em REQ-002.3C
@@ -108,8 +147,18 @@ O sistema deve conduzir conversas de forma estruturada, porém **adaptativa**, c
   - Contato para orçamento — capturado em REQ-002.3C
   - Endereço de entrega/instalação — capturado em REQ-002.3D
 
+  **Campos específicos para PJ**:
+  - CNPJ (integrado com REQ-001) — capturado em REQ-002.2 ou perguntado em REQ-002.2A
+  - Razão social / nome fantasia (consequência da consulta REQ-001.3)
+
+  **Campos específicos para PF**:
+  - CPF (integrado com REQ-015) — capturado em REQ-002.2 ou perguntado em REQ-002.2A
+  - Nome do solicitante (PF não tem razão social; o nome é pedido em REQ-002.3C como parte do contato)
+  - Indicador de restrição financeira (consequência da consulta REQ-015.3) — informação interna, não exibida ao cliente
+
 - [ ] **REQ-002.6 — Validação de respostas capturadas**: Sistema deve validar cada resposta capturada antes de considerar o campo como completo:
-  - Formato de CNPJ
+  - Formato de CNPJ (REQ-001.2)
+  - Formato e dígitos verificadores de CPF (REQ-015.2)
   - Modelo de produto válido
   - Endereço completo
   - E-mail/telefone válidos
@@ -117,11 +166,13 @@ O sistema deve conduzir conversas de forma estruturada, porém **adaptativa**, c
 
 ### 4.2 Regras de Negócio
 
-- [ ] **REQ-002.10 — Reuso de CNPJ já validado**: Se cliente já tiver CNPJ validado (REQ-001), sistema não deve pedir CNPJ novamente, a menos que haja conflito de dados, como:
-  - Cliente informar um CNPJ diferente em mensagem posterior (retificação)
-  - Cliente solicitar explicitamente troca (ex: matriz vs filial)
-  - CNPJ consultado retornar dados que contradizem fortemente o contexto informado (ex: cliente afirma ser Empresa X, mas o CNPJ retorna outra razão social)
-  Nesses casos, o sistema deve fazer uma confirmação pontual (ex: “Você mencionou dois CNPJs diferentes. Qual devo usar para o orçamento?”)
+- [ ] **REQ-002.10 — Reuso de documento fiscal já validado**: Se cliente já tiver **CNPJ** (REQ-001) ou **CPF** (REQ-015) validado em conversa anterior do mesmo telefone, o sistema não deve pedir o documento novamente, a menos que haja conflito de dados, como:
+  - Cliente informar um documento diferente em mensagem posterior (retificação)
+  - Cliente solicitar explicitamente troca (ex: matriz vs filial; PF vs PJ)
+  - Documento consultado retornar dados que contradizem fortemente o contexto informado (ex: cliente afirma ser Empresa X, mas o CNPJ retorna outra razão social)
+  - Mudança de tipo de cliente (PF→PJ ou PJ→PF) detectada em REQ-002.2A
+
+  Nesses casos, o sistema deve fazer uma confirmação pontual (ex: “Você mencionou dois CNPJs diferentes. Qual devo usar para o orçamento?” ou “Antes você fez orçamento como pessoa física; agora é para uma empresa?”)
 
 - [ ] **REQ-002.14 — Faixa de funcionários em controle de ponto sem software**: Para controle de ponto (relógio de ponto), se o cliente não tiver software de controle de ponto, o sistema deve solicitar a faixa de funcionários (resposta obrigatória) para concluir a qualificação
 
@@ -351,6 +402,9 @@ Cliente: "Facial."
 | 11/05/2026 | 1.15 | Criação do REQ-002.22 (Tratamento de abandono de conversa pelo cliente): inatividade de 24h, mensagem única de reengajamento, finalização em 72h totais, preservação dos dados e oferta de retomada quando o mesmo cliente voltar | Kika |
 | 12/05/2026 | 1.16 | REQ-002.16 esclarecido: a confirmação do **CNPJ** é coberta pelo REQ-001.4 (não duplicar); o eco do REQ-002.16 trata apenas dos demais campos extraídos, podendo ser consolidado em uma única mensagem de resumo | Kika |
 | 13/05/2026 | 1.17 | REQ-002.21 enriquecido com política de retry (até 2 esclarecimentos por campo), uso de opções enumeradas, fallback via REQ-004.9 após esgotar tentativas, proteção contra falso positivo (perguntas do REQ-002.17) e registro auditavel | Kika |
+| 01/06/2026 | 1.18 | Suporte a Pessoa Física: criação de REQ-002.2A (identificação PF/PJ e roteamento para REQ-001 ou REQ-015); REQ-002.5 reescrito com dois conjuntos de campos (PJ/PF) e campos comuns; REQ-002.6 ampliado para incluir validação de CPF; REQ-002.10 generalizado para "documento fiscal" (CNPJ ou CPF) com nova regra de mudança de tipo PF↔PJ. Integra com novo REQ-015 (validação de CPF e consulta de débitos). | Kika |
+| 01/06/2026 | 1.19 | REQ-002.3C: inclusão explícita do **nome do solicitante** como campo coletado (obrigatório para PF, recomendado para PJ), com nota sobre uso como identificador no painel (REQ-010.7A) e tratamento LGPD análogo ao CPF. Ajuste decorrente da identificação do cliente no cabeçalho da tela de conversa para PF. | Kika |
+| 03/06/2026 | 1.20 | Criação do REQ-002.1A (fallback condicional para classificação ambígua ou de baixa confiança): formaliza que o classificador deve expor confiança junto com a categoria; quando confiança for baixa ou "não identificado", o sistema tenta REQ-003 como **último recurso** antes de pedir esclarecimento ou escalar (REQ-002.21 / REQ-004.9); anti-padrão explícito proibindo consulta indiscriminada ao REQ-003 em toda mensagem; auditoria de fallback obrigatória em REQ-005.6. Ajuste decorrente de bug observado: pergunta "Quais produtos a Inforrel vende?" caiu em "não entendi" mesmo havendo Q&A correspondente. | Kika |
 
 ---
 

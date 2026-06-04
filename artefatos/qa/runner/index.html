@@ -239,9 +239,13 @@ function renderTabela() {
         return `<button data-acao="status" data-id="${c.id}" data-valor="${v}"
                 class="text-xs px-1.5 py-0.5 rounded ${COR_STATUS[v]} ${ativo}">${v}</button>`;
       }).join(" ");
-      const bugsHtml = bugs.length
+      const bugsLista = bugs.length
         ? bugs.map(b => `<div class="text-xs font-mono text-slate-600">${b}</div>`).join("")
         : `<span class="text-xs text-slate-400">—</span>`;
+      const btnNovoBug = `<button data-acao="novo-bug" data-id="${c.id}"
+        class="mt-1 text-[10px] px-1.5 py-0.5 rounded bg-red-50 text-red-700 hover:bg-red-100 border border-red-200"
+        title="Adicionar outro bug a este cenário">+ bug</button>`;
+      const bugsHtml = `${bugsLista}<div>${btnNovoBug}</div>`;
       return `
         <tr class="border-t hover:bg-slate-50">
           <td class="px-2 py-1 font-mono text-xs align-top">${c.id}</td>
@@ -281,6 +285,11 @@ function escapeAttr(s) {
 // ---------------- Eventos da tabela -------------------------------------
 
 document.getElementById("tbodyCenarios").addEventListener("click", ev => {
+  const btnNovoBug = ev.target.closest("button[data-acao=novo-bug]");
+  if (btnNovoBug) {
+    abrirModalBug(btnNovoBug.dataset.id);
+    return;
+  }
   const btn = ev.target.closest("button[data-acao=status]");
   if (!btn) return;
   const id = btn.dataset.id;
@@ -290,7 +299,13 @@ document.getElementById("tbodyCenarios").addEventListener("click", ev => {
   const novo = (stAtual === valor) ? "PENDENTE" : valor;
   state.status[id] = { ...(state.status[id] || {}), status: novo };
   salvarStatusLocal();
-  if (novo === "FAIL") abrirModalBug(id);
+  // Abre o modal de bug automaticamente apenas na PRIMEIRA vez que o cenario
+  // entra em FAIL (sem bugs ainda registrados). Em transicoes posteriores
+  // de PENDENTE/OK/N/A para FAIL, o usuario provavelmente esta apenas
+  // restaurando o status e ja tem bug aberto - nao queremos forcar a criacao
+  // de outro. Para adicionar outro bug, usar o botao "+ bug" na coluna Bugs.
+  const jaTemBug = (state.bugsPorCenario[id] || []).length > 0;
+  if (novo === "FAIL" && !jaTemBug) abrirModalBug(id);
   else renderTabela();
 });
 
