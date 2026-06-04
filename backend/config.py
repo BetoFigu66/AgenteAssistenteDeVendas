@@ -42,6 +42,7 @@ class Settings(BaseSettings):
     # Q&A Pairs
     QA_ENABLED: bool = True
     QA_SCORE_MINIMO: float = 0.80
+    QA_SCORE_MINIMO_FULLTEXT: float = 0.25
     QA_TOP_K: int = 3
     QA_APENAS_APROVADOS: bool = True
 

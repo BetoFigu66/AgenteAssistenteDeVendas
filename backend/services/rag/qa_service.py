@@ -21,7 +21,7 @@ from typing import Any, Optional
 
 from config import settings
 from models import ParQA, Vector
-from sqlalchemy import Float, bindparam, create_engine, select
+from sqlalchemy import Float, bindparam, create_engine, func, select
 from sqlalchemy.engine import Engine
 from sqlalchemy.orm import sessionmaker
 
@@ -66,12 +66,14 @@ class QAService:
         engine: Engine,
         top_k_padrao: int = 3,
         score_minimo_padrao: float = 0.80,
+        score_minimo_fulltext: float = 0.25,
     ):
         self._embeddings = embedding_provider
         self._engine = engine
         self._SessionLocal = sessionmaker(bind=engine, autocommit=False, autoflush=False)
         self._top_k_padrao = top_k_padrao
         self._score_minimo_padrao = score_minimo_padrao
+        self._score_minimo_fulltext = score_minimo_fulltext
 
     async def buscar(
         self,
@@ -103,6 +105,21 @@ class QAService:
         if top_k_efetivo <= 0:
             return []
 
+        # Camada 1: busca full-text nativa do PostgreSQL (sem custo de API)
+        fts_resultados = self._buscar_por_fulltext(
+            query=query,
+            top_k=top_k_efetivo,
+            contexto=contexto,
+            apenas_aprovados=apenas_aprovados,
+        )
+        if fts_resultados:
+            logger.debug(
+                "[QA] hit via full-text (ts_rank): %d resultado(s)",
+                len(fts_resultados),
+            )
+            return fts_resultados
+
+        # Camada 2: busca semantica por embedding (custo de API)
         vetor = await self._embeddings.embed_um(query)
         logger.debug(
             "[QA] embedding gerado dim=%d provider=%s",
@@ -186,6 +203,64 @@ class QAService:
             )
         return resultados
 
+    def _buscar_por_fulltext(
+        self,
+        query: str,
+        top_k: int,
+        contexto: Optional[str],
+        apenas_aprovados: bool,
+    ) -> list[ParRecuperado]:
+        """
+        Busca por similaridade textual usando PostgreSQL full-text search.
+
+        Usa ts_rank sobre a coluna pergunta_tsv (TSVECTOR) sem custo de API.
+        Retorna lista vazia se nenhum resultado atinge o score minimo.
+        """
+        if not query or not query.strip():
+            return []
+
+        tsquery = func.plainto_tsquery("portuguese_unaccent", query)
+        rank_expr = func.ts_rank(ParQA.pergunta_tsv, tsquery).label("rank")
+
+        stmt = (
+            select(ParQA, rank_expr)
+            .where(ParQA.ativo.is_(True))
+            .where(ParQA.pergunta_tsv.isnot(None))
+            .where(ParQA.pergunta_tsv.op("@@")(tsquery))
+            .order_by(rank_expr.desc())
+            .limit(top_k)
+        )
+        if apenas_aprovados:
+            stmt = stmt.where(ParQA.aprovado.is_(True))
+        if contexto:
+            stmt = stmt.where(ParQA.contexto == contexto)
+
+        with self._SessionLocal() as session:  # type: Session
+            linhas = session.execute(stmt).all()
+
+        resultados: list[ParRecuperado] = []
+        for par, rank in linhas:
+            try:
+                rank_float = float(rank)
+            except (TypeError, ValueError):
+                logger.warning("[QA] rank invalido retornado: %r", rank)
+                continue
+            if rank_float < self._score_minimo_fulltext:
+                continue
+            resultados.append(
+                ParRecuperado(
+                    id=par.id,
+                    id_externo=par.id_externo,
+                    pergunta=par.pergunta,
+                    resposta=par.resposta,
+                    contexto=par.contexto,
+                    tags=par.tags or [],
+                    score=rank_float,
+                    distancia=1.0 - rank_float,
+                )
+            )
+        return resultados
+
 
 # ----------------------------------------------------------------------
 # Factory singleton (para uso com FastAPI Depends / app)
@@ -201,4 +276,5 @@ def get_qa_service() -> QAService:
         engine=engine,
         top_k_padrao=settings.QA_TOP_K,
         score_minimo_padrao=settings.QA_SCORE_MINIMO,
+        score_minimo_fulltext=settings.QA_SCORE_MINIMO_FULLTEXT,
     )

@@ -8,7 +8,7 @@ from decimal import Decimal
 from typing import List, Optional
 
 from sqlalchemy import JSON, Boolean, Date, DateTime, Enum, ForeignKey, Index, Integer, Numeric, String, Text
-from sqlalchemy.dialects.postgresql import ARRAY, JSONB
+from sqlalchemy.dialects.postgresql import ARRAY, JSONB, TSVECTOR
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 from sqlalchemy.types import UserDefinedType
 
@@ -595,6 +595,7 @@ class ParQA(Base):
     contexto: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
     tags: Mapped[Optional[List[str]]] = mapped_column(ARRAY(Text), nullable=True)
     embedding: Mapped[Optional[List[float]]] = mapped_column(Vector(1536), nullable=True)
+    pergunta_tsv: Mapped[Optional[str]] = mapped_column(TSVECTOR, nullable=True)
     ativo: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
     aprovado: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     criado_por: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
@@ -609,6 +610,7 @@ class ParQA(Base):
     __table_args__ = (
         Index("idx_pares_qa_contexto_ativo", "contexto", "ativo"),
         Index("idx_pares_qa_aprovado_ativo", "aprovado", "ativo"),
+        Index("idx_pares_qa_pergunta_tsv", "pergunta_tsv", postgresql_using="gin"),
     )
 
     def to_dict(self) -> dict:
