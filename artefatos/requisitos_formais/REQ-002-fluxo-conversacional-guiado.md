@@ -1,7 +1,7 @@
 # REQ-002: Fluxo Conversacional Guiado
 
-**Versão**: 1.20  
-**Data**: 2026-06-03  
+**Versão**: 1.21  
+**Data**: 2026-06-06  
 **Autor**: Kika (Analista de Requisitos)  
 **Status**: Em Elaboração  
 **Prioridade**: Alta  
@@ -57,26 +57,49 @@ O sistema deve conduzir conversas de forma estruturada, porém **adaptativa**, c
 
   Este requisito é a **porta de entrada** do sistema: nenhuma mensagem do cliente deve ser processada sem antes passar por essa classificação. As regras específicas de cada fluxo (REQ-002.17, REQ-003.1, REQ-004.1) descrevem **o que fazer após** o roteamento.
 
-- [ ] **REQ-002.1A — Fallback condicional para classificação ambígua ou de baixa confiança**: O classificador do REQ-002.1 deve, junto com a categoria escolhida, expor um indicador de **confiança** (ou equivalente) na decisão. O sistema deve aplicar a seguinte ordem de tratamento:
+- [ ] **REQ-002.1A — Fallback condicional para classificação ambígua ou de baixa confiança**: O classificador do REQ-002.1 deve, junto com a categoria escolhida, expor **dois indicadores de confiança**:
+  - `confianca` (float, `0.0` a `1.0`) — score numérico retornado pelo classificador
+  - `confianca_nivel` (enum: `alta` | `media` | `baixa`) — derivado dos limiares configuráveis em REQ-014 (`classificador_conf_alta_min`, `classificador_conf_baixa_max`), com defaults `0.70` e `0.40` respectivamente:
+    - `confianca >= classificador_conf_alta_min` → **alta**
+    - `classificador_conf_baixa_max <= confianca < classificador_conf_alta_min` → **media**
+    - `confianca < classificador_conf_baixa_max` ou categoria `"nao_identificado"` → **baixa**
 
-  **Caso 1 — Confiança alta**: rotear diretamente para o fluxo correspondente (REQ-002, REQ-003 ou REQ-004), sem consultas adicionais.
+  Opcionalmente, o classificador pode expor `justificativa_curta` (string) para auditoria (REQ-005.6).
 
-  **Caso 2 — Confiança baixa OU classificador retornou "não identificado"**: antes de devolver mensagem de fallback genérica ao cliente, o sistema deve **tentar uma consulta à base de respostas automáticas (REQ-003)** como último recurso de compreensão:
+  **Ordem de processamento obrigatória**: toda mensagem passa primeiro pelo classificador (REQ-002.1); **somente depois** o processador decide se aciona REQ-003. É **incorreto** consultar REQ-003 **antes** da classificação.
+
+  O sistema deve aplicar a seguinte ordem de tratamento **após** a classificação:
+
+  **Caso 1 — Confiança alta (`confianca_nivel = alta`)**: rotear diretamente para o fluxo correspondente (REQ-002, REQ-003 ou REQ-004), sem consultas adicionais de fallback.
+
+  **Caso 1b — Confiança média (`confianca_nivel = media`)**: **não** acionar fallback automático para REQ-003. Seguir para **REQ-002.21** (pedir esclarecimento ao cliente). Após tentativas esgotadas, escalar via REQ-004.9.
+
+  **Caso 2 — Confiança baixa OU classificador retornou "não identificado" (`confianca_nivel = baixa`)**: antes de devolver mensagem de fallback genérica ao cliente, o sistema deve **tentar uma consulta à base de respostas automáticas (REQ-003)** como último recurso de compreensão:
   - Se REQ-003 retornar resposta com **confiança aceitável** (par Q&A aprovado ou trecho de RAG com score acima do limiar configurado em REQ-014) → entrega a resposta ao cliente, registrando no modal de raciocínio (REQ-005.6) que houve **fallback via REQ-003** e qual foi a confiança do classificador original.
   - Se REQ-003 **também** não retornar resposta confiável → segue para o tratamento de ambígua/não entendida já previsto em REQ-002.21 (pedir esclarecimento ao cliente; após tentativas esgotadas, escalar via REQ-004.9).
 
-  **Caso 3 — Confiança alta em categoria diferente de REQ-003, mas a mensagem contém clara forma interrogativa de produto/empresa** (heurística opcional): o sistema **pode** consultar REQ-003 como complemento da resposta, sem substituir o roteamento principal. Esta heurística é opcional e não deve ser aplicada em respostas a perguntas de qualificação em curso (categoria 2 do REQ-002.1) para evitar poluição de respostas.
+  **Caso 3 — Confiança alta em categoria diferente de REQ-003, mas a mensagem contém clara forma interrogativa de produto/empresa** (heurística opcional): o sistema **pode** consultar REQ-003 como complemento da resposta, sem substituir o roteamento principal. Esta heurística é opcional, **fora do escopo do POC Sprint 02** (backlog), e não deve ser aplicada em respostas a perguntas de qualificação em curso (categoria 2 do REQ-002.1) para evitar poluição de respostas.
 
   **Justificativa**: o REQ-002.1 é válido como contrato arquitetural de roteamento, mas erros de classificação em casos limites (ex.: "Quais produtos a Inforrel vende?" — deveria ser categoria 3, mas pode ser confundida com categoria 1 por conter a palavra "produtos") não devem fazer o sistema desistir prematuramente. O REQ-003 é acionado **condicionalmente** como rede de segurança, não como caminho default — preservando custo, latência e auditabilidade do REQ-002.1 nos casos de alta confiança.
 
-  **Anti-padrão explícito**: é **incorreto** consultar REQ-003 em **toda** mensagem recebida (sem condicional de confiança), pois isso (i) dilui a responsabilidade do classificador, (ii) introduz custo e latência desnecessários em mensagens corretamente classificadas, (iii) pode poluir respostas de qualificação em curso (categoria 2) com trechos irrelevantes da base, e (iv) torna o roteamento não-auditável.
+  **Anti-padrão explícito**: é **incorreto** consultar REQ-003 em **toda** mensagem recebida (sem condicional de confiança), pois isso (i) dilui a responsabilidade do classificador, (ii) introduz custo e latência desnecessários em mensagens corretamente classificadas, (iii) pode poluir respostas de qualificação em curso (categoria 2) com trechos irrelevantes da base, e (iv) torna o roteamento não-auditável. **Nota de diagnóstico (v1.21)**: revisão do código em 06/06/2026 confirmou que o fluxo atual **não** consulta REQ-003 antes da classificação; o bug observado ("Quais produtos a Inforrel vende?" → "não entendi") decorre principalmente de (a) roteamento que exige identificação antes de delegar cat. 3 — ver REQ-002.1B — e (b) prompt do classificador a calibrar.
 
   **Auditoria**: cada decisão de fallback deve ser registrada em REQ-005.6 contendo:
-  - categoria escolhida pelo classificador e sua confiança
+  - categoria escolhida pelo classificador, `confianca` e `confianca_nivel`
   - se houve fallback para REQ-003 (sim/não)
   - resultado do fallback (resposta entregue / pediu esclarecimento / escalou)
 
   **Calibração complementar**: este requisito não substitui a necessidade de manter o **prompt do classificador** com exemplos canonicos cobrindo cada categoria, especialmente casos limítrofes (ex.: "quais produtos vocês vendem?" → categoria 3; "quero comprar produtos" → categoria 1). O fallback existe para os casos genuinamente ambíguos, não para compensar prompt mal calibrado.
+
+- [ ] **REQ-002.1B — Perguntas sobre produto/empresa antes da identificação fiscal**: Quando o classificador (REQ-002.1) identificar **categoria 3** (pergunta sobre produto/serviço/empresa) com confiança **alta**, o sistema deve delegar ao **REQ-003** **mesmo que o cliente ainda não tenha informado documento fiscal** (CNPJ ou CPF).
+
+  **Comportamento esperado**:
+  - Se o telefone for **novo** ou o contato existir **sem empresa vinculada**, o sistema deve **criar contato e negociação anônimos** (`empresa_id = null`, `tipo_documento = indefinido`) para registrar a conversa, **sem** bloquear a resposta com saudação genérica ou pedido imediato de CNPJ.
+  - A resposta ao cliente vem do REQ-003 (Q&A ou RAG conforme roteamento normal da cat. 3).
+  - Após o cliente informar CNPJ ou CPF em mensagem posterior, o sistema **promove** o contato/negociação existente, vinculando empresa (REQ-001) ou pessoa (REQ-015), preservando o histórico da conversa.
+  - Este requisito prepara o suporte a **Pessoa Física** (REQ-002.2A / REQ-015): a negociação pode existir antes da identificação fiscal, seja PJ ou PF.
+
+  **O que não muda**: categorias 1, 2 e 4 continuam exigindo o fluxo de qualificação/identificação conforme REQ-002.2 em diante. Apenas cat. 3 com confiança alta tem tratamento especial pré-identificação.
 
 - [ ] **REQ-002.2 — Identificar dados iniciais do cliente e armazená-los**: Sistema deve analisar a mensagem inicial e **pré-preencher** os dados já fornecidos pelo cliente (quando identificáveis)
 
@@ -405,6 +428,7 @@ Cliente: "Facial."
 | 01/06/2026 | 1.18 | Suporte a Pessoa Física: criação de REQ-002.2A (identificação PF/PJ e roteamento para REQ-001 ou REQ-015); REQ-002.5 reescrito com dois conjuntos de campos (PJ/PF) e campos comuns; REQ-002.6 ampliado para incluir validação de CPF; REQ-002.10 generalizado para "documento fiscal" (CNPJ ou CPF) com nova regra de mudança de tipo PF↔PJ. Integra com novo REQ-015 (validação de CPF e consulta de débitos). | Kika |
 | 01/06/2026 | 1.19 | REQ-002.3C: inclusão explícita do **nome do solicitante** como campo coletado (obrigatório para PF, recomendado para PJ), com nota sobre uso como identificador no painel (REQ-010.7A) e tratamento LGPD análogo ao CPF. Ajuste decorrente da identificação do cliente no cabeçalho da tela de conversa para PF. | Kika |
 | 03/06/2026 | 1.20 | Criação do REQ-002.1A (fallback condicional para classificação ambígua ou de baixa confiança): formaliza que o classificador deve expor confiança junto com a categoria; quando confiança for baixa ou "não identificado", o sistema tenta REQ-003 como **último recurso** antes de pedir esclarecimento ou escalar (REQ-002.21 / REQ-004.9); anti-padrão explícito proibindo consulta indiscriminada ao REQ-003 em toda mensagem; auditoria de fallback obrigatória em REQ-005.6. Ajuste decorrente de bug observado: pergunta "Quais produtos a Inforrel vende?" caiu em "não entendi" mesmo havendo Q&A correspondente. | Kika |
+| 06/06/2026 | 1.21 | REQ-002.1A refinado: confiança exposta como float + enum `alta`/`media`/`baixa` com limiares em REQ-014; nível **media** → esclarecimento (REQ-002.21) sem fallback REQ-003; ordem obrigatória classificar→decidir; Caso 3 marcado fora do POC; nota de diagnóstico sobre causa real do bug (roteamento pré-identificação + prompt). Criação do REQ-002.1B: cat. 3 com confiança alta atendida via REQ-003 antes do documento fiscal, com contato/negociação anônimos e promoção posterior. | Beto |
 
 ---
 

@@ -206,15 +206,17 @@ Após **Execute**, o esperado é `Code: 200`. Em seguida, abrir o painel para ve
 **Status:** [ ]
 
 #### CTF-002-08 — Pergunta sobre catálogo da empresa é atendida pela base de Q&A
-**Cobre:** REQ-002.1, REQ-002.1A (caso 1 — confiança alta)
-**Pré-condição:** existir par Q&A aprovado e ativo equivalente a `"Quais produtos a Inforrel vende?"` (criar via `Base de Q&A` se necessário).
+**Cobre:** REQ-002.1, REQ-002.1A (caso 1 — confiança alta), REQ-002.1B (cat. 3 antes do documento fiscal)
+**Pré-condição:** existir par Q&A aprovado e ativo equivalente a `"Quais produtos a Inforrel vende?"` (criar via `Base de Q&A` se necessário). Usar telefone **`5511999990020` sempre como contato novo** (nunca visto antes no banco de testes) — valida que cat. 3 funciona **sem** CNPJ prévio.
 **Passos:**
-1. Enviar `"Quais produtos a Inforrel vende?"` pelo telefone `5511999990020`.
-2. Abrir o modal de raciocínio da resposta no painel.
+1. Garantir que o telefone `5511999990020` **não** exista em `contatos` (limpar dados de teste anteriores se necessário).
+2. Enviar `"Quais produtos a Inforrel vende?"` por esse telefone.
+3. Abrir o modal de raciocínio da resposta no painel.
 **Resultado esperado:**
-- O sistema **responde** ao cliente com o conteúdo da Q&A (não retorna "não entendi").
-- O modal mostra a categoria classificada como **pergunta sobre produto/serviço/empresa** com confiança alta (rota direta para REQ-003).
-- O modal **não** indica fallback acionado (campo "fallback via REQ-003" = não aplicável ou false).
+- O sistema **responde** ao cliente com o conteúdo da Q&A (não retorna "não entendi" nem pede CNPJ antes de responder).
+- Foi criado contato/negociação anônimo (`empresa_id` nulo) para registrar a conversa (REQ-002.1B).
+- O modal mostra a categoria classificada como **pergunta sobre produto/serviço/empresa** com confiança **alta** (rota direta para REQ-003).
+- O modal **não** indica fallback acionado (`fallback_req003` = false ou não aplicável).
 **Status:** [ ]
 
 #### CTF-002-09 — Fallback condicional acionado em mensagem ambígua

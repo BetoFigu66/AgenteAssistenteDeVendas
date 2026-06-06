@@ -12,40 +12,40 @@
 
 O classificador da porta de entrada (REQ-002.1) errou em uma pergunta canônica que deveria cair na **categoria 3** (pergunta sobre produto/serviço/empresa) e ser delegada ao REQ-003 (RAG/Q&A). Em vez disso, devolveu fallback genérico ao cliente.
 
-A correção atual aplicada — **"sempre consultar Q&A em toda mensagem"** — é um workaround que resolve o sintoma mas:
+**Diagnóstico revisado (06/06/2026 — Beto):** revisão do código confirmou que **não existe** workaround de "consultar Q&A antes da classificação". A ordem real é sempre: identificar → classificar → decidir resposta. As causas prováveis do bug são:
 
-- Dilui a responsabilidade do classificador (anti-padrão arquitetural);
-- Aumenta custo e latência em mensagens corretamente classificadas;
-- Pode poluir respostas de qualificação em curso (categoria 2) com trechos irrelevantes da base;
-- Torna o roteamento não-auditável.
+1. **Roteamento pré-identificação** — telefone novo recebia saudação/pedido de CNPJ **antes** de delegar cat. 3 ao REQ-003 (corrigido em requisito: REQ-002.1B).
+2. **Prompt do classificador** a calibrar (exemplos cat. 1 vs 3).
+3. **Fallback condicional** (REQ-002.1A) ainda não implementado com gate de `confianca_nivel`.
 
-A solução correta tem **duas frentes em paralelo**: calibrar o classificador (causa raiz) e formalizar fallback condicional no requisito (já feito — REQ-002.1A).
+Havia um fallback QA **após** classificação, apenas para intenções não mapeadas (commit `125abcc`), sem condicional de confiança — distinto do anti-padrão "toda mensagem".
+
+A solução correta tem **três frentes**: (a) REQ-002.1B — cat. 3 antes do documento fiscal; (b) calibrar classificador; (c) fallback condicional formalizado em REQ-002.1A.
 
 ---
 
 ## 2. Próximos passos (handoff)
 
-### Passo 1 — Reverter o "sempre consulta Q&A"
+### Passo 0 — REQ-002.1B: cat. 3 antes do documento fiscal *(infra parcial no código)*
 
-Voltar o código a respeitar o roteamento por categoria do REQ-002.1. O fallback para REQ-003 deve passar a ser **condicional** conforme REQ-002.1A.
+Permitir que perguntas cat. 3 com confiança alta sejam atendidas via REQ-003 **sem CNPJ/CPF**, criando contato/negociação anônimos e promovendo depois. Infraestrutura (`empresa_id` nullable, `criar_contato_sem_empresa`, promoção ao CNPJ) já iniciada; falta ligar ao roteamento em `_decidir_resposta`.
 
-### Passo 2 — Expor confiança do classificador
+### Passo 1 — Implementar fallback condicional (REQ-002.1A)
 
-O retorno do classificador deve passar a conter, além da categoria, um indicador numérico ou enumerado de confiança (`confianca_classificacao`). Sem isso, REQ-002.1A não tem como decidir se aciona fallback.
+Substituir o fallback QA genérico (intenções não mapeadas) por decisão baseada em `confianca_nivel`, lendo limiares da tabela `parametros` via `ParametroService`:
 
-Sugestão mínima: campo float em `[0.0, 1.0]` ou enum `alta` / `media` / `baixa`. Documentar no schema do retorno.
+- **Alta** → rota direta (Caso 1).
+- **Média** → REQ-002.21 esclarecimento, **sem** REQ-003 (Caso 1b).
+- **Baixa / não identificado** → tentar REQ-003 antes de "não entendi" (Caso 2).
+- **Caso 3** → fora do POC (backlog).
 
-### Passo 3 — Implementar fallback condicional (REQ-002.1A)
+### Passo 2 — Expor confiança do classificador *(parcial — enum persistido; limiares ainda hardcoded)*
 
-Implementar os 3 casos do REQ-002.1A:
+O retorno do classificador deve conter, além da categoria, score float `[0.0, 1.0]` e enum `confianca_nivel` (`alta` / `media` / `baixa`), derivado dos limiares em `parametros` (`classificador_conf_alta_min=0.70`, `classificador_conf_baixa_max=0.40`). Pendente: integrar `ParametroService` no cálculo do nível.
 
-- **Caso 1 (confiança alta):** rota direta para o fluxo da categoria. Sem consulta extra.
-- **Caso 2 (confiança baixa ou "não identificado"):** tentar REQ-003 antes de devolver "não entendi"; se REQ-003 também não retornar resposta confiável, segue REQ-002.21 (esclarecimento) e, esgotado, REQ-004.9 (escalar humano).
-- **Caso 3 (heurística opcional):** confiança alta em outra categoria + forma interrogativa de produto pode acionar REQ-003 como complemento. **Nunca** aplicar a respostas de qualificação em curso (categoria 2).
+### Passo 3 — Calibrar o prompt do classificador (causa raiz)
 
-### Passo 4 — Calibrar o prompt do classificador (causa raiz)
-
-#### 4.1 Princípio de distinção a deixar explícito no prompt
+#### 3.1 Princípio de distinção
 
 Na prática, a confusão acontece entre **categoria 1** (intenção de compra/orçamento) e **categoria 3** (pergunta sobre produto/empresa) quando ambas mencionam "produto". Sugiro a regra:
 
@@ -53,7 +53,7 @@ Na prática, a confusão acontece entre **categoria 1** (intenção de compra/or
 - **Verbo de compra/desejo do cliente** ("quero", "preciso", "gostaria de", "tô precisando", "vou comprar", "fechar") + quantidade explícita ou contexto de uso → **categoria 1**.
 - Forma puramente **interrogativa de catálogo** ("quais", "que tipos de", "vocês têm", "tem alguma...") → **categoria 3**.
 
-#### 4.2 Exemplos canônicos para incluir no prompt
+#### 3.2 Exemplos canônicos
 
 Recomendo embutir uma seção `## Exemplos` no prompt do classificador, com pelo menos os pares abaixo:
 
@@ -81,13 +81,13 @@ Recomendo embutir uma seção `## Exemplos` no prompt do classificador, com pelo
 - `"Estou muito insatisfeito com o atendimento"` → categoria 4
 - `"Preciso reclamar do produto que recebi"` → categoria 4
 
-#### 4.3 Casos limítrofes que valem mencionar no prompt
+#### 3.3 Casos limítrofes
 
 - `"Vocês têm catracas? Preciso de 5"` → **categoria 1** (a intenção de compra com quantidade prevalece sobre a pergunta inicial).
 - `"Catracas"` (mensagem solta, sem verbo) → **categoria 3** se confiança alta na interpretação como "vocês têm catracas?"; caso contrário, baixa confiança e cai no fallback do REQ-002.1A.
 - `"Quero saber sobre catracas"` → **categoria 3** (interesse em informação, não compra explícita).
 
-#### 4.4 Saída esperada
+#### 3.4 Saída esperada
 
 O classificador deve retornar, para cada mensagem:
 
@@ -101,7 +101,7 @@ O classificador deve retornar, para cada mensagem:
 
 A `justificativa_curta` pode ser exibida no modal de raciocínio (REQ-005.6) e ajuda a entender o motivo da classificação em casos de bug.
 
-### Passo 5 — Auditoria (REQ-005.6)
+### Passo 4 — Auditoria (REQ-005.6) *(parcial — `confianca_nivel` no banco; falta fallback no modal)*
 
 Cada mensagem processada deve registrar no modal de raciocínio:
 
@@ -112,19 +112,34 @@ Cada mensagem processada deve registrar no modal de raciocínio:
 
 Sem essa instrumentação, próximos bugs vão ficar invisíveis — voltamos a depender de o cliente reclamar para descobrir.
 
-### Passo 6 — Validação
+### Passo 5 — Validação
 
 Após implementação, executar os cenários de teste já criados em `artefatos/qa/cenarios_teste_funcionais_sprint02.md`:
 
 - **CTF-002-08** — pergunta "Quais produtos a Inforrel vende?" deve responder pela Q&A com confiança alta, sem fallback.
 - **CTF-002-09** — mensagem ambígua aciona fallback via REQ-003 quando a confiança é baixa; o sistema nunca devolve "não entendi" sem ter tentado.
-- **CTF-002-10** — anti-padrão: resposta de qualificação ("5") **não** consulta a base; valida que o fix do "sempre Q&A" foi removido.
+- **CTF-002-10** — anti-padrão: resposta de qualificação ("5") **não** consulta a base; valida gate de confiança do REQ-002.1A.
 
 ---
 
-## 3. Por que esta abordagem é melhor que "sempre consultar Q&A"
+## 3. Estado da implementação (06/06/2026)
 
-| Aspecto | "Sempre consulta Q&A" | Calibrar + REQ-002.1A |
+| Item | Status |
+|------|--------|
+| `NivelConfianca` + `confianca_nivel` no classificador | Feito |
+| Persistência `confianca_nivel` em `ProcessamentoMensagem` | Feito |
+| Tabela `parametros` + seed + `ParametroService` | Feito (não integrado ao classificador/processador) |
+| Contato/negociação anônima + promoção CNPJ | Feito (não integrado ao roteamento cat. 3) |
+| Fallback condicional REQ-002.1A | Pendente |
+| Prompt calibrado + `justificativa_curta` | Pendente |
+| Auditoria fallback no modal | Pendente |
+| CTF-002-08/09/10 | Pendente |
+
+---
+
+## 4. Por que esta abordagem é melhor que consulta indiscriminada ao REQ-003
+
+| Aspecto | Consulta indiscriminada ao REQ-003 | Calibrar + REQ-002.1A + REQ-002.1B |
 |---|---|---|
 | Resolve o caso `"Quais produtos a Inforrel vende?"` | Sim, por acaso | Sim, por design |
 | Custo por mensagem | Alto (RAG sempre roda) | Baixo (RAG só roda quando necessário) |
@@ -136,34 +151,37 @@ Após implementação, executar os cenários de teste já criados em `artefatos/
 
 ---
 
-## 4. Estimativa
+## 5. Estimativa
 
 | Atividade | Horas |
 |-----------|-------|
-| Reverter o "sempre Q&A" | 1h |
+| Reverter workaround inexistente | — |
+| REQ-002.1B (roteamento cat. 3 pré-identificação) | 3h |
+| Integrar `ParametroService` nos limiares | 1h |
 | Expor confiança no retorno do classificador | 2h |
 | Implementar fallback condicional (REQ-002.1A) | 4h |
 | Atualizar prompt do classificador com exemplos | 2h |
 | Adicionar auditoria de fallback no modal (REQ-005.6) | 2h |
 | Rodar e validar CTF-002-08, CTF-002-09, CTF-002-10 | 2h |
-| **Total** | **13h** |
+| **Total** | **15h** |
 
 ---
 
-## 5. Referências
+## 6. Referências
 
-- `artefatos/requisitos_formais/REQ-002-fluxo-conversacional-guiado.md` — REQ-002.1 (classificação) e REQ-002.1A (fallback condicional, novo na v1.20).
+- `artefatos/requisitos_formais/REQ-002-fluxo-conversacional-guiado.md` — REQ-002.1, REQ-002.1A (v1.21), REQ-002.1B (novo).
 - `artefatos/requisitos_formais/REQ-003-respostas-automaticas-rag.md` — base de respostas automáticas (Q&A + RAG).
 - `artefatos/requisitos_formais/REQ-005-registro-interacoes-historico.md` — REQ-005.6 (auditoria de respostas da IA).
-- `artefatos/requisitos_formais/REQ-014-configuracao-rag.md` — limiares de score do RAG.
+- `artefatos/requisitos_formais/REQ-014-configuracao-runtime-camadas-conhecimento.md` — limiares RAG, Q&A e classificador (`parametros`).
 - `artefatos/qa/cenarios_teste_funcionais_sprint02.md` — CTF-002-08, CTF-002-09, CTF-002-10.
 
 ---
 
-## 6. Dúvidas / decisões pendentes
+## 7. Decisões registradas (06/06/2026)
 
-- **Limiar de confiança "alta" vs "baixa"**: definir em conjunto. Sugiro começar com `>= 0.7` = alta; `< 0.7` = baixa. Ajustar após observar volume real.
-- **Limiar de score do RAG no fallback**: aproveitar o já configurado em REQ-014 (`rag_top_k` + score mínimo); não criar paralelo.
-- **Heurística do Caso 3** (confiança alta em outra categoria + forma interrogativa): você pode deixar fora do POC se julgar over-engineering. O REQ-002.1A marca como **opcional**.
-
-Quaisquer dessas dúvidas, me chama.
+- **Limiar de confiança**: três níveis — `alta` (≥ 0.70), `media` (0.40–0.69), `baixa` (< 0.40); limiares na tabela `parametros`.
+- **Comportamento `media`**: pedir esclarecimento (REQ-002.21), **sem** fallback REQ-003.
+- **Comportamento `baixa`**: fallback REQ-003 → esclarecimento → escalar (REQ-004.9).
+- **Limiar de score do RAG no fallback**: usar REQ-014 / `parametros`; não criar paralelo.
+- **Caso 3 (heurística opcional)**: **fora do POC**; backlog pós CTF-002-08/09/10.
+- **CTF-002-08**: telefone sempre **novo** (`5511999990020`); valida REQ-002.1B + classificador cat. 3 alta.
