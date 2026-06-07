@@ -1,7 +1,7 @@
 # REQ-005: Registro Completo de Interações e Histórico de Conversas
 
-**Versão**: 1.8  
-**Data**: 2026-06-01  
+**Versão**: 1.9  
+**Data**: 2026-06-06  
 **Autor**: Kika (Analista de Requisitos)  
 **Status**: Em Elaboração  
 **Prioridade**: Alta  
@@ -107,6 +107,15 @@ O objetivo é permitir rastreabilidade, revisão de conversas críticas e melhor
   - Contexto recuperado do RAG (trechos/dados utilizados)
   - Prompt/contexto enviado ao modelo (pode ser versão resumida/normalizada)
   - Resposta final enviada ao cliente
+
+  **Auditoria de classificação e fallback (REQ-002.1A)**: o modal de raciocínio de cada processamento de mensagem deve expor, além dos campos acima quando aplicável:
+  - **Intenção/categoria** escolhida pelo classificador
+  - **`confianca`** (float `0.0`–`1.0`) e **`confianca_nivel`** (`alta` | `media` | `baixa`)
+  - **`justificativa_curta`** do classificador, quando disponível
+  - **`fallback_req003`** (bool) — indica se a resposta veio de fallback condicional para REQ-003 (Caso 2 do REQ-002.1A), distinto de rota direta cat. 3 (Caso 1)
+  - **`resultado_fallback`** — quando `fallback_req003 = true` ou quando confiança média/baixa acionou tratamento especial: `resposta_entregue` | `pediu_esclarecimento` | `escalou`
+
+  Persistência mínima no POC: campos equivalentes em `ProcessamentoMensagem` (ou extensão JSON auditável). O frontend (`ProcessamentoDetalhes`) deve exibir `confianca_nivel` e os indicadores de fallback quando preenchidos.
 
 ### 4.3 Regras de Negócio
 
@@ -229,6 +238,7 @@ O objetivo é permitir rastreabilidade, revisão de conversas críticas e melhor
 | 12/05/2026 | 1.6 | REQ-005.3: refinamento dos gatilhos de `Finalização` — encerramento manual do vendedor pelo painel (REQ-010) ou abandono por inatividade (REQ-002.22); esclarecido que a marcação de orçamento como `enviado` (REQ-006.8) não encerra a conversa por si só | Kika |
 | 13/05/2026 | 1.7 | REQ-005.4 expandido com a lista explícita dos **eventos do ciclo de orçamento** (`orcamento_criado`, `orcamento_enviado`, `orcamento_convertido`, `orcamento_perdido`), seus payloads mínimos e referências cruzadas a REQ-006.x; título do REQ-005.4 atualizado para refletir o novo escopo | Kika |
 | 01/06/2026 | 1.8 | REQ-005.8: CPF removido da lista de "dados sensíveis proibidos" e movido para nova categoria "dados pessoais com tratamento específico", com regras de mascaramento, não indexação pelo RAG e retenção referenciando REQ-015. Demais documentos de PF (RG, CNH, dados bancários, categorias especiais) permanecem na lista de proibidos. Ajuste decorrente do suporte a orçamento para Pessoa Física (REQ-015 + REQ-002.2A). | Kika |
+| 06/06/2026 | 1.9 | REQ-005.6 expandido com auditoria de classificação e fallback (REQ-002.1A): `confianca_nivel`, `fallback_req003`, `resultado_fallback`, `justificativa_curta`; exibição no modal de raciocínio. | Beto |
 
 ---
 

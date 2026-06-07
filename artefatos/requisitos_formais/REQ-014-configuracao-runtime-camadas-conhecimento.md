@@ -1,7 +1,7 @@
 # REQ-014: Configuração em Runtime das Camadas de Conhecimento (RAG e Q&A)
 
-**Versão**: 1.0
-**Data**: 2026-05-18
+**Versão**: 1.1
+**Data**: 2026-06-06
 **Autor**: Kika (Analista de Requisitos)
 **Status**: Em Elaboração
 **Prioridade**: Média
@@ -60,6 +60,18 @@ Este requisito **formaliza** o que está parcialmente implementado nas Sprints 1
   - `qa_score_minimo` (float, 0.0-1.0) — threshold mínimo de similaridade para um par ser usado (REQ-013.10)
   - `qa_top_k` (int, ≥1) — quantos pares são recuperados por busca
   - `qa_apenas_aprovados` (bool) — se `true`, apenas pares com `aprovado=true` participam da busca (default: `true`)
+
+- [ ] **REQ-014.2A — Parâmetros do classificador (REQ-002.1A)**: Limiares de confiança usados para derivar `confianca_nivel` e decidir fallback condicional. Devem ser consultáveis e alteráveis em runtime, com os mesmos critérios de validação da REQ-014.3:
+  - `classificador_conf_alta_min` (float, 0.0-1.0) — limiar mínimo para nível **alta** (default: `0.70`)
+  - `classificador_conf_baixa_max` (float, 0.0-1.0) — limiar máximo para nível **baixa**; valores abaixo disso (e até `classificador_conf_alta_min`) formam a zona **media** (default: `0.40`)
+
+  **Persistência no POC**: tabela `parametros` (`nome`, `valor`, `descricao`) no Postgres, lida via serviço de configuração (`ParametroService`). Seed inicial na migration Alembic. Integração com `GET/PATCH /api/config/rag` (ou endpoint dedicado) pode ser incremental — o mínimo aceito no POC é leitura/escrita via banco com efeito na próxima mensagem processada.
+
+- [ ] **REQ-014.2B — Parâmetros de zona cinza Q&A** (busca híbrida full-text + embedding): thresholds usados pelo `QAService` para decidir responder direto, desambiguar ou descartar:
+  - `qa_fulltext_responde_min`, `qa_fulltext_desambigua_min`
+  - `qa_embedding_responde_min`, `qa_embedding_desambigua_min`
+
+  Mesma persistência da REQ-014.2A (tabela `parametros`). Defaults conservadores definidos no seed da migration.
 
 - [ ] **REQ-014.3 — Validação de valores**: Toda alteração deve validar:
   - `*_score_minimo`: valor entre `0.0` e `1.0` (inclusive)
@@ -141,8 +153,25 @@ Este requisito **formaliza** o que está parcialmente implementado nas Sprints 1
 | `qa_score_minimo` | float | `0.80` | 0.0 - 1.0 |
 | `qa_top_k` | int | `3` | ≥ 1 |
 | `qa_apenas_aprovados` | bool | `true` | true/false |
+| `classificador_conf_alta_min` | float | `0.70` | 0.0 - 1.0 |
+| `classificador_conf_baixa_max` | float | `0.40` | 0.0 - 1.0 |
+| `qa_fulltext_responde_min` | float | `0.30` | 0.0 - 1.0 |
+| `qa_fulltext_desambigua_min` | float | `0.12` | 0.0 - 1.0 |
+| `qa_embedding_responde_min` | float | `0.80` | 0.0 - 1.0 |
+| `qa_embedding_desambigua_min` | float | `0.65` | 0.0 - 1.0 |
 
-### 5.2 Tabela `configuracao_runtime` (sugerida)
+### 5.2 Tabela `parametros` (implementada no POC)
+
+| Campo | Tipo | Notas |
+|-------|------|-------|
+| `nome` | string | PK lógica; chave do parâmetro (ex: `classificador_conf_alta_min`) |
+| `valor` | text | Valor serializado como string; cast na leitura (int/float/bool) |
+| `descricao` | text | Documentação operacional |
+| `updated_at` | datetime | Última alteração |
+
+> **Nota:** REQ-014.9 previa `configuracao_runtime`; no POC Sprint 02 a persistência efetiva usa `parametros`. Unificação ou migração para um único modelo fica como evolução futura.
+
+### 5.3 Tabela `configuracao_runtime` (sugerida — evolução)
 
 | Campo | Tipo | Notas |
 |-------|------|-------|
@@ -151,7 +180,7 @@ Este requisito **formaliza** o que está parcialmente implementado nas Sprints 1
 | `atualizado_em` | datetime | Última alteração |
 | `atualizado_por` | string | Usuário responsável |
 
-### 5.3 Tabela `historico_configuracao` (sugerida)
+### 5.4 Tabela `historico_configuracao` (sugerida)
 
 | Campo | Tipo | Notas |
 |-------|------|-------|
@@ -287,6 +316,7 @@ Este requisito **formaliza** o que está parcialmente implementado nas Sprints 1
 | Data | Versão | Alteração | Autor |
 |------|--------|-----------|-------|
 | 18/05/2026 | 1.0 | Criação inicial do requisito formalizando o mecanismo de configuração runtime das camadas de conhecimento (RAG e Q&A). Endpoints `GET/PATCH /api/config/rag` e settings em `backend/config.py` parcialmente implementados nas Sprints 1-2; este REQ expande para cobrir parâmetros de Q&A, toggles `enabled`, persistência entre reinícios e auditoria de alterações. | Kika |
+| 06/06/2026 | 1.1 | REQ-014.2A (limiares do classificador REQ-002.1A) e REQ-014.2B (zona cinza Q&A); tabela `parametros` documentada como persistência efetiva no POC; defaults de seed alinhados à migration `2026060601`. | Beto |
 
 ---
 
