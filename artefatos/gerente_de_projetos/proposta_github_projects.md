@@ -1,10 +1,10 @@
 # Proposta: GitHub Projects para planejamento e acompanhamento
 
-**Versão:** 0.1 (rascunho para discussão)  
-**Data:** 2026-06-07  
+**Versão:** 0.2  
+**Data:** 2026-06-08  
 **Autor:** Beto (`[gerente]`)  
 **Revisar com:** Kika  
-**Status:** 🟡 Aguardando aprovação  
+**Status:** ✅ Aprovada em 08/06/2026 (D1–D4 fechadas; D5 fica para sprint futura)  
 
 ---
 
@@ -29,7 +29,7 @@ Introduzir **GitHub Projects** como quadro operacional do time (planejamento, ex
 - **Cadência:** sprint de 14 dias (diretriz G02).
 - **Requisitos:** 16 REQs formais (`REQ-001` … `REQ-016`).
 - **Testes:** plano funcional Sprint 02 com 62 cenários `CTF-XXX-YY` (`cenarios_teste_funcionais_sprint02.md`).
-- **Bugs abertos (2026-06-04):** 6 cenários em `FAIL` com arquivos `.md` na pasta `artefatos/qa/bugs/`:
+- **Bugs abertos (2026-06-08):** 5 cenários em `FAIL` com arquivos `.md` na pasta `artefatos/qa/bugs/`:
 
 | ID do bug | Cenário | REQs relacionados |
 |-----------|---------|-------------------|
@@ -38,9 +38,8 @@ Introduzir **GitHub Projects** como quadro operacional do time (planejamento, ex
 | `CTF-002-04-01` | E-mail extraído | REQ-002.2 |
 | `CTF-003-03-01` | Par Q&A precede base documental | REQ-003, REQ-013 |
 | `CTF-010-02-01` | Detalhe da conversa (painel) | REQ-010.7 |
-| *(sem .md ainda)* | `CTF-012-01` — Criar report | REQ-012 |
 
-- **Branches:** `feature/REQ-XXX-desc`, `bugfix/BUG-XXX-desc` (`politica_branches.md`).
+- **Branches:** `feature/REQ-XXX-desc`, `bugfix/<descricao-curta>` (`politica_branches.md`); ID do bug/cenário vai na mensagem de commit, não no nome da branch (D2).
 - **Time:** Beto (dev/arquitetura), Kika (QA), Rita (stakeholder — fora do board operacional).
 
 ---
@@ -82,16 +81,19 @@ Hoje coexistem `CTF-XXX-YY` (bugs do QA Runner) e `BUG-XXX` (branches). Proposta
 
 | Artefato | ID canônico | Uso |
 |----------|-------------|-----|
-| Bug de teste | **`CTF-XXX-YY`** | Título da issue, nome do `.md`, branch |
+| Bug de teste | **`CTF-XXX-YY`** | Título da issue, nome do `.md`, mensagem de commit |
 | Correção | **`#N`** (número da issue GitHub) | Referência em PR/commit |
 | Requisito | **`REQ-XXX`** | Label + campo customizado |
 | Cenário de teste | **`CTF-XXX-YY`** (cenário pai sem sufixo `-01`) | Campo `Cenário` na issue de bug |
 
-**Branch de bugfix (atualizar `politica_branches.md` após aprovação):**
+**Branch de bugfix** — nome descritivo, sem ID (decisão D2). O ID do cenário/bug vai na mensagem de commit:
 
 ```
-bugfix/CTF-002-03-01-extracao-produto
+branch:  bugfix/extracao-produto
+commit:  fix(CTF-002-03-01): corrige extracao de quantidade e tipo
 ```
+
+> Atualizar `politica_branches.md` após aprovação desta proposta.
 
 **Branch de feature (mantém):**
 
@@ -99,7 +101,7 @@ bugfix/CTF-002-03-01-extracao-produto
 feature/REQ-008-integracao-twilio
 ```
 
-> O número da issue (`#42`) entra no corpo do PR: `Closes #42`. Commits podem usar `fix: ... (CTF-002-03-01)`.
+> O número da issue (`#42`) entra no corpo do PR: `Closes #42`. Commits seguem `fix(CTF-002-03-01): ...` (D2).
 
 ### 3.4 Labels
 
@@ -308,17 +310,15 @@ gh project create --title "Assistente de Vendas — Board" --owner @me
 
 ---
 
-## 8. Decisões para a Kika (discussão)
+## 8. Decisões (Kika × Beto, 08/06/2026)
 
-Marque preferência ou sugira alternativa:
-
-| # | Pergunta | Opção A (proposta) | Opção B |
-|---|----------|-------------------|---------|
-| D1 | Quem cria a issue quando o QA Runner gera o `.md`? | Kika, na mesma sessão de teste | Beto cria no triage semanal |
-| D2 | ID na branch de bugfix | `bugfix/CTF-XXX-YY-desc` | Manter `bugfix/BUG-NNN-desc` (N = issue #) |
-| D3 | Issue Done sem reteste | Não permitido | Permitido se bug óbvio (ex.: typo) |
-| D4 | CTF-012-01 sem `.md` | Kika recria FAIL no runner antes da migração | Abrir issue só com descrição manual |
-| D5 | Automação | Manual no POC | Script `scripts/sync_bugs_github.py` (fase 2) |
+| # | Pergunta | Decisão | Status |
+|---|----------|---------|--------|
+| D1 | Quem cria a issue quando o QA Runner gera o `.md`? | **Kika cria a issue na mesma sessão de teste**, logo após salvar o `.md` do bug. | ✅ Fechada |
+| D2 | ID na branch de bugfix? | **Branch tem nome descritivo curto (sem ID)**; o ID do cenário/bug (`CTF-XXX-YY`) vai na **mensagem de commit** (ex.: `fix(CTF-002-03-01): ...`). | ✅ Fechada |
+| D3 | Issue Done sem reteste? | **Permitido** apenas em bugs óbvios (ex.: typo, ajuste cosmético). Demais casos exigem reteste pela Kika antes de mover para Done. | ✅ Fechada |
+| D4 | `CTF-012-01` sem `.md` | **Não se aplica.** Foi marcação equivocada — o cenário está PENDENTE, não FAIL. Kika corrige no QA Runner. | ✅ Fechada |
+| D5 | Automação (manual vs. script `sync_bugs_github.py`) | A decidir em sprint futura, após estabilizar o fluxo manual. | ⏳ Em aberto |
 
 ---
 
