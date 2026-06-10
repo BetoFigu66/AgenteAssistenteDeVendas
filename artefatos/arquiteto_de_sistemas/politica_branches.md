@@ -1,7 +1,7 @@
 # Política de Branches e Fluxo de Trabalho
 
-**Versão**: 1.0  
-**Data**: 2026-04-20  
+**Versão**: 1.1  
+**Data**: 2026-06-08  
 **Autor**: Arquiteto de Sistemas  
 **Status**: Aprovado  
 
@@ -53,27 +53,30 @@ feature/xxx ──► develop ──► qa ──► homolog ──► main
 
 ## 3. Nomenclatura de Branches
 
-### Branches de Feature
+### Branches de Feature/Bugfix/Hotfix
 
 | Tipo | Padrão | Exemplo |
 |------|--------|---------|
-| Feature | `feature/<id>-<desc>` | `feature/REQ-008-integracao-twilio` |
-| Bugfix | `bugfix/<id>-<desc>` | `bugfix/BUG-001-timeout-webhook` |
-| Hotfix | `hotfix/<id>-<desc>` | `hotfix/HOT-001-corrige-crash-prod` |
+| Feature | `feature/<REQ-XXX>-<desc>` | `feature/REQ-008-integracao-twilio` |
+| Bugfix | `bugfix/<desc>` | `bugfix/extracao-produto` |
+| Hotfix | `hotfix/<HOT-XXX>-<desc>` | `hotfix/HOT-001-corrige-crash-prod` |
 
 ### Regras
 
-- Sempre criar a partir de `develop`
+- Sempre criar a partir de `develop` (exceto `hotfix/*`, que sai de `main`)
 - Nome em **minúsculas**, separado por **hífen**
-- Incluir **ID do requisito/bug** quando existir
-- Descrição curta e objetiva (máx. 50 caracteres)
+- **Feature**: incluir **ID do requisito** (`REQ-XXX`) no nome da branch.
+- **Bugfix**: nome descritivo, **sem ID**. O ID do cenário/bug (`CTF-XXX-YY`) vai na **mensagem de commit** (ver §3.1).
+- **Hotfix**: manter ID `HOT-XXX` no nome da branch (rastreabilidade de incidente em produção).
+- Descrição curta e objetiva (máx. 50 caracteres).
 
 ### Exemplos Válidos
 
 ```
 feature/REQ-008-integracao-twilio
 feature/REQ-003-envio-catalogo
-bugfix/BUG-012-mensagem-duplicada
+bugfix/extracao-produto
+bugfix/email-nao-extraido
 hotfix/HOT-001-corrige-timeout
 ```
 
@@ -83,8 +86,20 @@ hotfix/HOT-001-corrige-timeout
 Feature/REQ-008                    # Maiúscula
 feature/integração_twilio          # Acento e underscore
 minha-feature                      # Sem prefixo
+bugfix/CTF-002-03-01-extracao      # Bugfix nao deve ter ID no nome (use mensagem de commit)
 feature/REQ-008-implementacao-da-integracao-com-twilio-para-whatsapp  # Muito longo
 ```
+
+### 3.1 Mensagem de commit em bugfix
+
+O ID do cenário/bug aparece na **mensagem de commit**, no formato `fix(<CTF-XXX-YY>): <descricao>`:
+
+```
+fix(CTF-002-03-01): corrige extracao de quantidade e tipo
+fix(CTF-002-04-01): captura email corretamente no fluxo de qualificacao
+```
+
+No corpo do PR, referenciar a issue com `Closes #N`. A combinação `Closes #N` + `fix(CTF-XXX-YY)` garante rastreabilidade entre GitHub Issue, cenário de teste e arquivo `.md` de evidência.
 
 ---
 
@@ -205,3 +220,4 @@ Exemplo: `v1.2.3`
 | Data | Versão | Alteração | Autor |
 |------|--------|-----------|-------|
 | 2026-04-20 | 1.0 | Criação do documento | Arquiteto de Sistemas |
+| 2026-06-08 | 1.1 | Branch de bugfix passa a usar nome descritivo curto (sem ID); o ID do cenário/bug (`CTF-XXX-YY`) vai na mensagem de commit no formato `fix(CTF-XXX-YY): ...`. Feature mantém `REQ-XXX` no nome; hotfix mantém `HOT-XXX`. Decisão D2 da proposta `artefatos/gerente_de_projetos/proposta_github_projects.md`. | Beto |
