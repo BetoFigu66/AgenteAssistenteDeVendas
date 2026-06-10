@@ -538,6 +538,7 @@ cls
 $env:PATH
 ```
 
+
 ### Abrir PowerShell como Administrador (Windows)
 
 O terminal integrado do **Cursor/VSCode não roda elevado** — `cloudflared service install` e similares precisam de um terminal **fora** do IDE.
@@ -566,6 +567,69 @@ Deve aparecer o diálogo **Controle de Conta de Usuário (UAC)** → **Sim**.
 5. Política corporativa / conta sem privilégio: só um admin da máquina pode instalar o serviço.
 
 **Plano B (sem serviço):** após o reboot, subir manualmente `cloudflared tunnel run auxvendas-dev` (ver `artefatos/arquiteto_de_sistemas/disponibilizacao_auxvendas_com.md`).
+
+### Erro "execução de scripts foi desabilitada neste sistema"
+
+Sintoma: ao rodar `.\algum_script.ps1` aparece `UnauthorizedAccess` /
+`PSSecurityException` mencionando `about_Execution_Policies`.
+
+Três caminhos, do mais pontual ao mais persistente:
+
+```powershell
+# 1) Bypass apenas para esta execução (não muda nada do sistema)
+powershell -ExecutionPolicy Bypass -File .\scripts\bootstrap_github_projects.ps1
+
+# 2) Liberar para o usuário atual de uma vez (não exige admin)
+Set-ExecutionPolicy -Scope CurrentUser -ExecutionPolicy RemoteSigned
+
+# Conferir as políticas vigentes em cada escopo
+Get-ExecutionPolicy -List
+
+# 3) Se o arquivo veio com flag de "downloaded" (Zone.Identifier),
+#    desbloquear pontualmente:
+Unblock-File .\scripts\bootstrap_github_projects.ps1
+```
+
+`RemoteSigned` permite scripts locais e exige assinatura apenas em scripts
+baixados da internet — costuma ser o equilíbrio aceitável para dev no Windows.
+
+### gh CLI + jq: `--jq` quebra no Windows PowerShell 5.1
+
+Sintoma: ao rodar algo como
+`gh label list --json name --jq ".[] | select(.name==`"foo`") | .name"`
+o `gh.exe` recebe a expressão **sem as aspas internas** (e às vezes o
+pipe `|` é interpretado pelo shell), e a `jq` falha com
+`failed to parse jq expression`. Acontece no Windows PowerShell 5.1, que
+não escapa corretamente caracteres especiais (`|`, `"`) ao chamar
+executáveis nativos. **Trocar para aspa simples externa não resolve** —
+o problema é no native command argument parser, não na string.
+
+Solução robusta: **não usar `--jq`**. Trazer o JSON cru e filtrar em
+PowerShell com `ConvertFrom-Json`:
+
+```powershell
+# em vez de:
+#   gh label list --json name --jq ".[] | select(.name==`"foo`")"
+# fazer:
+
+$existing = gh label list --limit 200 --json name |
+            ConvertFrom-Json |
+            ForEach-Object { $_.name }
+
+if ($existing -contains 'foo') { ... }
+```
+
+Mesma ideia para `gh api`:
+
+```powershell
+$milestones = gh api '/repos/{owner}/{repo}/milestones?state=open' |
+              ConvertFrom-Json
+$ms = $milestones | Where-Object { $_.title -eq 'Sprint 03' }
+```
+
+Aplica-se a qualquer comando externo no Windows quando o argumento tem
+aspas e/ou pipe — não é específico de `gh`. Em PowerShell 7+ (`pwsh`) o
+problema some com `$PSNativeCommandArgumentPassing = 'Standard'`.
 
 ---
 

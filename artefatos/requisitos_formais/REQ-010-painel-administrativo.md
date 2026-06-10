@@ -76,11 +76,11 @@ Este requisito **formaliza** a interface administrativa que hoje é assumida imp
   - **Pessoa Física (PF)**: exibir o **nome do solicitante** capturado em REQ-002.3C. O CPF **nunca** deve aparecer no cabeçalho em texto pleno; quando exibido, usar mascaramento (ex.: `***.456.789-**`), conforme REQ-015.13 e REQ-005.8.
   - **Tipo não identificado** (cliente ainda não classificado em PF/PJ): exibir o telefone como identificador primário com indicador visual de "em qualificação".
 
-  **Subtítulo / metadados secundários** (sempre visíveis sob o nome principal): telefone do cliente, badge `PF` ou `PJ`, **indicador da negociação atual** no formato `Negociação #N` (REQ-016.12 — onde `N` é o `numero_negociacao_cliente`), e quando aplicável o badge `⚠️ restrição financeira` (REQ-015.7) para conversas de PF com restrição detectada.
+  **Subtítulo / metadados secundários** (sempre visíveis sob o nome principal): telefone do cliente, badge `PF` ou `PJ`, **indicador do atendimento atual** no formato `Atendimento #N` (REQ-016.14 — onde `N` é o `numero_atendimento_cliente`), e quando aplicável o badge `⚠️ restrição financeira` (REQ-015.7) para conversas de PF com restrição detectada.
 
   **Exemplo de cabeçalho consolidado**:
-  - PJ: `ACME Comercial Ltda` / `(11) 99999-0000 · PJ · Negociação #3`
-  - PF: `João da Silva` / `(11) 98888-0000 · PF · Negociação #1 · ⚠️ restrição financeira`
+  - PJ: `ACME Comercial Ltda` / `(11) 99999-0000 · PJ · Atendimento #3`
+  - PF: `João da Silva` / `(11) 98888-0000 · PF · Atendimento #1 · ⚠️ restrição financeira`
 
   **Comportamento ao trocar de tipo durante a conversa** (REQ-002.10): quando a mudança de tipo for confirmada e um novo documento fiscal coletado, o cabeçalho deve refletir o novo identificador. Conversas históricas mantêm o identificador vigente à época.
 
@@ -108,7 +108,7 @@ Este requisito **formaliza** a interface administrativa que hoje é assumida imp
 |-----|----------------------|
 | **REQ-002** | Exibe dados coletados na qualificação dentro do detalhe do orçamento e da conversa; o tipo de cliente (REQ-002.2A) e o nome do solicitante (REQ-002.3C) alimentam o cabeçalho do chat (REQ-010.7A) |
 | **REQ-001 / REQ-015** | Nome fantasia / razão social (REQ-001.3) e nome do solicitante PF (REQ-015 + REQ-002.3C) são os identificadores exibidos no cabeçalho da tela de conversa (REQ-010.7A); CPF sempre mascarado conforme REQ-015.13 |
-| **REQ-016** | Número sequencial da negociação (`numero_negociacao_cliente`) é exibido no cabeçalho do chat (REQ-010.7A), na lista de orçamentos (REQ-010.5) e no detalhe do orçamento (REQ-010.6) — conforme REQ-016.12. Painel permite navegação a partir da negociação para suas conversas e orçamentos (REQ-016.13) |
+| **REQ-016** | Número sequencial do atendimento (`numero_atendimento_cliente`) é exibido no cabeçalho do chat (REQ-010.7A), na lista de orçamentos (REQ-010.5) e no detalhe do orçamento (REQ-010.6) — conforme REQ-016.14. Painel permite navegação a partir do atendimento para suas conversas e orçamentos (REQ-016.15), e ações de encerrar/reabrir atendimento manualmente (REQ-016.8) |
 | **REQ-004** | Tela de escalonamentos (REQ-010.8) dá visibilidade de conversas que precisam de atenção humana |
 | **REQ-005** | Telas de consulta (REQ-010.7) materializam o "endpoint/admin simples" mencionado como limitação POC |
 | **REQ-006** | Painel é a interface concreta para REQ-006.8, REQ-006.11 e REQ-006.12 |
@@ -174,6 +174,7 @@ Este requisito **formaliza** a interface administrativa que hoje é assumida imp
 | 12/05/2026 | 1.0 | Criação inicial do requisito para formalizar o painel administrativo do POC, eliminando inconsistência entre REQs que assumem dashboard (REQ-006) e os que dizem "sem dashboard" (REQ-004, REQ-005, REQ-007) | Kika |
 | 01/06/2026 | 1.1 | Criação do REQ-010.7A (identificação do cliente no cabeçalho da tela de conversa): PJ exibe nome fantasia / razão social (REQ-001.3); PF exibe nome do solicitante (REQ-002.3C), com CPF sempre mascarado (REQ-015.13); subtítulo com telefone, badge PF/PJ e badge de restrição financeira (REQ-015.7); tratamento de mudança de tipo durante a conversa (REQ-002.10). Tabela de integração com requisitos atualizada para incluir REQ-001 e REQ-015. | Kika |
 | 01/06/2026 | 1.2 | REQ-010.7A: inclusão do indicador `Negociação #N` no subtítulo do cabeçalho (REQ-016.12); exemplos consolidados PF/PJ com badges. Tabela de integração ampliada para incluir REQ-016 (numeração e navegação por negociação). | Kika |
+| 09/06/2026 | 1.3 | Renomeação Negociação → Atendimento em todas as referências de UI: cabeçalho (`Atendimento #N`), exemplos PF/PJ, tabela de integração com REQ-016 v2.0. Painel passa a expor ações de encerrar/reabrir atendimento (REQ-016.8) decorrentes do novo ciclo de vida `ativo`/`encerrado`. | Beto |
 
 ---
 

@@ -95,7 +95,7 @@ REQ-012 é o **funil único** de captura de problemas do agente. REQ-011 é apen
 
   *Dependência: REQ-011.15 é opcional no POC; este subitem só entra em vigor quando REQ-011.15 for implementado.*
 
-- [ ] **REQ-012.3 — Criação manual avulsa**: O painel deve permitir criação manual de report a partir da tela de detalhes de uma negociação ou processamento, **sem** depender de uma reprovação prévia. Útil para registrar:
+- [ ] **REQ-012.3 — Criação manual avulsa**: O painel deve permitir criação manual de report a partir da tela de detalhes de um atendimento ou processamento, **sem** depender de uma reprovação prévia. Útil para registrar:
   - Problemas observados em mensagens já enviadas em `execucao_normal` (alinha com REQ-011.17)
   - Problemas estruturais (ex: classificador errou intenção; RAG trouxe trecho irrelevante; LLM travou)
   - Sugestões de melhoria que não justificam reprovação imediata
@@ -165,7 +165,7 @@ REQ-012 é o **funil único** de captura de problemas do agente. REQ-011 é apen
   - Resumo do processamento associado (intenção classificada, confiança, trechos RAG usados, resposta gerada)
   - **Janela de contexto da conversa**: mensagens **antes** e **depois** da mensagem reportada (sugestão default: 3 antes + 3 depois, configurável), para que o triador entenda o cenário
 
-- [ ] **REQ-012.12 — Vínculo bidirecional com processamento e mensagem**: A partir do detalhe de uma negociação/mensagem, deve ser possível ver os reports associados; a partir de um report, deve ser possível navegar para o processamento e a mensagem originais.
+- [ ] **REQ-012.12 — Vínculo bidirecional com processamento e mensagem**: A partir do detalhe de um atendimento/mensagem, deve ser possível ver os reports associados; a partir de um report, deve ser possível navegar para o processamento e a mensagem originais.
 
 ### 4.5 Integração com outros módulos
 

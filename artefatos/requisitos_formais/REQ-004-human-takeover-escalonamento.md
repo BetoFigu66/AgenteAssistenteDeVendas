@@ -57,10 +57,10 @@ No POC, o escalonamento deve notificar o vendedor, que responderá ao cliente pe
 
 - [ ] **REQ-004.3 — Assumir conversa iniciada de forma manual pelo vendedor**: O sistema deve suportar **takeover iniciado pela operadora** (vendedor), independente da existência de gatilhos do lado do cliente:
   - O vendedor pode solicitar assumir uma conversa em andamento a qualquer momento (POC: via procedimento combinado)
-  - Ao assumir, o sistema deve aplicar o mesmo tratamento de uma conversa escalada (REQ-004.2 e REQ-004.4): marcar a conversa como em atendimento humano, gerar resumo de contexto e bloquear respostas automáticas
+  - Ao assumir, o sistema deve aplicar o mesmo tratamento de uma conversa escalada (REQ-004.2 e REQ-004.4): marcar a conversa em modo humano, gerar resumo de contexto e bloquear respostas automáticas
   - Observação: o escalonamento iniciado por **pedido explícito do cliente** é tratado como gatilho explícito (REQ-004.1 + REQ-004.6), não por este requisito
 
-- [ ] **REQ-004.4 — Alterar conversa para estado "em atendimento humano"**: O sistema deve manter, por conversa, um **estado persistente** indicando se ela está em atendimento humano. Esse estado:
+- [ ] **REQ-004.4 — Alterar conversa para estado "em modo humano"**: O sistema deve manter, por conversa, um **estado persistente** indicando se ela está em atendimento humano. Esse estado:
   - É **ativado** no momento do handoff (REQ-004.2) ou quando o vendedor assume manualmente (REQ-004.3)
   - É **desativado** apenas quando o humano sinalizar a finalização do atendimento
   - Deve ser consultável pelos demais módulos do sistema (REQ-002, REQ-003) para decidir se podem responder automaticamente
@@ -116,7 +116,7 @@ No POC, o escalonamento deve notificar o vendedor, que responderá ao cliente pe
 
 ### 4.3 Regras de Negócio
 
-- [ ] **REQ-004.10 — Suspensão de respostas automáticas até finalização do atendimento humano**: Enquanto o estado “em atendimento humano” (REQ-004.4) estiver ativo, o sistema **não deve** gerar respostas automáticas para o cliente — nem do fluxo de qualificação (REQ-002), nem da base de conhecimento/RAG (REQ-003). O sistema só retoma respostas automáticas após o humano sinalizar a finalização do atendimento
+- [ ] **REQ-004.10 — Suspensão de respostas automáticas enquanto a conversa estiver em modo humano**: Enquanto o estado “em modo humano” (REQ-004.4) estiver ativo, o sistema **não deve** gerar respostas automáticas para o cliente — nem do fluxo de qualificação (REQ-002), nem da base de conhecimento/RAG (REQ-003). O sistema só retoma respostas automáticas após o humano sinalizar a finalização do atendimento
 
 - [ ] **REQ-004.11 — Comunicação com o cliente no momento do escalonamento**: O sistema deve enviar uma mensagem de transição ao cliente ao iniciar o escalonamento, adequando o tom ao motivo:
   - **Caso geral**: mensagem cordial informando o handoff (ex: “Perfeito, vou acionar um atendente para te ajudar e já te retorno.”)
@@ -207,7 +207,7 @@ O sistema deve gerar um resumo curto, orientado à ação, incluindo quando poss
 |-----------|-------|
 | Definir gatilhos iniciais (frases + regras) | 2h |
 | Implementar detecção de escalonamento | 3h |
-| Implementar estado “em atendimento humano” | 2h |
+| Implementar estado “em modo humano” | 2h |
 | Implementar resumo para humano | 3h |
 | Implementar notificação (POC) | 3h |
 | Testes com conversas reais | 4h |
@@ -226,6 +226,7 @@ O sistema deve gerar um resumo curto, orientado à ação, incluindo quando poss
 | 06/05/2026 | 1.4 | Fusão de REQ-004.11 (mensagem de transição) e REQ-004.12 (tom empático em reclamação) em um único requisito (REQ-004.11) sobre comunicação com o cliente no momento do escalonamento; REQ-004.12 removido | Kika |
 | 12/05/2026 | 1.5 | Atualização das menções a "dashboard" para referenciar o REQ-010 (Painel Administrativo POC), esclarecendo que o painel cobre gestão/visualização de escalonamentos mas que a resposta ao cliente continua pelo WhatsApp no POC | Kika |
 | 12/05/2026 | 1.6 | REQ-004.7 enriquecido com regra de prioridade: reclamações de pós-venda (atraso, defeito, suporte) seguem o fluxo do REQ-009 (identificação de orçamento antes do escalonamento); reclamações genéricas continuam escalando imediatamente | Kika |
+| 09/06/2026 | 1.7 | Renomeação do estado da conversa de `em atendimento humano` para `em modo humano` (decisão D6 da renomeação Negociação → Atendimento) para evitar ambiguidade com a entidade Atendimento (REQ-016 v2.0). Ajustes em REQ-004.3, REQ-004.4, REQ-004.10 e §11. | Beto |
 
 ---
 

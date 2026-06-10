@@ -32,14 +32,14 @@ param(
 $ErrorActionPreference = "Stop"
 
 function Invoke-Gh {
-  param([string[]]$Args)
-  $cmd = "gh " + ($Args -join " ")
+  param([string[]]$Arguments)
+  $cmd = "gh " + ($Arguments -join " ")
   if ($DryRun) {
     Write-Host "[DRY] $cmd" -ForegroundColor Yellow
     return
   }
   Write-Host "> $cmd" -ForegroundColor Cyan
-  & gh @Args
+  & gh @Arguments
   if ($LASTEXITCODE -ne 0) {
     throw "Falhou: $cmd (exit $LASTEXITCODE)"
   }
@@ -105,9 +105,14 @@ $labels = @(
   @{ name = "REQ-014"; color = "ededed"; desc = "Configuracao runtime camadas conhecimento" }
 )
 
+$existingLabelsJson = gh label list --limit 200 --json name 2>$null
+$existingLabelNames = @()
+if ($existingLabelsJson) {
+  $existingLabelNames = ($existingLabelsJson | ConvertFrom-Json) | ForEach-Object { $_.name }
+}
+
 foreach ($l in $labels) {
-  $existing = gh label list --limit 200 --json name --jq ".[] | select(.name==`"$($l.name)`") | .name" 2>$null
-  if ($existing) {
+  if ($existingLabelNames -contains $l.name) {
     Write-Host "  label '$($l.name)' ja existe - pulando" -ForegroundColor DarkGray
     continue
   }
@@ -120,7 +125,12 @@ foreach ($l in $labels) {
 Write-Host "`n== 6.2.2 Milestone Sprint 03 ==" -ForegroundColor Green
 
 $msTitle = "Sprint 03"
-$msExists = gh api "/repos/{owner}/{repo}/milestones?state=open" --jq ".[] | select(.title==`"$msTitle`") | .number" 2>$null
+$milestonesJson = gh api '/repos/{owner}/{repo}/milestones?state=open' 2>$null
+$msExists = $null
+if ($milestonesJson) {
+  $msMatch = ($milestonesJson | ConvertFrom-Json) | Where-Object { $_.title -eq $msTitle } | Select-Object -First 1
+  if ($msMatch) { $msExists = $msMatch.number }
+}
 if ($msExists) {
   Write-Host "  milestone '$msTitle' ja existe (#$msExists) - pulando" -ForegroundColor DarkGray
 } else {
@@ -133,39 +143,76 @@ if ($msExists) {
 Write-Host "`n== 6.3 Carga inicial: issues dos bugs FAIL ==" -ForegroundColor Green
 Write-Host "  (D1: Kika cria as issues na sessao de teste; este script eh apenas a carga inicial)" -ForegroundColor DarkGray
 
-$repoUrlBase = "https://github.com/" + (gh repo view --json nameWithOwner --jq ".nameWithOwner") + "/blob/main/artefatos/qa/bugs"
+$repoNameWithOwner = (gh repo view --json nameWithOwner | ConvertFrom-Json).nameWithOwner
+$repoUrlBase = "https://github.com/$repoNameWithOwner/blob/main/artefatos/qa/bugs"
 
-$bugs = @(
-  @{ id = "CTF-001-03-01"; titulo = "Reuso de empresa ja consultada";              req = "REQ-001"; prio = "alta"; area = "backend" }
-  @{ id = "CTF-002-03-01"; titulo = "Quantidade e tipo de produto extraidos";      req = "REQ-002"; prio = "alta"; area = "backend" }
-  @{ id = "CTF-002-04-01"; titulo = "E-mail extraido";                              req = "REQ-002"; prio = "media"; area = "backend" }
-  @{ id = "CTF-003-03-01"; titulo = "Par Q&A precede a base documental";            req = "REQ-003"; prio = "alta"; area = "backend" }
-  @{ id = "CTF-010-02-01"; titulo = "Detalhe da conversa (painel)";                 req = "REQ-010"; prio = "media"; area = "frontend" }
-)
+$bugsDir = "artefatos/qa/bugs"
+$bugFiles = Get-ChildItem -Path $bugsDir -Filter "CTF-*.md" | Sort-Object Name
 
-foreach ($b in $bugs) {
-  $issueTitle = "[$($b.id)] $($b.titulo)"
+if (-not $bugFiles) {
+  Write-Host "  Nenhum arquivo CTF-*.md encontrado em $bugsDir" -ForegroundColor Yellow
+}
+
+$existingIssuesJson = gh issue list --state all --limit 200 --json title 2>$null
+$existingIssueTitles = @()
+if ($existingIssuesJson) {
+  $existingIssueTitles = ($existingIssuesJson | ConvertFrom-Json) | ForEach-Object { $_.title }
+}
+
+foreach ($file in $bugFiles) {
+  $content = Get-Content -Path $file.FullName -Encoding UTF8 -TotalCount 10
+  if (-not $content) { continue }
+
+  $h1 = $content | Where-Object { $_ -match '^#\s+' } | Select-Object -First 1
+  if (-not $h1) {
+    Write-Host "  AVISO: $($file.Name) sem H1 - pulando" -ForegroundColor Yellow
+    continue
+  }
+  $issueTitle = $h1 -replace '^#\s+', ''
+
+  $idFromFile = [System.IO.Path]::GetFileNameWithoutExtension($file.Name)
+
+  $cobreLine = $content | Where-Object { $_ -match '^\- \*\*Cobre:\*\*\s+(REQ-\d+' } | Select-Object -First 1
+  $req = if ($cobreLine) {
+    if ($cobreLine -match '(REQ-\d+)') { $Matches[1] } else { "REQ-???" }
+  } else { "REQ-???" }
+
+  $sevLine = $content | Where-Object { $_ -match '^\- \*\*Severidade:\*\*' } | Select-Object -First 1
+  $prio = "media"
+  if ($sevLine) {
+    if ($sevLine -match 'Alta') { $prio = "alta" }
+    elseif ($sevLine -match 'Critica') { $prio = "critica" }
+    elseif ($sevLine -match 'Baixa') { $prio = "baixa" }
+  }
+
+  $area = if ($req -eq "REQ-010") { "frontend" } else { "backend" }
+
+  if ($existingIssueTitles -contains $issueTitle) {
+    Write-Host "  issue '$issueTitle' ja existe - pulando" -ForegroundColor DarkGray
+    continue
+  }
+
   $bodyLines = @(
     "## Identificacao",
     "",
-    "- **Cenario de teste:** ``$($b.id)``",
-    "- **REQ relacionado:** ``$($b.req)``",
-    "- **Severidade:** $($b.prio)",
-    "- **Evidencia:** [$($b.id).md]($repoUrlBase/$($b.id).md)",
+    "- **Cenario de teste:** ``$idFromFile``",
+    "- **REQ relacionado:** ``$req``",
+    "- **Severidade:** $prio",
+    "- **Evidencia:** [$idFromFile.md]($repoUrlBase/$idFromFile.md)",
     "",
     "## Origem",
     "",
-    "Carga inicial do GitHub Projects (proposta secao 6.3). Issue gerada a partir do ``_status_execucao.json`` em 2026-06-08.",
+    "Carga inicial do GitHub Projects (proposta secao 6.3). Issue gerada a partir de ``$($file.Name)``.",
     "",
     "## Branch sugerida",
     "",
     "``````",
     "branch:  bugfix/<descricao-curta>",
-    "commit:  fix($($b.id)): <descricao>",
+    "commit:  fix($idFromFile): <descricao>",
     "``````"
   )
   $body = $bodyLines -join "`n"
-  $labels = "tipo:bug,prio:$($b.prio),area:$($b.area),$($b.req)"
+  $labels = "tipo:bug,prio:$prio,area:$area,$req"
 
   Invoke-Gh @(
     "issue", "create",
