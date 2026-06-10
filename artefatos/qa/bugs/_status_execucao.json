@@ -108,7 +108,7 @@
     {
       "id": "CTF-002-08",
       "titulo": "Pergunta sobre catálogo da empresa é atendida pela base de Q&A",
-      "cobre": "REQ-002.1, REQ-002.1A (caso 1 — confiança alta)",
+      "cobre": "REQ-002.1, REQ-002.1A (caso 1), REQ-002.1B (telefone novo)",
       "status": "PENDENTE",
       "observacao": "",
       "bugs": []

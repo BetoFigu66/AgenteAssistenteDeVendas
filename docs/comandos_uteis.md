@@ -61,6 +61,37 @@ git log -p -- caminho/do/arquivo
 
 **Dica VSCode/Windsurf:** botão direito no arquivo → `Open Timeline`. Lista todos os commits que tocaram aquele arquivo; `Ctrl+Click` em duas entradas compara as versões lado a lado.
 
+### GitHub — permissões para colaboradora (Projects / Issues)
+
+Repo em **conta pessoal** (`BetoFigu66/...`): o GitHub **não oferece** papéis Read / Write / Admin na tela de colaboradores — só **dono** ou **colaborador** (acesso leitura+escrita no repo). Por isso **não aparece dropdown de papel** ao lado do nome.
+
+**O que a Kika já tem como colaboradora:** push, issues, labels, milestones no repositório.
+
+**O que ela não consegue só com isso:** criar ou administrar um **Project v2 na sua conta** (`BetoFigu66`). Project tem permissão **separada** do repo.
+
+**Solução A — Beto cria o Project e delega (recomendado):**
+
+1. Beto: avatar (canto sup. direito) → **Your projects** → **New project** → vincular repo `AgenteAssistenteDeVendas`
+2. No Project: **⋯** → **Settings** → **Manage access**
+3. **Invite collaborators** → usuário da Kika → papel **Admin**
+4. Kika aceita em https://github.com/notifications
+
+**Solução B — Kika cria o Project na conta dela:**
+
+1. Kika: **Your projects** → **New project**
+2. **Add repository** → escolher `BetoFigu66/AgenteAssistenteDeVendas` (só aparece se ela já for colaboradora aceita)
+3. Beto não precisa ser Admin do Project dela; ambos usam o mesmo board
+
+**Conferir colaboradora no repo (sem papel para mudar):**
+
+1. https://github.com/BetoFigu66/AgenteAssistenteDeVendas/settings/access
+2. Aba **Direct access** → nome da Kika deve aparecer como **Collaborator**
+3. Se estiver **Pending**: ela precisa aceitar o convite antes
+
+**Para ter dropdown de papel (Read/Triage/Admin etc.):** criar **Organization** gratuita, transferir o repo para lá e convidar membros com papéis — opção de médio prazo.
+
+Ver também: `artefatos/gerente_de_projetos/proposta_github_projects.md` §6.1.
+
 ---
 
 ## Docker
@@ -88,6 +119,84 @@ docker-compose up --build
 docker system prune
 ```
 
+### Docker no Windows: PowerShell vs WSL
+
+**Recomendação:** usar **um só** ambiente para `docker-compose` (PowerShell **ou** WSL), alinhado ao `cloudflared` no Windows (`localhost:3000`).
+
+| Onde roda | Quando usar |
+|-----------|-------------|
+| **PowerShell** (Docker Desktop) | Padrão do projeto para deploy via túnel; após `.dockerignore` na raiz |
+| **WSL** | Dev Python local (`venv`); `docker-compose` no WSL também funciona, mas evite alternar |
+
+**Erro:** `open backend\venv\lib64: The file cannot be accessed by the system` ao fazer `docker-compose up --build` no PowerShell.
+
+**Causa:** o build envia `backend/venv` (criado no WSL/Linux) com symlinks que o Docker Desktop no Windows não lê.
+
+**Correção:** arquivos `.dockerignore` na raiz e em `frontend/` (já no repo) excluem `venv` e `node_modules`. Depois:
+
+```powershell
+docker-compose build --no-cache
+docker-compose up -d
+```
+
+Se ainda falhar, apague o venv local (só afeta dev fora do Docker): `Remove-Item -Recurse -Force backend\venv`
+
+---
+
+## Dois ambientes na mesma máquina (Dev + QA)
+
+| Ambiente | Backend | Frontend | Como subir | Público |
+|----------|---------|----------|------------|---------|
+| **Dev** (seu trabalho) | `8001` | `3001` | `backend/run.sh` + `frontend/run.sh` (nativo, hot reload) | só `localhost` |
+| **QA** (Kika / túnel) | `8000` | `3000` | `docker-compose up -d` | `https://app.auxvendas.com` via Cloudflare |
+
+**Regra:** o túnel Cloudflare (`cloudflared`) aponta **sempre** para `http://localhost:3000` (stack Docker/QA). **Nunca** para `3001`.
+
+### Subir Dev (codando)
+
+```powershell
+# Terminal 1 — Postgres (compartilhado; só precisa estar up uma vez)
+docker-compose up -d postgres
+
+# Terminal 2 — backend dev
+cd backend
+# Copiar .env.example → .env com API_PORT=8001 (se ainda não tiver)
+.\run.sh
+
+# Terminal 3 — frontend dev
+cd frontend
+.\run.sh
+# ou: npm run dev
+```
+
+Acessos locais: http://localhost:3001 (painel) · http://localhost:8001/docs (API)
+
+### Subir QA (validação / Twilio / túnel)
+
+```powershell
+cd C:\Beto\Pessoal\Python\git\AgenteAssistenteDeVendas
+docker-compose up -d --build
+cloudflared tunnel run auxvendas-dev
+```
+
+Acessos: http://localhost:3000 (local) · https://app.auxvendas.com (público)
+
+### Checklist de configuração
+
+1. **`backend/.env`:** `API_PORT=8001` (dev). Docker ignora isso e usa porta `8000` interna.
+2. **`frontend/.env` ou `.env.development`:** `VITE_DEV_PORT=3001`, `VITE_DEV_API_PROXY=http://127.0.0.1:8001` (opcional — já são os padrões no `vite.config.js`).
+3. **`%USERPROFILE%\.cloudflared\config.yml`:** ingress `app.auxvendas.com` → `http://localhost:3000` (sem alteração).
+4. **Twilio webhook:** `https://app.auxvendas.com/webhook` (QA). Dev em `8001` não recebe webhook da Twilio salvo túnel separado.
+5. **Postgres:** ambos usam `localhost:5433` / DB `assistente_vendas` por padrão — **dados compartilhados**. Para isolar dev de QA, crie outro database no mesmo Postgres e ajuste `DATABASE_URL` no `.env` de dev.
+
+### Conflito de portas
+
+```powershell
+netstat -ano | findstr ":8000 :8001 :3000 :3001"
+```
+
+Se `8000` ou `3000` estiverem ocupados fora do Docker, o QA não sobe. Se `8001`/`3001` ocupados, o dev não sobe. Os dois ambientes **podem** rodar ao mesmo tempo.
+
 ---
 
 ## Backend (Python)
@@ -113,7 +222,9 @@ pip install -r requirements.txt
 python main.py
 
 # Rodar o backend (opção 2 - mais controle, reload automático)
-uvicorn main:app --host 0.0.0.0 --port 8000 --reload
+# Dev local: porta 8001 (QA/docker usa 8000)
+uvicorn main:app --host 0.0.0.0 --port 8001 --reload
+# ou: .\run.sh
 
 # Rodar migrations do banco
 alembic upgrade head
@@ -371,8 +482,10 @@ Diretriz aplicável: G06 em `artefatos/gerente_de_projetos/diretrizes.md`.
 cd frontend
 npm install
 
-# Rodar em desenvolvimento (hot reload automático)
+# Rodar em desenvolvimento (hot reload) — porta 3001 (QA/docker usa 3000)
+cd frontend
 npm run dev
+# Acesse: http://localhost:3001
 
 # Build de produção
 npm run build
@@ -424,6 +537,35 @@ cls
 # Ver variáveis de ambiente
 $env:PATH
 ```
+
+### Abrir PowerShell como Administrador (Windows)
+
+O terminal integrado do **Cursor/VSCode não roda elevado** — `cloudflared service install` e similares precisam de um terminal **fora** do IDE.
+
+**Formas que costumam funcionar (Windows 10/11):**
+
+| Método | Como |
+|--------|------|
+| Atalho de teclado | `Win` → digite `PowerShell` → `Ctrl+Shift+Enter` (abre elevado) |
+| Menu Iniciar | `Win` → **Windows PowerShell** → botão direito → **Executar como administrador** |
+| Menu Win+X | `Win+X` → **Terminal (Administrador)** ou **Windows PowerShell (Administrador)** |
+| Prompt de UAC | No PowerShell **normal** (fora do Cursor), disparar elevação: |
+
+```powershell
+Start-Process powershell -Verb RunAs -ArgumentList '-NoExit', '-Command', 'cloudflared service install'
+```
+
+Deve aparecer o diálogo **Controle de Conta de Usuário (UAC)** → **Sim**.
+
+**Se não abrir / não aparece “Executar como administrador”:**
+
+1. Confirmar que a conta está no grupo **Administradores** (`Win+R` → `lusrmgr.msc` → Groups → Administrators).
+2. UAC ligado: `Win+R` → `UserAccountControlSettings` → não usar o nível mais baixo se o menu some.
+3. Reiniciar **Windows Explorer**: `Ctrl+Shift+Esc` → Processos → **Windows Explorer** → Reiniciar.
+4. Tentar **Prompt de Comando** elevado (`cmd` → `Ctrl+Shift+Enter`) e rodar o mesmo comando.
+5. Política corporativa / conta sem privilégio: só um admin da máquina pode instalar o serviço.
+
+**Plano B (sem serviço):** após o reboot, subir manualmente `cloudflared tunnel run auxvendas-dev` (ver `artefatos/arquiteto_de_sistemas/disponibilizacao_auxvendas_com.md`).
 
 ---
 
@@ -484,6 +626,13 @@ Documento completo: `artefatos/arquiteto_de_sistemas/deploy_tunel_local.md`
 # Instalar (uma vez)
 winget install --id Cloudflare.cloudflared
 
+# Atualizar (PowerShell como Administrador; parar o serviço antes)
+Stop-Service Cloudflared
+winget upgrade --id Cloudflare.cloudflared --accept-package-agreements
+Start-Service Cloudflared
+cloudflared --version
+# Se Stop-Service travar: taskkill /F /IM cloudflared.exe && Start-Service Cloudflared
+
 # Subir a app
 docker-compose up -d
 
@@ -499,6 +648,16 @@ cloudflared tunnel login
 cloudflared tunnel create inforrel-poc
 cloudflared tunnel route dns inforrel-poc app.seudominio.com
 cloudflared tunnel run inforrel-poc
+
+# Instalar túnel como serviço Windows (PowerShell **fora do Cursor**, como Admin)
+cloudflared service install
+
+# Após service install: copiar config para perfil LocalSystem (senão erro 1033 no browser)
+# O serviço NÃO usa C:\Users\<voce>\.cloudflared — usa systemprofile\.cloudflared
+# Ver passo 7b em artefatos/arquiteto_de_sistemas/disponibilizacao_auxvendas_com.md
+
+# Validar conexão ativa (CONNECTOR deve aparecer; senão = serviço sem config)
+cloudflared tunnel info auxvendas-dev
 ```
 
 ---

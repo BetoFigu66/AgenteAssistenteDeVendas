@@ -20,7 +20,7 @@
 | `CTF-002-05` | Tipo de produto fora do catálogo suportado | REQ-002.3A (limitação conhecida) | PENDENTE | — | — |
 | `CTF-002-06` | Painel mostra estado dos campos da negociação | REQ-002.3 | PENDENTE | — | — |
 | `CTF-002-07` | Pergunta livre durante qualificação consulta a base | REQ-002.17 | PENDENTE | — | — |
-| `CTF-002-08` | Pergunta sobre catálogo da empresa é atendida pela base de Q&A | REQ-002.1, REQ-002.1A (caso 1 — confiança alta) | PENDENTE | — | — |
+| `CTF-002-08` | Pergunta sobre catálogo da empresa é atendida pela base de Q&A | REQ-002.1, REQ-002.1A (caso 1), REQ-002.1B (telefone novo) | PENDENTE | — | — |
 | `CTF-002-09` | Fallback condicional acionado em mensagem ambígua | REQ-002.1A (caso 2 — fallback por baixa confiança) | PENDENTE | — | — |
 | `CTF-002-10` | Anti-padrão: fallback NÃO acontece em resposta de qualificação | REQ-002.1A (anti-padrão — não consultar REQ-003 em toda mensagem) | PENDENTE | — | — |
 | `CTF-003-01` | Pergunta técnica retorna conteúdo da base | REQ-003.2, REQ-003.3 | PENDENTE | — | — |
