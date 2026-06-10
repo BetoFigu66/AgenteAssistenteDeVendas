@@ -1,0 +1,26 @@
+# Build context do backend (docker-compose: context .)
+# Evita enviar venv (symlinks Linux/WSL quebram o Docker Desktop no Windows)
+
+backend/venv
+backend/.venv
+**/__pycache__
+**/*.py[cod]
+**/.pytest_cache
+**/.mypy_cache
+**/.ruff_cache
+
+# Frontend tem build separado (context ./frontend)
+frontend/
+
+# Não necessários na imagem do backend
+.git
+.github
+AnotacoesPessoais
+artefatos
+agentes
+docs
+WebScrapping
+*.md
+.env
+**/.env
+**/.env.*
