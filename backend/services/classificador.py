@@ -5,7 +5,7 @@ Estratégia:
 1. Tenta classificar via regras/regex (rápido, determinístico)
 2. Se regras não tiverem confiança, usa LLM
 
-Também extrai entidades: CNPJ, nome, quantidades, tipos de produto.
+Também extrai entidades: CNPJ, CPF, data de nascimento, nome, quantidades, tipos de produto.
 """
 
 import logging
@@ -15,9 +15,18 @@ from dataclasses import dataclass, field
 from enum import Enum
 from typing import List, Optional
 
+from services.cpf.validacao import extrair_cpfs, formatar_cpf, normalizar_cpf, parse_data_nascimento
 from services.llm import LLMProvider
 
 logger = logging.getLogger(__name__)
+
+
+class NivelConfianca(str, Enum):
+    """Nível qualitativo de confiança do classificador."""
+
+    ALTA = "alta"
+    MEDIA = "media"
+    BAIXA = "baixa"
 
 
 class Intencao(str, Enum):
@@ -25,6 +34,7 @@ class Intencao(str, Enum):
 
     SAUDACAO = "saudacao"
     FORNECER_CNPJ = "fornecer_cnpj"
+    FORNECER_CPF = "fornecer_cpf"
     FORNECER_NOME = "fornecer_nome"
     CONFIRMAR = "confirmar"
     NEGAR = "negar"
@@ -45,6 +55,8 @@ class EntidadesExtraidas:
     """Entidades extraídas de uma mensagem."""
 
     cnpjs: List[str] = field(default_factory=list)
+    cpfs: List[str] = field(default_factory=list)
+    datas_nascimento: List[str] = field(default_factory=list)  # ISO yyyy-mm-dd
     nomes: List[str] = field(default_factory=list)
     tipos_produto: List[str] = field(default_factory=list)  # ex: "catraca", "relogio_ponto"
     quantidades: List[int] = field(default_factory=list)
@@ -57,12 +69,27 @@ class ResultadoClassificacao:
 
     intencao: Intencao
     confianca: float  # 0.0 a 1.0
+    confianca_nivel: NivelConfianca
     entidades: EntidadesExtraidas
     origem: str  # "regra" ou "llm"
     raw_llm: Optional[dict] = None
     llm_latencia_ms: Optional[int] = None
     llm_tokens_input: Optional[int] = None
     llm_tokens_output: Optional[int] = None
+
+
+def _calcular_nivel_confianca(confianca: float) -> NivelConfianca:
+    """
+    Converte um score numérico em nível qualitativo.
+
+    Thresholds padrão (podem ser sobrescritos pelo ParametroService
+    no processador para decisões de fallback).
+    """
+    if confianca >= 0.70:
+        return NivelConfianca.ALTA
+    if confianca >= 0.40:
+        return NivelConfianca.MEDIA
+    return NivelConfianca.BAIXA
 
 
 # =============================================================================
@@ -157,6 +184,8 @@ _REGEX_NOME = re.compile(
     re.IGNORECASE,
 )
 
+_REGEX_DATA_ISOLADA = re.compile(r"\b\d{1,2}[/\-.]\d{1,2}[/\-.]\d{4}\b")
+
 # Palavras que não devem ser confundidas com nome próprio quando o regex capturar.
 _STOPWORDS_NOME = {
     "e",
@@ -175,7 +204,47 @@ _STOPWORDS_NOME = {
     "cnpj",
     "pessoa",
     "cliente",
+    "cpf",
+    "nascimento",
 }
+
+
+def _extrair_nome_sem_gatilho(texto: str, cpfs: List[str], cnpjs: List[str]) -> Optional[str]:
+    """
+    Infere nome quando o cliente informa documento + data sem gatilho explícito.
+
+    Ex.: "Jose Roberto 07198942806, 17/06/1966" → "Jose Roberto"
+    """
+    if not texto or (not cpfs and not cnpjs):
+        return None
+
+    restante = texto
+    for cpf in cpfs:
+        limpo = normalizar_cpf(cpf)
+        restante = re.sub(re.escape(limpo), " ", restante)
+        if len(limpo) == 11:
+            restante = restante.replace(formatar_cpf(limpo), " ")
+
+    for cnpj in cnpjs:
+        limpo = re.sub(r"\D", "", cnpj)
+        if len(limpo) == 14:
+            restante = re.sub(re.escape(limpo), " ", restante)
+            fmt = f"{limpo[:2]}.{limpo[2:5]}.{limpo[5:8]}/{limpo[8:12]}-{limpo[12:]}"
+            restante = restante.replace(fmt, " ")
+
+    restante = _REGEX_DATA_ISOLADA.sub(" ", restante)
+    restante = re.sub(
+        r"\b(cpf|cnpj|nascimento|data\s+de\s+nascimento|nasc\.?)\b",
+        " ",
+        restante,
+        flags=re.IGNORECASE,
+    )
+    restante = re.sub(r"[,;]+", " ", restante)
+    restante = re.sub(r"\s+", " ", restante).strip()
+
+    if not restante:
+        return None
+    return _limpar_nome(restante)
 
 
 def _limpar_nome(bruto: str) -> Optional[str]:
@@ -203,12 +272,16 @@ _TIPOS_PRODUTO_PALAVRAS = {
 
 
 def extrair_entidades(texto: str) -> EntidadesExtraidas:
-    """Extrai CNPJs, emails, quantidades e tipos de produto via regex."""
+    """Extrai CNPJs, CPFs, datas de nascimento, emails, quantidades e tipos de produto via regex."""
     if not texto:
         return EntidadesExtraidas()
 
     cnpjs = _REGEX_CNPJ.findall(texto)
+    cpfs = extrair_cpfs(texto)
     emails = _REGEX_EMAIL.findall(texto)
+
+    data_nasc = parse_data_nascimento(texto)
+    datas_nascimento = [data_nasc.isoformat()] if data_nasc else []
 
     # Quantidades (pega apenas números razoáveis: 1-9999)
     quantidades = [int(m.group(1)) for m in _REGEX_QUANTIDADE.finditer(texto) if 1 <= int(m.group(1)) <= 9999]
@@ -226,8 +299,16 @@ def extrair_entidades(texto: str) -> EntidadesExtraidas:
         if nome and nome not in nomes:
             nomes.append(nome)
 
+    # PF/PJ: nome antes ou depois do documento, sem gatilho explícito
+    if not nomes and (cpfs or cnpjs):
+        nome_livre = _extrair_nome_sem_gatilho(texto, cpfs, cnpjs)
+        if nome_livre and nome_livre not in nomes:
+            nomes.append(nome_livre)
+
     return EntidadesExtraidas(
         cnpjs=cnpjs,
+        cpfs=cpfs,
+        datas_nascimento=datas_nascimento,
         nomes=nomes,
         emails=emails,
         quantidades=quantidades,
@@ -245,9 +326,13 @@ def classificar_por_regras(texto: str) -> tuple[Intencao, float]:
     if not texto or not texto.strip():
         return Intencao.DESCONHECIDO, 0.0
 
-    # Se a mensagem contém CNPJ, prioriza FORNECER_CNPJ
+    # Documento fiscal: CNPJ tem prioridade sobre CPF
     if _REGEX_CNPJ.search(texto):
         return Intencao.FORNECER_CNPJ, 0.9
+
+    cpfs = extrair_cpfs(texto)
+    if cpfs:
+        return Intencao.FORNECER_CPF, 0.9
 
     for intencao, padrao in _REGRAS_INTENCAO:
         if padrao.search(texto):
@@ -266,6 +351,7 @@ _PROMPT_SISTEMA_CLASSIFICADOR = "Você é um classificador de mensagens para um 
 Classifique a mensagem do cliente em UMA das intenções:
 - saudacao: cumprimentos
 - fornecer_cnpj: cliente informou CNPJ
+- fornecer_cpf: cliente informou CPF
 - fornecer_nome: cliente informou seu nome
 - confirmar: resposta afirmativa a uma pergunta
 - negar: resposta negativa a uma pergunta
@@ -280,8 +366,8 @@ Classifique a mensagem do cliente em UMA das intenções:
 - fora_contexto: assunto não relacionado
 - desconhecido: intenção não clara
 
-Extraia também entidades mencionadas: cnpjs, nomes (pessoas), tipos_produto (catraca, relogio_ponto),
-quantidades (números), emails.
+Extraia também entidades mencionadas: cnpjs, cpfs, datas_nascimento (yyyy-mm-dd), nomes (pessoas),
+tipos_produto (catraca, relogio_ponto), quantidades (números), emails.
 
 Responda APENAS com JSON neste formato:
 {
@@ -289,6 +375,8 @@ Responda APENAS com JSON neste formato:
   "confianca": <0.0 a 1.0>,
   "entidades": {
     "cnpjs": [],
+    "cpfs": [],
+    "datas_nascimento": [],
     "nomes": [],
     "tipos_produto": [],
     "quantidades": [],
@@ -337,6 +425,8 @@ async def classificar_por_llm(
     ent = resultado.get("entidades") or {}
     entidades = EntidadesExtraidas(
         cnpjs=[str(c) for c in ent.get("cnpjs") or []],
+        cpfs=[str(c) for c in ent.get("cpfs") or []],
+        datas_nascimento=[str(d) for d in ent.get("datas_nascimento") or []],
         nomes=[str(n) for n in ent.get("nomes") or []],
         tipos_produto=[str(t) for t in ent.get("tipos_produto") or []],
         quantidades=[int(q) for q in ent.get("quantidades") or [] if str(q).isdigit()],
@@ -378,6 +468,7 @@ async def classificar(
         return ResultadoClassificacao(
             intencao=intencao_regra,
             confianca=confianca_regra,
+            confianca_nivel=_calcular_nivel_confianca(confianca_regra),
             entidades=entidades_regra,
             origem="regra",
         )
@@ -387,6 +478,7 @@ async def classificar(
         return ResultadoClassificacao(
             intencao=intencao_regra,
             confianca=confianca_regra,
+            confianca_nivel=_calcular_nivel_confianca(confianca_regra),
             entidades=entidades_regra,
             origem="regra",
         )
@@ -401,6 +493,8 @@ async def classificar(
             nomes_combinados.append(n)
     entidades_final = EntidadesExtraidas(
         cnpjs=list({*entidades_regra.cnpjs, *entidades_llm.cnpjs}),
+        cpfs=list({*entidades_regra.cpfs, *entidades_llm.cpfs}),
+        datas_nascimento=list({*entidades_regra.datas_nascimento, *entidades_llm.datas_nascimento}),
         nomes=nomes_combinados,
         tipos_produto=list({*entidades_regra.tipos_produto, *entidades_llm.tipos_produto}),
         quantidades=entidades_regra.quantidades or entidades_llm.quantidades,
@@ -413,6 +507,7 @@ async def classificar(
     return ResultadoClassificacao(
         intencao=intencao_llm,
         confianca=confianca_llm,
+        confianca_nivel=_calcular_nivel_confianca(confianca_llm),
         entidades=entidades_final,
         origem="llm",
         raw_llm=raw,
