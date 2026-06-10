@@ -56,7 +56,7 @@ Este requisito **formaliza** o workflow de aprovação que hoje já existe parci
 
   No POC, a configuração pode ser **global** (um único modo para todo o sistema). A configuração deve ser **persistente** (não pode ser perdida ao reiniciar o backend) e **alterável em tempo de execução** por usuário autorizado pelo painel (REQ-010), sem necessidade de redeploy.
 
-- [ ] **REQ-011.2 — Granularidade por negociação (futura, opcional no POC)**: A estrutura do modo de execução deve permitir, em versões futuras, definir modo distinto **por negociação** (ex: uma conversa específica em `conversa_controlada` mesmo com o sistema globalmente em `execucao_normal`). No POC, o sistema pode operar apenas com modo global, mas o modelo de dados não deve impedir essa evolução.
+- [ ] **REQ-011.2 — Granularidade por atendimento (futura, opcional no POC)**: A estrutura do modo de execução deve permitir, em versões futuras, definir modo distinto **por atendimento** (ex: uma conversa específica em `conversa_controlada` mesmo com o sistema globalmente em `execucao_normal`). No POC, o sistema pode operar apenas com modo global, mas o modelo de dados não deve impedir essa evolução.
 
 - [ ] **REQ-011.3 — Registro de troca de modo**: Toda mudança do modo de execução vigente deve gerar um evento auditavel no histórico (REQ-005), contendo:
   - Modo anterior e modo novo
@@ -107,7 +107,7 @@ Este requisito **formaliza** o workflow de aprovação que hoje já existe parci
 
 - [ ] **REQ-011.13 — SLA de aprovação no `conversa_controlada`**: O painel deve sinalizar visualmente mensagens pendentes há muito tempo. Sugestão de limiar inicial: **alerta visual após 10 minutos** sem decisão. O limiar deve ser configurável.
 
-- [ ] **REQ-011.14 — Respeito ao estado "em atendimento humano"**: Quando a negociação estiver em estado `Em atendimento humano` (REQ-004.4) **independentemente do modo de execução**, o sistema não deve gerar respostas automáticas para aprovação (alinhado a REQ-004.10). Isso vale para `simulacao`, `conversa_controlada` e `execucao_normal`.
+- [ ] **REQ-011.14 — Respeito ao estado "em modo humano"**: Quando a conversa estiver em estado `Em modo humano` (REQ-004.4) **independentemente do modo de execução**, o sistema não deve gerar respostas automáticas para aprovação (alinhado a REQ-004.10). Isso vale para `simulacao`, `conversa_controlada` e `execucao_normal`.
 
 - [ ] **REQ-011.15 — Edição da mensagem antes de aprovar (opcional)**: O painel pode permitir que o vendedor **edite o texto** de uma mensagem pendente antes de aprovar. Quando isso ocorrer:
   - O texto final enviado deve ser persistido (REQ-005.2)
@@ -127,7 +127,7 @@ Este requisito **formaliza** o workflow de aprovação que hoje já existe parci
 - [ ] **REQ-011.17A — Feedback retroativo de mensagens manuais (pós-POC)**: O painel deve permitir que um usuário com perfil de **coordenador** ou **vendedor sênior** revise **mensagens enviadas manualmente por outros vendedores** (em qualquer modo de execução, mas especialmente em `execucao_normal` e durante o uso humano do canal), com o objetivo de avaliar se o atendimento humano está adequado e propor correções.
 
   **Funcionalidades esperadas**:
-  - Listagem de mensagens manuais enviadas pelos vendedores, com filtros por vendedor, período e negociação
+  - Listagem de mensagens manuais enviadas pelos vendedores, com filtros por vendedor, período e atendimento
   - Visualização da conversa completa em torno da mensagem para entender o contexto
   - Registro de feedback estruturado pelo coordenador, no mínimo:
     - Classificação: `correta`, `correta com sugestão de melhoria`, `incorreta`
@@ -227,7 +227,7 @@ Este requisito **formaliza** o workflow de aprovação que hoje já existe parci
 
 ## 7. Limitações Aceitas no POC
 
-- [ ] Modo global (sem granularidade por negociação — REQ-011.2 fica para versão futura).
+- [ ] Modo global (sem granularidade por atendimento — REQ-011.2 fica para versão futura).
 - [ ] Edição de mensagem antes de aprovar (REQ-011.15) é opcional no POC.
 - [ ] Reprocessamento automático após reprovação não é coberto pelo POC.
 - [ ] Alertas de SLA (REQ-011.13) podem ser apenas visuais; notificação push/e-mail fora do escopo.
@@ -317,6 +317,7 @@ Este requisito **formaliza** o workflow de aprovação que hoje já existe parci
 | 18/05/2026 | 1.0 | Criação inicial do requisito formalizando o workflow de aprovação humana de mensagens (já parcialmente implementado nos endpoints `/api/mensagens/*` e em `AcompanhamentoPage`) num modelo de três modos de execução: `simulacao`, `conversa_controlada` e `execucao_normal`. | Kika |
 | 18/05/2026 | 1.1 | REQ-011.17 reescopado explicitamente para mensagens **geradas pela IA**; adicionado REQ-011.17A cobrindo **revisão de mensagens manuais por coordenador / vendedor sênior** (pós-POC), com envio de sugestão de correção para o WhatsApp do vendedor original. Atualizadas §7 (limitações) e §11 (riscos). | Kika |
 | 18/05/2026 | 1.2 | Adicionada linha REQ-012 na §5 (Integração com Requisitos Existentes) tornando explícita a fronteira entre os dois requisitos. REQ-011.15 agora dispara criação automática de report (via REQ-012.2A). | Kika |
+| 09/06/2026 | 1.3 | Renomeação Negociação → Atendimento (REQ-016 v2.0): REQ-011.2 (granularidade por atendimento), REQ-011.14 (estado renomeado para `Em modo humano`, vinculado à conversa), REQ-011.17A (filtros por atendimento), §7 limitação POC. Decisão D6 evita ambiguidade com a entidade Atendimento. | Beto |
 
 ---
 

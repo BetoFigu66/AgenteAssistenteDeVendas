@@ -73,6 +73,11 @@ Este requisito **formaliza** o que está parcialmente implementado nas Sprints 1
 
   Mesma persistência da REQ-014.2A (tabela `parametros`). Defaults conservadores definidos no seed da migration.
 
+- [ ] **REQ-014.2C — Parâmetro de continuação de atendimento (REQ-016.18)**: Janela temporal usada por REQ-016.7 para decidir se uma nova mensagem do cliente continua automaticamente o atendimento anterior ou se o sistema deve perguntar (REQ-016.9):
+  - `janela_continuacao_atendimento_horas` (int, ≥ 1) — duração da janela em horas (default: `24`)
+
+  Mesma persistência da REQ-014.2A (tabela `parametros`). Validação: inteiro positivo. Aplicação imediata: o cálculo da janela usa o valor vigente no momento da chegada da mensagem (sem cache de longo prazo).
+
 - [ ] **REQ-014.3 — Validação de valores**: Toda alteração deve validar:
   - `*_score_minimo`: valor entre `0.0` e `1.0` (inclusive)
   - `*_top_k`: valor inteiro `≥ 1`
@@ -159,6 +164,7 @@ Este requisito **formaliza** o que está parcialmente implementado nas Sprints 1
 | `qa_fulltext_desambigua_min` | float | `0.12` | 0.0 - 1.0 |
 | `qa_embedding_responde_min` | float | `0.80` | 0.0 - 1.0 |
 | `qa_embedding_desambigua_min` | float | `0.65` | 0.0 - 1.0 |
+| `janela_continuacao_atendimento_horas` | int | `24` | ≥ 1 |
 
 ### 5.2 Tabela `parametros` (implementada no POC)
 
@@ -317,6 +323,7 @@ Este requisito **formaliza** o que está parcialmente implementado nas Sprints 1
 |------|--------|-----------|-------|
 | 18/05/2026 | 1.0 | Criação inicial do requisito formalizando o mecanismo de configuração runtime das camadas de conhecimento (RAG e Q&A). Endpoints `GET/PATCH /api/config/rag` e settings em `backend/config.py` parcialmente implementados nas Sprints 1-2; este REQ expande para cobrir parâmetros de Q&A, toggles `enabled`, persistência entre reinícios e auditoria de alterações. | Kika |
 | 06/06/2026 | 1.1 | REQ-014.2A (limiares do classificador REQ-002.1A) e REQ-014.2B (zona cinza Q&A); tabela `parametros` documentada como persistência efetiva no POC; defaults de seed alinhados à migration `2026060601`. | Beto |
+| 09/06/2026 | 1.2 | REQ-014.2C (parâmetro `janela_continuacao_atendimento_horas`, default 24h) decorrente de REQ-016 v2.0 (renomeação Negociação → Atendimento + nova lógica de continuação no REQ-016.7). Linha adicionada na tabela §5.1. | Beto |
 
 ---
 

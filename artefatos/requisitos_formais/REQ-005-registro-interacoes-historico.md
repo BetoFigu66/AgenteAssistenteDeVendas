@@ -60,7 +60,7 @@ O objetivo é permitir rastreabilidade, revisão de conversas críticas e melhor
   - `Conversa iniciada` — primeira mensagem recebida abre uma nova conversa
   - `Qualificação em andamento` — sistema identificou intenção de orçamento e iniciou coleta de dados (REQ-002)
   - `Escalonamento acionado` — algum gatilho do REQ-004.1 disparou o handoff
-  - `Em atendimento humano` — estado persistente ativado (REQ-004.4); respostas automáticas suspensas (REQ-004.10)
+  - `Em modo humano` — estado persistente ativado (REQ-004.4); respostas automáticas suspensas (REQ-004.10)
   - `Finalização` — conversa encerrada
 
   **Cada evento de transição deve registrar**:
@@ -73,8 +73,8 @@ O objetivo é permitir rastreabilidade, revisão de conversas críticas e melhor
   **Transições válidas** (o sistema deve impedir transições fora desta sequência):
   - `Conversa iniciada` → `Qualificação em andamento` ou `Escalonamento acionado` ou `Finalização`
   - `Qualificação em andamento` → `Escalonamento acionado` ou `Finalização`
-  - `Escalonamento acionado` → `Em atendimento humano`
-  - `Em atendimento humano` → `Finalização`
+  - `Escalonamento acionado` → `Em modo humano`
+  - `Em modo humano` → `Finalização`
 
   **Gatilhos de `Finalização`** (ao menos um dos seguintes):
   - Humano (vendedor) sinaliza encerramento da conversa **explicitamente** pelo painel administrativo (REQ-010)
@@ -91,6 +91,7 @@ O objetivo é permitir rastreabilidade, revisão de conversas críticas e melhor
     - `orcamento_enviado` — marcação como `enviado` (REQ-006.5, REQ-006.8); o evento aponta para o conteúdo/referência exigido pelo REQ-006.4
     - `orcamento_convertido` — transição para `convertido` (REQ-006.5, REQ-006.8)
     - `orcamento_perdido` — transição para `perdido` (REQ-006.5, REQ-006.7, REQ-006.8); motivo obrigatório
+  - **Eventos de atendimento** (ver REQ-016): `atendimento_criado` (REQ-016.6), `atendimento_encerrado` (REQ-016.4 — com `motivo_encerramento`), `atendimento_reaberto` (REQ-016.8 — com autoria e timestamp), bem como registro das perguntas de continuação (REQ-016.9) e fechamento (REQ-016.10)
   - **Erros relevantes**: ex. falha de consulta em API (REQ-001.10), falha de envio no WhatsApp (REQ-008.13/.15), falha de classificação do REQ-002.1
 
   Estes eventos são **distintos** das transições de estado da conversa (REQ-005.3): um orçamento pode mudar de status sem que a conversa mude de estado, e vice-versa.
@@ -165,7 +166,7 @@ O objetivo é permitir rastreabilidade, revisão de conversas críticas e melhor
   - `conversa_id`
   - `cliente_id` (telefone)
   - `canal` (whatsapp)
-  - `status` (normal, qualificação, escalonada, em_atendimento_humano)
+  - `status` (normal, qualificação, escalonada, em_modo_humano)
   - `criada_em`, `atualizada_em`
 
 - **Mensagem/Evento**
@@ -239,6 +240,7 @@ O objetivo é permitir rastreabilidade, revisão de conversas críticas e melhor
 | 13/05/2026 | 1.7 | REQ-005.4 expandido com a lista explícita dos **eventos do ciclo de orçamento** (`orcamento_criado`, `orcamento_enviado`, `orcamento_convertido`, `orcamento_perdido`), seus payloads mínimos e referências cruzadas a REQ-006.x; título do REQ-005.4 atualizado para refletir o novo escopo | Kika |
 | 01/06/2026 | 1.8 | REQ-005.8: CPF removido da lista de "dados sensíveis proibidos" e movido para nova categoria "dados pessoais com tratamento específico", com regras de mascaramento, não indexação pelo RAG e retenção referenciando REQ-015. Demais documentos de PF (RG, CNH, dados bancários, categorias especiais) permanecem na lista de proibidos. Ajuste decorrente do suporte a orçamento para Pessoa Física (REQ-015 + REQ-002.2A). | Kika |
 | 06/06/2026 | 1.9 | REQ-005.6 expandido com auditoria de classificação e fallback (REQ-002.1A): `confianca_nivel`, `fallback_req003`, `resultado_fallback`, `justificativa_curta`; exibição no modal de raciocínio. | Beto |
+| 09/06/2026 | 1.10 | Renomeação do estado `Em atendimento humano` para `Em modo humano` (decisão D6 da renomeação Negociação → Atendimento) em REQ-005.3 e §5.1. REQ-005.4 ampliado com eventos do ciclo de atendimento (`atendimento_criado`, `atendimento_encerrado`, `atendimento_reaberto`) e perguntas de continuação/fechamento (REQ-016.9, REQ-016.10). | Beto |
 
 ---
 

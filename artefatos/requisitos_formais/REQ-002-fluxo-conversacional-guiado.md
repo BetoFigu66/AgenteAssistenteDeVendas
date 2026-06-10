@@ -54,7 +54,7 @@ O sistema deve conduzir conversas de forma estruturada, porém **adaptativa**, c
   | # | Categoria | Roteamento |
   |---|-----------|------------|
   | 1 | **Intenção de compra/orçamento (mensagem inicial)** | Ativa o modo de qualificação no **REQ-002** e segue para a primeira pergunta dinâmica |
-  | 2 | **Tratamento da resposta do cliente a uma pergunta feita pelo sistema** | Tratada pelo **REQ-002**: o conteúdo da mensagem é registrado como resposta à pergunta que o sistema havia feito (ex.: pergunta "qual o CNPJ?" → mensagem do cliente é gravada no campo `cnpj` da negociação); em seguida o sistema avança para a próxima pergunta pendente |
+  | 2 | **Tratamento da resposta do cliente a uma pergunta feita pelo sistema** | Tratada pelo **REQ-002**: o conteúdo da mensagem é registrado como resposta à pergunta que o sistema havia feito (ex.: pergunta "qual o CNPJ?" → mensagem do cliente é gravada no campo `cnpj` do atendimento); em seguida o sistema avança para a próxima pergunta pendente |
   | 3 | **Pergunta sobre produto/serviço/empresa** | Delegada ao **REQ-003** (consulta à base de respostas automáticas / RAG) |
   | 4 | **Pedido de atendimento humano ou situação crítica** | Delegada ao **REQ-004** (escalonamento para humano) |
 
@@ -97,10 +97,10 @@ O sistema deve conduzir conversas de forma estruturada, porém **adaptativa**, c
 - [ ] **REQ-002.1B — Perguntas sobre produto/empresa antes da identificação fiscal**: Quando o classificador (REQ-002.1) identificar **categoria 3** (pergunta sobre produto/serviço/empresa) com confiança **alta**, o sistema deve delegar ao **REQ-003** **mesmo que o cliente ainda não tenha informado documento fiscal** (CNPJ ou CPF).
 
   **Comportamento esperado**:
-  - Se o telefone for **novo** ou o contato existir **sem empresa vinculada**, o sistema deve **criar contato e negociação anônimos** (`empresa_id = null`, `tipo_documento = indefinido`) para registrar a conversa, **sem** bloquear a resposta com saudação genérica ou pedido imediato de CNPJ.
+  - Se o telefone for **novo** ou o contato existir **sem empresa vinculada**, o sistema deve **criar contato e atendimento anônimos** (`empresa_id = null`, `tipo_documento = indefinido`) para registrar a conversa, **sem** bloquear a resposta com saudação genérica ou pedido imediato de CNPJ.
   - A resposta ao cliente vem do REQ-003 (Q&A ou RAG conforme roteamento normal da cat. 3).
-  - Após o cliente informar CNPJ ou CPF em mensagem posterior, o sistema **promove** o contato/negociação existente, vinculando empresa (REQ-001) ou pessoa (REQ-015), preservando o histórico da conversa.
-  - Este requisito prepara o suporte a **Pessoa Física** (REQ-002.2A / REQ-015): a negociação pode existir antes da identificação fiscal, seja PJ ou PF.
+  - Após o cliente informar CNPJ ou CPF em mensagem posterior, o sistema **promove** o contato/atendimento existente, vinculando empresa (REQ-001) ou pessoa (REQ-015), preservando o histórico da conversa.
+  - Este requisito prepara o suporte a **Pessoa Física** (REQ-002.2A / REQ-015): o atendimento pode existir antes da identificação fiscal, seja PJ ou PF.
 
   **O que não muda**: categorias 1, 2 e 4 continuam exigindo o fluxo de qualificação/identificação conforme REQ-002.2 em diante. Apenas cat. 3 com confiança alta tem tratamento especial pré-identificação.
 
@@ -436,6 +436,7 @@ Cliente: "Facial."
 | 07/06/2026 | 1.23 | REQ-002.1A Caso 3 reescrito: mensagem composta (resposta + pergunta sobre produto/empresa) passa a ser **obrigatório** (DEVE consultar REQ-003 em paralelo), deixando de ser heurística opcional. | Kika |
 | 07/06/2026 | 1.24 | REQ-002.1A: adicionado exemplo concreto no Caso 3 ("5, mas vocês têm modelo com biometria facial?"); removidas as seções **Justificativa**, **Anti-padrão explícito** (incluindo nota de diagnóstico v1.21) e **Calibração complementar** para reduzir poluição do documento. | Kika |
 | 07/06/2026 | 1.25 | REQ-002.1A Caso 3 generalizado: título mudou para "Mensagem composta: resposta + outra pergunta"; tratamento estendido a qualquer pergunta embutida (não apenas sobre produto/empresa), com roteamento da pergunta embutida via REQ-002.1. | Kika |
+| 09/06/2026 | 1.26 | Renomeação Negociação → Atendimento (REQ-016 v2.0): trocas terminológicas em REQ-002.1 (campo `cnpj` do atendimento) e REQ-002.1B (contato/atendimento anônimos, promoção do contato/atendimento). Sem alteração de comportamento — apenas alinhamento de vocabulário. Análise em `analise_renomeacao_negociacao_para_atendimento.md`. | Beto |
 
 ---
 
