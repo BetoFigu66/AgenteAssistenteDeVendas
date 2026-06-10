@@ -49,6 +49,12 @@ class Settings(BaseSettings):
     # Consulta CNPJ
     RECEITAWS_BASE_URL: str = "https://www.receitaws.com.br/v1/cnpj"
 
+    # Consulta CPF / crédito (REQ-015) — provedor a definir (serasa, spc, boavista, quod)
+    CPF_CONSULTA_CREDITO_ENABLED: bool = False
+    CPF_CONSULTA_CREDITO_PROVIDER: Optional[str] = None
+    CPF_CONSULTA_CREDITO_API_KEY: Optional[str] = None
+    CPF_CONSULTA_CREDITO_BASE_URL: Optional[str] = None
+
     class Config:
         env_file = ".env"
         env_file_encoding = "utf-8"

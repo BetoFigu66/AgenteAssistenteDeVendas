@@ -49,9 +49,19 @@ def test_extrai_nome_junto_com_cnpj():
 
 
 def test_nao_extrai_nome_sem_gatilho():
-    """Evita falso-positivo em mensagens sem gatilho explícito."""
+    """Evita falso-positivo em mensagens sem gatilho e sem documento fiscal."""
     ent = extrair_entidades("Quero 5 catracas para minha empresa")
     assert ent.nomes == []
+
+
+def test_extrai_nome_com_cpf_e_data_sem_gatilho():
+    """Regressão: PF informa nome + CPF + data na mesma mensagem."""
+    texto = "Jose Roberto 07198942806, 17/06/1966"
+    ent = extrair_entidades(texto)
+    assert ent.cpfs, "CPF deveria ser extraído"
+    assert ent.datas_nascimento == ["1966-06-17"]
+    assert ent.nomes, f"Nenhum nome extraído de: {texto!r}"
+    assert ent.nomes[0] == "Jose Roberto"
 
 
 def test_nao_extrai_stopword_como_nome():

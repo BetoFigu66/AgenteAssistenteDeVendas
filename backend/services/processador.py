@@ -14,6 +14,7 @@ Fluxo:
 import logging
 import time
 from dataclasses import dataclass
+from datetime import date
 from typing import Optional
 
 from config import settings
@@ -27,14 +28,18 @@ from models import (
     OrigemClassificacao,
     OrigemInfo,
     OrigemMensagem,
+    Pessoa,
     ProcessamentoMensagem,
     StatusNegociacao,
+    TipoDocumento,
 )
 from sqlalchemy.orm import Session
 
 from services.classificador import Intencao, ResultadoClassificacao, classificar
 from services.cnpj import ConsultaCnpjError, obter_ou_criar_empresa
 from services.cnpj.receitaws import validar_cnpj
+from services.cpf.persistencia import obter_ou_criar_pessoa
+from services.cpf.validacao import mascarar_cpf, parse_data_nascimento, validar_cpf
 from services.debug_log import DebugLogger
 from services.identificador import (
     ResultadoIdentificacao,
@@ -42,6 +47,7 @@ from services.identificador import (
     criar_contato,
     identificar_por_telefone,
     normalizar_telefone,
+    vincular_empresa_ao_contato,
 )
 from services.llm import LLMProvider
 from services.rag import DocumentoRecuperado, ParRecuperado, QAService, RetrievalService
@@ -291,6 +297,8 @@ class ProcessadorMensagem:
 
         entidades_dict = {
             "cnpjs": resultado_class.entidades.cnpjs,
+            "cpfs": [mascarar_cpf(c) for c in resultado_class.entidades.cpfs],
+            "datas_nascimento": resultado_class.entidades.datas_nascimento,
             "nomes": resultado_class.entidades.nomes,
             "tipos_produto": resultado_class.entidades.tipos_produto,
             "quantidades": resultado_class.entidades.quantidades,
@@ -307,6 +315,7 @@ class ProcessadorMensagem:
         proc = ProcessamentoMensagem(
             intencao=resultado_class.intencao.value,
             confianca=round(resultado_class.confianca, 2),
+            confianca_nivel=resultado_class.confianca_nivel.value,
             origem_classificacao=origem_enum,
             entidades=entidades_dict,
             status_identificacao=identificacao.status.value,
@@ -361,7 +370,7 @@ class ProcessadorMensagem:
                 dlog.log("rota", "RECLAMAR → RECLAMACAO_ESCALADA")
             return await self._gerador.gerar(T.RECLAMACAO_ESCALADA)
 
-        # Se o cliente forneceu CNPJ, processa
+        # Se o cliente forneceu CNPJ, processa fluxo PJ
         if entidades.cnpjs:
             if dlog:
                 dlog.log("rota", f"cnpj_fornecido={entidades.cnpjs[0]}")
@@ -371,6 +380,38 @@ class ProcessadorMensagem:
                 entidades.cnpjs[0],
                 nome_informado=entidades.nomes[0] if entidades.nomes else None,
             )
+
+        # Se o cliente forneceu CPF, processa fluxo PF
+        if entidades.cpfs:
+            if dlog:
+                dlog.log("rota", f"cpf_fornecido={mascarar_cpf(entidades.cpfs[0])}")
+            data_nasc = self._parse_data_entidade(entidades, conteudo)
+            return await self._processar_cpf_fornecido(
+                db,
+                telefone,
+                entidades.cpfs[0],
+                nome_informado=entidades.nomes[0] if entidades.nomes else None,
+                data_nascimento=data_nasc,
+            )
+
+        # Data de nascimento sem CPF na mesma mensagem (continuação do fluxo PF)
+        data_nasc_avulsa = self._parse_data_entidade(entidades, conteudo)
+        if data_nasc_avulsa:
+            contato_pendente = identificacao.contato
+            if contato_pendente:
+                neg_pendente = self._negociacao_ativa(db, contato_pendente)
+                if neg_pendente and neg_pendente.tipo_documento == TipoDocumento.CPF and not neg_pendente.pessoa_id:
+                    cpf_pendente = self._info_negociacao(db, neg_pendente.id, "cpf_pendente")
+                    if cpf_pendente:
+                        if dlog:
+                            dlog.log("rota", f"data_nasc_complemento cpf={mascarar_cpf(cpf_pendente)}")
+                        return await self._processar_cpf_fornecido(
+                            db,
+                            telefone,
+                            cpf_pendente,
+                            nome_informado=contato_pendente.nome,
+                            data_nascimento=data_nasc_avulsa,
+                        )
 
         # Telefone novo ou sem empresa -> pedir identificação
         if identificacao.status == StatusIdentificacao.NOVO:
@@ -388,6 +429,24 @@ class ProcessadorMensagem:
             )
 
         if identificacao.status == StatusIdentificacao.SEM_EMPRESA:
+            contato = identificacao.contato
+            if contato:
+                neg = self._negociacao_ativa(db, contato)
+                if neg and neg.pessoa_id and neg.pessoa:
+                    if entidades.nomes and not contato.nome:
+                        contato.nome = entidades.nomes[0]
+                        db.commit()
+                    await self._atualizar_infos_negociacao(db, neg, resultado_class)
+                    if dlog:
+                        dlog.log("rota", f"PF identificada pessoa_id={neg.pessoa_id} intencao={intencao.value}")
+                    return await self._gerar_resposta_por_intencao(
+                        intencao=intencao,
+                        contato=contato,
+                        empresa=None,
+                        pessoa=neg.pessoa,
+                        conteudo_cliente=conteudo,
+                        dlog=dlog,
+                    )
             if dlog:
                 dlog.log("rota", "SEM_EMPRESA → PERGUNTAR_CNPJ")
             return await self._gerador.gerar(T.PERGUNTAR_CNPJ)
@@ -412,6 +471,7 @@ class ProcessadorMensagem:
             intencao=intencao,
             contato=contato,
             empresa=empresa,
+            pessoa=None,
             conteudo_cliente=conteudo,
             dlog=dlog,
         )
@@ -420,14 +480,18 @@ class ProcessadorMensagem:
         self,
         intencao: Intencao,
         contato: Contato,
-        empresa: Empresa,
+        empresa: Optional[Empresa],
         conteudo_cliente: str,
+        pessoa: Optional[Pessoa] = None,
         dlog: Optional[DebugLogger] = None,
     ) -> RespostaGerada:
         """Gera resposta baseado na intenção (com contato já identificado)."""
-        nome = contato.nome or ""
+        nome = contato.nome or (pessoa.nome if pessoa else "") or ""
         if dlog:
-            dlog.log("rota", f"identificado empresa='{empresa.nome[:30]}' intencao={intencao.value}")
+            if empresa:
+                dlog.log("rota", f"identificado empresa='{empresa.nome[:30]}' intencao={intencao.value}")
+            elif pessoa:
+                dlog.log("rota", f"identificado PF pessoa_id={pessoa.id} intencao={intencao.value}")
 
         if intencao == Intencao.SAUDACAO:
             if nome:
@@ -636,8 +700,14 @@ class ProcessadorMensagem:
             logger.warning(f"[Processador] Falha ao consultar CNPJ: {e}")
             return await self._gerador.gerar(T.CNPJ_INVALIDO)
 
-        # Cria contato se ainda não existir para essa combinação telefone+empresa
-        contato_existente = db.query(Contato).filter_by(telefone=telefone, empresa_id=empresa.id).first()
+        # Procura contato existente por telefone (telefone é unique no modelo).
+        # Inclui contatos anônimos (empresa_id=None) criados antes do CNPJ.
+        telefone_norm = normalizar_telefone(telefone)
+        contato_existente = (
+            db.query(Contato)
+            .filter(Contato.telefone.in_([telefone_norm, telefone]))
+            .first()
+        )
         if not contato_existente:
             contato_existente = criar_contato(
                 db=db,
@@ -645,9 +715,13 @@ class ProcessadorMensagem:
                 empresa=empresa,
                 nome=nome_informado,
             )
-        elif nome_informado and not contato_existente.nome:
-            contato_existente.nome = nome_informado
-            db.commit()
+        else:
+            # Promove contato anônimo para a empresa identificada (se aplicável).
+            if contato_existente.empresa_id is None:
+                vincular_empresa_ao_contato(db, contato_existente, empresa)
+            if nome_informado and not contato_existente.nome:
+                contato_existente.nome = nome_informado
+                db.commit()
 
         # Cria negociação ativa se ainda não houver
         self._obter_ou_criar_negociacao(db, contato_existente, empresa)
@@ -655,6 +729,75 @@ class ProcessadorMensagem:
         return await self._gerador.gerar(
             T.CNPJ_CONSULTADO_OK,
             contexto={"nome": empresa.nome},
+            personalizar=False,
+        )
+
+    async def _processar_cpf_fornecido(
+        self,
+        db: Session,
+        telefone: str,
+        cpf: str,
+        nome_informado: Optional[str] = None,
+        data_nascimento: Optional[date] = None,
+    ) -> RespostaGerada:
+        """Processa quando o cliente forneceu CPF: valida, persiste pessoa e vincula negociação."""
+        if not validar_cpf(cpf):
+            return await self._gerador.gerar(T.CPF_INVALIDO)
+
+        if data_nascimento is None:
+            telefone_norm = normalizar_telefone(telefone)
+            contato = (
+                db.query(Contato)
+                .filter(Contato.telefone.in_([telefone_norm, telefone]))
+                .first()
+            )
+            if not contato:
+                contato = criar_contato(db=db, telefone=telefone, nome=nome_informado)
+            elif nome_informado and not contato.nome:
+                contato.nome = nome_informado
+                db.commit()
+
+            negociacao = self._obter_ou_criar_negociacao_pf_pendente(db, contato, cpf)
+            self._salvar_info_negociacao(db, negociacao.id, "cpf_pendente", cpf)
+            return await self._gerador.gerar(T.PERGUNTAR_DATA_NASCIMENTO)
+
+        pessoa, resultado_credito = await obter_ou_criar_pessoa(
+            db,
+            cpf,
+            nome=nome_informado,
+            data_nascimento=data_nascimento,
+        )
+
+        telefone_norm = normalizar_telefone(telefone)
+        contato_existente = (
+            db.query(Contato)
+            .filter(Contato.telefone.in_([telefone_norm, telefone]))
+            .first()
+        )
+        if not contato_existente:
+            contato_existente = criar_contato(
+                db=db,
+                telefone=telefone,
+                nome=nome_informado or pessoa.nome,
+            )
+        else:
+            nome_final = nome_informado or pessoa.nome
+            if nome_final and not contato_existente.nome:
+                contato_existente.nome = nome_final
+                db.commit()
+
+        negociacao = self._obter_ou_criar_negociacao(
+            db,
+            contato_existente,
+            pessoa=pessoa,
+        )
+        self._registrar_resultado_credito(db, negociacao, resultado_credito)
+        self._remover_info_negociacao(db, negociacao.id, "cpf_pendente")
+
+        nome_exibicao = pessoa.nome or contato_existente.nome or "cliente"
+        return await self._gerador.gerar(
+            T.CPF_CONSULTADO_OK,
+            contexto={"nome": nome_exibicao},
             personalizar=False,
         )
 
@@ -684,23 +827,163 @@ class ProcessadorMensagem:
         self,
         db: Session,
         contato: Contato,
-        empresa: Empresa,
+        empresa: Optional[Empresa] = None,
+        pessoa: Optional[Pessoa] = None,
     ) -> Negociacao:
-        """Retorna negociação ativa ou cria uma nova."""
+        """
+        Retorna negociação ativa ou cria uma nova.
+
+        `empresa` ou `pessoa` identificam PJ ou PF respectivamente.
+        """
         negociacao = self._negociacao_ativa(db, contato)
         if negociacao:
+            if empresa is not None and negociacao.empresa_id is None:
+                self._promover_negociacao_empresa(db, negociacao, empresa)
+            if pessoa is not None and negociacao.pessoa_id is None:
+                self._promover_negociacao_pessoa(db, negociacao, pessoa)
             return negociacao
 
+        if empresa:
+            titulo = f"Atendimento - {empresa.nome}"
+        elif pessoa:
+            titulo = f"Atendimento - {pessoa.nome or 'Pessoa Física'}"
+        else:
+            titulo = "Atendimento (sem empresa)"
+
+        tipo_doc = TipoDocumento.CNPJ if empresa else TipoDocumento.CPF if pessoa else TipoDocumento.INDEFINIDO
         negociacao = Negociacao(
             contato_id=contato.id,
-            empresa_id=empresa.id,
+            empresa_id=empresa.id if empresa else None,
+            pessoa_id=pessoa.id if pessoa else None,
+            tipo_documento=tipo_doc,
             status=StatusNegociacao.NOVO,
-            titulo=f"Atendimento - {empresa.nome}",
+            titulo=titulo,
         )
         db.add(negociacao)
         db.commit()
         db.refresh(negociacao)
-        logger.info(f"[Processador] Negociação criada id={negociacao.id}")
+        logger.info(
+            f"[Processador] Negociação criada id={negociacao.id} "
+            f"empresa_id={negociacao.empresa_id} pessoa_id={negociacao.pessoa_id}"
+        )
+        return negociacao
+
+    def _obter_ou_criar_negociacao_pf_pendente(
+        self,
+        db: Session,
+        contato: Contato,
+        cpf: str,
+    ) -> Negociacao:
+        """Cria ou retorna negociação PF aguardando data de nascimento."""
+        negociacao = self._negociacao_ativa(db, contato)
+        if negociacao:
+            negociacao.tipo_documento = TipoDocumento.CPF
+            db.commit()
+            return negociacao
+
+        negociacao = Negociacao(
+            contato_id=contato.id,
+            tipo_documento=TipoDocumento.CPF,
+            status=StatusNegociacao.NOVO,
+            titulo="Atendimento - Pessoa Física (pendente)",
+        )
+        db.add(negociacao)
+        db.commit()
+        db.refresh(negociacao)
+        logger.info(f"[Processador] Negociação PF pendente criada id={negociacao.id} cpf={mascarar_cpf(cpf)}")
+        return negociacao
+
+    def _promover_negociacao_pessoa(
+        self,
+        db: Session,
+        negociacao: Negociacao,
+        pessoa: Pessoa,
+    ) -> Negociacao:
+        """Vincula pessoa (PF) a uma negociação existente."""
+        if negociacao.pessoa_id is None:
+            negociacao.pessoa_id = pessoa.id
+            negociacao.tipo_documento = TipoDocumento.CPF
+            if not negociacao.titulo or negociacao.titulo.startswith("Atendimento (sem"):
+                negociacao.titulo = f"Atendimento - {pessoa.nome or 'Pessoa Física'}"
+            db.commit()
+            db.refresh(negociacao)
+            logger.info(
+                f"[Processador] Negociação id={negociacao.id} promovida para pessoa id={pessoa.id}"
+            )
+        return negociacao
+
+    def _parse_data_entidade(self, entidades, conteudo: str) -> Optional[date]:
+        """Obtém data de nascimento das entidades extraídas ou do texto bruto."""
+        if entidades.datas_nascimento:
+            try:
+                return date.fromisoformat(entidades.datas_nascimento[0])
+            except ValueError:
+                pass
+        return parse_data_nascimento(conteudo)
+
+    def _info_negociacao(self, db: Session, negociacao_id: int, chave: str) -> Optional[str]:
+        info = db.query(NegociacaoInfo).filter_by(negociacao_id=negociacao_id, chave=chave).first()
+        return info.valor if info else None
+
+    def _salvar_info_negociacao(self, db: Session, negociacao_id: int, chave: str, valor: str) -> None:
+        info = db.query(NegociacaoInfo).filter_by(negociacao_id=negociacao_id, chave=chave).first()
+        if info:
+            info.valor = valor
+            info.pendente = True
+        else:
+            db.add(
+                NegociacaoInfo(
+                    negociacao_id=negociacao_id,
+                    chave=chave,
+                    valor=valor,
+                    pendente=True,
+                    origem=OrigemInfo.USER,
+                )
+            )
+        db.commit()
+
+    def _remover_info_negociacao(self, db: Session, negociacao_id: int, chave: str) -> None:
+        db.query(NegociacaoInfo).filter_by(negociacao_id=negociacao_id, chave=chave).delete()
+        db.commit()
+
+    def _registrar_resultado_credito(self, db: Session, negociacao: Negociacao, resultado) -> None:
+        """Registra resultado agregado da consulta de crédito na negociação (REQ-015)."""
+        registros = [
+            ("consulta_credito_realizada", str(resultado.consulta_realizada).lower()),
+            ("consulta_credito_provedor", resultado.provedor or "nenhum"),
+        ]
+        if resultado.consulta_realizada:
+            registros.append(("restricao_financeira", str(resultado.tem_restricao).lower()))
+            if resultado.quantidade_ocorrencias is not None:
+                registros.append(("restricao_ocorrencias", str(resultado.quantidade_ocorrencias)))
+            if resultado.score is not None:
+                registros.append(("score_credito", str(resultado.score)))
+        elif resultado.mensagem:
+            registros.append(("consulta_credito_obs", resultado.mensagem))
+
+        for chave, valor in registros:
+            self._salvar_info_negociacao(db, negociacao.id, chave, valor)
+            info = db.query(NegociacaoInfo).filter_by(negociacao_id=negociacao.id, chave=chave).first()
+            if info:
+                info.pendente = False
+                db.commit()
+
+    def _promover_negociacao_empresa(
+        self,
+        db: Session,
+        negociacao: Negociacao,
+        empresa: Empresa,
+    ) -> Negociacao:
+        """Vincula a empresa a uma negociação anônima existente."""
+        if negociacao.empresa_id is None:
+            negociacao.empresa_id = empresa.id
+            if not negociacao.titulo or negociacao.titulo == "Atendimento (sem empresa)":
+                negociacao.titulo = f"Atendimento - {empresa.nome}"
+            db.commit()
+            db.refresh(negociacao)
+            logger.info(
+                f"[Processador] Negociação id={negociacao.id} promovida para empresa id={empresa.id}"
+            )
         return negociacao
 
     async def _atualizar_infos_negociacao(

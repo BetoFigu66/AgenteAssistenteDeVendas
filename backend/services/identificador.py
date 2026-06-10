@@ -139,12 +139,12 @@ def criar_contato(
     """
     Cria um novo contato, vinculado ou não a uma empresa.
 
-    Nota: Por enquanto empresa_id é obrigatório no modelo.
-    Se vier None, precisaremos criar uma empresa "placeholder" ou
-    ajustar o modelo para permitir nullable. Ver discussão no README.
+    Se `empresa` for None, cria um contato anônimo (sem empresa), útil para
+    atender o cliente antes de ele fornecer o CNPJ. A vinculação à empresa
+    pode ser feita depois via `vincular_empresa_ao_contato`.
     """
     if empresa is None:
-        raise ValueError("Contato requer empresa. Se empresa ainda desconhecida, use criar_contato_sem_empresa().")
+        return criar_contato_sem_empresa(db, telefone, nome=nome, email=email, cargo=cargo)
 
     contato = Contato(
         empresa_id=empresa.id,
@@ -158,4 +158,56 @@ def criar_contato(
     db.refresh(contato)
 
     logger.info(f"[Identificador] Contato criado: id={contato.id} telefone={contato.telefone} empresa={empresa.nome}")
+    return contato
+
+
+def criar_contato_sem_empresa(
+    db: Session,
+    telefone: str,
+    nome: Optional[str] = None,
+    email: Optional[str] = None,
+    cargo: Optional[str] = None,
+) -> Contato:
+    """
+    Cria um contato anônimo (sem empresa vinculada).
+
+    Usado quando o cliente interage antes de informar o CNPJ. O contato fica
+    com `empresa_id=None` e pode ser promovido depois via
+    `vincular_empresa_ao_contato`.
+    """
+    contato = Contato(
+        empresa_id=None,
+        telefone=normalizar_telefone(telefone),
+        nome=nome,
+        email=email,
+        cargo=cargo,
+    )
+    db.add(contato)
+    db.commit()
+    db.refresh(contato)
+
+    logger.info(f"[Identificador] Contato anônimo criado: id={contato.id} telefone={contato.telefone}")
+    return contato
+
+
+def vincular_empresa_ao_contato(db: Session, contato: Contato, empresa: Empresa) -> Contato:
+    """
+    Vincula uma empresa a um contato anônimo (promoção).
+
+    Se o contato já tiver empresa diferente, mantém o vínculo atual (não
+    sobrescreve) e apenas loga, deixando a decisão de multi-empresa para o
+    fluxo de identificação.
+    """
+    if contato.empresa_id is None:
+        contato.empresa_id = empresa.id
+        db.commit()
+        db.refresh(contato)
+        logger.info(
+            f"[Identificador] Contato id={contato.id} vinculado à empresa id={empresa.id} ({empresa.nome})"
+        )
+    elif contato.empresa_id != empresa.id:
+        logger.info(
+            f"[Identificador] Contato id={contato.id} já vinculado a empresa id={contato.empresa_id}; "
+            f"empresa nova id={empresa.id} não sobrescreve."
+        )
     return contato

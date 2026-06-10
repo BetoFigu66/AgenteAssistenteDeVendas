@@ -9,11 +9,23 @@ Regras de negócio aplicadas:
 
 # Saudações e identificação inicial
 SAUDACAO_NOVO_CONTATO = """Olá! 👋 Sou o assistente da Inforrel.
-Para te atender melhor, poderia me informar o CNPJ da sua empresa e seu nome?"""
+Para te atender melhor, poderia me informar o seu nome,CNPJ da sua empresa ou seu CPF e data de nascimento?"""
 
 SAUDACAO_COM_NOME = "Olá, {nome}! 👋 Como posso te ajudar hoje?"
 
-PERGUNTAR_CNPJ = "Para prosseguir, você poderia me informar o CNPJ da sua empresa?"
+PERGUNTAR_CNPJ = (
+    "Para prosseguir, você poderia me informar o CNPJ da sua empresa e seu nome, "
+    "ou seu CPF e data de nascimento?"
+)
+
+PERGUNTAR_DATA_NASCIMENTO = (
+    "Anotei seu CPF. Para concluir o cadastro, qual é a sua data de nascimento? "
+    "(formato DD/MM/AAAA)"
+)
+
+CPF_INVALIDO = "Hmm, não consegui validar esse CPF. Pode conferir os dígitos e me enviar novamente?"
+
+CPF_CONSULTADO_OK = "Ótimo! Confirmei seus dados, {nome}. Em que posso ajudar hoje?"
 
 PERGUNTAR_NOME = "Como posso te chamar? 😊"
 

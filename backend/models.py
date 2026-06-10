@@ -188,6 +188,9 @@ class User(Base):
     mensagens_aprovadas: Mapped[List["Mensagem"]] = relationship(
         back_populates="aprovador", foreign_keys="Mensagem.aprovador_id"
     )
+    pessoas_verificadas: Mapped[List["Pessoa"]] = relationship(
+        back_populates="verificador", foreign_keys="Pessoa.user_id_verificador"
+    )
 
     def to_dict(self) -> dict:
         return {
@@ -352,7 +355,7 @@ class Contato(Base):
     __tablename__ = "contatos"
 
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
-    empresa_id: Mapped[int] = mapped_column(ForeignKey("empresas.id"), nullable=False, index=True)
+    empresa_id: Mapped[Optional[int]] = mapped_column(ForeignKey("empresas.id"), nullable=True, index=True)
     nome: Mapped[Optional[str]] = mapped_column(String(200), nullable=True)
     telefone: Mapped[str] = mapped_column(String(20), nullable=False, unique=True, index=True)
     email: Mapped[Optional[str]] = mapped_column(String(200), nullable=True)
@@ -360,7 +363,7 @@ class Contato(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False)
 
     # Relacionamentos
-    empresa: Mapped["Empresa"] = relationship(back_populates="contatos")
+    empresa: Mapped[Optional["Empresa"]] = relationship(back_populates="contatos")
     mensagens: Mapped[List["Mensagem"]] = relationship(back_populates="contato")
     negociacoes: Mapped[List["Negociacao"]] = relationship(back_populates="contato")
 
@@ -369,6 +372,62 @@ class Contato(Base):
         return {
             "id": self.id, "empresa_id": self.empresa_id, "nome": self.nome,
             "telefone": self.telefone, "email": self.email, "cargo": self.cargo
+        }
+
+
+class TipoDocumento(str, enum.Enum):
+    """Tipo de documento fiscal associado à negociação."""
+
+    CPF = "cpf"
+    CNPJ = "cnpj"
+    INDEFINIDO = "indefinido"
+
+
+class Pessoa(Base):
+    """
+    Pessoa Física (PF) identificada por CPF.
+
+    Dados coletados na conversa (CPF, nome, data de nascimento). A validação
+    cadastral é manual: `user_id_verificador` e `timestamp_verificacao` registram
+    quem confirmou os dados e quando (sem API externa por enquanto).
+    """
+
+    __tablename__ = "pessoas"
+
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    cpf: Mapped[str] = mapped_column(String(14), unique=True, nullable=False, index=True)
+    nome: Mapped[Optional[str]] = mapped_column(String(200), nullable=True)
+    data_nascimento: Mapped[Optional[date]] = mapped_column(Date, nullable=True)
+    situacao: Mapped[Optional[str]] = mapped_column(String(30), nullable=True)
+    ultima_atualizacao_api: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
+    user_id_verificador: Mapped[Optional[int]] = mapped_column(
+        ForeignKey("users.id"), nullable=True, index=True
+    )
+    timestamp_verificacao: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False
+    )
+
+    # Relacionamentos
+    negociacoes: Mapped[List["Negociacao"]] = relationship(back_populates="pessoa")
+    verificador: Mapped[Optional["User"]] = relationship(
+        back_populates="pessoas_verificadas", foreign_keys=[user_id_verificador]
+    )
+
+    def to_dict(self) -> dict:
+        """Converte o modelo para dicionário."""
+        return {
+            "id": self.id,
+            "cpf": self.cpf,
+            "nome": self.nome,
+            "data_nascimento": self.data_nascimento.isoformat() if self.data_nascimento else None,
+            "situacao": self.situacao,
+            "user_id_verificador": self.user_id_verificador,
+            "timestamp_verificacao": (
+                self.timestamp_verificacao.isoformat() if self.timestamp_verificacao else None
+            ),
+            "verificado": self.user_id_verificador is not None and self.timestamp_verificacao is not None,
         }
 
 
@@ -382,7 +441,14 @@ class Negociacao(Base):
 
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
     contato_id: Mapped[int] = mapped_column(ForeignKey("contatos.id"), nullable=False, index=True)
-    empresa_id: Mapped[int] = mapped_column(ForeignKey("empresas.id"), nullable=False, index=True)
+    empresa_id: Mapped[Optional[int]] = mapped_column(ForeignKey("empresas.id"), nullable=True, index=True)
+    pessoa_id: Mapped[Optional[int]] = mapped_column(ForeignKey("pessoas.id"), nullable=True, index=True)
+    tipo_documento: Mapped[TipoDocumento] = mapped_column(
+        Enum(TipoDocumento, values_callable=lambda x: [e.value for e in x], name="tipodocumento"),
+        default=TipoDocumento.INDEFINIDO,
+        nullable=False,
+        index=True,
+    )
     titulo: Mapped[Optional[str]] = mapped_column(String(200), nullable=True)
     descricao: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     status: Mapped[StatusNegociacao] = mapped_column(
@@ -403,7 +469,8 @@ class Negociacao(Base):
 
     # Relacionamentos
     contato: Mapped["Contato"] = relationship(back_populates="negociacoes")
-    empresa: Mapped["Empresa"] = relationship(back_populates="negociacoes")
+    empresa: Mapped[Optional["Empresa"]] = relationship(back_populates="negociacoes")
+    pessoa: Mapped[Optional["Pessoa"]] = relationship(back_populates="negociacoes")
     mensagens: Mapped[List["Mensagem"]] = relationship(back_populates="negociacao")
     orcamentos: Mapped[List["Orcamento"]] = relationship(back_populates="negociacao", cascade="all, delete-orphan")
     itens: Mapped[List["ItemNegociacao"]] = relationship(back_populates="negociacao", cascade="all, delete-orphan")
@@ -417,6 +484,8 @@ class Negociacao(Base):
             "id": self.id,
             "contato_id": self.contato_id,
             "empresa_id": self.empresa_id,
+            "pessoa_id": self.pessoa_id,
+            "tipo_documento": self.tipo_documento.value if self.tipo_documento else None,
             "titulo": self.titulo,
             "descricao": self.descricao,
             "status": self.status.value if self.status else None,
@@ -773,6 +842,7 @@ class ProcessamentoMensagem(Base):
     # --- Classificação ---
     intencao: Mapped[Optional[str]] = mapped_column(String(50), nullable=True, index=True)
     confianca: Mapped[Optional[Decimal]] = mapped_column(Numeric(3, 2), nullable=True)
+    confianca_nivel: Mapped[Optional[str]] = mapped_column(String(10), nullable=True)
     origem_classificacao: Mapped[Optional[OrigemClassificacao]] = mapped_column(
         Enum(OrigemClassificacao, values_callable=lambda x: [e.value for e in x]), nullable=True
     )
@@ -958,5 +1028,35 @@ class ReportProblema(Base):
             "resolvido_por": self.resolvido_por,
             "resolvido_em": self.resolvido_em.isoformat() if self.resolvido_em else None,
             "created_at": self.created_at.isoformat() if self.created_at else None,
+            "updated_at": self.updated_at.isoformat() if self.updated_at else None,
+        }
+
+
+class Parametro(Base):
+    """
+    Parâmetro de configuração dinâmica, calibrável sem deploy.
+
+    Usado para limiares de fallback, scores de RAG, e outras
+    constantes que evoluem com a operação. O valor é sempre string
+    no banco; o leitor faz cast para int/float/bool conforme necessário.
+    """
+
+    __tablename__ = "parametros"
+
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    nome: Mapped[str] = mapped_column(String(100), unique=True, nullable=False, index=True)
+    valor: Mapped[str] = mapped_column(Text, nullable=False)
+    descricao: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False
+    )
+
+    def to_dict(self) -> dict:
+        return {
+            "id": self.id,
+            "nome": self.nome,
+            "valor": self.valor,
+            "descricao": self.descricao,
             "updated_at": self.updated_at.isoformat() if self.updated_at else None,
         }
