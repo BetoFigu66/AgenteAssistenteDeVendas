@@ -1,0 +1,831 @@
+# Comandos Úteis
+
+Referência rápida de comandos para o projeto. Atualizado conforme dúvidas da equipe.
+
+---
+
+## Git
+
+```bash
+# Ver status dos arquivos
+git status
+
+# Baixar atualizações do repositório
+git pull
+
+# Adicionar arquivos e commitar
+git add .
+git commit -m "descrição do que foi feito"
+
+# Enviar para o repositório
+git push
+
+# Criar nova branch de feature
+git checkout -b feature/nome-da-feature
+
+# Voltar para develop
+git checkout develop
+
+# Ver branches locais
+git branch
+
+# Ver histórico de commits (últimos 10)
+git log -n 10 --oneline
+
+# Comparar 2 commits (ou branches, ou tags)
+git diff <sha1> <sha2>
+git diff <sha1> <sha2> -- caminho/do/arquivo   # só um arquivo
+git diff --name-only <sha1> <sha2>             # só nomes de arquivos que mudaram
+git diff --stat <sha1> <sha2>                  # resumo com +/- por arquivo
+git diff main develop                          # comparar branches
+git diff HEAD~1 HEAD                           # HEAD vs commit anterior
+
+# Listar commits que estão em B mas não em A
+git log <sha1>..<sha2> --oneline
+
+# Ver o diff de um único commit
+git show <sha>
+
+# Comparar no GitHub via URL:
+# https://github.com/<user>/<repo>/compare/<sha1>...<sha2>
+
+# Ver conteúdo completo de um arquivo em um commit específico
+git show <sha>:caminho/do/arquivo
+
+# Histórico de commits que tocaram um arquivo
+git log --oneline -- caminho/do/arquivo
+
+# Histórico com o diff de cada commit no arquivo (-p = patch)
+git log -p -- caminho/do/arquivo
+```
+
+**Dica VSCode/Windsurf:** botão direito no arquivo → `Open Timeline`. Lista todos os commits que tocaram aquele arquivo; `Ctrl+Click` em duas entradas compara as versões lado a lado.
+
+### GitHub — permissões para colaboradora (Projects / Issues)
+
+Repo em **conta pessoal** (`BetoFigu66/...`): o GitHub **não oferece** papéis Read / Write / Admin na tela de colaboradores — só **dono** ou **colaborador** (acesso leitura+escrita no repo). Por isso **não aparece dropdown de papel** ao lado do nome.
+
+**O que a Kika já tem como colaboradora:** push, issues, labels, milestones no repositório.
+
+**O que ela não consegue só com isso:** criar ou administrar um **Project v2 na sua conta** (`BetoFigu66`). Project tem permissão **separada** do repo.
+
+**Solução A — Beto cria o Project e delega (recomendado):**
+
+1. Beto: avatar (canto sup. direito) → **Your projects** → **New project** → vincular repo `AgenteAssistenteDeVendas`
+2. No Project: **⋯** → **Settings** → **Manage access**
+3. **Invite collaborators** → usuário da Kika → papel **Admin**
+4. Kika aceita em https://github.com/notifications
+
+**Solução B — Kika cria o Project na conta dela:**
+
+1. Kika: **Your projects** → **New project**
+2. **Add repository** → escolher `BetoFigu66/AgenteAssistenteDeVendas` (só aparece se ela já for colaboradora aceita)
+3. Beto não precisa ser Admin do Project dela; ambos usam o mesmo board
+
+**Conferir colaboradora no repo (sem papel para mudar):**
+
+1. https://github.com/BetoFigu66/AgenteAssistenteDeVendas/settings/access
+2. Aba **Direct access** → nome da Kika deve aparecer como **Collaborator**
+3. Se estiver **Pending**: ela precisa aceitar o convite antes
+
+**Para ter dropdown de papel (Read/Triage/Admin etc.):** criar **Organization** gratuita, transferir o repo para lá e convidar membros com papéis — opção de médio prazo.
+
+Ver também: `artefatos/gerente_de_projetos/proposta_github_projects.md` §6.1.
+
+---
+
+## Docker
+
+```bash
+# Subir todos os containers
+docker-compose up
+
+# Subir em background (sem travar o terminal)
+docker-compose up -d
+
+# Parar containers
+docker-compose down
+
+# Ver containers rodando
+docker ps
+
+# Ver logs de um container
+docker logs <nome-do-container>
+
+# Rebuild após mudanças no Dockerfile
+docker-compose up --build
+
+# Limpar containers parados e imagens não usadas
+docker system prune
+```
+
+### Docker no Windows: PowerShell vs WSL
+
+**Recomendação:** usar **um só** ambiente para `docker-compose` (PowerShell **ou** WSL), alinhado ao `cloudflared` no Windows (`localhost:3000`).
+
+| Onde roda | Quando usar |
+|-----------|-------------|
+| **PowerShell** (Docker Desktop) | Padrão do projeto para deploy via túnel; após `.dockerignore` na raiz |
+| **WSL** | Dev Python local (`venv`); `docker-compose` no WSL também funciona, mas evite alternar |
+
+**Erro:** `open backend\venv\lib64: The file cannot be accessed by the system` ao fazer `docker-compose up --build` no PowerShell.
+
+**Causa:** o build envia `backend/venv` (criado no WSL/Linux) com symlinks que o Docker Desktop no Windows não lê.
+
+**Correção:** arquivos `.dockerignore` na raiz e em `frontend/` (já no repo) excluem `venv` e `node_modules`. Depois:
+
+```powershell
+docker-compose build --no-cache
+docker-compose up -d
+```
+
+Se ainda falhar, apague o venv local (só afeta dev fora do Docker): `Remove-Item -Recurse -Force backend\venv`
+
+---
+
+## Dois ambientes na mesma máquina (Dev + QA)
+
+| Ambiente | Backend | Frontend | Como subir | Público |
+|----------|---------|----------|------------|---------|
+| **Dev** (seu trabalho) | `8001` | `3001` | `backend/run.sh` + `frontend/run.sh` (nativo, hot reload) | só `localhost` |
+| **QA** (Kika / túnel) | `8000` | `3000` | `docker-compose up -d` | `https://app.auxvendas.com` via Cloudflare |
+
+**Regra:** o túnel Cloudflare (`cloudflared`) aponta **sempre** para `http://localhost:3000` (stack Docker/QA). **Nunca** para `3001`.
+
+### Subir Dev (codando)
+
+```powershell
+# Terminal 1 — Postgres (compartilhado; só precisa estar up uma vez)
+docker-compose up -d postgres
+
+# Terminal 2 — backend dev
+cd backend
+# Copiar .env.example → .env com API_PORT=8001 (se ainda não tiver)
+.\run.sh
+
+# Terminal 3 — frontend dev
+cd frontend
+.\run.sh
+# ou: npm run dev
+```
+
+Acessos locais: http://localhost:3001 (painel) · http://localhost:8001/docs (API)
+
+### Subir QA (validação / Twilio / túnel)
+
+```powershell
+cd C:\Beto\Pessoal\Python\git\AgenteAssistenteDeVendas
+docker-compose up -d --build
+cloudflared tunnel run auxvendas-dev
+```
+
+Acessos: http://localhost:3000 (local) · https://app.auxvendas.com (público)
+
+### Checklist de configuração
+
+1. **`backend/.env`:** `API_PORT=8001` (dev). Docker ignora isso e usa porta `8000` interna.
+2. **`frontend/.env` ou `.env.development`:** `VITE_DEV_PORT=3001`, `VITE_DEV_API_PROXY=http://127.0.0.1:8001` (opcional — já são os padrões no `vite.config.js`).
+3. **`%USERPROFILE%\.cloudflared\config.yml`:** ingress `app.auxvendas.com` → `http://localhost:3000` (sem alteração).
+4. **Twilio webhook:** `https://app.auxvendas.com/webhook` (QA). Dev em `8001` não recebe webhook da Twilio salvo túnel separado.
+5. **Postgres:** ambos usam `localhost:5433` / DB `assistente_vendas` por padrão — **dados compartilhados**. Para isolar dev de QA, crie outro database no mesmo Postgres e ajuste `DATABASE_URL` no `.env` de dev.
+
+### Conflito de portas
+
+```powershell
+netstat -ano | findstr ":8000 :8001 :3000 :3001"
+```
+
+Se `8000` ou `3000` estiverem ocupados fora do Docker, o QA não sobe. Se `8001`/`3001` ocupados, o dev não sobe. Os dois ambientes **podem** rodar ao mesmo tempo.
+
+---
+
+## Backend (Python)
+
+```bash
+# Criar ambiente virtual (apenas primeira vez)
+cd backend
+python -m venv venv
+
+# Ativar ambiente virtual (Windows PowerShell)
+venv\Scripts\Activate.ps1
+
+# Ativar ambiente virtual (Windows CMD)
+venv\Scripts\activate.bat
+
+# Ativar ambiente virtual (WSL/Linux/Mac)
+source venv/bin/activate
+
+# Instalar dependências
+pip install -r requirements.txt
+
+# Rodar o backend (opção 1 - simples)
+python main.py
+
+# Rodar o backend (opção 2 - mais controle, reload automático)
+# Dev local: porta 8001 (QA/docker usa 8000)
+uvicorn main:app --host 0.0.0.0 --port 8001 --reload
+# ou: .\run.sh
+
+# Rodar migrations do banco
+alembic upgrade head
+
+# Criar nova migration
+alembic revision --autogenerate -m "descricao"
+```
+
+---
+
+## PostgreSQL
+
+```bash
+# Subir apenas o postgres (sem backend/frontend)
+docker-compose up -d postgres
+
+# Ver logs do postgres
+docker-compose logs -f postgres
+
+# Acessar shell do postgres (dentro do container)
+docker exec -it inforrel_postgres psql -U inforrel -d assistente_vendas
+
+# Parar e remover volume (APAGA TODOS OS DADOS)
+docker-compose down -v
+```
+
+### LLM Provider (Groq)
+
+1. Crie uma conta em https://console.groq.com
+2. Gere uma API Key em https://console.groq.com/keys
+3. Adicione no seu `backend/.env`:
+```env
+LLM_PROVIDER=groq
+LLM_MODEL=llama-3.1-8b-instant
+LLM_API_KEY=sua_chave_aqui
+```
+
+**Importante:** Nunca commitar `.env`. Está no `.gitignore`.
+
+Para trocar de provider (ex: OpenAI, Gemini, Ollama), basta alterar `LLM_PROVIDER` e implementar a classe em `backend/services/llm/`.
+
+---
+
+### Embeddings / RAG (EMBEDDING_API_KEY)
+
+O provider padrão é **OpenAI** (`text-embedding-3-small`, 1536 dimensões).
+A mesma conta OpenAI usada eventualmente para o LLM serve aqui; a chave é a mesma.
+
+**Como obter:**
+
+1. Acesse https://platform.openai.com e faça login (ou crie conta).
+2. No menu lateral, clique em **API keys**.
+3. Clique em **+ Create new secret key**, dê um nome (ex: `inforrel-dev`) e copie a chave gerada — ela só aparece uma vez.
+4. Adicione no seu `backend/.env`:
+
+```env
+EMBEDDING_PROVIDER=openai
+EMBEDDING_MODEL=text-embedding-3-small
+EMBEDDING_API_KEY=sk-...sua_chave_aqui...
+```
+
+**Custo estimado (referência):** `text-embedding-3-small` custa US$ 0,02 por 1 milhão de tokens.
+Uma ingestão inicial do catálogo completo da Inforrel fica na casa de centavos.
+Buscas em produção também são baratas (cada pergunta = 1 chamada pequena).
+
+**Fallback sem chave (desenvolvimento sem embeddings):**
+Defina `RAG_ENABLED=false` no `.env` para desabilitar a RAG completamente.
+O agente continua funcionando com templates e LLM, só não usa o catálogo vetorial.
+
+```env
+RAG_ENABLED=false
+```
+
+Erro de quota na API do OpenAI (insufficient_quota).
+Entrei em https://platform.openai.com/settings/billing, pediu para criar uma organização e adicionar um metodo de pagamento.
+(Signed in with betofigu@gmail.com)
+Organization name: "BF Desenvolvimento de sistemas"
+What best describes you?: "Data Scientist"
+
+API key name: inforrel-dev
+Project name: Inforrel
+API keys belong to projects to help you manage usage limits, team access, and data security.
+---
+
+### RAG - inventario das fontes
+
+```powershell
+# Gera o inventario das fontes raw usadas pela RAG
+python backend\scripts\inventariar_fontes_rag.py
+
+# Gerar em outro caminho, se necessario
+python backend\scripts\inventariar_fontes_rag.py --saida backend\data\rag\inventario_fontes.json
+```
+
+Saida padrao: `backend/data/rag/inventario_fontes.json`.
+
+### RAG - pre-processamento das fontes
+
+```powershell
+# Gera documentos normalizados em JSONL a partir do inventario
+python backend\scripts\preprocessar_conhecimento_rag.py
+
+# Informar caminhos explicitamente, se necessario
+python backend\scripts\preprocessar_conhecimento_rag.py --inventario backend\data\rag\inventario_fontes.json --saida backend\data\rag\documentos_normalizados.jsonl --resumo backend\data\rag\preprocessamento_resumo.json
+```
+
+Saidas padrao:
+
+- `backend/data/rag/documentos_normalizados.jsonl`
+- `backend/data/rag/preprocessamento_resumo.json`
+
+### RAG - consolidacao e deduplicacao
+
+```powershell
+# Deduplica documentos normalizados e gera a base consolidada
+python backend\scripts\consolidar_conhecimento_rag.py
+
+# Ajustar o limiar para marcar documentos similares, se necessario
+python backend\scripts\consolidar_conhecimento_rag.py --similaridade-minima 0.82
+```
+
+Saidas padrao:
+
+- `backend/data/rag/documentos_consolidados.jsonl`
+- `backend/data/rag/consolidacao_resumo.json`
+
+### RAG - chunking
+
+```powershell
+# Gera chunks a partir dos documentos consolidados
+python backend\scripts\gerar_chunks_rag.py
+
+# Ajustar tamanhos, se necessario
+python backend\scripts\gerar_chunks_rag.py --alvo-tokens 700 --max-tokens 900 --overlap-tokens 100
+```
+
+Saidas padrao:
+
+- `backend/data/rag/chunks_conhecimento.jsonl`
+- `backend/data/rag/chunking_resumo.json`
+
+### RAG - banco pgvector
+
+```powershell
+# Recria apenas o container Postgres usando a imagem pgvector definida no docker-compose
+# Preserva o volume postgres_data existente.
+docker-compose up -d postgres
+
+# Aplica migrations pelo container backend
+docker exec agenteassistentedevendas-backend-1 alembic upgrade head
+
+# Verifica revision atual
+docker exec agenteassistentedevendas-backend-1 alembic current
+
+# Confirma extensao vector
+docker exec inforrel_postgres psql -U inforrel -d assistente_vendas -c "SELECT extname FROM pg_extension WHERE extname = 'vector';"
+
+# Inspeciona tabela da RAG
+docker exec inforrel_postgres psql -U inforrel -d assistente_vendas -c "\d+ documentos_conhecimento"
+```
+
+---
+
+### QA Engineer — checks automatizados e pre-commit
+
+Os checks de qualidade ficam em `agentes/qa_engineer.py` (registry via `@registrar_check`). Ver diretriz D06 em `artefatos/implementador/diretrizes.md`.
+
+**Setup (uma vez por clone):**
+```powershell
+pip install -r backend/requirements.txt
+pre-commit install
+```
+
+**Rodar manualmente:**
+```powershell
+# Todos os checks registrados
+python scripts/qa_check.py
+
+# Somente os checks do escopo pre-commit (rápidos)
+python scripts/qa_check.py --escopo pre-commit
+
+# Um check específico
+python scripts/qa_check.py --check gitkeep-redundantes
+
+# Listar checks registrados
+python scripts/qa_check.py --listar
+```
+
+**Severidade:** `error` bloqueia o commit; `warning` e `info` apenas avisam.
+
+**Adicionar um novo check:** decorar uma função em `agentes/qa_engineer.py`:
+```python
+@registrar_check(id="meu-check", titulo="...", severidade="warning",
+                 escopos=["sempre", "pre-commit"])
+def _check_meu(raiz: Path) -> CheckResult:
+    ...
+```
+
+**Rodar pre-commit sobre tudo (útil após mudanças grandes):**
+```powershell
+pre-commit run --all-files
+```
+
+---
+
+### Cobertura de REQs — atualizar `cobertura_evolucao.yaml`
+
+Histórico longitudinal da cobertura dos REQs sprint a sprint vive em
+`artefatos/gerente_de_projetos/cobertura_evolucao.yaml`. **Não editar à mão**
+sprints com `origem: snapshot_formal` — o arquivo é gerado a partir dos
+`sprint_NN_*_interno.yaml` em `artefatos/gerente_de_projetos/reports/`.
+
+**Regerar manualmente (recomendado ao fechar uma sprint):**
+```powershell
+python agentes/scripts/gerente_de_projetos/atualiza_cobertura_evolucao.py
+```
+
+**Enforcement automático:** o check `cobertura-evolucao-desatualizada`
+(`@registrar_check` em `agentes/qa_engineer.py`, escopo `pre-commit`,
+severidade `error`) garante que o arquivo nunca fique desincronizado.
+
+**Comportamento (padrão auto-fix tipo black):** se o arquivo divergir do
+esperado ao tentar comitar, o hook **regenera o arquivo automaticamente**
+no disco e bloqueia o commit pedindo `git add` + retry. Fluxo:
+
+```powershell
+git commit -m "..."                                                   # falha
+# Hook regenera cobertura_evolucao.yaml e mostra a dica.
+git add artefatos/gerente_de_projetos/cobertura_evolucao.yaml
+git commit -m "..."                                                   # passa
+```
+
+Resultado: **1 commit no histórico**, 2 tentativas de `git commit` na primeira vez.
+
+Diretriz aplicável: G06 em `artefatos/gerente_de_projetos/diretrizes.md`.
+
+---
+
+### Conexão DBeaver / cliente externo
+
+| Campo | Valor |
+|-------|-------|
+| Host | `localhost` |
+| Porta | `5433` *(5432 interno do container, 5433 exposto para não conflitar com postgres local)* |
+| Database | `assistente_vendas` |
+| User | `inforrel` |
+| Password | `inforrel_dev` |
+
+---
+
+## Frontend (Node.js)
+
+```bash
+# Instalar dependências (apenas primeira vez ou após pull)
+cd frontend
+npm install
+
+# Rodar em desenvolvimento (hot reload) — porta 3001 (QA/docker usa 3000)
+cd frontend
+npm run dev
+# Acesse: http://localhost:3001
+
+# Build de produção
+npm run build
+
+# Preview do build
+npm run preview
+
+# Se o hot reload não funcionar, limpar cache:
+# 1. Parar o servidor (Ctrl+C)
+# 2. Deletar cache do Vite
+Remove-Item -Recurse -Force node_modules/.vite
+# 3. Rodar novamente
+npm run dev
+# 4. No navegador: Ctrl+Shift+R (force refresh)
+```
+
+---
+
+## WSL (Windows Subsystem for Linux)
+
+```bash
+# Abrir WSL
+wsl
+
+# Ver distribuições instaladas
+wsl --list --verbose
+
+# Reiniciar WSL (PowerShell como Admin)
+wsl --shutdown
+
+# Acessar pasta do Windows no WSL
+cd /mnt/c/Users/SeuUsuario/...
+```
+
+---
+
+## PowerShell
+
+```powershell
+# Ver processos usando uma porta
+netstat -ano | findstr :8000
+
+# Matar processo por PID
+taskkill /PID <numero> /F
+
+# Limpar tela
+cls
+
+# Ver variáveis de ambiente
+$env:PATH
+```
+
+
+### Abrir PowerShell como Administrador (Windows)
+
+O terminal integrado do **Cursor/VSCode não roda elevado** — `cloudflared service install` e similares precisam de um terminal **fora** do IDE.
+
+**Formas que costumam funcionar (Windows 10/11):**
+
+| Método | Como |
+|--------|------|
+| Atalho de teclado | `Win` → digite `PowerShell` → `Ctrl+Shift+Enter` (abre elevado) |
+| Menu Iniciar | `Win` → **Windows PowerShell** → botão direito → **Executar como administrador** |
+| Menu Win+X | `Win+X` → **Terminal (Administrador)** ou **Windows PowerShell (Administrador)** |
+| Prompt de UAC | No PowerShell **normal** (fora do Cursor), disparar elevação: |
+
+```powershell
+Start-Process powershell -Verb RunAs -ArgumentList '-NoExit', '-Command', 'cloudflared service install'
+```
+
+Deve aparecer o diálogo **Controle de Conta de Usuário (UAC)** → **Sim**.
+
+**Se não abrir / não aparece “Executar como administrador”:**
+
+1. Confirmar que a conta está no grupo **Administradores** (`Win+R` → `lusrmgr.msc` → Groups → Administrators).
+2. UAC ligado: `Win+R` → `UserAccountControlSettings` → não usar o nível mais baixo se o menu some.
+3. Reiniciar **Windows Explorer**: `Ctrl+Shift+Esc` → Processos → **Windows Explorer** → Reiniciar.
+4. Tentar **Prompt de Comando** elevado (`cmd` → `Ctrl+Shift+Enter`) e rodar o mesmo comando.
+5. Política corporativa / conta sem privilégio: só um admin da máquina pode instalar o serviço.
+
+**Plano B (sem serviço):** após o reboot, subir manualmente `cloudflared tunnel run auxvendas-dev` (ver `artefatos/arquiteto_de_sistemas/disponibilizacao_auxvendas_com.md`).
+
+### Erro "execução de scripts foi desabilitada neste sistema"
+
+Sintoma: ao rodar `.\algum_script.ps1` aparece `UnauthorizedAccess` /
+`PSSecurityException` mencionando `about_Execution_Policies`.
+
+Três caminhos, do mais pontual ao mais persistente:
+
+```powershell
+# 1) Bypass apenas para esta execução (não muda nada do sistema)
+powershell -ExecutionPolicy Bypass -File .\scripts\bootstrap_github_projects.ps1
+
+# 2) Liberar para o usuário atual de uma vez (não exige admin)
+Set-ExecutionPolicy -Scope CurrentUser -ExecutionPolicy RemoteSigned
+
+# Conferir as políticas vigentes em cada escopo
+Get-ExecutionPolicy -List
+
+# 3) Se o arquivo veio com flag de "downloaded" (Zone.Identifier),
+#    desbloquear pontualmente:
+Unblock-File .\scripts\bootstrap_github_projects.ps1
+```
+
+`RemoteSigned` permite scripts locais e exige assinatura apenas em scripts
+baixados da internet — costuma ser o equilíbrio aceitável para dev no Windows.
+
+### gh CLI + jq: `--jq` quebra no Windows PowerShell 5.1
+
+Sintoma: ao rodar algo como
+`gh label list --json name --jq ".[] | select(.name==`"foo`") | .name"`
+o `gh.exe` recebe a expressão **sem as aspas internas** (e às vezes o
+pipe `|` é interpretado pelo shell), e a `jq` falha com
+`failed to parse jq expression`. Acontece no Windows PowerShell 5.1, que
+não escapa corretamente caracteres especiais (`|`, `"`) ao chamar
+executáveis nativos. **Trocar para aspa simples externa não resolve** —
+o problema é no native command argument parser, não na string.
+
+Solução robusta: **não usar `--jq`**. Trazer o JSON cru e filtrar em
+PowerShell com `ConvertFrom-Json`:
+
+```powershell
+# em vez de:
+#   gh label list --json name --jq ".[] | select(.name==`"foo`")"
+# fazer:
+
+$existing = gh label list --limit 200 --json name |
+            ConvertFrom-Json |
+            ForEach-Object { $_.name }
+
+if ($existing -contains 'foo') { ... }
+```
+
+Mesma ideia para `gh api`:
+
+```powershell
+$milestones = gh api '/repos/{owner}/{repo}/milestones?state=open' |
+              ConvertFrom-Json
+$ms = $milestones | Where-Object { $_.title -eq 'Sprint 03' }
+```
+
+Aplica-se a qualquer comando externo no Windows quando o argumento tem
+aspas e/ou pipe — não é específico de `gh`. Em PowerShell 7+ (`pwsh`) o
+problema some com `$PSNativeCommandArgumentPassing = 'Standard'`.
+
+---
+
+## VSCode / WindSurf
+
+```json
+// Ativar quebra visual de linhas longas no editor
+{
+  "editor.wordWrap": "on"
+}
+```
+
+Atalho rapido para alternar a quebra visual de linha: `Alt + Z`.
+
+Tambem pode ser ativado pelo menu: `View` -> `Word Wrap`.
+
+Observacao: isso altera apenas a visualizacao no editor, sem modificar o arquivo.
+
+### Debugar backend FastAPI no VSCode
+
+A configuracao de execucao esta em `.vscode/launch.json` (nome: **Backend FastAPI**).  
+Para iniciar:
+
+- `F5` ou painel `Run and Debug` (`Ctrl+Shift+D`) → selecionar **Backend FastAPI**
+
+Ela usa o ambiente virtual `backend/venv` com reload automatico em `main:app`.
+
+### Renderizar diagramas Mermaid no preview de Markdown
+
+O preview nativo do VSCode/Windsurf nao renderiza Mermaid; mostra como texto. Para renderizar:
+
+1. Abrir Extensions (`Ctrl + Shift + X`)
+2. Instalar **Markdown Preview Mermaid Support** (autor: `bierner`)
+3. Reabrir o preview (`Ctrl + Shift + V`)
+
+Alternativas:
+
+- **GitHub** renderiza Mermaid nativamente ao visualizar `.md` no repositorio
+- Para editar/exportar PNG/SVG: site [mermaid.live](https://mermaid.live) ou extensao **Mermaid Editor** (`tomoyukim`)
+- Para realce de sintaxe: **Mermaid Markdown Syntax Highlighting** (`bpruitt-goddard`, opcional)
+
+Sintaxe minima para testar (cole dentro de um arquivo `.md`):
+
+~~~markdown
+```mermaid
+sequenceDiagram
+    A->>B: teste
+```
+~~~
+
+---
+
+## Cloudflare Tunnel (deploy zero-custo para Kika/Rita)
+
+Documento completo: `artefatos/arquiteto_de_sistemas/deploy_tunel_local.md`
+
+```powershell
+# Instalar (uma vez)
+winget install --id Cloudflare.cloudflared
+
+# Atualizar (PowerShell como Administrador; parar o serviço antes)
+Stop-Service Cloudflared
+winget upgrade --id Cloudflare.cloudflared --accept-package-agreements
+Start-Service Cloudflared
+cloudflared --version
+# Se Stop-Service travar: taskkill /F /IM cloudflared.exe && Start-Service Cloudflared
+
+# Subir a app
+docker-compose up -d
+
+# Quick Tunnel (URL temporária, sem login) - frontend
+# Obs: Rodar no cmd ou powershell
+cloudflared tunnel --url http://localhost:3000
+
+# Quick Tunnel para o backend (outro terminal)
+cloudflared tunnel --url http://localhost:8000
+
+# Named Tunnel (URL fixa, requer conta Cloudflare + domínio)
+cloudflared tunnel login
+cloudflared tunnel create inforrel-poc
+cloudflared tunnel route dns inforrel-poc app.seudominio.com
+cloudflared tunnel run inforrel-poc
+
+# Instalar túnel como serviço Windows (PowerShell **fora do Cursor**, como Admin)
+cloudflared service install
+
+# Após service install: copiar config para perfil LocalSystem (senão erro 1033 no browser)
+# O serviço NÃO usa C:\Users\<voce>\.cloudflared — usa systemprofile\.cloudflared
+# Ver passo 7b em artefatos/arquiteto_de_sistemas/disponibilizacao_auxvendas_com.md
+
+# Validar conexão ativa (CONNECTOR deve aparecer; senão = serviço sem config)
+cloudflared tunnel info auxvendas-dev
+```
+
+---
+
+## Atividades Periódicas
+
+Config: `artefatos/gerente_de_projetos/atividades_periodicas.yaml`
+Log:    `artefatos/gerente_de_projetos/log_atividades.yaml`
+
+```bash
+# Verificar quais atividades estão em atraso
+python scripts/verificar_atividades.py
+
+# Verificar + falhar se houver atraso (para pre-commit)
+python scripts/verificar_atividades.py --strict
+
+# Registrar que uma atividade foi concluída
+python scripts/verificar_atividades.py --registrar qa_check_semanal --responsavel "Beto"
+python scripts/verificar_atividades.py --registrar auditoria_ia_sprint --responsavel "Beto" --notas "3 melhorias identificadas"
+```
+
+IDs disponíveis (ver config para a lista completa):
+| ID | Frequência | Tipo |
+|----|-----------|------|
+| `qa_check_semanal` | semanal | script |
+| `auditoria_ia_sprint` | sprint | prompt_agente |
+| `revisao_readme_mensal` | mensal | revisao_manual |
+| `atualizacao_tendencias_mensal` | mensal | prompt_agente |
+
+**Integração pre-commit** (adicionar em `.pre-commit-config.yaml`):
+```yaml
+- repo: local
+  hooks:
+    - id: verificar-atividades-periodicas
+      name: Atividades periódicas em atraso
+      entry: python scripts/verificar_atividades.py
+      language: python
+      pass_filenames: false
+      always_run: true
+```
+> Usa `--strict` na `entry` se quiser bloquear o commit em caso de atraso.
+
+---
+
+## QA Checks (`scripts/qa_check.py`)
+
+Executa os checks de qualidade registrados pelo agente `[qa]`.
+Não requer venv especial — usa apenas bibliotecas built-in do Python.
+
+```bash
+# Listar checks disponíveis
+python scripts/qa_check.py --listar
+
+# Rodar todos os checks
+python scripts/qa_check.py
+
+# Só checks do escopo pre-commit (rápidos)
+python scripts/qa_check.py --escopo pre-commit
+
+# Rodar um check específico
+python scripts/qa_check.py --check gitkeep-redundantes
+```
+
+Saída:
+- `0` — tudo passou (ou só warnings/infos, não bloqueia commit)
+- `1` — ao menos um check `error` falhou (bloqueia commit)
+
+> Rode sempre da **raiz do projeto** — o script ajusta `sys.path` automaticamente.
+
+---
+
+## Ruff (Lint e Imports)
+
+Ferramenta rápida (Rust) para lint, formatação e verificação de imports. Configurado em `pyproject.toml`.
+
+```bash
+# Instalar
+pip install ruff
+
+# Verificar problemas
+ruff check .
+
+# Corrigir automaticamente
+ruff check --fix .
+
+# Verificar apenas imports (isort)
+ruff check --select I .
+
+# Formatar código
+ruff format .
+```
+
+O check `ruff-lint` do QA Engineer invoca `ruff check` automaticamente no pre-commit.
+
+---
+
+## Histórico de Dúvidas
+
+| Data | Quem | Dúvida | Comando/Solução |
+|------|------|--------|-----------------|
+| 2026-04-20 | Beto | Como ativar venv no Windows? | `venv\Scripts\Activate.ps1` |
+| 2026-04-20 | Beto | Precisa de venv para frontend? | Não, Node.js usa `node_modules` |
+| 2026-04-25 | Beto | Como quebrar a visualizacao de linhas longas no VSCode? | Ativar `editor.wordWrap: on` ou usar `Alt + Z` |
+
+---
+
+*Atualize este arquivo sempre que surgir uma dúvida nova!*

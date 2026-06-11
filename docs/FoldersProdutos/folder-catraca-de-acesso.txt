@@ -1,0 +1,63 @@
+Catraca FIT: catraca compacta para soluções de controle de acesso que reúne segurança, simplicidade e eficiência
+
+Segurança: Seu patrimônio seguro com o acesso restrito a pessoas autorizadas.
+
+Comodidade: Registro detalhado de todos os acessos de seus colaboradores, visitantes e clientes.
+
+Economia: Solução eﬁcaz e de baixo custo.
+
+A Catraca Fit é indicada para uso em condomínios, academias, escolas e universidades, refeitórios, eventos, clubes ou qualquer outro empreendimento onde seja necessário garantir acesso somente a pessoas autorizadas.
+A catraca Fit pode ser usada de forma autônoma, gerenciada por um software de controle de acesso ou por soluções especíﬁcas para o seu negócio, como controle de academias e de portarias.
+O braço articulado é um acessório importante para garantir segurança na saída dos usuários em casos de emergências, especialmente indicado para shows, feiras, estádios e eventos em geral.
+
+CATRACA FIT 4 - Especificações 
+Leitores disponíveis: 
+- Leitor de cartão de proximidade 125 KHz
+- Leitor de proximidade para smart card, padrão Mifare 13,56 MHz.
+- Leitor de código de barras padrão 2 de 5 intercalado, de 4 a 16 dígitos
+- Leitor de código de barras padrão 3 de 9, de 4 a 10 dígitos
+- Leitor de código de barras padrão QR Code
+- Leitor biométrico
+
+Opções de leitor biométrico: 
+1) LFD
+Proteção contra uso de dedos falsos de silicone, borracha e outros
+Armazenamento de até 10.000 digitais
+Permite o cadastramento de 1 ou 2 digitais por usuário
+2) LC
+Armazenamento de até 3.000 digitais
+Permite o cadastramento de 1 ou 2 digitais por usuário
+3)LM
+Leitor Sagem
+Armazenamento de até 10.000 usuários*
+Permite o cadastramento de 1 ou 2 digitais por usuário
+Proteção contra uso de dedos falsos de silicone, borracha e outros*
+*Conforme o modelo de módulo escolhido
+
+Recursos:
+Capacidade para armazenamento de até 30.000 registros
+Lista para controle de acesso de até 15.000 usuários
+Até 100 tabelas de horário para controle de acesso
+Relógio interno com precisão de 1 minuto por ano
+Permite o cadastro de 10 funções especiais configuráveis
+Permite a liberação do giro dos braços através de um botão externo
+Função de contador de giros para visualização no software Gerenciador de Inners
+Permite sinalização de seleção para revista
+Display com backlight, de 2 linhas por 16 colunas
+Teclado com 16 teclas de silicone, tipo manta
+Pictogramas luminosos para indicação de giro liberado
+Web server integrado para configuração
+Comunicação TCP/IP 10/100Mbps
+
+Construção:
+Pedestal em aço carbono com pintura epóxi
+Tampa em plástico ABS de alta resistência
+Mecanismo com 3 braços em tubo de aço inox polido, com durabilidade maior que 3.000.000 de giros
+Opcionais: Sistema de braço articulado e Sistema de urna de coleta de cartões de visitante
+
+Especificações técnicas:
+Alimentação: entrada 100 a 240 Vac 60Hz; Opcional: 12VDC
+Consumo: 17W
+Dimensões sem os braços: Largura: 300 mm; Altura: 1050 mm; Profundidade: 250 mm
+Dimensões com os braços: Largura: 690 mm; Altura: 1050 mm; Profundidade: 690 mm
+Peso: 24 Kg

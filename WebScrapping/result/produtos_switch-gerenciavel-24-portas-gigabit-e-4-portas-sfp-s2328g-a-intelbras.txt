@@ -1,0 +1,175 @@
+URL: https://inforrel.com.br/produtos/switch-gerenciavel-24-portas-gigabit-e-4-portas-sfp-s2328g-a-intelbras/
+================================================================================
+
+Switch Gerenciável 24 portas Gigabit e 4 portas SFP S2328G-A - Intelbras - Inforrel
+Ir para o conteúdo
+Popular Keywords
+Categories
+No Record Found
+Ver mais
+(19) 3772-5050
+[email protected]
+Início
+Quem somos
+Nossos Serviços
+Controle de Acessos
+Controle de Ponto
+AssistênciaTécnica
+Produtos
+Controle de Ponto
+Controle de Acessos
+Câmeras
+Roteadores
+Softwares
+Cancelas
+Soluções Especiais
+Para Comércios em Geral
+Para Clubes
+Para Academias
+Blog
+Contato
+Popular Keywords
+Categories
+No Record Found
+Ver mais
+MENU
+Início
+Quem somos
+Nossos Serviços
+Produtos
+Soluções Especiais
+Blog
+Contato
+(19) 3772-5050
+[email protected]
+×
+Compartilhe
+Switch Gerenciável 24 portas Gigabit e 4 portas SFP S2328G-A – Intelbras
+Sugestão de aplicação:
+Grandes Empresas
+Alta disponibilidade VRRP
+O protocolo VRRP permite a redução de pontos únicos de falha, melhorando a disponibilidade e a continuidade da conexão em ambientes críticos.
+Maior controle da rede
+Com os protocolos SNMP e RMON é possível monitorar os recursos do switch oferecendo gerenciamento facilitado da rede.
+Roteamento estático
+Roteamento direto que permite direcionar o tráfego de pacotes entre redes distintas de forma rápida, evitando o tráfego desnecessário entre equipamentos.
+Compatível com IPv6
+O Switch S2328G-A é a solução ideal para redes IPv6, pois oferece maior capacidade, segurança e privacidade para a sua rede.
+Autenticação IEEE 802.1X
+Oferece segurança aprimorada, autenticando os dispositivos que estão conectados à rede e impedindo acessos não autorizados.
+Itens opcionais
+Cor: Preto
+Solicite uma proposta
+Através de suas 24 portas Gigabit Ethernet e 4 portas SFP é ideal para aplicações de alto desempenho, oferecendo recursos avançados de gerenciamento.
+Baixe o folder
+Portas SFP
+Priorização de serviço QoS
+Funcionalidades de camada
+Perguntas Frequentes
+Quais são os tipos e velocidades das portas deste switch?
+O S2328G-A possui
+24 portas RJ45
+que são
+Gigabit Ethernet
+(10/100/1000 Mbps). Além disso, ele conta com
+4 portas SFP
+(também de 1 Gbps) para conexões de uplink, que são ideais para conectar fibra óptica e interligar switches em longas distâncias ou conectar a servidores.
+O que significa ele ser "Gerenciável"? Quais funções ele oferece?
+Ser "Gerenciável" (L2/L2+) significa que você tem controle total sobre a rede. Ele permite criar e gerenciar
+VLANs
+(para segmentar redes), configurar
+QoS
+(para priorizar tráfagos, como voz e vídeo), usar
+Link Aggregation
+(para somar a velocidade de portas) e
+Spanning Tree (STP/RSTP)
+(para evitar loops), entre muitas outras funções avançadas de segurança e controle.
+Como eu acesso a interface de gerenciamento deste switch?
+Você pode gerenciá-lo de duas formas principais:
+Via Interface Web (GUI):
+Uma interface gráfica acessada pelo navegador, que é mais visual e fácil de usar.
+Via Linha de Comando (CLI):
+Através de acesso por
+SSH
+ou
+Telnet
+, preferido por administradores de rede experientes para configurações rápidas e scripts.
+Este switch fornece alimentação PoE para câmeras ou telefones IP?
+Não.
+Este modelo é focado exclusivamente no gerenciamento e na distribuição de dados em alta velocidade. Ele não possui a funcionalidade PoE (Power over Ethernet) para alimentar outros dispositivos. Ele é alimentado por uma fonte interna AC (Bivolt).
+As portas SFP são de 1G ou 10G?
+As 4 portas SFP deste modelo são de
+1 Gbps
+(Gigabit). Elas são projetadas para o uplink de dados em alta velocidade com outros equipamentos da rede central (core) que também possuam portas SFP de 1G.
+Solicite uma proposta
+newsletter
+Enviar
+Quem somos
+Fundada em 1995, a empresa teve como princípio atender a um nicho de mercado (assistência técnica de relógio de ponto) crescente mas que deixava muito a desejar. A Inforrel foi se aperfeiçoando no atendimento técnico e acompanhando as evoluções tecnológicas do segmento.
+Central de
+Atendimento:
+Av. João Batista Morato do Canto, 2160 - Parque Industrial, Campinas - SP, 13031-800
+Mapa do site
+Início
+Quem somos
+Nossos Serviços
+Soluções Especiais
+Produtos
+Blog
+Contato
+Contato
+Campinas: (19) 3772-5050
++55 19 99664-6832
+[email protected]
+[email protected]
+Seg à Sex: 07:45h às 17:15h
+Redes Sociais
+Facebook
+Instagram
+Linkedin
+Políticas de Privacidade
+Desenvolvido por:
+© Todos os direitos reservados
+Gerenciar o consentimento
+Para fornecer as melhores experiências, usamos tecnologias como cookies para armazenar e/ou acessar informações do dispositivo. O consentimento para essas tecnologias nos permitirá processar dados como comportamento de navegação ou IDs exclusivos neste site. Não consentir ou retirar o consentimento pode afetar negativamente certos recursos e funções.
+Funcional
+Funcional
+Sempre ativo
+O armazenamento ou acesso técnico é estritamente necessário para a finalidade legítima de permitir a utilização de um serviço específico explicitamente solicitado pelo assinante ou utilizador, ou com a finalidade exclusiva de efetuar a transmissão de uma comunicação através de uma rede de comunicações eletrónicas.
+Preferências
+Preferências
+O armazenamento ou acesso técnico é necessário para o propósito legítimo de armazenar preferências que não são solicitadas pelo assinante ou usuário.
+Estatísticas
+Estatísticas
+O armazenamento ou acesso técnico que é usado exclusivamente para fins estatísticos.
+O armazenamento técnico ou acesso que é usado exclusivamente para fins estatísticos anônimos. Sem uma intimação, conformidade voluntária por parte de seu provedor de serviços de Internet ou registros adicionais de terceiros, as informações armazenadas ou recuperadas apenas para esse fim geralmente não podem ser usadas para identificá-lo.
+Marketing
+Marketing
+O armazenamento ou acesso técnico é necessário para criar perfis de usuário para enviar publicidade ou para rastrear o usuário em um site ou em vários sites para fins de marketing semelhantes.
+Gerenciar opções
+Gerenciar serviços
+Gerenciar {vendor_count} fornecedores
+Leia mais sobre esses objetivos
+Aceitar
+Negar
+Ver preferências
+Salvar preferências
+Ver preferências
+{title}
+{title}
+{title}
+Gerenciar o consentimento
+Desejo receber uma proposta
+Preencha o formulário e nos envie suas informações que logo entraremos em contato.
+"*" indica campos obrigatórios
+Seu nome *
+(obrigatório)
+Empresa
+(obrigatório)
+E-mail *
+(obrigatório)
+Produto
+Mensagem
+WhatsApp
+Olá! Bem vindo(a) a INFORREL
+Abrir bate-papo

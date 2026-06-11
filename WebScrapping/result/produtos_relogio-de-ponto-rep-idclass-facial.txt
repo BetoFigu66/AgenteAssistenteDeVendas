@@ -1,0 +1,200 @@
+URL: https://inforrel.com.br/produtos/relogio-de-ponto-rep-idclass-facial/
+================================================================================
+
+Relógio de Ponto REP iDClass Facial - Contro iD - Inforrel
+Ir para o conteúdo
+Popular Keywords
+Categories
+No Record Found
+Ver mais
+(19) 3772-5050
+[email protected]
+Início
+Quem somos
+Nossos Serviços
+Controle de Acessos
+Controle de Ponto
+AssistênciaTécnica
+Produtos
+Controle de Ponto
+Controle de Acessos
+Câmeras
+Roteadores
+Softwares
+Cancelas
+Soluções Especiais
+Para Comércios em Geral
+Para Clubes
+Para Academias
+Blog
+Contato
+Popular Keywords
+Categories
+No Record Found
+Ver mais
+MENU
+Início
+Quem somos
+Nossos Serviços
+Produtos
+Soluções Especiais
+Blog
+Contato
+(19) 3772-5050
+[email protected]
+×
+Compartilhe
+Relógio de Ponto REP iDClass Facial – Contro iD
+Sugestão de aplicação:
+Pequenas e Médias Empresas
+Revolucionando mais uma vez o mercado de Registradores Eletrônicos de Ponto, a Control iD traz ao mercado o REP iDClass Facial. Em conformidade com a Portaria 671/2021, o produto utiliza a tecnologia de reconhecimento facial para identificação de usuários. Seu display touchscreen possibilita uma interação amigável e intuitiva e seu design inovador, tamanho reduzido e robustez reafirmam a liderança da Control iD no segmento.
+Identificação por reconhecimento facial, cartão de proximidade e senha
+Mecanismo impressor de alta velocidade e robustez com guilhotina
+Capacidade para bobina de até 400m (10.000+ tickets por bobina)
+Comunicação TCP/IP, web server embarcado e duas portas USB (Wi-Fi e GPRS opcionais)
+Solicite uma proposta
+Documentos
+Documentos PDF:
+Manual – Relógio de Ponto REP iDClass
+Datasheet – Relógio de Ponto REP iDClass Facial
+Gabarito de Furação
+API – Interface para Integração:
+Documentação da API
+(Download)
+(Visualizar)
+Exemplo de integração
+(github)
+Biblioteca de integração (DLL):
+DLL de integração Windows (ZIP)
+iDCloud:
+Utilitário de AFD (ZIP)
+Documentação para integração iDCloud
+Perguntas Frequentes
+Controle de Ponto
+Portaria 671/2021:
+Produto em conformidade com a Portaria 671 do MTE
+Quantidade de Funcionários:
+Capacidade para 15.000 usuários cadastrados
+Quantidade de Faces:
+Capacidade para 3.000 (padrão) / 10.000 (licença Pro) faces
+Formas de Identificação
+Reconhecimento Facial:
+Duas câmeras Full HD 1080p (luz visível e luz infravermelha)
+Cartões de Proximidade:
+Compatível com tecnologias Mifare ou 125kHz ASK
+Senha:
+Identificação de usuários através de senha numérica
+*As formas de identificação variam conforme modelo
+Impressora e Bobina
+Compartimento de Bobina:
+Capacidade para bobinas de até 400m (10.000+ tickets por bobina)
+Mecanismo Impressor:
+Mecanismo impressor de alta qualidade Seiko (Japão)
+Corte Automático do Ticket:
+Impressora com guilhotina de alta velocidade
+Velocidade de Impressão:
+Velocidade de impressão de 100 mm/s
+Detecção de Quantidade de Papel Restante:
+Permite o monitoramento do nível de papel remotamente
+Comunicação
+iDCloud:
+Sincronização automática com a nuvem (vendido separadamente)
+Ethernet:
+1 porta Ethernet 10/100Mbps nativa
+USB:
+1 porta USB 2.0 Host (Porta Fiscal) para fiscalização de Arquivo Fonte de Dados (AFD)
+1 porta USB 2.0 Host para importação e exportação de usuários e recebimentos de AFD
+GPRS:
+Módulo de conexão GPRS via iDConnect opcional
+Wi-Fi:
+Módulo de conexão Wi-Fi via iDConnect opcional
+Interface de Usuário
+Tela LCD Touchscreen:
+Display LCD TFT colorido de 2.4” 320x240 com tela resistiva sensível ao toque
+Características Gerais
+Dimensões gerais (L x A x P):
+32,96 cm x 21,86 cm 12,62 cm
+Peso do equipamento:
+750 g (sem bobina)
+Peso embalado:
+1 kg
+Garantia:
+1 ano
+Cor do equipamento:
+Preto texturizado
+Alimentação:
+110-220V (Bi-Volt) / 60Hz
+No-Break (opcional):
+No-break interno opcional em caso de falta de energia
+Solicite uma proposta
+newsletter
+Enviar
+Quem somos
+Fundada em 1995, a empresa teve como princípio atender a um nicho de mercado (assistência técnica de relógio de ponto) crescente mas que deixava muito a desejar. A Inforrel foi se aperfeiçoando no atendimento técnico e acompanhando as evoluções tecnológicas do segmento.
+Central de
+Atendimento:
+Av. João Batista Morato do Canto, 2160 - Parque Industrial, Campinas - SP, 13031-800
+Mapa do site
+Início
+Quem somos
+Nossos Serviços
+Soluções Especiais
+Produtos
+Blog
+Contato
+Contato
+Campinas: (19) 3772-5050
++55 19 99664-6832
+[email protected]
+[email protected]
+Seg à Sex: 07:45h às 17:15h
+Redes Sociais
+Facebook
+Instagram
+Linkedin
+Políticas de Privacidade
+Desenvolvido por:
+© Todos os direitos reservados
+Gerenciar o consentimento
+Para fornecer as melhores experiências, usamos tecnologias como cookies para armazenar e/ou acessar informações do dispositivo. O consentimento para essas tecnologias nos permitirá processar dados como comportamento de navegação ou IDs exclusivos neste site. Não consentir ou retirar o consentimento pode afetar negativamente certos recursos e funções.
+Funcional
+Funcional
+Sempre ativo
+O armazenamento ou acesso técnico é estritamente necessário para a finalidade legítima de permitir a utilização de um serviço específico explicitamente solicitado pelo assinante ou utilizador, ou com a finalidade exclusiva de efetuar a transmissão de uma comunicação através de uma rede de comunicações eletrónicas.
+Preferências
+Preferências
+O armazenamento ou acesso técnico é necessário para o propósito legítimo de armazenar preferências que não são solicitadas pelo assinante ou usuário.
+Estatísticas
+Estatísticas
+O armazenamento ou acesso técnico que é usado exclusivamente para fins estatísticos.
+O armazenamento técnico ou acesso que é usado exclusivamente para fins estatísticos anônimos. Sem uma intimação, conformidade voluntária por parte de seu provedor de serviços de Internet ou registros adicionais de terceiros, as informações armazenadas ou recuperadas apenas para esse fim geralmente não podem ser usadas para identificá-lo.
+Marketing
+Marketing
+O armazenamento ou acesso técnico é necessário para criar perfis de usuário para enviar publicidade ou para rastrear o usuário em um site ou em vários sites para fins de marketing semelhantes.
+Gerenciar opções
+Gerenciar serviços
+Gerenciar {vendor_count} fornecedores
+Leia mais sobre esses objetivos
+Aceitar
+Negar
+Ver preferências
+Salvar preferências
+Ver preferências
+{title}
+{title}
+{title}
+Gerenciar o consentimento
+Desejo receber uma proposta
+Preencha o formulário e nos envie suas informações que logo entraremos em contato.
+"*" indica campos obrigatórios
+Seu nome *
+(obrigatório)
+Empresa
+(obrigatório)
+E-mail *
+(obrigatório)
+Produto
+Mensagem
+WhatsApp
+Olá! Bem vindo(a) a INFORREL
+Abrir bate-papo

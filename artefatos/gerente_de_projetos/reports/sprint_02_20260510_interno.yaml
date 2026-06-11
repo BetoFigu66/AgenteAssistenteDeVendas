@@ -1,0 +1,279 @@
+sprint_numero: 2
+data_inicio: "2026-04-27"
+data_fim: "2026-05-15"
+duracao_dias: 19
+objetivos: 
+  - "Continuar o desenvolvimento do sistema de RAG e Q&A Pairs."
+  - "Implementando a busca por chunks de produto e a camada curada sobre o RAG."
+proximo_sprint_numero: 3
+proximo_data_inicio: "2026-05-18"
+proximo_data_fim: "2026-05-29"
+proximo_duracao_dias: 12
+proximo_objetivos: 
+  - "Mapear modelo de dados das principais tabelas (entidades de negócio e relacionamentos)."
+  - "Cadastro de tipos de produtos."
+  # Integração com WhatsApp Business adiada: foco atual é desenvolvimento
+  # em modo de simulação; integração real (Twilio/REQ-008) volta em sprint futura.
+
+
+# Cada item lista o(s) REQ(s) que toca e o avanço (antes/depois/delta_pp) na cobertura
+# global daquele REQ. "delta_pp" = pontos percentuais de avanço atribuídos a esta entrega
+# (quando uma entrega divide crédito com outras do mesmo REQ na mesma sprint, distribuímos
+# o delta total do REQ entre elas — ver bloco cobertura_sprint para o consolidado).
+# Fonte do "depois": artefatos/gerente_de_projetos/cobertura_reqs_sprint02.md §1.1.
+# Itens de processo/governança (sem REQ) usam req: ["—"].
+feito:
+  - titulo: "Página Cockpit de Acompanhamento de Conversas"
+    req: ["REQ-010", "REQ-011"]
+    cobertura_req:
+      REQ-010: { antes: "~10%", depois: "~30%", delta_pp: "+20" }
+      REQ-011: { antes: "~0%", depois: "~10%", delta_pp: "+10" }
+
+ 
+  - titulo: "Sistema RAG — Busca por Chunks de Produto"
+    req: ["REQ-003"]
+    cobertura_req:
+      REQ-003: { antes: "~5%", depois: "~60%", delta_pp: "+55" }
+
+  - titulo: "Sistema Q&A Pairs — Camada Curada sobre o RAG"
+    req: ["REQ-013"]
+    cobertura_req:
+      REQ-013: { antes: "0%", depois: "~60%", delta_pp: "+60" }  # parcial; modal completa para 70%
+
+  - titulo: "Embedding Provider OpenAI com factory pattern"
+    req: ["REQ-003", "REQ-013"]
+    cobertura_req: { obs: "infra de suporte — habilita REQ-003 e REQ-013; delta atribuído aos itens funcionais acima" }
+
+  - titulo: "Configuração dinâmica do RAG via API"
+    req: ["REQ-014"]
+    cobertura_req:
+      REQ-014: { antes: "0%", depois: "~25%", delta_pp: "+25" }
+
+  - titulo: "Modal de Reprovação com criação de rascunho Q&A"
+    req: ["REQ-011", "REQ-013"]
+    cobertura_req:
+      REQ-011: { antes: "~10%", depois: "~20%", delta_pp: "+10" }
+      REQ-013: { antes: "~60%", depois: "~70%", delta_pp: "+10" }
+
+  - titulo: "Bug fix — mensagem reprovada permanecia pendente na UI"
+    req: ["REQ-011"]
+    cobertura_req:
+      REQ-011: { antes: "~20%", depois: "~25%", delta_pp: "+5" }  # estabilização do workflow já contado
+
+
+# Camada 2 — Resumo agregado da sprint (delta total por REQ + média do projeto).
+# "antes" = snapshot ao iniciar a sprint (= fim da sprint anterior, conforme cobertura_evolucao.yaml).
+# "depois" = snapshot ao fechar a sprint (= cobertura_reqs_sprint02.md §1.1).
+cobertura_sprint:
+  media_projeto:
+    antes: "~20%"
+    depois: "~34%"
+    delta_pp: "+14"
+  cobertura_ponderada:
+    antes: "~22%"
+    depois: "~34%"
+    delta_pp: "+12"
+  reqs_avancados: 5      # REQ-003, REQ-010, REQ-011, REQ-013, REQ-014
+  reqs_novos_iniciados: 3 # REQ-011, REQ-013, REQ-014 (saíram de 0%)
+  reqs_inalterados: 9     # REQ-001, 002, 004, 005, 006, 007, 008, 009, 012
+  por_req:
+    REQ-003: { antes: "~5%",  depois: "~60%", delta_pp: "+55" }
+    REQ-010: { antes: "~10%", depois: "~30%", delta_pp: "+20" }
+    REQ-011: { antes: "0%",   depois: "~25%", delta_pp: "+25" }
+    REQ-013: { antes: "0%",   depois: "~70%", delta_pp: "+70" }
+    REQ-014: { antes: "0%",   depois: "~25%", delta_pp: "+25" }
+    # REQs sem avanço nesta sprint não são listados aqui (ver cobertura_evolucao.yaml para o snapshot completo)
+
+proximasprint:
+  - "Mapeamento do modelo de dados das principais tabelas (entidades + relacionamentos + diagrama ER) (alta)"
+  - "Cadastro de Tipos de Produto e Produtos (REQ-002) (alta)"
+  - "Escalonamento para Humano completo (REQ-004) (alta)"
+  - "Workflow de aprovação de pares Q&A (notificação + histórico de revisões) (media)"
+  - "Análise de sentimento e detecção de mal humor (REQ-007) (media)"
+  - "Rastreamento de orçamentos (REQ-006) (media)"
+  - "Simplificação dos agentes Python (condensar prompts no AGENTS.md) (baixa)"
+  # Webhook Twilio (REQ-008) removido desta sprint: integração WhatsApp
+  # adiada; foco em modo de simulação. Continua em backlogpendente.
+
+# Backlog pendente — itens ainda não iniciados ou parcialmente cobertos.
+# Fonte: artefatos/gerente_de_projetos/cobertura_reqs_sprint02.md §2 (detalhamento por REQ).
+# Itens em proximasprint NÃO se repetem aqui — backlog é o que sobra além disso.
+backlogpendente:
+  # --- REQ-001: Integração Receita Federal (atual ~40%) ---
+  - "REQ-001: Fluxo conversacional de confirmação dos dados (S/N)"
+  - "REQ-001: Política de 3 tentativas + escalonamento em falhas"
+  - "REQ-001: Instrumentação de NFRs (tempo, disponibilidade, falhas)"
+
+  # --- REQ-002: Fluxo conversacional guiado (atual ~25%) ---
+  - "REQ-002: Fluxo adaptativo com lógica de próxima pergunta dinâmica"
+  - "REQ-002: Validação de respostas e esclarecimento pontual"
+  - "REQ-002: Identificar tipos de produto adicionais (câmera, roteador, software, cancela, assistência)"
+  - "REQ-002: Identificar modelo do produto"
+  - "REQ-002: Capturar endereço de entrega"
+  - "REQ-002: Sumarização final dos dados coletados"
+  - "REQ-002: Eco/confirmação dos dados extraídos"
+  - "REQ-002: Regras específicas por produto (002.14 / 002.14A / 002.15)"
+  - "REQ-002: Tratamento de ambiguidade (até 2 esclarecimentos)"
+  - "REQ-002: Detecção de abandono de conversa (24h / 72h)"
+  - "REQ-002: Reuso de CNPJ — regras de conflito/troca"
+
+  # --- REQ-003: RAG / respostas automáticas (atual ~60%) ---
+  - "REQ-003: Completar conteúdo da base (preços, prazos, instalação, compatibilidade)"
+  - "REQ-003: Fallback de resposta insuficiente (1 clarificação + escalonar)"
+  - "REQ-003: Devolver controle ao fluxo de qualificação após responder FAQ"
+  - "REQ-003: Não acionar RAG durante qualificação dirigida"
+  - "REQ-003: Envio de catálogo"
+  - "REQ-003: Instrumentação de NFRs (tempo de resposta, concisão)"
+
+  # --- REQ-004: Escalonamento humano (atual ~30%) ---
+  - "REQ-004: Notificação ao atendente via WhatsApp"
+  - "REQ-004: Geração de resumo da conversa para humano"
+  - "REQ-004: Gatilhos automáticos de escalonamento (insatisfação, baixa confiança, projeto complexo)"
+  - "REQ-004: Pré-qualificação antes de escalar (004.5A)"
+  - "REQ-004: Mensagem de transição ao cliente"
+  - "REQ-004: Validar suspensão de respostas automáticas em todos os módulos"
+  - "REQ-004: Instrumentação SLA + auditabilidade"
+
+  # --- REQ-005: Registro de interações (atual ~55%) ---
+  - "REQ-005: Eventos de transição de estado (ator + motivo + timestamp)"
+  - "REQ-005: Eventos de orçamento e de erros"
+  - "REQ-005: Consulta/filtro de histórico por cliente/período/status"
+  - "REQ-005: Imutabilidade do registro enforced"
+  - "REQ-005: Política para dados sensíveis"
+
+  # --- REQ-006: Rastreamento de orçamentos (atual ~25%) ---
+  - "REQ-006: Estados de orçamento batendo com REQ (rascunho/enviado/convertido/perdido)"
+  - "REQ-006: Campo motivo para orçamentos perdidos"
+  - "REQ-006: Endpoints + UI de atualização manual de status"
+  - "REQ-006: Auditoria de autoria das alterações"
+  - "REQ-006: Listagem filtrada por período/cliente/status"
+  - "REQ-006: Tela de visualização consolidada"
+
+  # --- REQ-007: Sentimento / conversa crítica (atual ~5%) ---
+  - "REQ-007: Classificação formal positivo/neutro/negativo"
+  - "REQ-007: Persistência das classificações de sentimento"
+  - "REQ-007: Flag de conversa crítica integrada ao escalonamento (REQ-004/REQ-005)"
+
+  # --- REQ-008: WhatsApp / Twilio (atual ~20%) ---
+  - "REQ-008: Webhook Twilio com idempotência e validação de assinatura"
+  - "REQ-008: Envio outbound de mensagens via Twilio API"
+  - "REQ-008: Tratamento de links e arquivos"
+  - "REQ-008: Política de retry e registro de erros de envio"
+  - "REQ-008: Auditoria de proteção dos segredos Twilio"
+
+  # --- REQ-009: Reclamações pós-venda (atual 0%) ---
+  - "REQ-009: Detecção de reclamação pós-venda"
+  - "REQ-009: Identificação do orçamento por telefone"
+  - "REQ-009: Confirmação com o cliente + escalonamento com contexto completo"
+
+  # --- REQ-010: Painel administrativo (atual ~30%) ---
+  - "REQ-010: Tela de listagem de orçamentos"
+  - "REQ-010: Tela de detalhe do orçamento"
+  - "REQ-010: Tela de escalonamentos consolidada"
+  - "REQ-010: UI de atualização manual de status do orçamento"
+  - "REQ-010: Filtros consolidados de histórico"
+
+  # --- REQ-011: Modos execução + aprovação mensagens (atual ~25%) ---
+  - "REQ-011: Enum de 3 modos de execução (simulacao / conversa_controlada / execucao_normal)"
+  - "REQ-011: Gate de envio Twilio condicionado ao modo"
+
+  # --- REQ-012: Reports de problema (atual ~70%) ---
+  - "REQ-012: Histórico de transições do report (status + ator + timestamp)"
+  - "REQ-012: Filtros adicionais na listagem de reports"
+  - "REQ-012: Ação 'criar par Q&A a partir do report' (integra REQ-013)"
+
+  # --- REQ-013: Pares Q&A curados (atual ~70%) ---
+  - "REQ-013: Criação de par Q&A a partir de report (REQ-012)"
+  - "REQ-013: Filtro por contexto na busca de pares"
+  - "REQ-013: Auditoria do uso de pares Q&A em ProcessamentoMensagem"
+  - "REQ-013: Detecção de duplicatas na criação"
+  - "REQ-013: Estatísticas de uso"
+
+  # --- REQ-014: Configuração runtime camadas conhecimento (atual ~25%) ---
+  - "REQ-014: Parâmetros Q&A no PATCH /api/config/rag"
+  - "REQ-014: Toggles *_enabled (ativar/desativar camadas individualmente)"
+  - "REQ-014: Persistência das configurações entre reinícios"
+  - "REQ-014: Histórico de alterações de configuração"
+  - "REQ-014: Tela dedicada no painel administrativo"
+
+  # --- Q&A v2 (extensões de REQ-013) ---
+  - "Q&A v2: Extração automática de pares de conversas reais"
+  - "Q&A v2: Feedback loop — avaliação de respostas pelo operador"
+  - "Q&A v2: Importação em lote via CSV pelo frontend"
+
+  # --- Transversais e infraestrutura ---
+  - "Autenticação e autorização (JWT, roles admin/operador)"
+  - "Suite de testes automatizados (backend + frontend) e cobertura mínima"
+  - "Instrumentação geral de NFRs (latência, concorrência, observabilidade)"
+  - "Documentação operacional / runbook de produção"
+  - "Deploy em produção com domínio Inforrel"
+  - "Sistema de notificações em tempo real (WebSocket/SSE)"
+  - "Multi-tenancy da aplicação (arquitetura SaaS)"
+  - "Integração com ERPs"
+
+# Riscos e impedimentos abertos.
+# Cada item: { nome, tipo: alta|media|baixa, motivo, acao_esperada }.
+# Convenção de severidade:
+#   - alta  (🔴): trava ou ameaça travar um marco crítico (ex: deploy). Exige decisão.
+#   - media (🟡): não trava agora, mas bloqueará trabalho próximo se não for endereçado.
+#   - baixa (🟢): risco residual; monitorar, não exige ação imediata.
+riscos_e_impedimentos:
+  - nome: "Provedor LLM para produção"
+    tipo: "🟡 media"
+    motivo: >
+      Groq (atual) tem rate limits e OpenAI tem custo elevado para volume real.
+      Como o desenvolvimento foi reorientado para modo de simulação (integração
+      WhatsApp Business adiada), a urgência caiu: não bloqueia mais a sprint
+      atual. Continua sendo decisão necessária antes de qualquer deploy real.
+    acao_esperada: >
+      Manter monitorado. ADR conjunto do [arquiteto] (técnico) e [planejador]
+      (custo) deve ser produzido até a sprint que reativar a integração real
+      (REQ-008). Considerar estratégia híbrida: Groq para classificação leve
+      + OpenAI para geração.
+
+  - nome: "Webhook WhatsApp/Twilio em dev"
+    tipo: "🟢 baixa"
+    motivo: >
+      Integração real com Twilio (URL pública HTTPS via ngrok, validação no
+      sandbox, número aprovado, templates pré-aprovados) é pré-requisito
+      conhecido para REQ-008. Como REQ-008 foi adiado e o desenvolvimento
+      atual usa modo de simulação, o risco virou residual: monitorar e
+      reavaliar quando a integração real voltar ao plano.
+    acao_esperada: >
+      Reabrir como 🟡 media na sprint que reincluir REQ-008 no escopo.
+      Quando isso acontecer, documentar procedimento de setup ngrok e
+      checklist de validação no sandbox Twilio antes de começar.
+
+  - nome: "Seed Q&A com aprovado=false"
+    tipo: "🟡 media"
+    motivo: >
+      O seed inicial de pares Q&A entrou no DB como rascunhos (ativo=true,
+      aprovado=false). Pela lógica do RAG, pares não-aprovados não são usados
+      pelo agente. Sistema funciona tecnicamente, mas o ganho da camada Q&A só
+      aparece após revisão humana — sem isso, o agente cai no RAG genérico.
+    acao_esperada: >
+      Agendar sessão de revisão com domain expert (Rita/Inforrel) usando a
+      QABasePage. Pode entrar como tarefa do Sprint 3.
+
+metricas:
+  artefatos_criados: 18
+  pendencias_resolvidas: 3
+  pendencias_novas: 2
+  bugs_corrigidos: 2
+  reports_total: 0
+  reports_resolvidos: 0
+  diretrizes_novas: 2
+  passos_qa_pairs_concluidos: 9
+  cobertura_req_atendidos: 2
+
+insights:
+  - "Velocidade: Sprint com alta entrega técnica (sistema Q&A Pairs completo em 1 sprint). O plano de 9 passos
+     foi executado integralmente, porém com extensão de tempo (1 semana)."
+  - "Dívida de planejamento: três itens prioritários do Sprint 1 (REQ-002, REQ-004, REQ-007) migraram para
+     o Sprint 2 e novamente para o Sprint 3. Risco de acumulação. Recomendado comprometer no mínimo REQ-002
+     e REQ-004 no Sprint 3 antes de iniciar novas features."
+  - "Qualidade: bug de reprovação revelou fragilidade no estado derivado (propriedade calculada pendente_aprovacao).
+     Considerar adicionar check de QA para estados calculados críticos."
+  - "Governança de IA: análise Agentes vs Skills vs Harness gerou insumo para simplificação do diretório agentes/.
+     Recomendado executar a simplificação no Sprint 3 (baixa prioridade, mas reduz dívida de manutenção)."
+  - "Embedding lazy (gerado na aprovação, não no cadastro): decisão correta — elimina custo de API para rascunhos que nunca serão aprovados e reduz latência do POST /api/pares-qa."

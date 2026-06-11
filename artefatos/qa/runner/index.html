@@ -1,0 +1,774 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>QA Runner — Cenários de Teste</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    [contenteditable=true]:empty:before {
+      content: attr(data-placeholder);
+      color: #94a3b8;
+      pointer-events: none;
+    }
+  </style>
+</head>
+<body class="bg-slate-50 text-slate-800">
+
+<div class="max-w-7xl mx-auto p-4 space-y-4">
+
+  <header class="flex flex-wrap items-center gap-3 border-b pb-3">
+    <h1 class="text-xl font-bold text-[#1B4F72]">QA Runner</h1>
+    <div class="flex flex-wrap gap-2 ml-auto">
+      <button id="btnCarregarPlano" class="px-3 py-1.5 rounded bg-[#1B4F72] text-white text-sm hover:bg-[#2E86AB]">1. Carregar plano (.md)</button>
+      <button id="btnPastaBugs"     class="px-3 py-1.5 rounded bg-[#1B4F72] text-white text-sm hover:bg-[#2E86AB]">2. Pasta de bugs</button>
+      <button id="btnExportarCSV"   class="px-3 py-1.5 rounded bg-slate-200 text-sm hover:bg-slate-300">Exportar CSV</button>
+      <button id="btnLimparStatus"  class="px-3 py-1.5 rounded bg-red-100 text-red-700 text-sm hover:bg-red-200">Limpar status</button>
+    </div>
+  </header>
+
+  <section id="painelInfo" class="text-xs text-slate-600 grid grid-cols-1 md:grid-cols-3 gap-2">
+    <div>📄 <strong>Plano:</strong> <span id="infoPlano" class="text-slate-400">— nenhum carregado —</span></div>
+    <div>📁 <strong>Pasta de bugs:</strong> <span id="infoPasta" class="text-slate-400">— nenhuma selecionada —</span></div>
+    <div>📊 <strong>Resumo:</strong> <span id="infoResumo" class="text-slate-400">—</span></div>
+  </section>
+
+  <section class="flex flex-wrap gap-2 items-center bg-white border rounded p-2">
+    <input id="filtroTexto" type="text" placeholder="Filtrar por ID, título ou REQ..." class="border rounded px-2 py-1 text-sm flex-1 min-w-[200px]" />
+    <select id="filtroStatus" class="border rounded px-2 py-1 text-sm">
+      <option value="">Todos os status</option>
+      <option value="PENDENTE">Pendente</option>
+      <option value="OK">OK</option>
+      <option value="FAIL">FAIL</option>
+      <option value="N/A">N/A</option>
+    </select>
+  </section>
+
+  <section>
+    <table class="w-full text-sm bg-white border rounded overflow-hidden">
+      <thead class="bg-slate-100 text-left">
+        <tr>
+          <th class="px-2 py-2 w-28">ID</th>
+          <th class="px-2 py-2">Título</th>
+          <th class="px-2 py-2 w-40">Cobre</th>
+          <th class="px-2 py-2 w-56">Status</th>
+          <th class="px-2 py-2">Observação</th>
+          <th class="px-2 py-2 w-40">Bugs</th>
+        </tr>
+      </thead>
+      <tbody id="tbodyCenarios">
+        <tr><td colspan="6" class="px-2 py-6 text-center text-slate-400">Carregue um plano de teste para começar.</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+</div>
+
+<!-- ========================== Modal de bug ========================== -->
+<div id="modalBug" class="fixed inset-0 bg-black/40 hidden items-center justify-center p-4 z-50">
+  <div class="bg-white rounded-lg shadow-xl max-w-3xl w-full max-h-[92vh] overflow-y-auto">
+    <header class="flex items-center justify-between p-3 border-b">
+      <h2 class="text-base font-semibold text-[#1B4F72]">
+        Reportar bug — <span id="modalCenarioId" class="font-mono"></span>
+      </h2>
+      <button id="btnFecharModal" class="text-slate-500 hover:text-slate-800">✕</button>
+    </header>
+
+    <div class="p-4 space-y-3">
+      <p class="text-xs text-slate-500">Cenário: <span id="modalCenarioTitulo"></span></p>
+
+      <label class="block text-sm">
+        <span class="font-medium">Título do bug</span>
+        <input id="bugTitulo" type="text" class="mt-1 w-full border rounded px-2 py-1 text-sm" placeholder="Ex.: mensagem reprovada continua aparecendo na fila" />
+      </label>
+
+      <label class="block text-sm">
+        <span class="font-medium">Severidade</span>
+        <select id="bugSeveridade" class="mt-1 border rounded px-2 py-1 text-sm">
+          <option value="🔴 Crítica">🔴 Crítica</option>
+          <option value="🟡 Alta" selected>🟡 Alta</option>
+          <option value="🟢 Média">🟢 Média</option>
+          <option value="⚪ Baixa">⚪ Baixa</option>
+        </select>
+      </label>
+
+      <label class="block text-sm">
+        <span class="font-medium">Descrição</span>
+        <textarea id="bugDescricao" rows="3" class="mt-1 w-full border rounded px-2 py-1 text-sm" placeholder="O que aconteceu e por que está errado."></textarea>
+      </label>
+
+      <div class="border rounded p-2 bg-slate-50">
+        <div class="flex items-center justify-between mb-1">
+          <span class="font-medium text-sm">Contexto da conversa (opcional)</span>
+          <button id="btnColarContexto" type="button" class="px-2 py-0.5 rounded bg-slate-200 text-xs hover:bg-slate-300">📋 Colar do clipboard</button>
+        </div>
+        <p id="contextoResumo" class="text-xs text-slate-500">Use o botão 📋 do painel de Acompanhamento para copiar o contexto e cole aqui.</p>
+      </div>
+
+      <label class="block text-sm">
+        <span class="font-medium">Passos para reproduzir</span>
+        <textarea id="bugPassos" rows="3" class="mt-1 w-full border rounded px-2 py-1 text-sm" placeholder="1. ...&#10;2. ...&#10;3. ..."></textarea>
+      </label>
+
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+        <label class="block text-sm">
+          <span class="font-medium">Resultado esperado</span>
+          <textarea id="bugEsperado" rows="2" class="mt-1 w-full border rounded px-2 py-1 text-sm"></textarea>
+        </label>
+        <label class="block text-sm">
+          <span class="font-medium">Resultado obtido</span>
+          <textarea id="bugObtido" rows="2" class="mt-1 w-full border rounded px-2 py-1 text-sm"></textarea>
+        </label>
+      </div>
+
+      <div>
+        <span class="font-medium text-sm">Evidências</span>
+        <div id="dropEvidencias" class="mt-1 border-2 border-dashed border-slate-300 rounded p-3 text-sm text-slate-500 focus:outline-none focus:border-[#2E86AB]" tabindex="0" contenteditable="false" data-placeholder="Clique aqui e cole prints com Ctrl+V (uma ou várias).">
+        </div>
+        <div id="thumbsEvidencias" class="mt-2 flex flex-wrap gap-2"></div>
+        <p class="text-xs text-slate-500 mt-1">As imagens ficam embedadas (base64) no próprio arquivo .md do bug.</p>
+      </div>
+    </div>
+
+    <footer class="flex items-center justify-between p-3 border-t bg-slate-50">
+      <span id="modalAviso" class="text-xs text-red-600"></span>
+      <div class="space-x-2">
+        <button id="btnCancelarBug" class="px-3 py-1.5 rounded bg-slate-200 text-sm hover:bg-slate-300">Cancelar</button>
+        <button id="btnSalvarBug"   class="px-3 py-1.5 rounded bg-[#1B4F72] text-white text-sm hover:bg-[#2E86AB]">Salvar bug</button>
+      </div>
+    </footer>
+  </div>
+</div>
+
+<script>
+// =========================================================================
+// QA Runner — vanilla JS
+// =========================================================================
+
+const STORAGE_KEY_STATUS  = "qa-runner-status-v1";
+const STORAGE_KEY_BUGS    = "qa-runner-bugs-v1";   // mapeamento cenario -> [bug_filename, ...]
+const STATUS_VALORES      = ["PENDENTE", "OK", "FAIL", "N/A"];
+const COR_STATUS = {
+  "PENDENTE": "bg-slate-100 text-slate-600",
+  "OK":       "bg-emerald-100 text-emerald-800",
+  "FAIL":     "bg-red-100 text-red-800",
+  "N/A":      "bg-amber-100 text-amber-800",
+};
+
+const state = {
+  planoNome: null,
+  cenarios: [],          // [{id, titulo, cobre}]
+  status: {},            // { "CTF-001-01": {status, obs} }
+  bugsPorCenario: {},    // { "CTF-001-01": ["CTF-001-01-01.md", ...] }
+  pastaBugsHandle: null, // FileSystemDirectoryHandle
+  evidenciasModal: [],   // [dataUrl base64, ...]
+  contextoConversa: null,// objeto JSON colado do painel
+  cenarioAtual: null,    // id sendo editado no modal
+};
+
+// ---------------- Persistência (localStorage) ---------------------------
+
+function carregarStatusLocal() {
+  try {
+    state.status = JSON.parse(localStorage.getItem(STORAGE_KEY_STATUS) || "{}");
+    state.bugsPorCenario = JSON.parse(localStorage.getItem(STORAGE_KEY_BUGS) || "{}");
+  } catch {
+    state.status = {};
+    state.bugsPorCenario = {};
+  }
+}
+function salvarStatusLocal() {
+  localStorage.setItem(STORAGE_KEY_STATUS, JSON.stringify(state.status));
+  localStorage.setItem(STORAGE_KEY_BUGS, JSON.stringify(state.bugsPorCenario));
+  agendarSalvarStatusPasta();
+}
+
+// ---------------- Persistencia compartilhada (pasta de bugs) ------------
+// Sempre que o status mudar, escrevemos dois arquivos na pasta de bugs:
+//   _status_execucao.json  (re-importavel, fonte da verdade entre maquinas)
+//   _status_execucao.md    (tabela legivel para abrir no GitHub/IDE)
+// Assim, quem abrir a mesma pasta (ou olhar o repo) ve o estado real.
+
+let _saveTimer = null;
+function agendarSalvarStatusPasta() {
+  if (!state.pastaBugsHandle) return;
+  clearTimeout(_saveTimer);
+  _saveTimer = setTimeout(() => {
+    salvarStatusNaPasta().catch(e => console.error("auto-save status:", e));
+  }, 500);
+}
+
+async function salvarStatusNaPasta() {
+  if (!state.pastaBugsHandle) return;
+  if (!state.cenarios.length) return; // sem plano carregado nada a salvar
+  await escreverArquivoNaPasta(
+    "_status_execucao.json",
+    JSON.stringify(montarStatusJson(), null, 2)
+  );
+  await escreverArquivoNaPasta(
+    "_status_execucao.md",
+    montarStatusMd()
+  );
+}
+
+async function escreverArquivoNaPasta(nome, conteudo) {
+  const fh = await state.pastaBugsHandle.getFileHandle(nome, { create: true });
+  const w = await fh.createWritable();
+  await w.write(conteudo);
+  await w.close();
+}
+
+function montarStatusJson() {
+  return {
+    versao: 1,
+    plano: state.planoNome,
+    atualizado_em: new Date().toISOString(),
+    cenarios: state.cenarios.map(c => ({
+      id: c.id,
+      titulo: c.titulo,
+      cobre: c.cobre,
+      status: getStatus(c.id),
+      observacao: getObs(c.id),
+      bugs: state.bugsPorCenario[c.id] || [],
+    })),
+  };
+}
+
+function montarStatusMd() {
+  const totais = { PENDENTE: 0, OK: 0, FAIL: 0, "N/A": 0 };
+  for (const c of state.cenarios) totais[getStatus(c.id)]++;
+  const stamp = new Date().toISOString().slice(0, 16).replace("T", " ");
+  const total = state.cenarios.length;
+  const linhas = [];
+  linhas.push("# Status de execucao dos cenarios de teste");
+  linhas.push("");
+  linhas.push("> Arquivo gerado automaticamente pelo QA Runner. Nao editar a mao.");
+  linhas.push(">");
+  linhas.push(`> **Plano:** \`${state.planoNome || "\u2014"}\`  `);
+  linhas.push(`> **Atualizado em:** ${stamp} (UTC)  `);
+  linhas.push(`> **Resumo:** ${total} cenarios | OK ${totais.OK} | FAIL ${totais.FAIL} | N/A ${totais["N/A"]} | Pend ${totais.PENDENTE}`);
+  linhas.push("");
+  linhas.push("| Cenario | Titulo | Cobre | Status | Observacao | Bugs |");
+  linhas.push("|---------|--------|-------|--------|------------|------|");
+  const escapeCell = s => (s || "").replace(/\|/g, "\\|").replace(/\r?\n/g, " ");
+  for (const c of state.cenarios) {
+    const st = getStatus(c.id);
+    const bugs = (state.bugsPorCenario[c.id] || []).join("<br>") || "\u2014";
+    linhas.push(
+      `| \`${c.id}\` | ${escapeCell(c.titulo)} | ${escapeCell(c.cobre)} | ${st} | ${escapeCell(getObs(c.id)) || "\u2014"} | ${bugs} |`
+    );
+  }
+  linhas.push("");
+  return linhas.join("\n");
+}
+
+async function carregarStatusDaPasta() {
+  if (!state.pastaBugsHandle) return false;
+  try {
+    const fh = await state.pastaBugsHandle.getFileHandle("_status_execucao.json", { create: false });
+    const f = await fh.getFile();
+    const obj = JSON.parse(await f.text());
+    if (!obj?.cenarios?.length) return false;
+    const msg = `Encontrei _status_execucao.json na pasta (atualizado em ${obj.atualizado_em || "?"}, ${obj.cenarios.length} cenarios).\n\n` +
+                `Carregar este estado e sobrescrever o status local deste navegador?`;
+    if (!confirm(msg)) return false;
+    state.status = {};
+    for (const c of obj.cenarios) {
+      state.status[c.id] = {
+        status: c.status || "PENDENTE",
+        obs: c.observacao || "",
+      };
+    }
+    localStorage.setItem(STORAGE_KEY_STATUS, JSON.stringify(state.status));
+    return true;
+  } catch (e) {
+    if (e.name === "NotFoundError") return false;
+    console.error("carregarStatusDaPasta:", e);
+    return false;
+  }
+}
+
+// ---------------- Parser do plano (.md) ---------------------------------
+
+function parsearPlano(texto) {
+  const linhas = texto.split(/\r?\n/);
+  const cenarios = [];
+  let atual = null;
+  const reHeader = /^####\s+(CTF?-[\w]+-\d+)\s*[—-]\s*(.+?)\s*$/;
+  const reCobre  = /^\*\*Cobre:\*\*\s*(.+)$/;
+
+  for (const linha of linhas) {
+    const m = reHeader.exec(linha);
+    if (m) {
+      if (atual) cenarios.push(atual);
+      atual = { id: m[1], titulo: m[2].trim(), cobre: "" };
+      continue;
+    }
+    if (atual && !atual.cobre) {
+      const c = reCobre.exec(linha);
+      if (c) atual.cobre = c[1].trim();
+    }
+  }
+  if (atual) cenarios.push(atual);
+  return cenarios;
+}
+
+// ---------------- Renderização da tabela --------------------------------
+
+function getStatus(id) {
+  return state.status[id]?.status || "PENDENTE";
+}
+function getObs(id) {
+  return state.status[id]?.obs || "";
+}
+
+function renderTabela() {
+  const tbody = document.getElementById("tbodyCenarios");
+  const filtroTexto = document.getElementById("filtroTexto").value.toLowerCase();
+  const filtroStatus = document.getElementById("filtroStatus").value;
+
+  const linhas = state.cenarios
+    .filter(c => {
+      if (filtroStatus && getStatus(c.id) !== filtroStatus) return false;
+      if (filtroTexto) {
+        const blob = `${c.id} ${c.titulo} ${c.cobre}`.toLowerCase();
+        if (!blob.includes(filtroTexto)) return false;
+      }
+      return true;
+    })
+    .map(c => {
+      const stAtual = getStatus(c.id);
+      const obs = getObs(c.id);
+      const bugs = (state.bugsPorCenario[c.id] || []);
+      const btns = STATUS_VALORES.map(v => {
+        const ativo = v === stAtual ? "ring-2 ring-offset-1 ring-[#1B4F72]" : "opacity-60 hover:opacity-100";
+        return `<button data-acao="status" data-id="${c.id}" data-valor="${v}"
+                class="text-xs px-1.5 py-0.5 rounded ${COR_STATUS[v]} ${ativo}">${v}</button>`;
+      }).join(" ");
+      const bugsLista = bugs.length
+        ? bugs.map(b => `<div class="text-xs font-mono text-slate-600">${b}</div>`).join("")
+        : `<span class="text-xs text-slate-400">—</span>`;
+      const btnNovoBug = `<button data-acao="novo-bug" data-id="${c.id}"
+        class="mt-1 text-[10px] px-1.5 py-0.5 rounded bg-red-50 text-red-700 hover:bg-red-100 border border-red-200"
+        title="Adicionar outro bug a este cenário">+ bug</button>`;
+      const bugsHtml = `${bugsLista}<div>${btnNovoBug}</div>`;
+      return `
+        <tr class="border-t hover:bg-slate-50">
+          <td class="px-2 py-1 font-mono text-xs align-top">${c.id}</td>
+          <td class="px-2 py-1 align-top">${escapeHtml(c.titulo)}</td>
+          <td class="px-2 py-1 text-xs text-slate-600 align-top">${escapeHtml(c.cobre)}</td>
+          <td class="px-2 py-1 align-top">${btns}</td>
+          <td class="px-2 py-1 align-top">
+            <input type="text" data-acao="obs" data-id="${c.id}" value="${escapeAttr(obs)}"
+                   class="w-full border rounded px-1 py-0.5 text-xs" placeholder="—" />
+          </td>
+          <td class="px-2 py-1 align-top">${bugsHtml}</td>
+        </tr>
+      `;
+    }).join("");
+
+  tbody.innerHTML = linhas || `<tr><td colspan="6" class="px-2 py-6 text-center text-slate-400">Nenhum cenário corresponde ao filtro.</td></tr>`;
+
+  atualizarResumo();
+}
+
+function atualizarResumo() {
+  const totais = { PENDENTE: 0, OK: 0, FAIL: 0, "N/A": 0 };
+  for (const c of state.cenarios) totais[getStatus(c.id)]++;
+  const total = state.cenarios.length;
+  const el = document.getElementById("infoResumo");
+  el.textContent = `${total} cenários | OK ${totais.OK} · FAIL ${totais.FAIL} · N/A ${totais["N/A"]} · Pend ${totais.PENDENTE}`;
+  el.className = "text-slate-700";
+}
+
+function escapeHtml(s) {
+  return (s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[c]));
+}
+function escapeAttr(s) {
+  return escapeHtml(s);
+}
+
+// ---------------- Eventos da tabela -------------------------------------
+
+document.getElementById("tbodyCenarios").addEventListener("click", ev => {
+  const btnNovoBug = ev.target.closest("button[data-acao=novo-bug]");
+  if (btnNovoBug) {
+    abrirModalBug(btnNovoBug.dataset.id);
+    return;
+  }
+  const btn = ev.target.closest("button[data-acao=status]");
+  if (!btn) return;
+  const id = btn.dataset.id;
+  const valor = btn.dataset.valor;
+  const stAtual = getStatus(id);
+  // clicar no botão já ativo = volta para PENDENTE
+  const novo = (stAtual === valor) ? "PENDENTE" : valor;
+  state.status[id] = { ...(state.status[id] || {}), status: novo };
+  salvarStatusLocal();
+  // Abre o modal de bug automaticamente apenas na PRIMEIRA vez que o cenario
+  // entra em FAIL (sem bugs ainda registrados). Em transicoes posteriores
+  // de PENDENTE/OK/N/A para FAIL, o usuario provavelmente esta apenas
+  // restaurando o status e ja tem bug aberto - nao queremos forcar a criacao
+  // de outro. Para adicionar outro bug, usar o botao "+ bug" na coluna Bugs.
+  const jaTemBug = (state.bugsPorCenario[id] || []).length > 0;
+  if (novo === "FAIL" && !jaTemBug) abrirModalBug(id);
+  else renderTabela();
+});
+
+document.getElementById("tbodyCenarios").addEventListener("input", ev => {
+  const inp = ev.target.closest("input[data-acao=obs]");
+  if (!inp) return;
+  const id = inp.dataset.id;
+  state.status[id] = { ...(state.status[id] || {}), obs: inp.value };
+  salvarStatusLocal();
+});
+
+document.getElementById("filtroTexto").addEventListener("input", renderTabela);
+document.getElementById("filtroStatus").addEventListener("change", renderTabela);
+
+// ---------------- Carregar plano -----------------------------------------
+
+document.getElementById("btnCarregarPlano").addEventListener("click", async () => {
+  try {
+    const [handle] = await window.showOpenFilePicker({
+      types: [{ description: "Markdown", accept: { "text/markdown": [".md"] } }],
+      multiple: false,
+    });
+    const file = await handle.getFile();
+    const texto = await file.text();
+    const cenarios = parsearPlano(texto);
+    if (!cenarios.length) {
+      alert("Nenhum cenário CT-* / CTF-* encontrado neste arquivo.");
+      return;
+    }
+    state.planoNome = file.name;
+    state.cenarios = cenarios;
+    document.getElementById("infoPlano").textContent = `${file.name} (${cenarios.length} cenários)`;
+    document.getElementById("infoPlano").className = "text-slate-700";
+    renderTabela();
+  } catch (e) {
+    if (e.name !== "AbortError") console.error(e);
+  }
+});
+
+// ---------------- Pasta de bugs (FS Access API) --------------------------
+
+document.getElementById("btnPastaBugs").addEventListener("click", async () => {
+  try {
+    state.pastaBugsHandle = await window.showDirectoryPicker({ mode: "readwrite" });
+    // re-escaneia para popular bugsPorCenario a partir dos arquivos existentes
+    state.bugsPorCenario = {};
+    for await (const [nome, entry] of state.pastaBugsHandle.entries()) {
+      if (entry.kind !== "file" || !nome.endsWith(".md")) continue;
+      const m = /^(CTF?-[\w]+-\d+)-(\d+)\.md$/.exec(nome);
+      if (!m) continue;
+      const cenarioId = m[1];
+      if (!state.bugsPorCenario[cenarioId]) state.bugsPorCenario[cenarioId] = [];
+      state.bugsPorCenario[cenarioId].push(nome);
+    }
+    Object.values(state.bugsPorCenario).forEach(arr => arr.sort());
+    // Tenta carregar status compartilhado (gerado por outra maquina/sessao).
+    // Se nao existir ou usuario recusar, mantem o status do localStorage local.
+    await carregarStatusDaPasta();
+    salvarStatusLocal();
+    document.getElementById("infoPasta").textContent = state.pastaBugsHandle.name;
+    document.getElementById("infoPasta").className = "text-slate-700";
+    renderTabela();
+    // Garante que os arquivos _status_execucao.* existam na pasta apos selecao.
+    salvarStatusNaPasta().catch(e => console.error("save inicial:", e));
+  } catch (e) {
+    if (e.name !== "AbortError") console.error(e);
+  }
+});
+
+// ---------------- Modal de bug -------------------------------------------
+
+const modal = document.getElementById("modalBug");
+
+function abrirModalBug(cenarioId) {
+  if (!state.pastaBugsHandle) {
+    alert("Selecione antes a pasta de bugs (botão '2. Pasta de bugs').");
+    // status FAIL já gravou; mantemos
+    renderTabela();
+    return;
+  }
+  const c = state.cenarios.find(x => x.id === cenarioId);
+  if (!c) return;
+  state.cenarioAtual = c;
+  state.evidenciasModal = [];
+  state.contextoConversa = null;
+  document.getElementById("contextoResumo").textContent = "Use o botão 📋 do painel de Acompanhamento para copiar o contexto e cole aqui.";
+  document.getElementById("contextoResumo").className = "text-xs text-slate-500";
+  document.getElementById("modalCenarioId").textContent = c.id;
+  document.getElementById("modalCenarioTitulo").textContent = c.titulo;
+  document.getElementById("bugTitulo").value = "";
+  document.getElementById("bugSeveridade").value = "🟡 Alta";
+  document.getElementById("bugDescricao").value = "";
+  document.getElementById("bugPassos").value = "";
+  document.getElementById("bugEsperado").value = "";
+  document.getElementById("bugObtido").value = "";
+  document.getElementById("thumbsEvidencias").innerHTML = "";
+  document.getElementById("modalAviso").textContent = "";
+  modal.classList.remove("hidden");
+  modal.classList.add("flex");
+  document.getElementById("dropEvidencias").focus();
+}
+
+function fecharModal() {
+  modal.classList.add("hidden");
+  modal.classList.remove("flex");
+  state.cenarioAtual = null;
+  state.evidenciasModal = [];
+}
+
+document.getElementById("btnFecharModal").addEventListener("click", fecharModal);
+document.getElementById("btnCancelarBug").addEventListener("click", fecharModal);
+
+// Colar contexto vindo do painel de Acompanhamento
+document.getElementById("btnColarContexto").addEventListener("click", async () => {
+  const resumo = document.getElementById("contextoResumo");
+  try {
+    const texto = await navigator.clipboard.readText();
+    if (!texto.trim()) {
+      resumo.textContent = "Clipboard vazio.";
+      resumo.className = "text-xs text-red-600";
+      return;
+    }
+    let obj;
+    try { obj = JSON.parse(texto); }
+    catch {
+      resumo.textContent = "Conteúdo do clipboard não é JSON válido.";
+      resumo.className = "text-xs text-red-600";
+      return;
+    }
+    if (obj.fonte !== "AcompanhamentoPage") {
+      resumo.textContent = "JSON não veio do painel de Acompanhamento (campo 'fonte' inesperado).";
+      resumo.className = "text-xs text-red-600";
+      return;
+    }
+    state.contextoConversa = obj;
+    const partes = [];
+    if (obj.telefone) partes.push(`tel ${obj.telefone}`);
+    if (obj.negociacao_id) partes.push(`neg #${obj.negociacao_id}`);
+    if (obj.modo_operacao) partes.push(`modo ${obj.modo_operacao}`);
+    if (obj.pergunta_cliente?.timestamp) partes.push(`pergunta ${obj.pergunta_cliente.timestamp}`);
+    if (obj.resposta_sistema?.timestamp) partes.push(`resposta ${obj.resposta_sistema.timestamp}`);
+    resumo.textContent = "✓ Contexto colado — " + partes.join(" · ");
+    resumo.className = "text-xs text-emerald-700";
+  } catch (e) {
+    resumo.textContent = "Falha ao ler clipboard: " + e.message;
+    resumo.className = "text-xs text-red-600";
+  }
+});
+
+// Paste de imagens
+document.getElementById("dropEvidencias").addEventListener("paste", async (ev) => {
+  ev.preventDefault();
+  const items = ev.clipboardData?.items || [];
+  for (const item of items) {
+    if (item.kind === "file" && item.type.startsWith("image/")) {
+      const blob = item.getAsFile();
+      const dataUrl = await blobParaDataURL(blob);
+      state.evidenciasModal.push(dataUrl);
+    }
+  }
+  renderThumbs();
+});
+
+function blobParaDataURL(blob) {
+  return new Promise((res, rej) => {
+    const r = new FileReader();
+    r.onload = () => res(r.result);
+    r.onerror = rej;
+    r.readAsDataURL(blob);
+  });
+}
+
+function renderThumbs() {
+  const div = document.getElementById("thumbsEvidencias");
+  div.innerHTML = state.evidenciasModal.map((url, i) => `
+    <div class="relative">
+      <img src="${url}" class="h-20 w-20 object-cover rounded border" />
+      <button data-idx="${i}" class="absolute -top-1 -right-1 bg-red-600 text-white rounded-full w-5 h-5 text-xs leading-none" title="Remover">×</button>
+    </div>
+  `).join("");
+  div.querySelectorAll("button[data-idx]").forEach(b => {
+    b.addEventListener("click", () => {
+      const i = Number(b.dataset.idx);
+      state.evidenciasModal.splice(i, 1);
+      renderThumbs();
+    });
+  });
+}
+
+// Salvar bug
+document.getElementById("btnSalvarBug").addEventListener("click", async () => {
+  const aviso = document.getElementById("modalAviso");
+  aviso.textContent = "";
+  const c = state.cenarioAtual;
+  if (!c) return;
+  const titulo = document.getElementById("bugTitulo").value.trim();
+  if (!titulo) { aviso.textContent = "Preencha o título do bug."; return; }
+
+  const seq = proximoSequencial(c.id);
+  const nomeArquivo = `${c.id}-${String(seq).padStart(2, "0")}.md`;
+
+  const corpo = montarMarkdownBug({
+    cenarioId: c.id,
+    cenarioTitulo: c.titulo,
+    cobre: c.cobre,
+    titulo,
+    severidade: document.getElementById("bugSeveridade").value,
+    descricao: document.getElementById("bugDescricao").value,
+    passos: document.getElementById("bugPassos").value,
+    esperado: document.getElementById("bugEsperado").value,
+    obtido: document.getElementById("bugObtido").value,
+    evidencias: state.evidenciasModal,
+    contextoConversa: state.contextoConversa,
+    plano: state.planoNome,
+  });
+
+  try {
+    const fh = await state.pastaBugsHandle.getFileHandle(nomeArquivo, { create: true });
+    const w = await fh.createWritable();
+    await w.write(corpo);
+    await w.close();
+  } catch (e) {
+    console.error(e);
+    aviso.textContent = "Falha ao salvar arquivo: " + e.message;
+    return;
+  }
+
+  if (!state.bugsPorCenario[c.id]) state.bugsPorCenario[c.id] = [];
+  state.bugsPorCenario[c.id].push(nomeArquivo);
+  salvarStatusLocal();
+  fecharModal();
+  renderTabela();
+});
+
+function proximoSequencial(cenarioId) {
+  const lista = state.bugsPorCenario[cenarioId] || [];
+  let max = 0;
+  for (const nome of lista) {
+    const m = /-(\d+)\.md$/.exec(nome);
+    if (m) max = Math.max(max, Number(m[1]));
+  }
+  return max + 1;
+}
+
+function montarMarkdownBug(b) {
+  const agora = new Date();
+  const stamp = agora.toISOString().slice(0, 16).replace("T", " ");
+  const evid = b.evidencias.length
+    ? b.evidencias.map((u, i) => `![evidencia-${i + 1}](${u})`).join("\n\n")
+    : "_(sem imagens)_";
+  const contextoMd = b.contextoConversa
+    ? montarContextoMd(b.contextoConversa)
+    : "";
+  return `# BUG em ${b.cenarioId} — ${b.titulo}
+
+- **Cenário:** ${b.cenarioId} — ${b.cenarioTitulo}
+- **Cobre:** ${b.cobre || "—"}
+- **Severidade:** ${b.severidade}
+- **Plano:** ${b.plano || "—"}
+- **Registrado em:** ${stamp}
+- **Navegador:** ${navigator.userAgent}
+${contextoMd}
+## Descrição
+
+${b.descricao || "_(vazio)_"}
+
+## Passos para reproduzir
+
+${b.passos || "_(vazio)_"}
+
+## Resultado esperado
+
+${b.esperado || "_(vazio)_"}
+
+## Resultado obtido
+
+${b.obtido || "_(vazio)_"}
+
+## Evidências
+
+${evid}
+`;
+}
+
+function montarContextoMd(ctx) {
+  const linhas = ["", "## Contexto da conversa", ""];
+  if (ctx.telefone)         linhas.push(`- **Telefone:** ${ctx.telefone}`);
+  if (ctx.negociacao_id)    linhas.push(`- **Negociação ID:** ${ctx.negociacao_id}`);
+  if (ctx.modo_operacao)    linhas.push(`- **Modo:** ${ctx.modo_operacao}`);
+  if (ctx.capturado_em)     linhas.push(`- **Contexto capturado em:** ${ctx.capturado_em}`);
+  if (ctx.pergunta_cliente) {
+    linhas.push("", "### Pergunta do cliente");
+    linhas.push(`- **Mensagem #${ctx.pergunta_cliente.mensagem_id}** em ${ctx.pergunta_cliente.timestamp}`);
+    linhas.push("", "> " + (ctx.pergunta_cliente.conteudo || "").split("\n").join("\n> "));
+  }
+  if (ctx.resposta_sistema) {
+    linhas.push("", "### Resposta do sistema");
+    linhas.push(`- **Mensagem #${ctx.resposta_sistema.mensagem_id}** em ${ctx.resposta_sistema.timestamp}`);
+    if (ctx.resposta_sistema.pendente_aprovacao) linhas.push("- **Status:** pendente de aprovação");
+    if (ctx.resposta_sistema.processamento_id) linhas.push(`- **Processamento ID:** ${ctx.resposta_sistema.processamento_id}`);
+    linhas.push("", "> " + (ctx.resposta_sistema.conteudo || "").split("\n").join("\n> "));
+  }
+  linhas.push("");
+  return linhas.join("\n");
+}
+
+// ---------------- Exportar CSV -------------------------------------------
+
+document.getElementById("btnExportarCSV").addEventListener("click", () => {
+  if (!state.cenarios.length) { alert("Carregue um plano primeiro."); return; }
+  const header = ["id", "titulo", "cobre", "status", "observacao", "bugs"];
+  const linhas = [header.join(";")];
+  for (const c of state.cenarios) {
+    const linha = [
+      c.id,
+      csvCell(c.titulo),
+      csvCell(c.cobre),
+      getStatus(c.id),
+      csvCell(getObs(c.id)),
+      (state.bugsPorCenario[c.id] || []).join("|"),
+    ];
+    linhas.push(linha.join(";"));
+  }
+  const blob = new Blob(["\uFEFF" + linhas.join("\r\n")], { type: "text/csv;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  const stamp = new Date().toISOString().slice(0, 10);
+  a.download = `qa-runner-status-${stamp}.csv`;
+  a.click();
+  URL.revokeObjectURL(url);
+});
+
+function csvCell(s) {
+  s = (s || "").replace(/[\r\n]+/g, " ");
+  return /[;"\r\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+}
+
+// ---------------- Limpar status ------------------------------------------
+
+document.getElementById("btnLimparStatus").addEventListener("click", () => {
+  if (!confirm("Limpar todos os status e a relação de bugs deste navegador? (Os arquivos .md de bugs permanecem.)")) return;
+  state.status = {};
+  state.bugsPorCenario = {};
+  salvarStatusLocal();
+  renderTabela();
+});
+
+// ---------------- Boot ---------------------------------------------------
+
+carregarStatusLocal();
+renderTabela();
+
+// Verificação de suporte FS Access
+if (!window.showOpenFilePicker || !window.showDirectoryPicker) {
+  alert("Este navegador não suporta File System Access API. Use Chrome ou Edge (versão recente).");
+}
+</script>
+</body>
+</html>

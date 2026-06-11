@@ -1,0 +1,213 @@
+URL: https://inforrel.com.br/produtos/catraca-idblock-balcao-facial-control-id/
+================================================================================
+
+Catraca iDBlock Balcão Facial - Control iD - Inforrel
+Ir para o conteúdo
+Popular Keywords
+Categories
+No Record Found
+Ver mais
+(19) 3772-5050
+[email protected]
+Início
+Quem somos
+Nossos Serviços
+Controle de Acessos
+Controle de Ponto
+AssistênciaTécnica
+Produtos
+Controle de Ponto
+Controle de Acessos
+Câmeras
+Roteadores
+Softwares
+Cancelas
+Soluções Especiais
+Para Comércios em Geral
+Para Clubes
+Para Academias
+Blog
+Contato
+Popular Keywords
+Categories
+No Record Found
+Ver mais
+MENU
+Início
+Quem somos
+Nossos Serviços
+Produtos
+Soluções Especiais
+Blog
+Contato
+(19) 3772-5050
+[email protected]
+×
+Compartilhe
+Catraca iDBlock Balcão Facial – Control iD
+Sugestão de aplicação:
+Condomínios
+A Control iD traz ao mercado uma catraca revolucionária com design único e até dois iDFaces Max instalados, que controlam tanto a entrada como a saída de pessoas através da tecnologia de reconhecimento facial.
+O equipamento conta com um suporte integrado que permite a operação com apenas um iDFace Max instalado, oferecendo o controle combinado de entrada ou da saída.
+Com um mecanismo inovador, ultra silencioso e design arrojado, a catraca iDBlock Balcão com iDFace Max pode ser utilizada em qualquer tipo de ambiente.
+Além disso, pode operar de forma totalmente stand alone por meio do software web embarcado, não necessitando da instalação de software adicional.
+Reconhecimento facial
+Controla entrada e saída com até 2 iDFaces Max
+Mecanismo revolucionário
+Comunicação TCP/IP
+Operação stand alone e online
+Design moderno e inovador
+Solicite uma proposta
+Documentos
+Download do Software iDSecure:
+iDSecure On-Premises
+Manuais:
+Manual do Usuário
+Manual do iDSecure Cloud
+Documentos PDF:
+Datasheet iDBlock Facial
+API – Interface para Integração
+Documentação da API
+Exemplo de integração
+(github)
+Firmware V3 (Catraca, seriais com 4 dígitos):
+Última Versão (3.16.74)
+Inscreva-se para receber atualizações por e-mail
+Firmware V5 (Catraca, seriais com 13 dígitos):
+Última Versão (5.18.2)
+Inscreva-se para receber atualizações por e-mail
+Firmware V7 (iDFace Max):
+Última Versão (7.8.2)
+Changelog
+Atenção: dispositivos com firmware anterior à versão 7.7.5 devem primeiro atualizar para a versão 7.7.0 (
+download
+)
+Inscreva-se para receber atualizações por e-mail
+Perguntas Frequentes
+Controle de Acesso
+Controle de Pessoas:
+Definição do sentido de liberação do giro e confirmação de passagem
+Anti Dupla-Entrada:
+Bloqueio de passagens múltiplas em um mesmo sentido
+Urna Coletora:
+Possibilidade de validação e coleta de crachás de visitantes
+Quantidade de Usuários:
+Capacidade para mais de 200.000 usuários cadastrados
+Quantidade de Faces:
+Capacidade para até 100.000* faces com detecção de rosto vivo
+(*conforme modelo)
+Mecanismo
+Durabilidade:
+Maior que 800.000 giros e de fácil manutenção
+Ruído Sonoro:
+Mecanismo extremamente silencioso
+Forma de Identificação
+Reconhecimento Facial:
+Duas câmeras HD 1080p em cada iDFace Max (luz visível e luz IR)*
+Cartões de Proximidade*:
+MIFARE TM, 125kHz ASK ou HID
+Leitor Biométrico*:
+Leitor de impressão digital óptico de 500 DPI
+Senha:
+Identificação de usuários através de senha numérica
+QR Code:
+Identificação de usuários através de QR Code
+Comunicação
+Ethernet:
+1 porta Ethernet 10/100Mbps nativa
+RS-485:
+1 porta RS-485 nativa com terminação de 120 Ohms
+RS-232:
+1 porta RS-232 nativa
+GPRS:
+Módulo de conexão via GPRS opcional
+Wi-Fi:
+Módulo de conexão via Wi-Fi opcional
+Interfone SIP:
+Interfone SIP integrado compatível com G711
+Interface de Usuário
+Tela LCD Touchscreen em cada iDFace Max:
+Display LCD TFT colorido de 7” (800x480) capacitiva sensível ao toque
+Software Web Integrado:
+Software completo de gerenciamento de controle de acesso via browser
+Características Gerais
+Dimensões gerais:
+700 mm x 1432 mm x 1100 mm (P x A x L)
+Alimentação:
+Fonte interna de 12V/5A incluída
+Consumo:
+24W (2A) nominal
+Diagrama de Interligação
+*Conforme modelo
+Solicite uma proposta
+newsletter
+Enviar
+Quem somos
+Fundada em 1995, a empresa teve como princípio atender a um nicho de mercado (assistência técnica de relógio de ponto) crescente mas que deixava muito a desejar. A Inforrel foi se aperfeiçoando no atendimento técnico e acompanhando as evoluções tecnológicas do segmento.
+Central de
+Atendimento:
+Av. João Batista Morato do Canto, 2160 - Parque Industrial, Campinas - SP, 13031-800
+Mapa do site
+Início
+Quem somos
+Nossos Serviços
+Soluções Especiais
+Produtos
+Blog
+Contato
+Contato
+Campinas: (19) 3772-5050
++55 19 99664-6832
+[email protected]
+[email protected]
+Seg à Sex: 07:45h às 17:15h
+Redes Sociais
+Facebook
+Instagram
+Linkedin
+Políticas de Privacidade
+Desenvolvido por:
+© Todos os direitos reservados
+Gerenciar o consentimento
+Para fornecer as melhores experiências, usamos tecnologias como cookies para armazenar e/ou acessar informações do dispositivo. O consentimento para essas tecnologias nos permitirá processar dados como comportamento de navegação ou IDs exclusivos neste site. Não consentir ou retirar o consentimento pode afetar negativamente certos recursos e funções.
+Funcional
+Funcional
+Sempre ativo
+O armazenamento ou acesso técnico é estritamente necessário para a finalidade legítima de permitir a utilização de um serviço específico explicitamente solicitado pelo assinante ou utilizador, ou com a finalidade exclusiva de efetuar a transmissão de uma comunicação através de uma rede de comunicações eletrónicas.
+Preferências
+Preferências
+O armazenamento ou acesso técnico é necessário para o propósito legítimo de armazenar preferências que não são solicitadas pelo assinante ou usuário.
+Estatísticas
+Estatísticas
+O armazenamento ou acesso técnico que é usado exclusivamente para fins estatísticos.
+O armazenamento técnico ou acesso que é usado exclusivamente para fins estatísticos anônimos. Sem uma intimação, conformidade voluntária por parte de seu provedor de serviços de Internet ou registros adicionais de terceiros, as informações armazenadas ou recuperadas apenas para esse fim geralmente não podem ser usadas para identificá-lo.
+Marketing
+Marketing
+O armazenamento ou acesso técnico é necessário para criar perfis de usuário para enviar publicidade ou para rastrear o usuário em um site ou em vários sites para fins de marketing semelhantes.
+Gerenciar opções
+Gerenciar serviços
+Gerenciar {vendor_count} fornecedores
+Leia mais sobre esses objetivos
+Aceitar
+Negar
+Ver preferências
+Salvar preferências
+Ver preferências
+{title}
+{title}
+{title}
+Gerenciar o consentimento
+Desejo receber uma proposta
+Preencha o formulário e nos envie suas informações que logo entraremos em contato.
+"*" indica campos obrigatórios
+Seu nome *
+(obrigatório)
+Empresa
+(obrigatório)
+E-mail *
+(obrigatório)
+Produto
+Mensagem
+WhatsApp
+Olá! Bem vindo(a) a INFORREL
+Abrir bate-papo

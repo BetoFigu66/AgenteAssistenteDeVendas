@@ -1,0 +1,5 @@
+blank_issues_enabled: false
+contact_links:
+  - name: 📚 Documentação do projeto
+    url: https://github.com/BetoFigu66/AgenteAssistenteDeVendas/blob/main/README.md
+    about: Antes de abrir uma issue, confira a documentação e os REQs em `artefatos/requisitos_formais/`.

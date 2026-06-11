@@ -1,0 +1,158 @@
+URL: https://inforrel.com.br/produtos/coletor-inner-acesso-topdata/
+================================================================================
+
+Coletor Inner Acesso - Topdata - Inforrel
+Ir para o conteúdo
+Popular Keywords
+Categories
+No Record Found
+Ver mais
+(19) 3772-5050
+[email protected]
+Início
+Quem somos
+Nossos Serviços
+Controle de Acessos
+Controle de Ponto
+AssistênciaTécnica
+Produtos
+Controle de Ponto
+Controle de Acessos
+Câmeras
+Roteadores
+Softwares
+Cancelas
+Soluções Especiais
+Para Comércios em Geral
+Para Clubes
+Para Academias
+Blog
+Contato
+Popular Keywords
+Categories
+No Record Found
+Ver mais
+MENU
+Início
+Quem somos
+Nossos Serviços
+Produtos
+Soluções Especiais
+Blog
+Contato
+(19) 3772-5050
+[email protected]
+×
+Compartilhe
+Coletor Inner Acesso – Topdata
+Sugestão de aplicação:
+Pequenas e Médias Empresas
+O equipamento possui opções com leitores de biometria, rfid de aproximação e código de barras podendo juntar vários leitores no mesmo aparelho, permitindo assim um controle de acesso com alta disponibilidade de entradas e reconhecimento de identificação do usuário.
+Possui software gerenciador gratuito e está integrado com o Software Secullum Acesso, permitindo assim um controle de acessos a qualquer local da empresa inclusive, cancelas, refeitórios, portões e portas de todos os tipos.
+Os coletores de acesso oferecem aos empresários eficácia, rapidez e confiabilidade. Permitindo restringir por controle de pessoas, horários e ou departamento os acessos em portarias, refeitórios e ou locais específicos. Com alta tecnologia, design sofisticado e praticidade na utilização!
+O controle de acesso traz para a empresa segurança, transparência e organização do fluxo de pessoas. Para um controle completo escolha em conjunto um software da linha Secullum
+A Topdata é uma indústria 100% brasileira, fabricante de relógios de ponto eletrônico e catracas para controle de acesso, fundada há mais de 30 anos. Com a proposta de ser uma empresa de tecnologia de ponta, utilizando os mais modernos conceitos de administração de forma a garantir uma equipe de funcionários motivados, alta qualidade dos produtos e custos de produção otimizados.
+Os coletores de acesso Topdata são desenvolvidos com alta qualidade em acabamento e confiabilidade, fabricados com componentes de alta qualidade. Para empresas de todos os portes e segmentos.
+O equipamento possui opções com leitores de biometria, rfid de aproximação e código de barras podendo juntar vários leitores no mesmo aparelho, permitindo assim um controle de acesso com alta disponibilidade de entradas e reconhecimento de identificação do usuário.
+Possui software gerenciador gratuito e está integrado com o Software Secullum Acesso, permitindo assim um controle de acessos a qualquer local da empresa inclusive, cancelas, refeitórios, portões e portas de todos os tipos.
+Reconhecimento Biométrico (Leitor Digital)
+Capacidade para até 10.000 digitais
+Detecção de dedo vivo nos modelos LFD
+Resolução de 500 dpi
+* Acessório opcional Hamster cadastrador de mesa
+Leitores (Rfid Proximidade, Código Barras e Biometria)
+Leitor RFID por aproximação 125k ou Smart
+Leitor código de barras
+Capacidade para até 15.000 cartões
+Interface (Display / Conexões)
+Display com backlight, 2 linhas, 16 colunas
+Sdk integrado com Softwares Secullum
+Conexao por rede RJ45 TCP/IP
+Conexão por WIFI (com uso de acessório)
+Conexão por GPRS 3G/4G (com uso de acessório)
+Solicite uma proposta
+Os coletores de acesso Topdata são desenvolvidos com alta qualidade em acabamento e confiabilidade, fabricados com componentes de alta qualidade. Para empresas de todos os portes e segmentos.
+Baixe o folder
+Perguntas Frequentes
+O que é o Inner Acesso? Ele é uma catraca completa?
+Não. O Inner Acesso é um Coletor de Dados (ou terminal) para controle de acesso. Ele é o "cérebro" do sistema: um dispositivo que é instalado em uma parede ou totem para identificar o usuário. Após a autenticação, ele envia um comando para liberar o acesso a portas, portões, cancelas ou catracas, mas não é a barreira física em si.
+Quais são os métodos de identificação que o Inner Acesso utiliza?
+O Inner Acesso é um equipamento flexível e pode ser configurado com diferentes tipos de leitores, permitindo a identificação de usuários por:Biometria: Leitura da impressão digital (com capacidade para 10.000 digitais).Cartões de Proximidade (RFID): Compatível com as tecnologias 125k e Mifare.Código de Barras: Leitura de crachás com código de barras.Senha: Digitação de um código numérico diretamente no teclado do equipamento.
+Quantos usuários e registros o equipamento consegue armazenar?
+O dispositivo possui uma alta capacidade de armazenamento local. Ele pode gerenciar o cadastro de até 15.000 usuários (via cartão ou senha) ou até 10.000 impressões digitais. Além disso, ele armazena em sua memória interna os últimos 30.000 registros de acesso (entradas e saídas).
+O equipamento para de funcionar se a rede ou o computador principal caírem?
+Não. O Inner Acesso foi projetado para funcionar "com ou sem conexão com o computador". Ele armazena localmente a lista de usuários autorizados e suas permissões. Caso a rede ou o servidor fiquem offline, ele continua operando normalmente, autenticando usuários e registrando os acessos. Quando a conexão é restabelecida, ele sincroniza automaticamente os dados com o software.
+Como o Inner Acesso se conecta ao software de controle de acesso?
+A conexão padrão do Inner Acesso é via TCP/IP (cabo de rede RJ45), o que permite a comunicação com o software de gerenciamento (como o Secullum Acesso, mencionado na página) através da rede da sua empresa. A página do produto também indica a possibilidade de conexão via Wi-Fi ou 3G/4G com o uso de acessórios opcionais.
+Solicite uma proposta
+newsletter
+Enviar
+Quem somos
+Fundada em 1995, a empresa teve como princípio atender a um nicho de mercado (assistência técnica de relógio de ponto) crescente mas que deixava muito a desejar. A Inforrel foi se aperfeiçoando no atendimento técnico e acompanhando as evoluções tecnológicas do segmento.
+Central de
+Atendimento:
+Av. João Batista Morato do Canto, 2160 - Parque Industrial, Campinas - SP, 13031-800
+Mapa do site
+Início
+Quem somos
+Nossos Serviços
+Soluções Especiais
+Produtos
+Blog
+Contato
+Contato
+Campinas: (19) 3772-5050
++55 19 99664-6832
+[email protected]
+[email protected]
+Seg à Sex: 07:45h às 17:15h
+Redes Sociais
+Facebook
+Instagram
+Linkedin
+Políticas de Privacidade
+Desenvolvido por:
+© Todos os direitos reservados
+Gerenciar o consentimento
+Para fornecer as melhores experiências, usamos tecnologias como cookies para armazenar e/ou acessar informações do dispositivo. O consentimento para essas tecnologias nos permitirá processar dados como comportamento de navegação ou IDs exclusivos neste site. Não consentir ou retirar o consentimento pode afetar negativamente certos recursos e funções.
+Funcional
+Funcional
+Sempre ativo
+O armazenamento ou acesso técnico é estritamente necessário para a finalidade legítima de permitir a utilização de um serviço específico explicitamente solicitado pelo assinante ou utilizador, ou com a finalidade exclusiva de efetuar a transmissão de uma comunicação através de uma rede de comunicações eletrónicas.
+Preferências
+Preferências
+O armazenamento ou acesso técnico é necessário para o propósito legítimo de armazenar preferências que não são solicitadas pelo assinante ou usuário.
+Estatísticas
+Estatísticas
+O armazenamento ou acesso técnico que é usado exclusivamente para fins estatísticos.
+O armazenamento técnico ou acesso que é usado exclusivamente para fins estatísticos anônimos. Sem uma intimação, conformidade voluntária por parte de seu provedor de serviços de Internet ou registros adicionais de terceiros, as informações armazenadas ou recuperadas apenas para esse fim geralmente não podem ser usadas para identificá-lo.
+Marketing
+Marketing
+O armazenamento ou acesso técnico é necessário para criar perfis de usuário para enviar publicidade ou para rastrear o usuário em um site ou em vários sites para fins de marketing semelhantes.
+Gerenciar opções
+Gerenciar serviços
+Gerenciar {vendor_count} fornecedores
+Leia mais sobre esses objetivos
+Aceitar
+Negar
+Ver preferências
+Salvar preferências
+Ver preferências
+{title}
+{title}
+{title}
+Gerenciar o consentimento
+Desejo receber uma proposta
+Preencha o formulário e nos envie suas informações que logo entraremos em contato.
+"*" indica campos obrigatórios
+Seu nome *
+(obrigatório)
+Empresa
+(obrigatório)
+E-mail *
+(obrigatório)
+Produto
+Mensagem
+WhatsApp
+Olá! Bem vindo(a) a INFORREL
+Abrir bate-papo

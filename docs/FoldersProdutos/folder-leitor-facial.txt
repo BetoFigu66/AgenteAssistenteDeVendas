@@ -1,0 +1,68 @@
+Leitor Facial 
+Reconhecimento facial com inteligência artificial para controle de ponto e controle de acesso
+
+Segurança:
+Validação de rosto real evitando fraudes
+Praticidade: 
+Iluminação automática para ambientes com pouca luz
+Eficiência: 
+Identificação rápida e precisa
+
+Identificação de pessoas sem a necessidade de contato com o leitor, trazendo maior comodidade para os usuários.
+Pode ser usado em ambientes de pouca luz, pois possui câmera infravermelha e iluminação automática 
+
+Leitor Facial T4-50K
+50 mil usuários
+Leitor Facial F4 
+5 mil usuários
+Revendedor Autorizado: Topdata
+(41) 3213-7100
+www.topdata.com.br
+Central de atendimento: (41) 3213-7100
+www.topdata.com.br
+
+Aplicações 
+Controle de acesso
+Controle de ponto
+Acessórios:
+Gabinete para uso externo
+Totem para leitor facial
+ 
+Leitor Facial - Especificações 
+Modelos:
+Leitor Facial F4: 5 mil faces 
+Leitor Facial T4-50k: 50 mil faces 
+
+Funcionalidades: 
+Verificação de rosto vivo, bloqueia reconhecimento e acesso através de foto ou vídeo 
+Identificação com pouca luz, com câmera infravermelha e iluminação frontal automática 
+Precisão no reconhecimento: 99.7% FRA (Face Recognition Accuracy) 
+Velocidade de conhecimento menor que 0.2s 
+Distância de reconhecimento: entre 0.5m e 1.5m, conforme configuração do leitor 
+Função WDR: compensa luminosidade tornando a imagem mais nítida 
+Cadastro facial através do leitor ou através de foto, enviada por software ou por pendrive 
+Opções de identificação: reconhecimento facial, cartão RFID ou senha 
+Identificador de até 12 dígitos, permitindo o uso do CPF para cadastrar o usuário 
+Distância de leitura configurável  
+Detecção opcional do uso de máscara 
+
+Características:
+Display HD 272*480 colorido de 4.3 polegadas 
+Teclado sensível ao toque capacitivo 
+Câmera binocular colorida 2MP e câmera infravermelha 2MP 
+Iluminação frontal  
+Leitor de cartão proximidade integrado RFID 125 kHz ou Smart Card Mifare 13,56MHz (opcional) 
+Integração com controle de acesso através de interface Wiegand 26, 34 ou 42 bits 
+Comunicação Ethernet 10/100Mbps (TCP/IP) para cadastro e configuração 
+Porta USB 2.0 para conexão de pendrive 
+Alimentação: 12V 650mA 
+Temperatura de operação: de 0 a 45ºC 
+Umidade: de 20 a 90% 
+Leitor F4:
+- Dimensões: 87mm x 167mm x 26mm 
+- Peso: 442g 
+Leitor T4-50K:
+- Dimensões: 87mm x 167mm x 26mm 
+- Peso: 333g 
+ 
+ 

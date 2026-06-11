@@ -32,6 +32,7 @@ VENDEDOR
 
 6. **Você consegue me enviar o arquivo/texto das suas “respostas rápidas” completas?**
    - (todas as macros/atalhos que você usa hoje)
+   - Ver se no requisito REQ-003 faz referência a esse arquivo: artefatos\analista_de_requisitos\RespostasRapidasWhatsApp.txt
 
 7. **Você pode enviar os 2 catálogos atualizados (catracas e relógios)?**
    - Em PDF/arquivo, como você tiver.

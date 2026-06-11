@@ -1,0 +1,10 @@
+# Agentes / artefatos
+pyyaml==6.0.2
+python-pptx==1.0.2
+
+# Testes / QA / Dev (nao sao usados em producao)
+pytest==8.3.3
+pre-commit==3.8.0
+# Utilitarios / QA
+tomli==2.0.1
+

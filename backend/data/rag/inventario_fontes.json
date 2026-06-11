@@ -1,0 +1,1127 @@
+{
+  "gerado_em": "2026-04-30T13:40:00.669269+00:00",
+  "raiz_projeto": "C:\\Beto\\Pessoal\\Python\\git\\AgenteAssistenteDeVendas",
+  "diretorios": {
+    "folder_produto": "docs/FoldersProdutos",
+    "webscraping": "WebScrapping/result",
+    "conversa_whatsapp": "docs/ConversasDoWhatsApp"
+  },
+  "diretorios_ausentes": [],
+  "resumo": {
+    "total_arquivos": 95,
+    "por_tipo_fonte": {
+      "conversa_whatsapp": 1,
+      "folder_produto": 32,
+      "webscraping": 62
+    },
+    "por_extensao": {
+      ".pdf": 13,
+      ".txt": 82
+    },
+    "arquivos_com_url": 71
+  },
+  "fontes": [
+    {
+      "caminho": "docs/FoldersProdutos/Bastão de ronda.txt",
+      "nome_arquivo": "Bastão de ronda.txt",
+      "tipo_fonte": "folder_produto",
+      "extensao": ".txt",
+      "tamanho_bytes": 62,
+      "sha256_bruto": "01e966cb8004b2fa74707c1ad202b3baec882987ea604af2da25cbc26c3e5247",
+      "urls": [
+        "https://www.topdata.com.br/bastao-de-ronda/"
+      ],
+      "url_principal": "https://www.topdata.com.br/bastao-de-ronda/"
+    },
+    {
+      "caminho": "docs/FoldersProdutos/Catracas.txt",
+      "nome_arquivo": "Catracas.txt",
+      "tipo_fonte": "folder_produto",
+      "extensao": ".txt",
+      "tamanho_bytes": 257,
+      "sha256_bruto": "29dec068998263d83b948411884d872a29af538db3dc66dd151647fb8daa4ba4",
+      "urls": [
+        "https://www.topdata.com.br/catracas/",
+        "https://www.topdata.com.br/catraca-eletronica/",
+        "https://www.topdata.com.br/catraca-de-acesso/",
+        "https://www.topdata.com.br/catraca-inox/"
+      ],
+      "url_principal": "https://www.topdata.com.br/catracas/"
+    },
+    {
+      "caminho": "docs/FoldersProdutos/Controle de Acesso.txt",
+      "nome_arquivo": "Controle de Acesso.txt",
+      "tipo_fonte": "folder_produto",
+      "extensao": ".txt",
+      "tamanho_bytes": 334,
+      "sha256_bruto": "629c49a5d5543a3d4f4588dd7d44068a21f4d82fc82a758e0001b6eda4844c00",
+      "urls": [
+        "https://www.topdata.com.br/controle-de-acesso/",
+        "https://www.topdata.com.br/controle-de-acesso-biometrico/",
+        "https://www.topdata.com.br/controle-de-acesso-qr-code/",
+        "https://www.topdata.com.br/leitor-de-cartoes/"
+      ],
+      "url_principal": "https://www.topdata.com.br/controle-de-acesso/"
+    },
+    {
+      "caminho": "docs/FoldersProdutos/folder-bastao-de-ronda.pdf",
+      "nome_arquivo": "folder-bastao-de-ronda.pdf",
+      "tipo_fonte": "folder_produto",
+      "extensao": ".pdf",
+      "tamanho_bytes": 909542,
+      "sha256_bruto": "92d671671c523bf00606f7caeabeb62fbead380869223b6f6233b35e6270c464",
+      "urls": [],
+      "url_principal": null
+    },
+    {
+      "caminho": "docs/FoldersProdutos/folder-bastao-de-ronda.txt",
+      "nome_arquivo": "folder-bastao-de-ronda.txt",
+      "tipo_fonte": "folder_produto",
+      "extensao": ".txt",
+      "tamanho_bytes": 2082,
+      "sha256_bruto": "cc27dd139b46619c3be41b6dc3b9f113ae8a574c89b93ac8b5692d849569f628",
+      "urls": [
+        "https://www.topdata.com.br/controle-de-ronda/"
+      ],
+      "url_principal": "https://www.topdata.com.br/controle-de-ronda/"
+    },
+    {
+      "caminho": "docs/FoldersProdutos/folder-catraca-balcao-box.pdf",
+      "nome_arquivo": "folder-catraca-balcao-box.pdf",
+      "tipo_fonte": "folder_produto",
+      "extensao": ".pdf",
+      "tamanho_bytes": 251182,
+      "sha256_bruto": "f025a0312c67e6a4dccd8385f973a0a9d38618c315f7e3492563277d07f49f1e",
+      "urls": [],
+      "url_principal": null
+    },
+    {
+      "caminho": "docs/FoldersProdutos/folder-catraca-balcao-box.txt",
+      "nome_arquivo": "folder-catraca-balcao-box.txt",
+      "tipo_fonte": "folder_produto",
+      "extensao": ".txt",
+      "tamanho_bytes": 3520,
+      "sha256_bruto": "f19c7e98a42306861323ad3c3ae8bd9bd9f24ef6b7d65bea7acf70ef2783e0fb",
+      "urls": [],
+      "url_principal": null
+    },
+    {
+      "caminho": "docs/FoldersProdutos/folder-catraca-de-acesso-fit.pdf",
+      "nome_arquivo": "folder-catraca-de-acesso-fit.pdf",
+      "tipo_fonte": "folder_produto",
+      "extensao": ".pdf",
+      "tamanho_bytes": 179174,
+      "sha256_bruto": "65d8c982f82b0e33537d321cf7f5674d1c802efb3969300916cd0adda53e7ac5",
+      "urls": [],
+      "url_principal": null
+    },
+    {
+      "caminho": "docs/FoldersProdutos/folder-catraca-de-acesso-fit.txt",
+      "nome_arquivo": "folder-catraca-de-acesso-fit.txt",
+      "tipo_fonte": "folder_produto",
+      "extensao": ".txt",
+      "tamanho_bytes": 3535,
+      "sha256_bruto": "c0b6dcae08c5e759ab6ea1b076e61e05c630843abc1ffc8ef60dc661dc0726de",
+      "urls": [],
+      "url_principal": null
+    },
+    {
+      "caminho": "docs/FoldersProdutos/folder-catraca-de-acesso.pdf",
+      "nome_arquivo": "folder-catraca-de-acesso.pdf",
+      "tipo_fonte": "folder_produto",
+      "extensao": ".pdf",
+      "tamanho_bytes": 179174,
+      "sha256_bruto": "65d8c982f82b0e33537d321cf7f5674d1c802efb3969300916cd0adda53e7ac5",
+      "urls": [],
+      "url_principal": null
+    },
+    {
+      "caminho": "docs/FoldersProdutos/folder-catraca-de-acesso.txt",
+      "nome_arquivo": "folder-catraca-de-acesso.txt",
+      "tipo_fonte": "folder_produto",
+      "extensao": ".txt",
+      "tamanho_bytes": 3146,
+      "sha256_bruto": "3b5461d41de802dbf628fb9b927a926165e8f5f80b596ba22edd03c0768360b4",
+      "urls": [],
+      "url_principal": null
+    },
+    {
+      "caminho": "docs/FoldersProdutos/folder-catraca-eletronica-revolution.pdf",
+      "nome_arquivo": "folder-catraca-eletronica-revolution.pdf",
+      "tipo_fonte": "folder_produto",
+      "extensao": ".pdf",
+      "tamanho_bytes": 200935,
+      "sha256_bruto": "a988c00291025dd329ac4cc953225e1b2f60c93483fb466b2fd43c79eed40265",
+      "urls": [],
+      "url_principal": null
+    },
+    {
+      "caminho": "docs/FoldersProdutos/folder-catraca-eletronica-revolution.txt",
+      "nome_arquivo": "folder-catraca-eletronica-revolution.txt",
+      "tipo_fonte": "folder_produto",
+      "extensao": ".txt",
+      "tamanho_bytes": 3415,
+      "sha256_bruto": "1571abf491f379c3f476b34d3e8e2d35e0c584af4cbff56338fee834fe288ddf",
+      "urls": [],
+      "url_principal": null
+    },
+    {
+      "caminho": "docs/FoldersProdutos/folder-controle-de-acesso-QR-Code.pdf",
+      "nome_arquivo": "folder-controle-de-acesso-QR-Code.pdf",
+      "tipo_fonte": "folder_produto",
+      "extensao": ".pdf",
+      "tamanho_bytes": 289464,
+      "sha256_bruto": "80390846436ada7316729891a2dfa0e8e67376dfca9229629e490d188e5fd3bc",
+      "urls": [],
+      "url_principal": null
+    },
+    {
+      "caminho": "docs/FoldersProdutos/folder-controle-de-acesso-QR-Code.txt",
+      "nome_arquivo": "folder-controle-de-acesso-QR-Code.txt",
+      "tipo_fonte": "folder_produto",
+      "extensao": ".txt",
+      "tamanho_bytes": 2888,
+      "sha256_bruto": "d16966bd99e1ebd5141a3beb71a597d513065d68d9a8603bc5eec96caa48b204",
+      "urls": [],
+      "url_principal": null
+    },
+    {
+      "caminho": "docs/FoldersProdutos/folder-controle-de-acesso-RFID-ou-Smartcard-Mifare.pdf",
+      "nome_arquivo": "folder-controle-de-acesso-RFID-ou-Smartcard-Mifare.pdf",
+      "tipo_fonte": "folder_produto",
+      "extensao": ".pdf",
+      "tamanho_bytes": 289464,
+      "sha256_bruto": "80390846436ada7316729891a2dfa0e8e67376dfca9229629e490d188e5fd3bc",
+      "urls": [],
+      "url_principal": null
+    },
+    {
+      "caminho": "docs/FoldersProdutos/folder-controle-de-acesso-RFID-ou-Smartcard-Mifare.txt",
+      "nome_arquivo": "folder-controle-de-acesso-RFID-ou-Smartcard-Mifare.txt",
+      "tipo_fonte": "folder_produto",
+      "extensao": ".txt",
+      "tamanho_bytes": 2888,
+      "sha256_bruto": "d16966bd99e1ebd5141a3beb71a597d513065d68d9a8603bc5eec96caa48b204",
+      "urls": [],
+      "url_principal": null
+    },
+    {
+      "caminho": "docs/FoldersProdutos/folder-controle-de-acesso.pdf",
+      "nome_arquivo": "folder-controle-de-acesso.pdf",
+      "tipo_fonte": "folder_produto",
+      "extensao": ".pdf",
+      "tamanho_bytes": 289464,
+      "sha256_bruto": "80390846436ada7316729891a2dfa0e8e67376dfca9229629e490d188e5fd3bc",
+      "urls": [],
+      "url_principal": null
+    },
+    {
+      "caminho": "docs/FoldersProdutos/folder-controle-de-acesso.txt",
+      "nome_arquivo": "folder-controle-de-acesso.txt",
+      "tipo_fonte": "folder_produto",
+      "extensao": ".txt",
+      "tamanho_bytes": 2888,
+      "sha256_bruto": "d16966bd99e1ebd5141a3beb71a597d513065d68d9a8603bc5eec96caa48b204",
+      "urls": [],
+      "url_principal": null
+    },
+    {
+      "caminho": "docs/FoldersProdutos/folder-controle-de-ponto.pdf",
+      "nome_arquivo": "folder-controle-de-ponto.pdf",
+      "tipo_fonte": "folder_produto",
+      "extensao": ".pdf",
+      "tamanho_bytes": 349541,
+      "sha256_bruto": "682e2489e5a4bff842fcd145624c07a5948ccdb3d1f9feeb235075d99c2ef10e",
+      "urls": [],
+      "url_principal": null
+    },
+    {
+      "caminho": "docs/FoldersProdutos/folder-controle-de-ponto.txt",
+      "nome_arquivo": "folder-controle-de-ponto.txt",
+      "tipo_fonte": "folder_produto",
+      "extensao": ".txt",
+      "tamanho_bytes": 3350,
+      "sha256_bruto": "af5c1bd525936645844b628aec2a952d2f382094509bd50b5cd738e0dd3c38f9",
+      "urls": [],
+      "url_principal": null
+    },
+    {
+      "caminho": "docs/FoldersProdutos/folder-leitor-facial.pdf",
+      "nome_arquivo": "folder-leitor-facial.pdf",
+      "tipo_fonte": "folder_produto",
+      "extensao": ".pdf",
+      "tamanho_bytes": 446178,
+      "sha256_bruto": "18fe0ab369a3196118d74840f2023192c83f03b7c5395ab8e7c49118fe43b5e8",
+      "urls": [],
+      "url_principal": null
+    },
+    {
+      "caminho": "docs/FoldersProdutos/folder-leitor-facial.txt",
+      "nome_arquivo": "folder-leitor-facial.txt",
+      "tipo_fonte": "folder_produto",
+      "extensao": ".txt",
+      "tamanho_bytes": 2424,
+      "sha256_bruto": "9ff2d1efc47d33e8705989967843dc97bd77d3b6c4d45e9db148a014ce1802b7",
+      "urls": [],
+      "url_principal": null
+    },
+    {
+      "caminho": "docs/FoldersProdutos/folder-ponto-web.pdf",
+      "nome_arquivo": "folder-ponto-web.pdf",
+      "tipo_fonte": "folder_produto",
+      "extensao": ".pdf",
+      "tamanho_bytes": 255223,
+      "sha256_bruto": "4d658564988dc470292afffe44b291ea6ceb7a7e16a25c2adc9dd5a09d9004c6",
+      "urls": [],
+      "url_principal": null
+    },
+    {
+      "caminho": "docs/FoldersProdutos/folder-ponto-web.txt",
+      "nome_arquivo": "folder-ponto-web.txt",
+      "tipo_fonte": "folder_produto",
+      "extensao": ".txt",
+      "tamanho_bytes": 5292,
+      "sha256_bruto": "296635f8b02c7a7a0b9fdb03a6ae205a3b27b632736e6be694536f06cb4a3d2c",
+      "urls": [],
+      "url_principal": null
+    },
+    {
+      "caminho": "docs/FoldersProdutos/folder-relogio-ponto-cartografico.pdf",
+      "nome_arquivo": "folder-relogio-ponto-cartografico.pdf",
+      "tipo_fonte": "folder_produto",
+      "extensao": ".pdf",
+      "tamanho_bytes": 1146016,
+      "sha256_bruto": "5e0f23931147fa12220c8777d7f28747b0610142218aec195f068fb9063f48b0",
+      "urls": [],
+      "url_principal": null
+    },
+    {
+      "caminho": "docs/FoldersProdutos/folder-relogio-ponto-cartografico.txt",
+      "nome_arquivo": "folder-relogio-ponto-cartografico.txt",
+      "tipo_fonte": "folder_produto",
+      "extensao": ".txt",
+      "tamanho_bytes": 2560,
+      "sha256_bruto": "9dc36483ff2135b9d4fa913e09b4e9222be8276297e4adbbeab5e373a8bbfbcb",
+      "urls": [
+        "https://www.topdata.com.br/relogio-ponto-cartografico/"
+      ],
+      "url_principal": "https://www.topdata.com.br/relogio-ponto-cartografico/"
+    },
+    {
+      "caminho": "docs/FoldersProdutos/folder-relogio-ponto-eletronico.pdf",
+      "nome_arquivo": "folder-relogio-ponto-eletronico.pdf",
+      "tipo_fonte": "folder_produto",
+      "extensao": ".pdf",
+      "tamanho_bytes": 316148,
+      "sha256_bruto": "967bb132ac48dcf463ae807cbad8704a25efdaacbc58f22beed13e77cff1155c",
+      "urls": [],
+      "url_principal": null
+    },
+    {
+      "caminho": "docs/FoldersProdutos/folder-relogio-ponto-eletronico.txt",
+      "nome_arquivo": "folder-relogio-ponto-eletronico.txt",
+      "tipo_fonte": "folder_produto",
+      "extensao": ".txt",
+      "tamanho_bytes": 3607,
+      "sha256_bruto": "5d1d491f345f0e2043023edf4b3e40cf2f767607a6d1549388348d0a5fa9803b",
+      "urls": [],
+      "url_principal": null
+    },
+    {
+      "caminho": "docs/FoldersProdutos/Leitor Facial.txt",
+      "nome_arquivo": "Leitor Facial.txt",
+      "tipo_fonte": "folder_produto",
+      "extensao": ".txt",
+      "tamanho_bytes": 57,
+      "sha256_bruto": "d35918b10083e432003c391f38964da40a198a3859637f34878b4d71ae9bc2bd",
+      "urls": [
+        "https://www.topdata.com.br/leitor-facial/"
+      ],
+      "url_principal": "https://www.topdata.com.br/leitor-facial/"
+    },
+    {
+      "caminho": "docs/FoldersProdutos/Ponto WEB.txt",
+      "nome_arquivo": "Ponto WEB.txt",
+      "tipo_fonte": "folder_produto",
+      "extensao": ".txt",
+      "tamanho_bytes": 49,
+      "sha256_bruto": "4082fd003fe8de4482f7d714eedf89165135a007dc23e42dc93453cf37e14ea8",
+      "urls": [
+        "https://www.topdata.com.br/ponto-web/"
+      ],
+      "url_principal": "https://www.topdata.com.br/ponto-web/"
+    },
+    {
+      "caminho": "docs/FoldersProdutos/Relógio de ponto.txt",
+      "nome_arquivo": "Relógio de ponto.txt",
+      "tipo_fonte": "folder_produto",
+      "extensao": ".txt",
+      "tamanho_bytes": 372,
+      "sha256_bruto": "45a91595905597b3a314a2eb631549e851ec36f4bc439b0fef79d86bb9d69a11",
+      "urls": [
+        "https://www.topdata.com.br/relogio-de-ponto/",
+        "https://www.topdata.com.br/relogio-de-ponto-biometrico/",
+        "https://www.topdata.com.br/leitor-facial/",
+        "https://www.topdata.com.br/ponto-eletronico/",
+        "https://www.topdata.com.br/relogio-ponto-cartografico/"
+      ],
+      "url_principal": "https://www.topdata.com.br/relogio-de-ponto/"
+    },
+    {
+      "caminho": "WebScrapping/result/assistenciatecnica.txt",
+      "nome_arquivo": "assistenciatecnica.txt",
+      "tipo_fonte": "webscraping",
+      "extensao": ".txt",
+      "tamanho_bytes": 4445,
+      "sha256_bruto": "41c7dc87eb7560943e5cc896af04086e58869dc3a5168ec4576428adbf5d2b62",
+      "urls": [
+        "https://inforrel.com.br/assistenciatecnica/"
+      ],
+      "url_principal": "https://inforrel.com.br/assistenciatecnica/"
+    },
+    {
+      "caminho": "WebScrapping/result/blog.txt",
+      "nome_arquivo": "blog.txt",
+      "tipo_fonte": "webscraping",
+      "extensao": ".txt",
+      "tamanho_bytes": 3931,
+      "sha256_bruto": "d8318684021948e0ef99344e0954de1c0f9d3a7cf9cb488feb712fa78655778f",
+      "urls": [
+        "https://inforrel.com.br/blog/"
+      ],
+      "url_principal": "https://inforrel.com.br/blog/"
+    },
+    {
+      "caminho": "WebScrapping/result/blog_controle-de-acesso-inteligente.txt",
+      "nome_arquivo": "blog_controle-de-acesso-inteligente.txt",
+      "tipo_fonte": "webscraping",
+      "extensao": ".txt",
+      "tamanho_bytes": 4828,
+      "sha256_bruto": "a18c1e31f7d3d91b07ed38cf39da2aa056e706c60ae43eb283cfe0b367dfa911",
+      "urls": [
+        "https://inforrel.com.br/blog/controle-de-acesso-inteligente/"
+      ],
+      "url_principal": "https://inforrel.com.br/blog/controle-de-acesso-inteligente/"
+    },
+    {
+      "caminho": "WebScrapping/result/blog_jornada-de-trabalho-qual-e-a-forma-mais-eficiente-de-controlar-o-ponto-na-sua-empresa.txt",
+      "nome_arquivo": "blog_jornada-de-trabalho-qual-e-a-forma-mais-eficiente-de-controlar-o-ponto-na-sua-empresa.txt",
+      "tipo_fonte": "webscraping",
+      "extensao": ".txt",
+      "tamanho_bytes": 4881,
+      "sha256_bruto": "dd9612942ad569d816a2e2de77ea9fc4472c0846fda64403145ea9d4dddedebd",
+      "urls": [
+        "https://inforrel.com.br/blog/jornada-de-trabalho-qual-e-a-forma-mais-eficiente-de-controlar-o-ponto-na-sua-empresa/"
+      ],
+      "url_principal": "https://inforrel.com.br/blog/jornada-de-trabalho-qual-e-a-forma-mais-eficiente-de-controlar-o-ponto-na-sua-empresa/"
+    },
+    {
+      "caminho": "WebScrapping/result/blog_o-que-muda-com-o-novo-esocial-como-adaptar-seu-controle-de-ponto.txt",
+      "nome_arquivo": "blog_o-que-muda-com-o-novo-esocial-como-adaptar-seu-controle-de-ponto.txt",
+      "tipo_fonte": "webscraping",
+      "extensao": ".txt",
+      "tamanho_bytes": 4852,
+      "sha256_bruto": "4de9101b6238e383e2b3d764acb7f0c38be14b26b4a289d590458f8812070a4b",
+      "urls": [
+        "https://inforrel.com.br/blog/o-que-muda-com-o-novo-esocial-como-adaptar-seu-controle-de-ponto/"
+      ],
+      "url_principal": "https://inforrel.com.br/blog/o-que-muda-com-o-novo-esocial-como-adaptar-seu-controle-de-ponto/"
+    },
+    {
+      "caminho": "WebScrapping/result/categoria-de-produto_cameras.txt",
+      "nome_arquivo": "categoria-de-produto_cameras.txt",
+      "tipo_fonte": "webscraping",
+      "extensao": ".txt",
+      "tamanho_bytes": 3927,
+      "sha256_bruto": "f197957402b337e3c3a9c7a80e25b2b67cd17bc011708f5c040e679e6ae85c80",
+      "urls": [
+        "https://inforrel.com.br/categoria-de-produto/cameras/"
+      ],
+      "url_principal": "https://inforrel.com.br/categoria-de-produto/cameras/"
+    },
+    {
+      "caminho": "WebScrapping/result/categoria-de-produto_cancelas.txt",
+      "nome_arquivo": "categoria-de-produto_cancelas.txt",
+      "tipo_fonte": "webscraping",
+      "extensao": ".txt",
+      "tamanho_bytes": 4069,
+      "sha256_bruto": "b1952d33945e4a1ffbe689659b81eda8e056590037fd3c97391eb376e6f877bc",
+      "urls": [
+        "https://inforrel.com.br/categoria-de-produto/cancelas/"
+      ],
+      "url_principal": "https://inforrel.com.br/categoria-de-produto/cancelas/"
+    },
+    {
+      "caminho": "WebScrapping/result/categoria-de-produto_controle-de-acessos.txt",
+      "nome_arquivo": "categoria-de-produto_controle-de-acessos.txt",
+      "tipo_fonte": "webscraping",
+      "extensao": ".txt",
+      "tamanho_bytes": 4535,
+      "sha256_bruto": "13255c81f6e21f4eb684092340efa1f6917cbe6fc3a051fa8d7ef85ffb0414c1",
+      "urls": [
+        "https://inforrel.com.br/categoria-de-produto/controle-de-acessos/"
+      ],
+      "url_principal": "https://inforrel.com.br/categoria-de-produto/controle-de-acessos/"
+    },
+    {
+      "caminho": "WebScrapping/result/categoria-de-produto_controle-de-ponto.txt",
+      "nome_arquivo": "categoria-de-produto_controle-de-ponto.txt",
+      "tipo_fonte": "webscraping",
+      "extensao": ".txt",
+      "tamanho_bytes": 4256,
+      "sha256_bruto": "33535c783f18cc94d59c8e2548e3d220bdff26a0ad504db57622f4b88aa5869b",
+      "urls": [
+        "https://inforrel.com.br/categoria-de-produto/controle-de-ponto/"
+      ],
+      "url_principal": "https://inforrel.com.br/categoria-de-produto/controle-de-ponto/"
+    },
+    {
+      "caminho": "WebScrapping/result/categoria-de-produto_roteadores.txt",
+      "nome_arquivo": "categoria-de-produto_roteadores.txt",
+      "tipo_fonte": "webscraping",
+      "extensao": ".txt",
+      "tamanho_bytes": 3846,
+      "sha256_bruto": "2fab7a5f8d53426ad5980d87ec6c3b6e6614776cef2a38f651be2a5efa653ed5",
+      "urls": [
+        "https://inforrel.com.br/categoria-de-produto/roteadores/"
+      ],
+      "url_principal": "https://inforrel.com.br/categoria-de-produto/roteadores/"
+    },
+    {
+      "caminho": "WebScrapping/result/categoria-de-produto_softwares.txt",
+      "nome_arquivo": "categoria-de-produto_softwares.txt",
+      "tipo_fonte": "webscraping",
+      "extensao": ".txt",
+      "tamanho_bytes": 3858,
+      "sha256_bruto": "b9b2495b9bfdba443363300faf6657450d1ed5a8c25dfda7c40f0d9b1edddc6b",
+      "urls": [
+        "https://inforrel.com.br/categoria-de-produto/softwares/"
+      ],
+      "url_principal": "https://inforrel.com.br/categoria-de-produto/softwares/"
+    },
+    {
+      "caminho": "WebScrapping/result/contato.txt",
+      "nome_arquivo": "contato.txt",
+      "tipo_fonte": "webscraping",
+      "extensao": ".txt",
+      "tamanho_bytes": 3664,
+      "sha256_bruto": "7e0bf1826dfd173cab63ec450ef5f7ab5fac5f1da610868210e40670e0a0ddc8",
+      "urls": [
+        "https://inforrel.com.br/contato/"
+      ],
+      "url_principal": "https://inforrel.com.br/contato/"
+    },
+    {
+      "caminho": "WebScrapping/result/index.txt",
+      "nome_arquivo": "index.txt",
+      "tipo_fonte": "webscraping",
+      "extensao": ".txt",
+      "tamanho_bytes": 14881,
+      "sha256_bruto": "f37538e78393e266014634baa3952f4562f5f75a676d7aead728d49a2a382117",
+      "urls": [
+        "https://inforrel.com.br/"
+      ],
+      "url_principal": "https://inforrel.com.br/"
+    },
+    {
+      "caminho": "WebScrapping/result/nossos-servicos.txt",
+      "nome_arquivo": "nossos-servicos.txt",
+      "tipo_fonte": "webscraping",
+      "extensao": ".txt",
+      "tamanho_bytes": 4001,
+      "sha256_bruto": "6636e69ff30e4ac6489020fde6e0d1dc193b0cffa9e999567c34a3e3d1ef4c43",
+      "urls": [
+        "https://inforrel.com.br/nossos-servicos/"
+      ],
+      "url_principal": "https://inforrel.com.br/nossos-servicos/"
+    },
+    {
+      "caminho": "WebScrapping/result/politicas-de-privacidade.txt",
+      "nome_arquivo": "politicas-de-privacidade.txt",
+      "tipo_fonte": "webscraping",
+      "extensao": ".txt",
+      "tamanho_bytes": 6926,
+      "sha256_bruto": "5f6941226a51280a44556cede9ce72d8c0f6ade9fa49fdaa14542a4700bf5cb5",
+      "urls": [
+        "https://inforrel.com.br/politicas-de-privacidade/"
+      ],
+      "url_principal": "https://inforrel.com.br/politicas-de-privacidade/"
+    },
+    {
+      "caminho": "WebScrapping/result/produtos.txt",
+      "nome_arquivo": "produtos.txt",
+      "tipo_fonte": "webscraping",
+      "extensao": ".txt",
+      "tamanho_bytes": 8871,
+      "sha256_bruto": "d4f01f46b949c2de79ec15d1c163280c270e7f9c0eba58ab58aa822dc5248891",
+      "urls": [
+        "https://inforrel.com.br/produtos/"
+      ],
+      "url_principal": "https://inforrel.com.br/produtos/"
+    },
+    {
+      "caminho": "WebScrapping/result/produtos_barrier-jetflex-brushless-barreira-articulada-de-aluminio.txt",
+      "nome_arquivo": "produtos_barrier-jetflex-brushless-barreira-articulada-de-aluminio.txt",
+      "tipo_fonte": "webscraping",
+      "extensao": ".txt",
+      "tamanho_bytes": 7035,
+      "sha256_bruto": "4a59e2cfe70b28c23ba5cf3c918e62e04f2fec9a1259f686be1b86942645c6f9",
+      "urls": [
+        "https://inforrel.com.br/produtos/barrier-jetflex-brushless-barreira-articulada-de-aluminio/"
+      ],
+      "url_principal": "https://inforrel.com.br/produtos/barrier-jetflex-brushless-barreira-articulada-de-aluminio/"
+    },
+    {
+      "caminho": "WebScrapping/result/produtos_barrier-jetflex-brushless-barreira-linear-de-aluminio.txt",
+      "nome_arquivo": "produtos_barrier-jetflex-brushless-barreira-linear-de-aluminio.txt",
+      "tipo_fonte": "webscraping",
+      "extensao": ".txt",
+      "tamanho_bytes": 6977,
+      "sha256_bruto": "e15348a1fb842920529c6ac864d2bf9b4f0c20018701ca30152c8fca7b10cdee",
+      "urls": [
+        "https://inforrel.com.br/produtos/barrier-jetflex-brushless-barreira-linear-de-aluminio/"
+      ],
+      "url_principal": "https://inforrel.com.br/produtos/barrier-jetflex-brushless-barreira-linear-de-aluminio/"
+    },
+    {
+      "caminho": "WebScrapping/result/produtos_barrier-jetflex-brushless-barreira-linear-de-pvc.txt",
+      "nome_arquivo": "produtos_barrier-jetflex-brushless-barreira-linear-de-pvc.txt",
+      "tipo_fonte": "webscraping",
+      "extensao": ".txt",
+      "tamanho_bytes": 6651,
+      "sha256_bruto": "409b4c2a37444b01b141b3e57fedcfe964243baca27ca205d36388923c9e7bb7",
+      "urls": [
+        "https://inforrel.com.br/produtos/barrier-jetflex-brushless-barreira-linear-de-pvc/"
+      ],
+      "url_principal": "https://inforrel.com.br/produtos/barrier-jetflex-brushless-barreira-linear-de-pvc/"
+    },
+    {
+      "caminho": "WebScrapping/result/produtos_bastao-de-ronda-topdata.txt",
+      "nome_arquivo": "produtos_bastao-de-ronda-topdata.txt",
+      "tipo_fonte": "webscraping",
+      "extensao": ".txt",
+      "tamanho_bytes": 6057,
+      "sha256_bruto": "54308f9fbb7a9a49f304dee6ed4f143c156ca9efe9ad2928381ef18565547037",
+      "urls": [
+        "https://inforrel.com.br/produtos/bastao-de-ronda-topdata/"
+      ],
+      "url_principal": "https://inforrel.com.br/produtos/bastao-de-ronda-topdata/"
+    },
+    {
+      "caminho": "WebScrapping/result/produtos_brasso-jetflex-barreira-linear-de-aluminio.txt",
+      "nome_arquivo": "produtos_brasso-jetflex-barreira-linear-de-aluminio.txt",
+      "tipo_fonte": "webscraping",
+      "extensao": ".txt",
+      "tamanho_bytes": 6476,
+      "sha256_bruto": "3e07dff50756dc8459969f42bca8d9999fcb7f8d2ceaf00c2740b7b1ad978b97",
+      "urls": [
+        "https://inforrel.com.br/produtos/brasso-jetflex-barreira-linear-de-aluminio/"
+      ],
+      "url_principal": "https://inforrel.com.br/produtos/brasso-jetflex-barreira-linear-de-aluminio/"
+    },
+    {
+      "caminho": "WebScrapping/result/produtos_camera-ip-serie-1000-com-full-color-e-ir-intelbras.txt",
+      "nome_arquivo": "produtos_camera-ip-serie-1000-com-full-color-e-ir-intelbras.txt",
+      "tipo_fonte": "webscraping",
+      "extensao": ".txt",
+      "tamanho_bytes": 6761,
+      "sha256_bruto": "33d5d8f92d7094ab82c0cdb81fd722acb263cbd047bcef1b7cea047d3fc9d080",
+      "urls": [
+        "https://inforrel.com.br/produtos/camera-ip-serie-1000-com-full-color-e-ir-intelbras/"
+      ],
+      "url_principal": "https://inforrel.com.br/produtos/camera-ip-serie-1000-com-full-color-e-ir-intelbras/"
+    },
+    {
+      "caminho": "WebScrapping/result/produtos_camera-ip-serie-1000-com-full-color-e-ir-vip-1430-d-fc-intelbras.txt",
+      "nome_arquivo": "produtos_camera-ip-serie-1000-com-full-color-e-ir-vip-1430-d-fc-intelbras.txt",
+      "tipo_fonte": "webscraping",
+      "extensao": ".txt",
+      "tamanho_bytes": 6618,
+      "sha256_bruto": "915e5d149499352adc3e19be2717580a25d0fb910e646cac1b46b43fdf4827d5",
+      "urls": [
+        "https://inforrel.com.br/produtos/camera-ip-serie-1000-com-full-color-e-ir-vip-1430-d-fc-intelbras/"
+      ],
+      "url_principal": "https://inforrel.com.br/produtos/camera-ip-serie-1000-com-full-color-e-ir-vip-1430-d-fc-intelbras/"
+    },
+    {
+      "caminho": "WebScrapping/result/produtos_cancela-k1-jetflex.txt",
+      "nome_arquivo": "produtos_cancela-k1-jetflex.txt",
+      "tipo_fonte": "webscraping",
+      "extensao": ".txt",
+      "tamanho_bytes": 5983,
+      "sha256_bruto": "e0fa0b8d49b01b65adcf5999a294c290691f93da12ba2e8a80c5c6fb941b790b",
+      "urls": [
+        "https://inforrel.com.br/produtos/cancela-k1-jetflex/"
+      ],
+      "url_principal": "https://inforrel.com.br/produtos/cancela-k1-jetflex/"
+    },
+    {
+      "caminho": "WebScrapping/result/produtos_catraca-biometrica-fit-topdata.txt",
+      "nome_arquivo": "produtos_catraca-biometrica-fit-topdata.txt",
+      "tipo_fonte": "webscraping",
+      "extensao": ".txt",
+      "tamanho_bytes": 9628,
+      "sha256_bruto": "e43cd7a021caadeea083c42be852e0bbf1e0ccff8f225a8b23180db88d33499c",
+      "urls": [
+        "https://inforrel.com.br/produtos/catraca-biometrica-fit-topdata/"
+      ],
+      "url_principal": "https://inforrel.com.br/produtos/catraca-biometrica-fit-topdata/"
+    },
+    {
+      "caminho": "WebScrapping/result/produtos_catraca-com-leitor-facial-fit-topdata.txt",
+      "nome_arquivo": "produtos_catraca-com-leitor-facial-fit-topdata.txt",
+      "tipo_fonte": "webscraping",
+      "extensao": ".txt",
+      "tamanho_bytes": 10890,
+      "sha256_bruto": "7508d88be137a99c152decadb6f3c559a339a849227e0694df7bfad8291352f6",
+      "urls": [
+        "https://inforrel.com.br/produtos/catraca-com-leitor-facial-fit-topdata/"
+      ],
+      "url_principal": "https://inforrel.com.br/produtos/catraca-com-leitor-facial-fit-topdata/"
+    },
+    {
+      "caminho": "WebScrapping/result/produtos_catraca-facial-em-inox-box-topdata.txt",
+      "nome_arquivo": "produtos_catraca-facial-em-inox-box-topdata.txt",
+      "tipo_fonte": "webscraping",
+      "extensao": ".txt",
+      "tamanho_bytes": 8874,
+      "sha256_bruto": "c98cf81757e0e9c8babb99520cefc06dda70c0c151c7986663b84595560dba00",
+      "urls": [
+        "https://inforrel.com.br/produtos/catraca-facial-em-inox-box-topdata/"
+      ],
+      "url_principal": "https://inforrel.com.br/produtos/catraca-facial-em-inox-box-topdata/"
+    },
+    {
+      "caminho": "WebScrapping/result/produtos_catraca-facial-revolution-topdata.txt",
+      "nome_arquivo": "produtos_catraca-facial-revolution-topdata.txt",
+      "tipo_fonte": "webscraping",
+      "extensao": ".txt",
+      "tamanho_bytes": 10155,
+      "sha256_bruto": "5f7be148d39223e835ca05f9bce9e57e270dfb1fb2a3c6fb8e9b1fdd9720d416",
+      "urls": [
+        "https://inforrel.com.br/produtos/catraca-facial-revolution-topdata/"
+      ],
+      "url_principal": "https://inforrel.com.br/produtos/catraca-facial-revolution-topdata/"
+    },
+    {
+      "caminho": "WebScrapping/result/produtos_catraca-idblock-balcao-facial-control-id.txt",
+      "nome_arquivo": "produtos_catraca-idblock-balcao-facial-control-id.txt",
+      "tipo_fonte": "webscraping",
+      "extensao": ".txt",
+      "tamanho_bytes": 7068,
+      "sha256_bruto": "804468da5c977100e2339714fd75b76ab2bfe08481a750608453c3f69058888a",
+      "urls": [
+        "https://inforrel.com.br/produtos/catraca-idblock-balcao-facial-control-id/"
+      ],
+      "url_principal": "https://inforrel.com.br/produtos/catraca-idblock-balcao-facial-control-id/"
+    },
+    {
+      "caminho": "WebScrapping/result/produtos_catraca-idblock-next-com-contador-de-giros-control-id.txt",
+      "nome_arquivo": "produtos_catraca-idblock-next-com-contador-de-giros-control-id.txt",
+      "tipo_fonte": "webscraping",
+      "extensao": ".txt",
+      "tamanho_bytes": 5809,
+      "sha256_bruto": "8761a6d649e0baca9f9510df87afcd54bcb9fedf3dc11c15045b65b54636b0de",
+      "urls": [
+        "https://inforrel.com.br/produtos/catraca-idblock-next-com-contador-de-giros-control-id/"
+      ],
+      "url_principal": "https://inforrel.com.br/produtos/catraca-idblock-next-com-contador-de-giros-control-id/"
+    },
+    {
+      "caminho": "WebScrapping/result/produtos_catraca-idblock-next-com-idface-max-control-id.txt",
+      "nome_arquivo": "produtos_catraca-idblock-next-com-idface-max-control-id.txt",
+      "tipo_fonte": "webscraping",
+      "extensao": ".txt",
+      "tamanho_bytes": 7163,
+      "sha256_bruto": "187bee8160b8c05e62e362792fb2d3952513083388c9768468011f53f11ccda1",
+      "urls": [
+        "https://inforrel.com.br/produtos/catraca-idblock-next-com-idface-max-control-id/"
+      ],
+      "url_principal": "https://inforrel.com.br/produtos/catraca-idblock-next-com-idface-max-control-id/"
+    },
+    {
+      "caminho": "WebScrapping/result/produtos_catraca-idblock-pcd-facial-com-idface-max-control-id.txt",
+      "nome_arquivo": "produtos_catraca-idblock-pcd-facial-com-idface-max-control-id.txt",
+      "tipo_fonte": "webscraping",
+      "extensao": ".txt",
+      "tamanho_bytes": 7587,
+      "sha256_bruto": "d377febe62e7d1c44ab410cf727f129263c4f727f3500142d4043eb39848c8d3",
+      "urls": [
+        "https://inforrel.com.br/produtos/catraca-idblock-pcd-facial-com-idface-max-control-id/"
+      ],
+      "url_principal": "https://inforrel.com.br/produtos/catraca-idblock-pcd-facial-com-idface-max-control-id/"
+    },
+    {
+      "caminho": "WebScrapping/result/produtos_coletor-inner-acesso-2-topdata.txt",
+      "nome_arquivo": "produtos_coletor-inner-acesso-2-topdata.txt",
+      "tipo_fonte": "webscraping",
+      "extensao": ".txt",
+      "tamanho_bytes": 7016,
+      "sha256_bruto": "9957b9e4df11ccb1ae7cfcc79fa4d870021eb73e1309a33070f7e98403e1190e",
+      "urls": [
+        "https://inforrel.com.br/produtos/coletor-inner-acesso-2-topdata/"
+      ],
+      "url_principal": "https://inforrel.com.br/produtos/coletor-inner-acesso-2-topdata/"
+    },
+    {
+      "caminho": "WebScrapping/result/produtos_coletor-inner-acesso-topdata.txt",
+      "nome_arquivo": "produtos_coletor-inner-acesso-topdata.txt",
+      "tipo_fonte": "webscraping",
+      "extensao": ".txt",
+      "tamanho_bytes": 8790,
+      "sha256_bruto": "a77de043156f79e205253f540c482569ae4fe841f55ea9a6b9658d7a4dfe7f4f",
+      "urls": [
+        "https://inforrel.com.br/produtos/coletor-inner-acesso-topdata/"
+      ],
+      "url_principal": "https://inforrel.com.br/produtos/coletor-inner-acesso-topdata/"
+    },
+    {
+      "caminho": "WebScrapping/result/produtos_controlador-de-acesso-facial-com-biometria-digital-ss-5542-mf-w-intelbras.txt",
+      "nome_arquivo": "produtos_controlador-de-acesso-facial-com-biometria-digital-ss-5542-mf-w-intelbras.txt",
+      "tipo_fonte": "webscraping",
+      "extensao": ".txt",
+      "tamanho_bytes": 6714,
+      "sha256_bruto": "ce2787adf1714ff4c097be4732bbc7c2cc58fdc8592ad201a18a8bd4ae6ae467",
+      "urls": [
+        "https://inforrel.com.br/produtos/controlador-de-acesso-facial-com-biometria-digital-ss-5542-mf-w-intelbras/"
+      ],
+      "url_principal": "https://inforrel.com.br/produtos/controlador-de-acesso-facial-com-biometria-digital-ss-5542-mf-w-intelbras/"
+    },
+    {
+      "caminho": "WebScrapping/result/produtos_controlador-de-acesso-facial-ss-5531-mf-ex-intelbras.txt",
+      "nome_arquivo": "produtos_controlador-de-acesso-facial-ss-5531-mf-ex-intelbras.txt",
+      "tipo_fonte": "webscraping",
+      "extensao": ".txt",
+      "tamanho_bytes": 6443,
+      "sha256_bruto": "953fc27fa9dd4a315c4d2434646d3df0dc4adb2793996ab71a6db3a89ca27776",
+      "urls": [
+        "https://inforrel.com.br/produtos/controlador-de-acesso-facial-ss-5531-mf-ex-intelbras/"
+      ],
+      "url_principal": "https://inforrel.com.br/produtos/controlador-de-acesso-facial-ss-5531-mf-ex-intelbras/"
+    },
+    {
+      "caminho": "WebScrapping/result/produtos_controle-de-acesso-idface-control-id.txt",
+      "nome_arquivo": "produtos_controle-de-acesso-idface-control-id.txt",
+      "tipo_fonte": "webscraping",
+      "extensao": ".txt",
+      "tamanho_bytes": 7263,
+      "sha256_bruto": "3cff5c219be07e1acdf254c88abea129ee2b283d276b107fa9bac832ed3600c9",
+      "urls": [
+        "https://inforrel.com.br/produtos/controle-de-acesso-idface-control-id/"
+      ],
+      "url_principal": "https://inforrel.com.br/produtos/controle-de-acesso-idface-control-id/"
+    },
+    {
+      "caminho": "WebScrapping/result/produtos_controle-de-acesso-idface-max-control-id.txt",
+      "nome_arquivo": "produtos_controle-de-acesso-idface-max-control-id.txt",
+      "tipo_fonte": "webscraping",
+      "extensao": ".txt",
+      "tamanho_bytes": 7465,
+      "sha256_bruto": "9150b7a91b6006123391231fb6a77b478c04b510fb86d6443318c322d77741f5",
+      "urls": [
+        "https://inforrel.com.br/produtos/controle-de-acesso-idface-max-control-id/"
+      ],
+      "url_principal": "https://inforrel.com.br/produtos/controle-de-acesso-idface-max-control-id/"
+    },
+    {
+      "caminho": "WebScrapping/result/produtos_controle-de-acesso-idflex-ip65-prox-control-id.txt",
+      "nome_arquivo": "produtos_controle-de-acesso-idflex-ip65-prox-control-id.txt",
+      "tipo_fonte": "webscraping",
+      "extensao": ".txt",
+      "tamanho_bytes": 6958,
+      "sha256_bruto": "9964c90f37ffb7805e52d888f16edd434d81530d26a63ad2252547a556098f69",
+      "urls": [
+        "https://inforrel.com.br/produtos/controle-de-acesso-idflex-ip65-prox-control-id/"
+      ],
+      "url_principal": "https://inforrel.com.br/produtos/controle-de-acesso-idflex-ip65-prox-control-id/"
+    },
+    {
+      "caminho": "WebScrapping/result/produtos_controle-de-acesso-iduhf.txt",
+      "nome_arquivo": "produtos_controle-de-acesso-iduhf.txt",
+      "tipo_fonte": "webscraping",
+      "extensao": ".txt",
+      "tamanho_bytes": 6119,
+      "sha256_bruto": "b12677baa419457eaa33597cb40559aeaed6e31f51d98e09831800e6d097c7af",
+      "urls": [
+        "https://inforrel.com.br/produtos/controle-de-acesso-iduhf/"
+      ],
+      "url_principal": "https://inforrel.com.br/produtos/controle-de-acesso-iduhf/"
+    },
+    {
+      "caminho": "WebScrapping/result/produtos_controle-de-acesso-torniquete-facial-com-idface-max-control-id.txt",
+      "nome_arquivo": "produtos_controle-de-acesso-torniquete-facial-com-idface-max-control-id.txt",
+      "tipo_fonte": "webscraping",
+      "extensao": ".txt",
+      "tamanho_bytes": 7411,
+      "sha256_bruto": "8de6c5dd95974de74779b19d1d9694e71b1a8babc72fd3c2e27970e44319992c",
+      "urls": [
+        "https://inforrel.com.br/produtos/controle-de-acesso-torniquete-facial-com-idface-max-control-id/"
+      ],
+      "url_principal": "https://inforrel.com.br/produtos/controle-de-acesso-torniquete-facial-com-idface-max-control-id/"
+    },
+    {
+      "caminho": "WebScrapping/result/produtos_gravador-de-video-multi-hd-com-16-canais-mhdx-1316-intelbras.txt",
+      "nome_arquivo": "produtos_gravador-de-video-multi-hd-com-16-canais-mhdx-1316-intelbras.txt",
+      "tipo_fonte": "webscraping",
+      "extensao": ".txt",
+      "tamanho_bytes": 6594,
+      "sha256_bruto": "84417554102bfe7ee2ea4f4c6015c1f2a2c23daf0ddaeba3b585d7d1fe38cd2c",
+      "urls": [
+        "https://inforrel.com.br/produtos/gravador-de-video-multi-hd-com-16-canais-mhdx-1316-intelbras/"
+      ],
+      "url_principal": "https://inforrel.com.br/produtos/gravador-de-video-multi-hd-com-16-canais-mhdx-1316-intelbras/"
+    },
+    {
+      "caminho": "WebScrapping/result/produtos_leitor-facial-topdata.txt",
+      "nome_arquivo": "produtos_leitor-facial-topdata.txt",
+      "tipo_fonte": "webscraping",
+      "extensao": ".txt",
+      "tamanho_bytes": 7413,
+      "sha256_bruto": "a2a7542516d70d2e49d500b83b4ebeb4c6265e61f408a9a469b11250b0438b3f",
+      "urls": [
+        "https://inforrel.com.br/produtos/leitor-facial-topdata/"
+      ],
+      "url_principal": "https://inforrel.com.br/produtos/leitor-facial-topdata/"
+    },
+    {
+      "caminho": "WebScrapping/result/produtos_ponto-eletronico-inner-ponto-4-topdata.txt",
+      "nome_arquivo": "produtos_ponto-eletronico-inner-ponto-4-topdata.txt",
+      "tipo_fonte": "webscraping",
+      "extensao": ".txt",
+      "tamanho_bytes": 6393,
+      "sha256_bruto": "dd8f3bf6392e0fd6d03e7628fd338078b882f88370b3638dc94dd08d692b55cf",
+      "urls": [
+        "https://inforrel.com.br/produtos/ponto-eletronico-inner-ponto-4-topdata/"
+      ],
+      "url_principal": "https://inforrel.com.br/produtos/ponto-eletronico-inner-ponto-4-topdata/"
+    },
+    {
+      "caminho": "WebScrapping/result/produtos_qr-code-para-controle-de-acesso.txt",
+      "nome_arquivo": "produtos_qr-code-para-controle-de-acesso.txt",
+      "tipo_fonte": "webscraping",
+      "extensao": ".txt",
+      "tamanho_bytes": 7426,
+      "sha256_bruto": "434cd2b93ed7d5123f9c9402a988feffb4551d2c64d31bea27d369185b7317a0",
+      "urls": [
+        "https://inforrel.com.br/produtos/qr-code-para-controle-de-acesso/"
+      ],
+      "url_principal": "https://inforrel.com.br/produtos/qr-code-para-controle-de-acesso/"
+    },
+    {
+      "caminho": "WebScrapping/result/produtos_relogio-cartografico-pontto-5.txt",
+      "nome_arquivo": "produtos_relogio-cartografico-pontto-5.txt",
+      "tipo_fonte": "webscraping",
+      "extensao": ".txt",
+      "tamanho_bytes": 7761,
+      "sha256_bruto": "2da5e0ad1aba9a7c45337eb56e2bbcdcf2a85b86cb4698980e5544b64bad7b2f",
+      "urls": [
+        "https://inforrel.com.br/produtos/relogio-cartografico-pontto-5/"
+      ],
+      "url_principal": "https://inforrel.com.br/produtos/relogio-cartografico-pontto-5/"
+    },
+    {
+      "caminho": "WebScrapping/result/produtos_relogio-de-ponto-biometrico-topdata.txt",
+      "nome_arquivo": "produtos_relogio-de-ponto-biometrico-topdata.txt",
+      "tipo_fonte": "webscraping",
+      "extensao": ".txt",
+      "tamanho_bytes": 11621,
+      "sha256_bruto": "01ade8260b56354e53575e08a7d2a328a7c7b230415839bb9fdb9538121ee6a9",
+      "urls": [
+        "https://inforrel.com.br/produtos/relogio-de-ponto-biometrico-topdata/"
+      ],
+      "url_principal": "https://inforrel.com.br/produtos/relogio-de-ponto-biometrico-topdata/"
+    },
+    {
+      "caminho": "WebScrapping/result/produtos_relogio-de-ponto-rep-idclass-bio-barras-control-id.txt",
+      "nome_arquivo": "produtos_relogio-de-ponto-rep-idclass-bio-barras-control-id.txt",
+      "tipo_fonte": "webscraping",
+      "extensao": ".txt",
+      "tamanho_bytes": 7427,
+      "sha256_bruto": "87ad7fd525a66a20d4a945247caf5ef707969644cff89638e90646730c1f6ccd",
+      "urls": [
+        "https://inforrel.com.br/produtos/relogio-de-ponto-rep-idclass-bio-barras-control-id/"
+      ],
+      "url_principal": "https://inforrel.com.br/produtos/relogio-de-ponto-rep-idclass-bio-barras-control-id/"
+    },
+    {
+      "caminho": "WebScrapping/result/produtos_relogio-de-ponto-rep-idclass-bio-control-id.txt",
+      "nome_arquivo": "produtos_relogio-de-ponto-rep-idclass-bio-control-id.txt",
+      "tipo_fonte": "webscraping",
+      "extensao": ".txt",
+      "tamanho_bytes": 7112,
+      "sha256_bruto": "3e0a7417ff3a57286dcc0d5b27a48fc7c9c1d6bbf7825b96ef25dd7c1ff3fcef",
+      "urls": [
+        "https://inforrel.com.br/produtos/relogio-de-ponto-rep-idclass-bio-control-id/"
+      ],
+      "url_principal": "https://inforrel.com.br/produtos/relogio-de-ponto-rep-idclass-bio-control-id/"
+    },
+    {
+      "caminho": "WebScrapping/result/produtos_relogio-de-ponto-rep-idclass-facial.txt",
+      "nome_arquivo": "produtos_relogio-de-ponto-rep-idclass-facial.txt",
+      "tipo_fonte": "webscraping",
+      "extensao": ".txt",
+      "tamanho_bytes": 6798,
+      "sha256_bruto": "2e8e17806bd6c983a66cf50adf6c1a9c2dd158bc3660f0d0f398aac8831fce59",
+      "urls": [
+        "https://inforrel.com.br/produtos/relogio-de-ponto-rep-idclass-facial/"
+      ],
+      "url_principal": "https://inforrel.com.br/produtos/relogio-de-ponto-rep-idclass-facial/"
+    },
+    {
+      "caminho": "WebScrapping/result/produtos_roteador-empresarial-wi-fi-4-de-longo-alcance-ap-360-intelbras.txt",
+      "nome_arquivo": "produtos_roteador-empresarial-wi-fi-4-de-longo-alcance-ap-360-intelbras.txt",
+      "tipo_fonte": "webscraping",
+      "extensao": ".txt",
+      "tamanho_bytes": 6623,
+      "sha256_bruto": "79f6181c881f574eea77c16f151da495b2f353d3df2625230b940af08ccaa873",
+      "urls": [
+        "https://inforrel.com.br/produtos/roteador-empresarial-wi-fi-4-de-longo-alcance-ap-360-intelbras/"
+      ],
+      "url_principal": "https://inforrel.com.br/produtos/roteador-empresarial-wi-fi-4-de-longo-alcance-ap-360-intelbras/"
+    },
+    {
+      "caminho": "WebScrapping/result/produtos_roteador-empresarial-wi-fi-5-de-alta-velocidade-ap-1350-ac-s-intelbras.txt",
+      "nome_arquivo": "produtos_roteador-empresarial-wi-fi-5-de-alta-velocidade-ap-1350-ac-s-intelbras.txt",
+      "tipo_fonte": "webscraping",
+      "extensao": ".txt",
+      "tamanho_bytes": 7023,
+      "sha256_bruto": "31f5d60e3b7d6b2b9bf558f9db31208ac5ddeb87e3fb54530374479971814080",
+      "urls": [
+        "https://inforrel.com.br/produtos/roteador-empresarial-wi-fi-5-de-alta-velocidade-ap-1350-ac-s-intelbras/"
+      ],
+      "url_principal": "https://inforrel.com.br/produtos/roteador-empresarial-wi-fi-5-de-alta-velocidade-ap-1350-ac-s-intelbras/"
+    },
+    {
+      "caminho": "WebScrapping/result/produtos_software-para-controle-de-acesso-idsecure-cloud-control-id.txt",
+      "nome_arquivo": "produtos_software-para-controle-de-acesso-idsecure-cloud-control-id.txt",
+      "tipo_fonte": "webscraping",
+      "extensao": ".txt",
+      "tamanho_bytes": 5804,
+      "sha256_bruto": "9aa07c79ac0d3303d3fd6df94cfcc6cc48e327ded42ed3113942b0229681799d",
+      "urls": [
+        "https://inforrel.com.br/produtos/software-para-controle-de-acesso-idsecure-cloud-control-id/"
+      ],
+      "url_principal": "https://inforrel.com.br/produtos/software-para-controle-de-acesso-idsecure-cloud-control-id/"
+    },
+    {
+      "caminho": "WebScrapping/result/produtos_software-para-controle-de-acesso-idsecure-on-premises-control-id.txt",
+      "nome_arquivo": "produtos_software-para-controle-de-acesso-idsecure-on-premises-control-id.txt",
+      "tipo_fonte": "webscraping",
+      "extensao": ".txt",
+      "tamanho_bytes": 5879,
+      "sha256_bruto": "ace0aeb1ae8b3feccd9de3c32591e05b38c417544f74023b383e623d9e14afb9",
+      "urls": [
+        "https://inforrel.com.br/produtos/software-para-controle-de-acesso-idsecure-on-premises-control-id/"
+      ],
+      "url_principal": "https://inforrel.com.br/produtos/software-para-controle-de-acesso-idsecure-on-premises-control-id/"
+    },
+    {
+      "caminho": "WebScrapping/result/produtos_software-para-controle-de-acesso.txt",
+      "nome_arquivo": "produtos_software-para-controle-de-acesso.txt",
+      "tipo_fonte": "webscraping",
+      "extensao": ".txt",
+      "tamanho_bytes": 5903,
+      "sha256_bruto": "f37b393ac71684b97a5bc51555d5387fcf496d667464a3f09497bed30076aa99",
+      "urls": [
+        "https://inforrel.com.br/produtos/software-para-controle-de-acesso/"
+      ],
+      "url_principal": "https://inforrel.com.br/produtos/software-para-controle-de-acesso/"
+    },
+    {
+      "caminho": "WebScrapping/result/produtos_switch-gerenciavel-24-portas-gigabit-e-4-portas-sfp-s2328g-a-intelbras.txt",
+      "nome_arquivo": "produtos_switch-gerenciavel-24-portas-gigabit-e-4-portas-sfp-s2328g-a-intelbras.txt",
+      "tipo_fonte": "webscraping",
+      "extensao": ".txt",
+      "tamanho_bytes": 6701,
+      "sha256_bruto": "7ac0cf5ef3e2e44c6ec5c35ab473a0e6a175a85ee007273e06c624b7b774fbc2",
+      "urls": [
+        "https://inforrel.com.br/produtos/switch-gerenciavel-24-portas-gigabit-e-4-portas-sfp-s2328g-a-intelbras/"
+      ],
+      "url_principal": "https://inforrel.com.br/produtos/switch-gerenciavel-24-portas-gigabit-e-4-portas-sfp-s2328g-a-intelbras/"
+    },
+    {
+      "caminho": "WebScrapping/result/produtos_terminal-de-reconhecimento-facial-da-serie-pro-ds-k1t673dx-hikvision.txt",
+      "nome_arquivo": "produtos_terminal-de-reconhecimento-facial-da-serie-pro-ds-k1t673dx-hikvision.txt",
+      "tipo_fonte": "webscraping",
+      "extensao": ".txt",
+      "tamanho_bytes": 8379,
+      "sha256_bruto": "6511a7861f7efb22d4e47f0501bd0d7afae51829efbc4ccaff903a42ac9344b6",
+      "urls": [
+        "https://inforrel.com.br/produtos/terminal-de-reconhecimento-facial-da-serie-pro-ds-k1t673dx-hikvision/"
+      ],
+      "url_principal": "https://inforrel.com.br/produtos/terminal-de-reconhecimento-facial-da-serie-pro-ds-k1t673dx-hikvision/"
+    },
+    {
+      "caminho": "WebScrapping/result/quem-somos.txt",
+      "nome_arquivo": "quem-somos.txt",
+      "tipo_fonte": "webscraping",
+      "extensao": ".txt",
+      "tamanho_bytes": 4433,
+      "sha256_bruto": "65db5d81e494158d8eb16e5e0cf1d51a5db458aeb3896f0665008ecd2996ae72",
+      "urls": [
+        "https://inforrel.com.br/quem-somos/"
+      ],
+      "url_principal": "https://inforrel.com.br/quem-somos/"
+    },
+    {
+      "caminho": "WebScrapping/result/solucoes-especiais.txt",
+      "nome_arquivo": "solucoes-especiais.txt",
+      "tipo_fonte": "webscraping",
+      "extensao": ".txt",
+      "tamanho_bytes": 4377,
+      "sha256_bruto": "d48dd3d5651553e2707d3f8064f61d09b2a96753adc0ff2a72c0f0e88acfa890",
+      "urls": [
+        "https://inforrel.com.br/solucoes-especiais/"
+      ],
+      "url_principal": "https://inforrel.com.br/solucoes-especiais/"
+    },
+    {
+      "caminho": "WebScrapping/result/solucoes-especiais_para-academias.txt",
+      "nome_arquivo": "solucoes-especiais_para-academias.txt",
+      "tipo_fonte": "webscraping",
+      "extensao": ".txt",
+      "tamanho_bytes": 5050,
+      "sha256_bruto": "fd3cbe99923fb847566ceecd6923241c33a00189152cb2e140e4eceb534c3440",
+      "urls": [
+        "https://inforrel.com.br/solucoes-especiais/para-academias/"
+      ],
+      "url_principal": "https://inforrel.com.br/solucoes-especiais/para-academias/"
+    },
+    {
+      "caminho": "WebScrapping/result/solucoes-especiais_para-clubes.txt",
+      "nome_arquivo": "solucoes-especiais_para-clubes.txt",
+      "tipo_fonte": "webscraping",
+      "extensao": ".txt",
+      "tamanho_bytes": 5196,
+      "sha256_bruto": "bb31d07b4a5f50836486ecefda2086c775cc814eeb6b2154dbdf4134073df954",
+      "urls": [
+        "https://inforrel.com.br/solucoes-especiais/para-clubes/"
+      ],
+      "url_principal": "https://inforrel.com.br/solucoes-especiais/para-clubes/"
+    },
+    {
+      "caminho": "WebScrapping/result/solucoes-especiais_para-comercios-em-geral.txt",
+      "nome_arquivo": "solucoes-especiais_para-comercios-em-geral.txt",
+      "tipo_fonte": "webscraping",
+      "extensao": ".txt",
+      "tamanho_bytes": 5154,
+      "sha256_bruto": "ce3aef40310222842b46b826300c3125052e83a2b57e9a954ec6c344a1cb011c",
+      "urls": [
+        "https://inforrel.com.br/solucoes-especiais/para-comercios-em-geral/"
+      ],
+      "url_principal": "https://inforrel.com.br/solucoes-especiais/para-comercios-em-geral/"
+    },
+    {
+      "caminho": "docs/ConversasDoWhatsApp/Conversa do WhatsApp com +55 12 99650-0288.txt",
+      "nome_arquivo": "Conversa do WhatsApp com +55 12 99650-0288.txt",
+      "tipo_fonte": "conversa_whatsapp",
+      "extensao": ".txt",
+      "tamanho_bytes": 2867,
+      "sha256_bruto": "bc8298f10dfb4ea0a46bfc42774ceebde3015ec71aa4ec12e9333df725b656de",
+      "urls": [
+        "https://www.instagram.com/inforrel"
+      ],
+      "url_principal": "https://www.instagram.com/inforrel"
+    }
+  ]
+}

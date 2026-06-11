@@ -1,0 +1,82 @@
+sprint_numero: 2
+data_inicio: "2026-04-27"
+data_fim: "2026-05-15"
+duracao_dias: 19
+
+objetivos:
+  - "Continuar o desenvolvimento do sistema RAG e Q&A Pairs."
+  - "Implementar busca por chunks de produto e camada curada de QA."
+proximo_sprint_numero: 3
+proximo_data_inicio: "2026-05-18"
+proximo_data_fim: "2026-05-29"
+proximo_duracao_dias: 12
+gerado_em: "2026-05-12 10:51"
+revisado_em: "2026-05-12 15:00"
+proximo_objetivos: 
+  - "Integração com WhatsApp Business."
+  - "Cadastro de tipos de produtos."
+  
+feito:
+  - titulo: "Cockpit de Acompanhamento de Conversas: interface e fluxo de aprovação de mensagens."
+  - titulo: "Sistema RAG de busca por chunks de produto com ingestão e busca semântica."
+  - titulo: "Camada Q&A Pairs curada sobre o RAG para respostas mais precisas."
+  - titulo: "Embeddings OpenAI com arquitetura preparada para troca futura de provider."
+  - titulo: "API RAG dinâmica com configuração em tempo real."
+  - titulo: "Reprovação de mensagens com criação de rascunho Q&A e validação humana."
+  - titulo: "Correção de bug de reprovação que impedia atualização do estado da mensagem."
+  - titulo: "Diretrizes de qualidade para rotas e checks executáveis no backend."
+  - titulo: "Análise estratégica de governança de IA: Agentes vs Skills vs Harness."
+
+proximasprint:
+  - "Cadastro de Tipos de Produto e Produtos (REQ-002) - alta"
+  - "Escalonamento para Humano completo (REQ-004) - alta"
+  - "Workflow de aprovação de pares Q&A (notificação + histórico) - média"
+  - "Webhook Twilio para recebimento de mensagens reais (REQ-008) - alta"
+  - "Análise de sentimento e detecção de mal humor (REQ-007) - média"
+  - "Rastreamento de orçamentos (REQ-006) - média"
+  - "Simplificação dos agentes Python (condensar prompts no AGENTS.md) - baixa"
+
+backlogpendente: 
+  - "REQ-002: Fluxo adaptativo com lógica de próxima pergunta dinâmica"
+  - "REQ-002: Validação de respostas e esclarecimento pontual"
+  - "REQ-004: Estado em atendimento humano persistente"
+  - "REQ-004: Notificação ao atendente via WhatsApp"
+  - "REQ-004: Geração de resumo da conversa para humano"
+  - "REQ-004: Gatilhos automáticos de escalonamento"
+  - "REQ-005: Consulta/filtro de histórico por cliente/período/status"
+  - "REQ-005: Auditoria completa de IA/RAG (prompt, contexto, resposta)"
+  - "REQ-006: Modelo de orçamentos com status"
+  - "REQ-006: Associação conversa-orçamento-cliente"
+  - "REQ-007: Classificação formal positivo/neutro/negativo"
+  - "REQ-007: Flag de conversa crítica e integração com escalonamento"
+  - "REQ-008: Webhook Twilio para recebimento (idempotência, assinatura)"
+  - "REQ-008: Envio de mensagens via Twilio API"
+  - "REQ-009: Detecção de reclamação pós-venda e escalonamento com contexto"
+  - "Q&A v2: Extração automática de pares de conversas reais"
+  - "Q&A v2: Feedback loop — avaliação de respostas pelo operador"
+  - "Q&A v2: Importação em lote via CSV pelo frontend"
+  - "Autenticação e autorização (JWT, roles admin/operador)"
+  - "Deploy em produção com domínio Inforrel"
+  - "Sistema de notificações em tempo real (WebSocket/SSE)"
+  - "Multi-tenancy da aplicação (arquitetura SaaS)"
+  - "Integração com ERPs"
+
+bloqueios:
+  - "Decisão de provedor LLM para produção: custo vs estabilidade."
+  - "Webhook WhatsApp/Twilio requer URL pública e validação de sandbox."
+  - "Seed de pares Q&A precisa revisão humana antes de ativação."
+
+metricas:
+  artefatos_criados: 18
+  pendencias_resolvidas: 3
+  pendencias_novas: 2
+  bugs_corrigidos: 2
+  diretrizes_novas: 2
+  passos_qa_pairs_concluidos: 9
+  cobertura_req_atendidos: 2
+
+insights:
+  - "Sprint com alta entrega técnica e foco em bases de RAG/Q&A."
+  - "Recomenda-se priorizar REQ-002 e REQ-004 na próxima etapa."
+  - "Foi levantada a necessidade de checks de QA para estados críticos."
+  - "A simplificação da governança de IA deve reduzir dívida de manutenção."

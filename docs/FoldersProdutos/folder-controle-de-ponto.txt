@@ -1,0 +1,132 @@
+--- Página 1 ---
+Central de atendimento: (41) 3213-7100
+www.topdata.com.br
+INNER PONTO 4
+Coletor de marcações seguro e funcional 
+para o registro de ponto de acordo com a Portaria 671
+Segurança
+Registro de ponto de 
+acordo com as 
+exigências da legislação
+Praticidade
+Design compacto, operação fácil 
+e intuitiva através da tela 
+colorida sensível ao toque.
+Flexibilidade
+Leitor biométrico, 
+proximidade e QR Code 
+em um mesmo produto
+
+
+--- Página 2 ---
+A identificação pode ser feita por biometria, 
+cartão de proximidade ou QR Code. O registro
+também pode ser realizada por reconhecimento 
+facial, com a conexão de um leitor externo.
+O Inner Ponto 4 é um coletor de marcações para sistemas que possuem 
+o REP-P, um software  para registro de ponto especificado na Portaria 671.
+O software TopPonto Web possui o REP-P integrado, e tem comunicação 
+direta com o Inner Ponto 4, tornando a instalação simples e rápida. 
+Revendedor Autorizado:
+Topdata
+(41)
+41) 3213-7100
+www.topdata.com.br
+Central de atendimento: (41) 3213-7100
+www.topdata.com.br
+O software REP-P deve ser registrado no INPI e deve emitir os 
+comprovantes de registro de ponto assinados e o arquivo AFD.
+O Inner Ponto 4 pode ser integrado a outros sistemas que possuam o 
+REP-P, através das bibliotecas de comunicação disponibilizadas. 
+
+
+--- Página 3 ---
+INNER PONTO 4 - Especificações 
+Modelos 
+o
+Os modelos do Inner Ponto 4 permitem a combinação das seguintes formas de identificação:
+
+Biometria
+
+Proximidade
+
+QR Code
+
+Sem leitor, preparado para leitor facial externo
+Opções de leitor biométrico 
+o
+LC
+
+Armazenamento de até 3.000 digitais
+
+Permite o cadastramento de 1 ou 2 digitais por usuário
+o
+LFD
+
+Proteção contra uso de dedos falsos de silicone, borracha e outros
+
+Armazenamento de até 10.000 digitais
+
+Permite o cadastramento de 1 ou 2 digitais por usuário
+o
+LM
+
+Leitor Sagem
+
+Armazenamento de até 10.000 usuários*
+
+Permite o cadastramento de 1 ou 2 digitais por usuário
+
+Proteção contra uso de dedos falsos de silicone, borracha e outros*
+*Conforme o modelo de módulo escolhido
+Opções de leitor de proximidade 
+o
+Leitor de cartão de proximidade 125 KHz
+o
+Leitor de proximidade para smart card, padrão Mifare 13,56 MHz
+Leitor QR Code 
+o
+Leitura de códigos QR Code e de códigos de barras
+Recursos 
+o
+Identificação do trabalhador pelo CPF
+o
+Opção de uso de senha para marcação de ponto por teclado
+o
+Menus de configuração protegidos por senha
+o
+Memória permanente de registro das marcações de ponto e dos cadastros realizados
+o
+Capacidade de cadastro de 10.000 colaboradores e 10 milhões de registros
+o
+Display colorido de 4,3” com tela sensível ao toque
+o
+Servidor web embarcado
+o
+Comunicação TCP/IP
+o
+Entrada para a conexão de leitor facial externo.
+o
+Tecla para habilitar registro pelo leitor facial externo, evitando marcações não intencionais.
+Construção 
+o
+Gabinete em plástico ABS de alta resistência
+Especificações técnicas 
+o
+Alimentação: 12V 1A
+o
+Consumo em repouso: 7W
+o
+Dimensões: L= 205 mm; A= 154 mm; P= 48 mm
+o
+Peso: 0,6 Kg
+o
+Condições Ambientais:
+
+Temperatura de operação: 0°C a 50°C (sem condensação)
+
+Temperatura para estocagem: -10°C a 60°C
+
+Uso interno
+Central de atendimento: (41) 3213-7100
+www.topdata.com.br
