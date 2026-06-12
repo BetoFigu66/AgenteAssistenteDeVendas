@@ -1,17 +1,22 @@
 sprint_numero: 2
 data_inicio: "2026-04-27"
-data_fim: "2026-05-15"
-duracao_dias: 19
+data_fim: "2026-06-10"
+duracao_dias: 45
 objetivos: 
   - "Continuar o desenvolvimento do sistema de RAG e Q&A Pairs."
   - "Implementando a busca por chunks de produto e a camada curada sobre o RAG."
+  # Sprint estendida (originalmente 19 dias, fechada em 45) para absorver entregas
+  # adicionais: suporte a Pessoa Física (REQ-015), migração Negociação→Atendimento
+  # (REQ-016), calibração do classificador (REQ-002), QA Runner, tunnel Cloudflared
+  # e automação de sprint report.
 proximo_sprint_numero: 3
-proximo_data_inicio: "2026-05-18"
-proximo_data_fim: "2026-05-29"
-proximo_duracao_dias: 12
+proximo_data_inicio: "2026-06-11"
+proximo_data_fim: "2026-06-25"
+proximo_duracao_dias: 15
 proximo_objetivos: 
-  - "Mapear modelo de dados das principais tabelas (entidades de negócio e relacionamentos)."
-  - "Cadastro de tipos de produtos."
+  - "Avançar REQ-002 (fluxo conversacional guiado) com base no backlog formal de 11 tarefas."
+  - "Concluir migração REQ-016 (renomeação Negociação→Atendimento em modelos, schemas, serviços e frontend)."
+  - "Cadastro de tipos de produtos e produtos (REQ-002)."
   # Integração com WhatsApp Business adiada: foco atual é desenvolvimento
   # em modo de simulação; integração real (Twilio/REQ-008) volta em sprint futura.
 
@@ -60,6 +65,53 @@ feito:
     cobertura_req:
       REQ-011: { antes: "~20%", depois: "~25%", delta_pp: "+5" }  # estabilização do workflow já contado
 
+  # === Entregas da extensão do Sprint 02 (16/05 a 10/06) ===
+
+  - titulo: "REQ-015 — Suporte a orçamentos de Pessoa Física (PF/CPF)"
+    req: ["REQ-015", "REQ-001", "REQ-002"]
+    cobertura_req:
+      REQ-015: { antes: "0%",   depois: "~50%", delta_pp: "+50" }
+      REQ-001: { antes: "~40%", depois: "~45%", delta_pp: "+5" }   # validação compartilhada CNPJ/CPF
+      REQ-002: { antes: "~25%", depois: "~30%", delta_pp: "+5" }   # fluxo PF/PJ no processador
+
+  - titulo: "REQ-016 — Migração terminológica e estrutural Negociação → Atendimento (parcial)"
+    req: ["REQ-016"]
+    cobertura_req:
+      REQ-016: { antes: "0%", depois: "~40%", delta_pp: "+40" }   # migration + models parciais; T-A2/T-A11 pendentes
+
+  - titulo: "REQ-002 — Classificador com nível de confiança qualitativo e calibração v1.21"
+    req: ["REQ-002", "REQ-014"]
+    cobertura_req:
+      REQ-002: { antes: "~30%", depois: "~40%", delta_pp: "+10" }  # confianca_nivel + calibracao + revisao v1.21
+      REQ-014: { antes: "~25%", depois: "~35%", delta_pp: "+10" }  # parametros classificador no PATCH /api/config/rag
+
+  - titulo: "REQ-013 — Index tsvector em pares_qa para busca full-text"
+    req: ["REQ-013"]
+    cobertura_req:
+      REQ-013: { antes: "~70%", depois: "~75%", delta_pp: "+5" }
+
+  - titulo: "Processo gerente — Geração automatizada de sprint report com gráfico de cobertura ponderada"
+    req: ["-"]
+    cobertura_req: { obs: "governanca; gera_grafico_cobertura_ponderada.py + atualiza_cobertura_evolucao.py" }
+
+  - titulo: "Processo QA — QA Runner + cópia de contexto no painel administrativo"
+    req: ["REQ-010"]
+    cobertura_req:
+      REQ-010: { antes: "~30%", depois: "~35%", delta_pp: "+5" }
+
+  - titulo: "Infraestrutura — Tunnel Cloudflared para disponibilização do sistema em dev"
+    req: ["REQ-008"]
+    cobertura_req:
+      REQ-008: { antes: "~20%", depois: "~22%", delta_pp: "+2" }   # infra de exposicao (nao integracao real Twilio)
+
+  - titulo: "Processo gerente — Bootstrap GitHub Projects + automação de criação de issues (bugs CTF e backlog REQ-002)"
+    req: ["-"]
+    cobertura_req: { obs: "governanca; scripts/bootstrap_github_projects.ps1 + criar_issues_req002.ps1 + criar_issues_req016_sprint03.ps1" }
+
+  - titulo: "Qualidade — Lint Ruff aplicado em todo o backend (correções incrementais)"
+    req: ["-"]
+    cobertura_req: { obs: "divida tecnica; sem impacto direto em REQ funcional" }
+
 
 # Camada 2 — Resumo agregado da sprint (delta total por REQ + média do projeto).
 # "antes" = snapshot ao iniciar a sprint (= fim da sprint anterior, conforme cobertura_evolucao.yaml).
@@ -67,31 +119,36 @@ feito:
 cobertura_sprint:
   media_projeto:
     antes: "~20%"
-    depois: "~34%"
-    delta_pp: "+14"
+    depois: "~39%"
+    delta_pp: "+19"
   cobertura_ponderada:
     antes: "~22%"
-    depois: "~34%"
-    delta_pp: "+12"
-  reqs_avancados: 5      # REQ-003, REQ-010, REQ-011, REQ-013, REQ-014
-  reqs_novos_iniciados: 3 # REQ-011, REQ-013, REQ-014 (saíram de 0%)
-  reqs_inalterados: 9     # REQ-001, 002, 004, 005, 006, 007, 008, 009, 012
+    depois: "~38%"
+    delta_pp: "+16"
+  reqs_avancados: 11     # REQ-001, 002, 003, 008, 010, 011, 013, 014, 015 (novo), 016 (novo) + REQ-005 indireto
+  reqs_novos_iniciados: 5 # REQ-011, REQ-013, REQ-014 (saíram de 0% no inicio) + REQ-015 e REQ-016 (criados durante a sprint)
+  reqs_inalterados: 6     # REQ-004, 005, 006, 007, 009, 012
   por_req:
-    REQ-003: { antes: "~5%",  depois: "~60%", delta_pp: "+55" }
-    REQ-010: { antes: "~10%", depois: "~30%", delta_pp: "+20" }
+    REQ-001: { antes: "~40%", depois: "~45%", delta_pp: "+5" }
+    REQ-002: { antes: "~25%", depois: "~40%", delta_pp: "+15" }
+    REQ-003: { antes: "~5%",  depois: "~62%", delta_pp: "+57" }
+    REQ-008: { antes: "~20%", depois: "~22%", delta_pp: "+2" }
+    REQ-010: { antes: "~10%", depois: "~35%", delta_pp: "+25" }
     REQ-011: { antes: "0%",   depois: "~25%", delta_pp: "+25" }
-    REQ-013: { antes: "0%",   depois: "~70%", delta_pp: "+70" }
-    REQ-014: { antes: "0%",   depois: "~25%", delta_pp: "+25" }
+    REQ-013: { antes: "0%",   depois: "~75%", delta_pp: "+75" }
+    REQ-014: { antes: "0%",   depois: "~35%", delta_pp: "+35" }
+    REQ-015: { antes: "0%",   depois: "~50%", delta_pp: "+50" }   # novo REQ criado durante a sprint
+    REQ-016: { antes: "0%",   depois: "~40%", delta_pp: "+40" }   # novo REQ criado durante a sprint
     # REQs sem avanço nesta sprint não são listados aqui (ver cobertura_evolucao.yaml para o snapshot completo)
 
 proximasprint:
-  - "Mapeamento do modelo de dados das principais tabelas (entidades + relacionamentos + diagrama ER) (alta)"
+  - "REQ-002 — Executar backlog formal (T-01 a T-09): categorias 1-4, fallback condicional, captura adaptativa (alta)"
+  - "REQ-016 — Concluir migração Negociação→Atendimento: T-A2 (refactor models/services), T-A11 (UI frontend) (alta)"
+  - "REQ-004 — Escalonamento para Humano completo (alta)"
   - "Cadastro de Tipos de Produto e Produtos (REQ-002) (alta)"
-  - "Escalonamento para Humano completo (REQ-004) (alta)"
-  - "Workflow de aprovação de pares Q&A (notificação + histórico de revisões) (media)"
-  - "Análise de sentimento e detecção de mal humor (REQ-007) (media)"
-  - "Rastreamento de orçamentos (REQ-006) (media)"
-  - "Simplificação dos agentes Python (condensar prompts no AGENTS.md) (baixa)"
+  - "REQ-013 — Workflow de aprovação de pares Q&A (notificação + histórico de revisões) (media)"
+  - "REQ-007 — Análise de sentimento e detecção de mal humor (media)"
+  - "REQ-006 — Rastreamento de orçamentos (media)"
   # Webhook Twilio (REQ-008) removido desta sprint: integração WhatsApp
   # adiada; foco em modo de simulação. Continua em backlogpendente.
 
@@ -256,19 +313,23 @@ riscos_e_impedimentos:
       QABasePage. Pode entrar como tarefa do Sprint 3.
 
 metricas:
-  artefatos_criados: 18
-  pendencias_resolvidas: 3
-  pendencias_novas: 2
-  bugs_corrigidos: 2
+  artefatos_criados: 30   # +12 na extensão (REQ-015, REQ-016, backlog REQ-002, scripts GitHub Projects, diretrizes, decisoes_requisitos)
+  pendencias_resolvidas: 6
+  pendencias_novas: 4
+  bugs_corrigidos: 6      # +4 CTF abertos como issues no GitHub Projects
   reports_total: 0
   reports_resolvidos: 0
-  diretrizes_novas: 2
+  diretrizes_novas: 5     # +3 (IA01, A-series, G-series)
   passos_qa_pairs_concluidos: 9
-  cobertura_req_atendidos: 2
+  cobertura_req_atendidos: 4   # +2 novos REQs (REQ-015, REQ-016)
+  reqs_criados_durante_sprint: 2 # REQ-015, REQ-016
 
 insights:
   - "Velocidade: Sprint com alta entrega técnica (sistema Q&A Pairs completo em 1 sprint). O plano de 9 passos
      foi executado integralmente, porém com extensão de tempo (1 semana)."
+  - "Sprint estendida: o que começou como Sprint 02 de 19 dias terminou em 45 dias por absorver 2 REQs novos
+     (REQ-015 PF/CPF e REQ-016 rename) que emergiram durante o desenvolvimento. Recomendado: no Sprint 3,
+     fechar escopo na primeira semana e abrir Sprint 04 para itens emergentes em vez de estender."
   - "Dívida de planejamento: três itens prioritários do Sprint 1 (REQ-002, REQ-004, REQ-007) migraram para
      o Sprint 2 e novamente para o Sprint 3. Risco de acumulação. Recomendado comprometer no mínimo REQ-002
      e REQ-004 no Sprint 3 antes de iniciar novas features."
@@ -277,3 +338,5 @@ insights:
   - "Governança de IA: análise Agentes vs Skills vs Harness gerou insumo para simplificação do diretório agentes/.
      Recomendado executar a simplificação no Sprint 3 (baixa prioridade, mas reduz dívida de manutenção)."
   - "Embedding lazy (gerado na aprovação, não no cadastro): decisão correta — elimina custo de API para rascunhos que nunca serão aprovados e reduz latência do POST /api/pares-qa."
+  - "Automação de GitHub Projects: o bootstrap + scripts de criação de issues por REQ (criar_issues_req002, criar_issues_req016_sprint03) reduziram drasticamente o esforço de planning. Recomendado padronizar o template para todo REQ novo."
+  - "REQs emergentes durante sprint (REQ-015, REQ-016): peso_reqs precisou ser rebalanceado retroativamente. Para o futuro, definir peso inicial assim que o REQ for criado, para evitar distorção no gráfico de cobertura ponderada."

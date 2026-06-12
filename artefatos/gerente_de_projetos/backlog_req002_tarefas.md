@@ -1,9 +1,9 @@
 # Backlog de Tarefas — REQ-002 (Fluxo Conversacional)
 
-**Versão:** 0.2 (rascunho para revisão da Kika)
-**Data:** 2026-06-09
+**Versão:** 0.3 (revisão pós-análise de código)
+**Data:** 2026-06-10
 **Autor:** Beto (`[gerente]`)
-**Base:** `artefatos/requisitos_formais/REQ-002-fluxo-conversacional-guiado.md` v1.26 + REQ-016 v2.0
+**Base:** `artefatos/requisitos_formais/REQ-002-fluxo-conversacional-guiado.md` v1.25 + REQ-016 v2.0
 
 ---
 
@@ -38,7 +38,7 @@
 | T-01 | Alinhar classificador às 4 categorias canônicas + nível de confiança | 🟡 | Alta |
 | T-02 | Fallback condicional ao REQ-003 (Caso 2) e tratamento composto (Caso 3) | 🔴 | Alta |
 | T-03 | Roteamento pré-identificação para perguntas de produto/empresa | 🔴 | Alta |
-| T-04 | Identificação PF/PJ e roteamento do documento fiscal | 🔴 | Alta |
+| T-04 | Identificação PF/PJ e roteamento do documento fiscal | � | Alta |
 | T-05 | Estado dos campos do atendimento e mecanismo de perguntas dinâmicas | 🟡 | Alta |
 | T-06 | Captura adaptativa por etapa (tipo, modelo, dados adicionais, endereço) | 🟡 | Alta |
 | T-07 | Validações de respostas capturadas | 🟡 | Média |
@@ -53,11 +53,10 @@
 
 - **Status atual:** 🟡 Parcial
 - **Subitens REQ:** REQ-002.1, REQ-002.1A
-- **Contexto:** `services/classificador.py` retorna `Intencao` (15 valores) e `confianca` (float). Não há enum `categoria` (1–4) nem `confianca_nivel` (`alta`/`media`/`baixa`).
+- **Contexto:** `services/classificador.py` retorna `Intencao` (15 valores), `confianca` (float) e `confianca_nivel` (`alta`/`media`/`baixa`) — este último já implementado com thresholds padrão 0.70/0.40. Não há ainda o campo `categoria` (1–4) nem `justificativa_curta`. O roteamento no `processador.py` ainda é por `Intencao`, não por categoria.
 - **Escopo:**
   - Adicionar campo `categoria` (enum 1–4) em `ResultadoClassificacao`, derivado da intenção atual ou de uma classificação direta no prompt da LLM.
-  - Adicionar `confianca_nivel` baseado nos limiares de REQ-014 (`classificador_conf_alta_min`, `classificador_conf_baixa_max`).
-  - Atualizar `ProcessamentoMensagem` para persistir `categoria` e `confianca_nivel` (campos novos).
+  - Consumir limiares de REQ-014 (`classificador_conf_alta_min`, `classificador_conf_baixa_max`) em vez de hardcoded.
   - Adicionar coluna `justificativa_curta` (opcional, string) para auditoria.
   - Adaptar `_decidir_resposta` no processador para rotear por **categoria** antes de qualquer outra decisão.
 - **Validação no painel:**
@@ -98,26 +97,26 @@
 
 ## T-04 — Identificação PF/PJ e roteamento do documento fiscal
 
-- **Status atual:** 🔴 Pendente
+- **Status atual:** � Parcial
 - **Subitens REQ:** REQ-002.2A, REQ-002.10 (parte PF↔PJ)
-- **Contexto:** Sistema só trata PJ (CNPJ via REQ-001). PF/CPF não existe; modelos não suportam `tipo_documento`.
+- **Contexto:** Fluxo PF já existe no código: `FORNECER_CPF` no classificador, `_processar_cpf_fornecido` no processador, validação de CPF (REQ-015.2), persistência em `Pessoa` e `Negociacao` com `tipo_documento=CPF`. O fluxo PJ (CNPJ via REQ-001) também existe. O que falta é a **inferência automática** PF/PJ a partir da mensagem inicial e o roteamento dirigido antes de pedir o documento.
 - **Escopo:**
-  - Adicionar inferência PF/PJ a partir da mensagem inicial (palavras-chave + heurística do classificador).
+  - Adicionar inferência PF/PJ a partir da mensagem inicial (palavras-chave + heurística do classificador / LLM).
   - Pergunta direta quando ambíguo: "É para uma empresa (CNPJ) ou pessoa física (CPF)?".
-  - Roteamento: PJ → REQ-001; PF → REQ-015.
+  - Roteamento dirigido: detectado PJ → REQ-001; detectado PF → REQ-015; ambíguo → pergunta.
   - Tratar troca de tipo no meio da conversa (preservar campos comuns, redefinir documento fiscal).
   - Reuso: se telefone já tem PJ validada e cliente menciona CPF → confirmação pontual.
 - **Validação no painel:**
   - Mensagem "Quero orçamento para minha casa" → pergunta dirigida ou inferência PF.
   - Mensagem com CNPJ explícito → fluxo PJ.
-- **Dependências:** REQ-015 precisa estar implementado (validação de CPF). T-01.
+- **Dependências:** REQ-015 já implementado (validação de CPF + consulta de débitos). T-01.
 - **Labels:** `tipo:feature`, `prio:alta`, `area:backend`, `REQ-002`, `REQ-015`
 
 ## T-05 — Estado dos campos do atendimento e mecanismo de perguntas dinâmicas
 
 - **Status atual:** 🟡 Parcial
 - **Subitens REQ:** REQ-002.3, REQ-002.4
-- **Contexto:** `AtendimentoInfo` (renomeada de `NegociacaoInfo` em REQ-016 T-A2) já existe com `chave/valor/pendente/origem`. Atualização atual só registra entidades extraídas; não há cálculo de "próxima pergunta".
+- **Contexto:** `NegociacaoInfo` (ainda não renomeado para `AtendimentoInfo` — depende de REQ-016 T-A2) existe com `chave/valor/pendente/origem`. `_atualizar_infos_negociacao` no `processador.py` já grava nome, email, tipo_produto e quantidade. Não há ainda catálogo canônico de campos nem cálculo de "próxima pergunta".
 - **Escopo:**
   - Definir o **catálogo canônico de campos** por tipo de cliente (PF/PJ) e tipo de produto, marcando obrigatórios/opcionais/não-aplicáveis.
   - Implementar serviço `proxima_pergunta(atendimento)` que devolve o campo prioritário pendente, com base em ordem natural (tipo → modelo → quantidade → software → contato → endereço).
@@ -126,12 +125,12 @@
 - **Validação no painel:**
   - Painel mostra a lista de campos com status (capturado / pendente / não-aplicável) na tela da conversa.
   - Cada resposta do cliente atualiza o estado e a próxima pergunta muda.
-- **Dependências:** T-04 (PF/PJ define o conjunto de campos); REQ-016 T-A2 (rename de `NegociacaoInfo`).
+- **Dependências:** T-04 (PF/PJ define o conjunto de campos); REQ-016 T-A2 (rename de `NegociacaoInfo` → `AtendimentoInfo`).
 - **Labels:** `tipo:feature`, `prio:alta`, `area:backend`, `area:frontend`, `REQ-002`
 
 ## T-06 — Captura adaptativa por etapa (tipo, modelo, dados adicionais, endereço)
 
-- **Status atual:** 🟡 Parcial (extração de tipo_produto via regex existe; modelo/endereço/contato/software não)
+- **Status atual:** 🟡 Parcial (extração de tipo_produto, quantidade, nome e email via regex/LLM existe; modelo, endereço completo, software e telefone ainda não)
 - **Subitens REQ:** REQ-002.2, REQ-002.3A, REQ-002.3B, REQ-002.3C, REQ-002.3D
 - **Subtarefas (podem virar issues filhas se a tarefa ficar grande):**
   - **T-06.1** — Tipo de produto/serviço (REQ-002.3A): expandir lista além de catraca/relógio (CFTV, roteador, software, cancela, assistência).
@@ -250,3 +249,4 @@
 |------|--------|-----------|-------|
 | 2026-06-09 | 0.1 | Criação inicial — 11 tarefas agrupadas por tema, com status atual levantado a partir do código (`services/classificador.py`, `services/processador.py`, `models.NegociacaoInfo`). | Beto |
 | 2026-06-09 | 0.2 | Rename terminológico Negociação→Atendimento (REQ-016 v2.0): T-03, T-05 atualizadas; referência a `AtendimentoInfo`; T-05 ganha dependência cruzada com `backlog_req016_atendimentos.md` (T-A2). Base atualizada para REQ-002 v1.26. | Beto |
+| 2026-06-10 | 0.3 | Revisão pós-análise de código: T-01 contexto atualizado (`confianca_nivel` já existe, thresholds hardcoded); T-04 de 🔴→🟡 (fluxo CPF/CNPJ implementado, falta inferência automática); T-05 contexto atualizado (`NegociacaoInfo` ainda não renomeado); T-06 contexto atualizado (email/quantidade/nome também extraídos). Base atualizada para REQ-002 v1.25. | Beto |

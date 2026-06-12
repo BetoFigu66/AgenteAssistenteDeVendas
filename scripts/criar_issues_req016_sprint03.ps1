@@ -112,7 +112,7 @@ Write-Host "Milestone '$msTitle' OK (#$msExists)." -ForegroundColor Green
 Write-Host "`n== Criando issues do Sprint 03 (REQ-016) ==" -ForegroundColor Green
 
 $repoNameWithOwner = (gh repo view --json nameWithOwner | ConvertFrom-Json).nameWithOwner
-$repoUrlBase = "https://github.com/$repoNameWithOwner/blob/main/artefatos/gerente_de_projetos"
+$repoUrlBase = "https://github.com/$repoNameWithOwner/blob/master/artefatos/gerente_de_projetos"
 $backlogUrl  = "$repoUrlBase/backlog_req016_atendimentos.md"
 
 # Coletar issues existentes (abertas e fechadas) para idempotencia por titulo
