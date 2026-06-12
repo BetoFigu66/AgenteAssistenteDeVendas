@@ -8,10 +8,13 @@ function Message({ mensagem }) {
   const [mostrarDebug, setMostrarDebug] = useState(false)
   const temProcessamento = !!mensagem.processamento_id
 
-  const formatTime = (timestamp) => {
+  const formatarData = (timestamp) => {
     if (!timestamp) return ''
     const date = new Date(timestamp)
-    return date.toLocaleTimeString('pt-BR', {
+    return date.toLocaleString('pt-BR', {
+      day: '2-digit',
+      month: '2-digit',
+      year: '2-digit',
       hour: '2-digit',
       minute: '2-digit'
     })
@@ -36,7 +39,7 @@ function Message({ mensagem }) {
             {isUser ? 'Você' : 'Assistente'}
           </span>
           <span className="text-xs text-gray-400">
-            {formatTime(mensagem.timestamp)}
+            {formatarData(mensagem.timestamp)}
           </span>
           {temProcessamento && (
             <button
