@@ -88,6 +88,29 @@
   - ❌ Não pular a atualização "porque a sprint não avançou nada" — o snapshot ainda precisa ser registrado para preservar a continuidade da série temporal.
 - **Enforcement automático:** check `cobertura-evolucao-desatualizada` no QA harness (`agentes/qa_engineer.py`, escopo `pre-commit`, severidade `error`). Se o arquivo divergir do esperado, o check **regenera o arquivo automaticamente** e bloqueia o commit pedindo `git add` + retry. Fluxo: 1 commit no histórico, 2 tentativas de `git commit` na primeira vez.
 
+### G07 — Sprint Planning: `sprint_NN/planning.yaml` é fonte única do planejamento técnico
+- **Categoria:** processo / artefatos
+- **Registrada em:** 2026-06-15
+- **Regra:** O planejamento técnico de cada sprint vive em **`artefatos/gerente_de_projetos/sprint_NN/planning.yaml`** (versionado). GitHub Issues (milestone Sprint NN) continuam sendo a fonte de **workflow e rastreabilidade**; o YAML complementa com agrupamento, ordem, estimativas T-shirt e análise do implementador.
+- **Motivação:** separar status operacional (board) de análise técnica rica (repo), sem duplicar título/labels/status no YAML. Um diretório por sprint (`sprint_03/`, `sprint_04/`, …) mantém histórico legível.
+- **Papéis:**
+  1. **`[gerente]`** — no dia 1 do sprint: cria/atualiza o esqueleto (`meta.status: esqueleto`), espelha tasks do milestone, define `grupos`, `ordem_implementacao`, `estimativa` T-shirt (S/M/L/XL) e `branch_sugerida`.
+  2. **`[implementador]`** — task a task: preenche `analise_implementador`, `duvidas_decisoes`; escala para `[analista]`/`[arquiteto]` quando necessário; ao concluir todas, `meta.status: pronto`.
+- **Estimativa:** **T-shirt** (S, M, L, XL) com **percentual de capacidade** do sprint. Proporções-alvo: `M = M_por_S × S`, `L = L_por_S × S`. Percentuais podem variar por sprint; histórico converge em `tshirt_calibracao.yaml`.
+- **Execução:** registrar em `execucao.dias[]` no `planning.yaml`; ao fechar sprint, comparar `capacidade_pct` (planejado) vs `capacidade_real_pct` (real) e atualizar calibração.
+- **Aplicação prática:**
+  - ✅ Cada task recebe `capacidade_pct` derivado de `tshirt_escala.percentual[estimativa]`.
+  - ✅ Soma das tasks do sprint deve bater `capacidade.planejada_pct` (tipicamente 100).
+  - ✅ Ao concluir task: `execucao_status: done` e `capacidade_real_pct` (pode diferir do planejado).
+  - ✅ Fechar sprint: copiar médias reais para `tshirt_calibracao.yaml` → `referencia_convergencia`.
+  - ✅ Campo `issue` no YAML recebe o número GitHub (`#N`) quando conhecido; título e labels espelham a issue, não substituem.
+  - ✅ Agrupar tasks relacionadas em `grupos` com `branch_sugerida`; PRs separados quando o risco ou escopo exigir (ex.: T-A1 vs T-A1b).
+  - ✅ Itens fora do sprint corrente vão em `backlog_proximo_sprint`, não misturados nas `tasks` ativas.
+  - ✅ Detalhes de task (análise, escopo, log) em `sprint_NN/tasks/<ID>.yaml`; `planning.yaml` mantém índice e coordenação.
+  - ✅ Um arquivo por task (padrão) ou por grupo quando tasks são inseparáveis no mesmo PR.
+  - ❌ Não editar estimativa ou ordem no GitHub Project sem refletir no YAML (evita duas fontes de verdade).
+- **Detalhes:** `README.md` → seção "Fluxo Sprint Planning".
+
 ---
 
 ## Diretrizes movidas / revogadas
@@ -102,3 +125,5 @@
 |------|---------|
 | 2026-05-17 | Criação do arquivo. G01 importada do `[implementador]` (era D03, agora pointer lá). G02-G05 extraídas do `README.md` deste diretório. |
 | 2026-05-19 | G06 adicionada: regenerar `cobertura_evolucao.yaml` via script ao fechar sprint. |
+| 2026-06-15 | G07 adicionada: Sprint Planning em `sprint_NN/planning.yaml`; gerente esqueleto + implementador análise. |
+| 2026-06-15 | G07 ampliada: percentuais T-shirt, execução diária e calibração em `tshirt_calibracao.yaml`. |

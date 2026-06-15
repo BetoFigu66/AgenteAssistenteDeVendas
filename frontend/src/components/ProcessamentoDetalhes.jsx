@@ -286,7 +286,7 @@ function ProcessamentoDetalhes({ processamentoId }) {
           <Campo label="Status" valor={proc.status_identificacao} />
           <Campo label="Contato ID" valor={proc.contato_id_identificado} />
           <Campo label="Empresa ID" valor={proc.empresa_id_identificada} />
-          <Campo label="Negociação ativa" valor={proc.negociacao_id_ativa} />
+          <Campo label="Atendimento ativo" valor={proc.atendimento_id_ativa ?? proc.negociacao_id_ativa} />
         </div>
       </Secao>
 

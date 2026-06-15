@@ -86,17 +86,22 @@ export const api = {
     }
   },
 
-  async obterNegociacao(negociacaoId) {
+  async obterAtendimento(atendimentoId) {
     try {
-      const response = await fetch(`${API_URL}/api/negociacoes/${negociacaoId}`)
+      const response = await fetch(`${API_URL}/api/atendimentos/${atendimentoId}`)
       if (!response.ok) {
-        throw new ApiError('Erro ao obter negociação', response.status, 'server')
+        throw new ApiError('Erro ao obter atendimento', response.status, 'server')
       }
       return response.json()
     } catch (error) {
       if (error instanceof ApiError) throw error
       throw new ApiError('Backend não está respondendo', 0, 'network')
     }
+  },
+
+  /** @deprecated use obterAtendimento — removido em T-A11 */
+  async obterNegociacao(atendimentoId) {
+    return this.obterAtendimento(atendimentoId)
   },
 
   async obterProcessamento(processamentoId) {
@@ -206,15 +211,21 @@ export const api = {
     return response.json()
   },
 
-  // Negociações Ativas
-  async listarNegociacoesAtivas() {
-    const response = await fetch(`${API_URL}/api/negociacoes/ativas`)
-    if (!response.ok) throw new ApiError('Erro ao listar negociações', response.status, 'server')
+  // Atendimentos ativos
+  async listarAtendimentosAtivos() {
+    const response = await fetch(`${API_URL}/api/atendimentos/ativas`)
+    if (!response.ok) throw new ApiError('Erro ao listar atendimentos', response.status, 'server')
     return response.json()
   },
 
-  async alterarModoOperacao(negociacaoId, modoOperacao) {
-    const response = await fetch(`${API_URL}/api/negociacoes/${negociacaoId}/modo-operacao`, {
+  /** @deprecated use listarAtendimentosAtivos — removido em T-A11 */
+  async listarNegociacoesAtivas() {
+    const data = await this.listarAtendimentosAtivos()
+    return { ...data, negociacoes: data.atendimentos }
+  },
+
+  async alterarModoOperacao(atendimentoId, modoOperacao) {
+    const response = await fetch(`${API_URL}/api/atendimentos/${atendimentoId}/modo-operacao`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ modo_operacao: modoOperacao }),
@@ -226,8 +237,8 @@ export const api = {
     return response.json()
   },
 
-  async enviarMensagemManual(negociacaoId, conteudo, aprovadorId = null) {
-    const response = await fetch(`${API_URL}/api/negociacoes/${negociacaoId}/mensagens-manuais`, {
+  async enviarMensagemManual(atendimentoId, conteudo, aprovadorId = null) {
+    const response = await fetch(`${API_URL}/api/atendimentos/${atendimentoId}/mensagens-manuais`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ conteudo, aprovador_id: aprovadorId }),

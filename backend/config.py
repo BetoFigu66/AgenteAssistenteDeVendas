@@ -20,6 +20,8 @@ class Settings(BaseSettings):
     API_HOST: str = "0.0.0.0"
     API_PORT: int = 8000
     DEBUG: bool = True
+    LOG_LEVEL: str = "WARNING"
+    SQL_ECHO: bool = False
 
     # LLM
     LLM_PROVIDER: str = "groq"

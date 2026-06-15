@@ -1,12 +1,57 @@
 # Gerente de Projetos — Artefatos
 
-Diretório dos artefatos gerados pelo agente `GerenteDeProjetos`. O principal fluxo é o **Sprint Review**, regido pelas diretrizes [`G01`](./diretrizes.md#g01--sprint-review-yaml-é-fonte-única-pptx-é-derivado), [`G03`](./diretrizes.md#g03--versionamento-da-pasta-de-sprint-review), [`G04`](./diretrizes.md#g04--tokens-do-template-e-yaml-devem-casar) e [`G05`](./diretrizes.md#g05--pptx-é-editável-apenas-para-formatação-visual) deste agente.
+Diretório dos artefatos gerados pelo agente `GerenteDeProjetos`. Os fluxos principais são o **Sprint Planning** ([`G07`](./diretrizes.md#g07--sprint-planning-sprint_nnplanningyaml-é-fonte-única-do-planejamento-técnico)) e o **Sprint Review**, regido pelas diretrizes [`G01`](./diretrizes.md#g01--sprint-review-yaml-é-fonte-única-pptx-é-derivado), [`G03`](./diretrizes.md#g03--versionamento-da-pasta-de-sprint-review), [`G04`](./diretrizes.md#g04--tokens-do-template-e-yaml-devem-casar) e [`G05`](./diretrizes.md#g05--pptx-é-editável-apenas-para-formatação-visual) deste agente.
 
 > **Estrutura dos arquivos deste diretório:**
 > - [`diretrizes.md`](./diretrizes.md) — regras numeradas (G01-G0N), curtas e estáveis. **Fonte da verdade das regras.**
 > - `README.md` (este arquivo) — documentação narrativa: como o fluxo funciona, lista de tokens do template, estrutura do YAML, exemplos de uso.
 
 Os scripts auxiliares de geração estão em `agentes/scripts/gerente_de_projetos/` e incluem versões para WSL/Linux/macOS (`.sh`) e Windows (`.bat`).
+
+---
+
+## Fluxo Sprint Planning (G07)
+
+No **dia 1** de cada sprint, o `[gerente]` cria ou atualiza `sprint_NN/planning.yaml` (ex.: [`sprint_03/planning.yaml`](./sprint_03/planning.yaml)).
+
+```
+Issues GitHub (milestone Sprint NN)     →  espelhadas em planning.yaml → tasks[]
+[gerente] ordem + grupos + T-shirt      →  ordem_implementacao[], grupos[], tshirt_escala
+[implementador] análise task a task     →  tasks[].analise_implementador, duvidas_decisoes
+Execução diária                         →  execucao.dias[]; capacidade_real_pct por task
+Fechar sprint                           →  tshirt_calibracao.yaml (convergência M_por_S, L_por_S)
+```
+
+| Campo | Quem preenche | Conteúdo |
+|-------|---------------|----------|
+| `meta.status` | gerente → implementador | `esqueleto` → `em_analise` → `pronto` |
+| `ordem_implementacao`, `grupos` | gerente | sequência e agrupamento por assunto/branch |
+| `tshirt_escala.percentual` | gerente (hipótese) → calibração | S/M/L como % da capacidade do sprint |
+| `tasks[].estimativa` | gerente | T-shirt: S, M, L ou XL |
+| `tasks[].arquivo` | gerente | ponteiro para `sprint_NN/tasks/<ID>.yaml` (detalhes) |
+| `tasks[].capacidade_pct` | gerente (derivado) | `tshirt_escala.percentual[estimativa]` |
+| `tasks[].capacidade_real_pct` | gerente/implementador | % real ao concluir (pode ≠ planejado) |
+| `execucao.dias[]` | gerente | registro diário (processo, análise, implementação) |
+| `tasks[].analise_implementador` | implementador | abordagem, riscos, critérios técnicos |
+| `tasks[].issue` | gerente (sync) | número `#N` da issue GitHub |
+
+### T-shirt → percentual de capacidade
+
+Cada tamanho consome uma fração do sprint (100% = capacidade total). Proporções relativas:
+
+| Tamanho | Sprint 03 (hipótese) | Proporção |
+|---------|----------------------|-----------|
+| S | 5% | base (1×) |
+| M | 19% | **3,8× S** |
+| L | 28% | **5,6× S** |
+
+**Verificação Sprint 03:** 3×S + 3×M + 1×L = 15 + 57 + 28 = **100%**.
+
+Os percentuais podem mudar de sprint para sprint; o histórico e a média convergente ficam em [`tshirt_calibracao.yaml`](./tshirt_calibracao.yaml). Ao fechar a sprint, comparar `capacidade_pct` (planejado) com `capacidade_real_pct` (real) e ajustar `referencia_convergencia` quando `sprints_fechados ≥ 3`.
+
+**Fórmula para planejar próxima sprint:** dado um mix de tasks (nS, nM, nL), capacidade planejada = nS×S + nM×M + nL×L. Se > 100%, reduzir escopo ou recalibrar.
+
+**Regra:** workflow (Ready, In Progress, Done) fica no GitHub Project; planning técnico fica no YAML.
 
 ---
 

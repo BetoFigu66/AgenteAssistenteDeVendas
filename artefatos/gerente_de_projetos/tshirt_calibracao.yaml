@@ -1,0 +1,40 @@
+# Calibração T-shirt → percentual de capacidade do sprint
+# Atualizado ao fechar cada sprint, comparando planejado (planning.yaml) vs execução real.
+# Objetivo: convergir proporcoes M_por_S e L_por_S para estimar capacidade com confiança.
+
+versao: 1
+ultima_atualizacao: "2026-06-15"
+
+# Valores-alvo quando houver histórico suficiente (≥ 3 sprints fechados).
+# Enquanto confianca_global = hipotese, usar os percentuais do sprint corrente.
+referencia_convergencia:
+  confianca: hipotese
+  sprints_fechados: 0
+  percentual:
+    S: 5
+    M: 19
+    L: 28
+    XL: null
+  proporcoes:
+    M_por_S: 3.8
+    L_por_S: 5.6
+    XL_por_S: null
+  nota: "Sprint 03 define a hipótese inicial (3S+3M+1L=100%). Ajustar após fechar Sprint 03."
+
+historico:
+  - sprint: 3
+    status: em_andamento
+    fechado_em: null
+    percentual_planejado:
+      S: 5
+      M: 19
+      L: 28
+    proporcoes_planejadas:
+      M_por_S: 3.8
+      L_por_S: 5.6
+    percentual_real: null
+    proporcoes_reais: null
+    composicao_tasks: { S: 3, M: 3, L: 1, XL: 0 }
+    capacidade_planejada_pct: 100
+    capacidade_entregue_pct: null
+    observacoes: "Primeira sprint com modelo de percentuais; execução registrada em sprint_03/planning.yaml."

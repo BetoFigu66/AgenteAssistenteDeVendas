@@ -29,6 +29,8 @@ services:
       - ./backend:/app
     environment:
       - DEBUG=true
+      - LOG_LEVEL=WARNING
+      - SQL_ECHO=false
       - DATABASE_URL=postgresql://inforrel:inforrel_dev@postgres:5432/assistente_vendas
     depends_on:
       postgres:
@@ -51,6 +53,8 @@ services:
     working_dir: /app
     ports:
       - "5173:5173"
+    environment:
+      - VITE_DEV_API_PROXY=http://backend:8000
     volumes:
       - ./frontend:/app
       - /app/node_modules

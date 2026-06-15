@@ -9,7 +9,7 @@ function ConversaInfo({ dados }) {
 
   const empresa = dados?.empresa
   const contato = dados?.contato
-  const negociacao = dados?.negociacao
+  const atendimento = dados?.atendimento ?? dados?.negociacao
 
   return (
     <div className="px-4 py-2 bg-gray-50 border-b border-gray-200 text-sm">
@@ -46,14 +46,14 @@ function ConversaInfo({ dados }) {
         {/* Negociação */}
         <div className="flex items-center gap-1.5">
           <Briefcase size={14} className="text-inforrel-primary" />
-          {negociacao ? (
+          {atendimento ? (
             <button
               onClick={() => setModal('negociacao')}
               className="text-inforrel-primary hover:underline font-medium"
               title="Ver detalhes da negociação"
             >
-              Negociação #{negociacao.id}
-              <span className="text-gray-600 font-normal"> ({negociacao.status})</span>
+              Negociação #{atendimento.id}
+              <span className="text-gray-600 font-normal"> ({atendimento.status})</span>
             </button>
           ) : (
             <span className="text-gray-500 italic">Negociação não identificada</span>
@@ -67,9 +67,9 @@ function ConversaInfo({ dados }) {
         </DetalheModal>
       )}
 
-      {modal === 'negociacao' && negociacao && (
-        <DetalheModal titulo={`Negociação #${negociacao.id}`} onClose={() => setModal(null)}>
-          <NegociacaoDetalhes negociacaoId={negociacao.id} />
+      {modal === 'negociacao' && atendimento && (
+        <DetalheModal titulo={`Negociação #${atendimento.id}`} onClose={() => setModal(null)}>
+          <NegociacaoDetalhes negociacaoId={atendimento.id} />
         </DetalheModal>
       )}
     </div>
