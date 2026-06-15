@@ -3,7 +3,7 @@
 > Arquivo gerado automaticamente pelo QA Runner. Nao editar a mao.
 >
 > **Plano:** `RT-003-jornada-takeover-humano.md`  
-> **Atualizado em:** 2026-06-15 20:56 (UTC)  
+> **Atualizado em:** 2026-06-15 20:50 (UTC)  
 > **Resumo:** 7 cenarios | OK 0 | FAIL 0 | N/A 0 | Pend 7
 
 | Cenario | Titulo | Cobre | Status | Observacao | Bugs |
