@@ -144,7 +144,7 @@ Write-Host "`n== 6.3 Carga inicial: issues dos bugs FAIL ==" -ForegroundColor Gr
 Write-Host "  (D1: Kika cria as issues na sessao de teste; este script eh apenas a carga inicial)" -ForegroundColor DarkGray
 
 $repoNameWithOwner = (gh repo view --json nameWithOwner | ConvertFrom-Json).nameWithOwner
-$repoUrlBase = "https://github.com/$repoNameWithOwner/blob/main/artefatos/qa/bugs"
+$repoUrlBase = "https://github.com/$repoNameWithOwner/blob/master/artefatos/qa/bugs"
 
 $bugsDir = "artefatos/qa/bugs"
 $bugFiles = Get-ChildItem -Path $bugsDir -Filter "CTF-*.md" | Sort-Object Name

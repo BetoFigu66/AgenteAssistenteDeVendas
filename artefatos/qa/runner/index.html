@@ -147,6 +147,11 @@
 
 const STORAGE_KEY_STATUS  = "qa-runner-status-v1";
 const STORAGE_KEY_BUGS    = "qa-runner-bugs-v1";   // mapeamento cenario -> [bug_filename, ...]
+const IDB_NAME            = "qa-runner-db";
+const IDB_STORE           = "handles";
+const IDB_KEY_PASTA       = "pastaBugsHandle";
+const IDB_KEY_PLANO       = "planoHandle";
+const IDB_KEY_PLANO_DIR   = "planoDir";
 const STATUS_VALORES      = ["PENDENTE", "OK", "FAIL", "N/A"];
 const COR_STATUS = {
   "PENDENTE": "bg-slate-100 text-slate-600",
@@ -165,6 +170,103 @@ const state = {
   contextoConversa: null,// objeto JSON colado do painel
   cenarioAtual: null,    // id sendo editado no modal
 };
+
+// ---------------- Persistência do handle de pasta (IndexedDB) ----------
+// FileSystemDirectoryHandle não é serializável em localStorage;
+// usamos IndexedDB, que suporta objetos estruturados (structured clone).
+
+function abrirIDB() {
+  return new Promise((resolve, reject) => {
+    const req = indexedDB.open(IDB_NAME, 1);
+    req.onupgradeneeded = e => e.target.result.createObjectStore(IDB_STORE);
+    req.onsuccess = e => resolve(e.target.result);
+    req.onerror   = e => reject(e.target.error);
+  });
+}
+
+async function salvarHandleIDB(handle, key = IDB_KEY_PASTA) {
+  try {
+    const db = await abrirIDB();
+    const tx = db.transaction(IDB_STORE, "readwrite");
+    tx.objectStore(IDB_STORE).put(handle, key);
+    await new Promise((res, rej) => { tx.oncomplete = res; tx.onerror = rej; });
+    db.close();
+  } catch (e) {
+    console.warn("salvarHandleIDB:", e);
+  }
+}
+
+async function carregarHandleIDB(key = IDB_KEY_PASTA) {
+  try {
+    const db = await abrirIDB();
+    const tx = db.transaction(IDB_STORE, "readonly");
+    const handle = await new Promise((res, rej) => {
+      const req = tx.objectStore(IDB_STORE).get(key);
+      req.onsuccess = () => res(req.result);
+      req.onerror   = () => rej(req.error);
+    });
+    db.close();
+    return handle || null;
+  } catch (e) {
+    console.warn("carregarHandleIDB:", e);
+    return null;
+  }
+}
+
+async function aplicarHandlePlano(handle) {
+  const file = await handle.getFile();
+  const texto = await file.text();
+  const cenarios = parsearPlano(texto);
+  if (!cenarios.length) return false;
+  state.planoNome = file.name;
+  state.cenarios = cenarios;
+  document.getElementById("infoPlano").textContent = `${file.name} (${cenarios.length} cenários)`;
+  document.getElementById("infoPlano").className = "text-slate-700";
+  renderTabela();
+  return true;
+}
+
+async function restaurarPlanoSalvo() {
+  const handle = await carregarHandleIDB(IDB_KEY_PLANO);
+  if (!handle) return;
+  let perm = await handle.queryPermission({ mode: "read" });
+  if (perm === "prompt") perm = await handle.requestPermission({ mode: "read" });
+  if (perm !== "granted") return;
+  await aplicarHandlePlano(handle);
+}
+
+async function restaurarPastaSalva() {
+  const handle = await carregarHandleIDB(IDB_KEY_PASTA);
+  if (!handle) return;
+  // Verifica permissão sem prompt (se já foi concedida nesta sessão ou persiste)
+  let perm = await handle.queryPermission({ mode: "readwrite" });
+  if (perm === "prompt") {
+    // Pede permissão ao usuário silenciosamente — só aparece se o browser exigir
+    perm = await handle.requestPermission({ mode: "readwrite" });
+  }
+  if (perm !== "granted") return;
+  await aplicarHandlePasta(handle);
+}
+
+async function aplicarHandlePasta(handle) {
+  state.pastaBugsHandle = handle;
+  state.bugsPorCenario = {};
+  for await (const [nome, entry] of handle.entries()) {
+    if (entry.kind !== "file" || !nome.endsWith(".md")) continue;
+    const m = /^((?:CTF?|RT)-[\w]+-[\w]+-[\w]+)-(\d+)\.md$/.exec(nome);
+    if (!m) continue;
+    const cenarioId = m[1];
+    if (!state.bugsPorCenario[cenarioId]) state.bugsPorCenario[cenarioId] = [];
+    state.bugsPorCenario[cenarioId].push(nome);
+  }
+  Object.values(state.bugsPorCenario).forEach(arr => arr.sort());
+  await carregarStatusDaPasta();
+  salvarStatusLocal();
+  document.getElementById("infoPasta").textContent = handle.name;
+  document.getElementById("infoPasta").className = "text-slate-700";
+  renderTabela();
+  salvarStatusNaPasta().catch(e => console.error("save inicial:", e));
+}
 
 // ---------------- Persistência (localStorage) ---------------------------
 
@@ -269,9 +371,15 @@ async function carregarStatusDaPasta() {
     const f = await fh.getFile();
     const obj = JSON.parse(await f.text());
     if (!obj?.cenarios?.length) return false;
-    const msg = `Encontrei _status_execucao.json na pasta (atualizado em ${obj.atualizado_em || "?"}, ${obj.cenarios.length} cenarios).\n\n` +
-                `Carregar este estado e sobrescrever o status local deste navegador?`;
-    if (!confirm(msg)) return false;
+    // Só pergunta se o JSON veio de outro plano (outra máquina / outra sessão).
+    // Se é o mesmo plano já carregado, carrega silenciosamente — evita o confirm
+    // repetitivo ao re-selecionar a mesma pasta na mesma sessão.
+    const mesmoPlano = state.planoNome && obj.plano && obj.plano === state.planoNome;
+    if (!mesmoPlano) {
+      const msg = `O status de execução da pasta selecionada é diferente do status de execução do navegador.\n\nPlano na pasta: ${obj.plano || "?"}\nÚltima alteração de status: ${obj.atualizado_em ? obj.atualizado_em.replace("T", " ").slice(0, 16) : "?"}\n\nDeseja manter o status de execução atual (do navegador)?`;
+      // "OK" = manter o do navegador (não sobrescreve); "Cancelar" = carregar da pasta
+      if (confirm(msg)) return false;
+    }
     state.status = {};
     for (const c of obj.cenarios) {
       state.status[c.id] = {
@@ -294,19 +402,53 @@ function parsearPlano(texto) {
   const linhas = texto.split(/\r?\n/);
   const cenarios = [];
   let atual = null;
-  const reHeader = /^####\s+(CTF?-[\w]+-\d+)\s*[—-]\s*(.+?)\s*$/;
-  const reCobre  = /^\*\*Cobre:\*\*\s*(.+)$/;
+  // Formato CTF/CT legado: #### CTF-001-01 — Título
+  const reHeaderCTF  = /^####\s+(CTF?-[\w]+-\d+)\s*[—-]\s*(.+?)\s*$/;
+  const reCobre      = /^\*\*Cobre:\*\*\s*(.+)$/;
+  // Formato RT (roteiros): extrai prefixo do arquivo na primeira linha # RT-NNN
+  // e converte cada "## Passo N — Título" em cenário RT-NNN-PASSONN
+  const reRtFile     = /^#\s+(RT-\d+)/;
+  const reHeaderRT   = /^##\s+Passo\s+(\d+)\s*[—-]\s*(.+?)\s*$/;
+  const reValida     = /^\*\*Valida:\*\*\s*(.+)$/;
+  let rtPrefix = null;
 
   for (const linha of linhas) {
-    const m = reHeader.exec(linha);
-    if (m) {
+    // Detecta o prefixo do roteiro (ex: RT-001)
+    const mFile = reRtFile.exec(linha);
+    if (mFile) { rtPrefix = mFile[1]; continue; }
+
+    // Formato legado CTF/CT
+    const mCTF = reHeaderCTF.exec(linha);
+    if (mCTF) {
       if (atual) cenarios.push(atual);
-      atual = { id: m[1], titulo: m[2].trim(), cobre: "" };
+      atual = { id: mCTF[1], titulo: mCTF[2].trim(), cobre: "" };
       continue;
     }
+
+    // Formato RT: ## Passo N — Título
+    if (rtPrefix) {
+      const mRT = reHeaderRT.exec(linha);
+      if (mRT) {
+        if (atual) cenarios.push(atual);
+        const numPasso = String(mRT[1]).padStart(2, "0");
+        atual = { id: `${rtPrefix}-PASSO-${numPasso}`, titulo: mRT[2].trim(), cobre: "" };
+        continue;
+      }
+    }
+
     if (atual && !atual.cobre) {
-      const c = reCobre.exec(linha);
-      if (c) atual.cobre = c[1].trim();
+      // Aceita tanto **Cobre:** (legado) quanto **Valida:** (roteiros RT)
+      const cCobre  = reCobre.exec(linha);
+      const cValida = reValida.exec(linha);
+      const match   = cCobre || cValida;
+      if (match) {
+        // Remove emojis ✅ 🚧 e os REQs entre parênteses para deixar a coluna limpa
+        atual.cobre = match[1]
+          .replace(/[✅🚧·]/g, "")
+          .replace(/\s*\([^)]*\)/g, "")
+          .replace(/\s{2,}/g, " ")
+          .trim();
+      }
     }
   }
   if (atual) cenarios.push(atual);
@@ -430,22 +572,24 @@ document.getElementById("filtroStatus").addEventListener("change", renderTabela)
 
 document.getElementById("btnCarregarPlano").addEventListener("click", async () => {
   try {
-    const [handle] = await window.showOpenFilePicker({
+    const dirSalvo = await carregarHandleIDB(IDB_KEY_PLANO_DIR);
+    const opcoes = {
       types: [{ description: "Markdown", accept: { "text/markdown": [".md"] } }],
       multiple: false,
-    });
-    const file = await handle.getFile();
-    const texto = await file.text();
-    const cenarios = parsearPlano(texto);
-    if (!cenarios.length) {
-      alert("Nenhum cenário CT-* / CTF-* encontrado neste arquivo.");
+    };
+    if (dirSalvo) opcoes.startIn = dirSalvo;  // abre direto na última pasta usada
+    const [handle] = await window.showOpenFilePicker(opcoes);
+    const ok = await aplicarHandlePlano(handle);
+    if (!ok) {
+      alert("Nenhum cenário encontrado neste arquivo.\nFormatos suportados:\n• CTF-001-01 — Título  (legado)\n• ## Passo N — Título  (roteiros RT-*)");
       return;
     }
-    state.planoNome = file.name;
-    state.cenarios = cenarios;
-    document.getElementById("infoPlano").textContent = `${file.name} (${cenarios.length} cenários)`;
-    document.getElementById("infoPlano").className = "text-slate-700";
-    renderTabela();
+    await salvarHandleIDB(handle, IDB_KEY_PLANO);       // persiste handle do arquivo
+    // Persiste o diretório pai para abrir no mesmo local na próxima vez.
+    // showOpenFilePicker não expõe o diretório pai diretamente; usamos o
+    // handle da pasta de bugs se for a mesma, ou gravamos o handle do arquivo
+    // e relemos pelo startIn — browsers aceitam FileHandle em startIn também.
+    await salvarHandleIDB(handle, IDB_KEY_PLANO_DIR);
   } catch (e) {
     if (e.name !== "AbortError") console.error(e);
   }
@@ -455,27 +599,12 @@ document.getElementById("btnCarregarPlano").addEventListener("click", async () =
 
 document.getElementById("btnPastaBugs").addEventListener("click", async () => {
   try {
-    state.pastaBugsHandle = await window.showDirectoryPicker({ mode: "readwrite" });
-    // re-escaneia para popular bugsPorCenario a partir dos arquivos existentes
-    state.bugsPorCenario = {};
-    for await (const [nome, entry] of state.pastaBugsHandle.entries()) {
-      if (entry.kind !== "file" || !nome.endsWith(".md")) continue;
-      const m = /^(CTF?-[\w]+-\d+)-(\d+)\.md$/.exec(nome);
-      if (!m) continue;
-      const cenarioId = m[1];
-      if (!state.bugsPorCenario[cenarioId]) state.bugsPorCenario[cenarioId] = [];
-      state.bugsPorCenario[cenarioId].push(nome);
-    }
-    Object.values(state.bugsPorCenario).forEach(arr => arr.sort());
-    // Tenta carregar status compartilhado (gerado por outra maquina/sessao).
-    // Se nao existir ou usuario recusar, mantem o status do localStorage local.
-    await carregarStatusDaPasta();
-    salvarStatusLocal();
-    document.getElementById("infoPasta").textContent = state.pastaBugsHandle.name;
-    document.getElementById("infoPasta").className = "text-slate-700";
-    renderTabela();
-    // Garante que os arquivos _status_execucao.* existam na pasta apos selecao.
-    salvarStatusNaPasta().catch(e => console.error("save inicial:", e));
+    const dirSalvo = await carregarHandleIDB(IDB_KEY_PASTA);
+    const opcoes = { mode: "readwrite" };
+    if (dirSalvo) opcoes.startIn = dirSalvo;  // abre direto na última pasta usada
+    const handle = await window.showDirectoryPicker(opcoes);
+    await salvarHandleIDB(handle);  // persiste para restaurar na próxima sessão
+    await aplicarHandlePasta(handle);
   } catch (e) {
     if (e.name !== "AbortError") console.error(e);
   }
@@ -764,6 +893,8 @@ document.getElementById("btnLimparStatus").addEventListener("click", () => {
 
 carregarStatusLocal();
 renderTabela();
+restaurarPlanoSalvo();  // tenta restaurar o último plano sem pedir seleção manual
+restaurarPastaSalva();  // tenta restaurar a última pasta sem pedir seleção manual
 
 // Verificação de suporte FS Access
 if (!window.showOpenFilePicker || !window.showDirectoryPicker) {

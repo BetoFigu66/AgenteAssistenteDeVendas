@@ -59,7 +59,40 @@ git log --oneline -- caminho/do/arquivo
 git log -p -- caminho/do/arquivo
 ```
 
-**Dica VSCode/Windsurf:** botão direito no arquivo → `Open Timeline`. Lista todos os commits que tocaram aquele arquivo; `Ctrl+Click` em duas entradas compara as versões lado a lado.
+**Dica VSCode/Windsurf/Cursor:** botão direito no arquivo → `Open Timeline`. Lista todos os commits que tocaram aquele arquivo; `Ctrl+Click` em duas entradas compara as versões lado a lado.
+
+### Conflitos de merge — Merge Editor não abre
+
+Sintoma: em **Source Control**, ao clicar em **Resolve in Merge Editor**, nada acontece (comum no Cursor/VS Code no Windows).
+
+**Ordem recomendada (do mais rápido ao mais manual):**
+
+1. **Abrir o arquivo com conflito primeiro** (ex.: `docs/comandos_uteis.md`) — o editor inline mostra botões *Accept Current Change* / *Accept Incoming Change* / *Accept Both* acima de cada bloco `<<<<<<<`.
+
+2. **Paleta de comandos:** `Ctrl+Shift+P` → digite **`Merge Editor: Open Merge Editor`** (com o arquivo em foco e em estado *unmerged*).
+
+3. **Conferir setting** (`Ctrl+,` → buscar `merge editor`):
+   - `git.mergeEditor` = **true**
+   - Reiniciar o Cursor após alterar.
+
+4. **Terminal (sempre funciona):**
+   ```powershell
+   git status                          # arquivos em "Unmerged paths"
+   git diff --name-only --diff-filter=U
+   # Editar o arquivo: remover <<<<<<< ======= >>>>>>> e deixar o texto final
+   git add caminho/do/arquivo
+   git commit                          # conclui o merge (sem -m usa msg padrão)
+   ```
+
+5. **Comparar versões manualmente:**
+   ```powershell
+   git show :2:docs/comandos_uteis.md   # sua branch (HEAD / "Current")
+   git show :3:docs/comandos_uteis.md   # branch entrando ("Incoming")
+   ```
+
+6. **Desistir do merge:** `git merge --abort`
+
+**No merge atual deste repo:** só `docs/comandos_uteis.md` está em conflito — dá para resolver editando o arquivo (manter as duas seções se fizer sentido) e `git add docs/comandos_uteis.md`.
 
 ### GitHub — permissões para colaboradora (Projects / Issues)
 
@@ -867,6 +900,96 @@ O check `ruff-lint` do QA Engineer invoca `ruff check` automaticamente no pre-co
    ```powershell
    Remove-Item -Recurse -Force "$env:APPDATA\Windsurf"
    ```
+
+## Cursor — MCP GitHub
+
+Permite que o agente no chat acesse issues, PRs, repositórios etc. via [servidor oficial do GitHub](https://github.com/github/github-mcp-server). **Não confundir** com o `gh` no terminal — são canais separados.
+
+### Pré-requisitos
+
+1. Cursor atualizado (v0.48+ para servidor remoto HTTP)
+2. [Personal Access Token (PAT)](https://github.com/settings/personal-access-tokens/new) — fine-grained no repo `AgenteAssistenteDeVendas` ou classic com escopos mínimos (`repo`, `read:org` se usar org; `project` se usar Projects v2)
+3. **Opção local:** Docker Desktop instalado e rodando
+
+> O pacote npm `@modelcontextprotocol/server-github` está **depreciado** (abr/2025). Use o servidor remoto ou a imagem Docker `ghcr.io/github/github-mcp-server`.
+
+### Onde configurar
+
+| Escopo | Arquivo |
+|--------|---------|
+| Global (todos os projetos) | `C:\Users\<usuario>\.cursor\mcp.json` |
+| Só este projeto | `.cursor/mcp.json` na raiz do repo |
+
+Abrir no Cursor: `Ctrl+Shift+P` → **View: Open MCP Settings**, ou **Settings → Tools & Integrations → MCP Tools → New MCP Server**.
+
+### Opção A — Servidor remoto (recomendado)
+
+Sem Docker. Requer PAT no header `Authorization`.
+
+```json
+{
+  "mcpServers": {
+    "github": {
+      "url": "https://api.githubcopilot.com/mcp/",
+      "headers": {
+        "Authorization": "Bearer ${env:GITHUB_TOKEN}"
+      }
+    }
+  }
+}
+```
+
+Instalação em um clique (documentação oficial): [Install GitHub MCP in Cursor](https://github.com/github/github-mcp-server/blob/main/docs/installation-guides/install-cursor.md).
+
+### Opção B — Servidor local (Docker)
+
+```json
+{
+  "mcpServers": {
+    "github": {
+      "command": "docker",
+      "args": [
+        "run",
+        "-i",
+        "--rm",
+        "-e",
+        "GITHUB_PERSONAL_ACCESS_TOKEN",
+        "ghcr.io/github/github-mcp-server"
+      ],
+      "env": {
+        "GITHUB_PERSONAL_ACCESS_TOKEN": "${env:GITHUB_TOKEN}"
+      }
+    }
+  }
+}
+```
+
+### Token fora do arquivo (Windows)
+
+Definir variável de usuário e **reiniciar o Cursor** (ele resolve `${env:GITHUB_TOKEN}` na inicialização):
+
+```powershell
+[System.Environment]::SetEnvironmentVariable('GITHUB_TOKEN', 'ghp_xxxxxxxx', 'User')
+```
+
+Alternativa por projeto: `"envFile": "${workspaceFolder}/.env"` no bloco do servidor, com `.env` no `.gitignore`.
+
+**Não commitar** o PAT em `mcp.json` nem em `.env`.
+
+### Verificar
+
+1. Salvar `mcp.json` e reiniciar o Cursor por completo
+2. **Settings → Tools & Integrations → MCP Tools** — servidor `github` com **bolinha verde**
+3. No chat, em ferramentas disponíveis, testar: *"Liste meus repositórios no GitHub"*
+
+### Problemas comuns
+
+| Sintoma | O que checar |
+|---------|----------------|
+| Bolinha vermelha (Docker) | Docker Desktop em execução; `docker pull ghcr.io/github/github-mcp-server` |
+| 401 / auth | PAT expirado ou escopos insuficientes |
+| Ferramentas não aparecem | JSON inválido; reiniciar Cursor após editar `mcp.json` |
+| `${env:...}` não resolve | Variável definida só na sessão atual do terminal — usar escopo `User` no Windows |
 
 ---
 
