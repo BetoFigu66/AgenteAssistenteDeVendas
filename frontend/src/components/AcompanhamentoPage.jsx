@@ -84,11 +84,11 @@ function AcompanhamentoPage() {
     setCarregandoNegociacoes(true)
     setErro(null)
     try {
-      const data = await api.listarNegociacoesAtivas()
-      setNegociacoes(data.negociacoes || [])
+      const data = await api.listarAtendimentosAtivos()
+      setNegociacoes(data.atendimentos || [])
     } catch (error) {
-      console.error('Erro ao carregar negociações:', error)
-      setErro('Erro ao carregar negociações ativas')
+      console.error('Erro ao carregar atendimentos:', error)
+      setErro('Erro ao carregar atendimentos ativos')
     } finally {
       setCarregandoNegociacoes(false)
     }
@@ -169,6 +169,7 @@ function AcompanhamentoPage() {
         fonte: 'AcompanhamentoPage',
         telefone: negociacaoSelecionada?.telefone || null,
         negociacao_id: negociacaoSelecionada?.id || null,
+        atendimento_id: negociacaoSelecionada?.id || null,
         modo_operacao: modoOperacao || null,
         capturado_em: new Date().toISOString(),
         pergunta_cliente: perguntaCliente ? {
@@ -299,7 +300,7 @@ function AcompanhamentoPage() {
         <div className="flex flex-wrap items-center justify-between gap-4">
           <div className="flex items-center gap-4">
             <h2 className="text-lg font-semibold text-inforrel-primary">
-              Acompanhamento de Negociações
+              Acompanhamento de Atendimentos
             </h2>
             <button
               onClick={carregarNegociacoes}
@@ -352,7 +353,7 @@ function AcompanhamentoPage() {
         <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
           <div className="px-4 py-3 bg-gray-50 border-b border-gray-200">
             <h3 className="font-medium text-gray-700">
-              Negociações Ativas ({negociacoes.length})
+              Atendimentos Ativos ({negociacoes.length})
             </h3>
             <p className="text-xs text-gray-500 mt-1">
               Ordenadas por mensagens pendentes de aprovação
@@ -367,7 +368,7 @@ function AcompanhamentoPage() {
               </div>
             ) : negociacoes.length === 0 ? (
               <div className="p-8 text-center text-gray-500">
-                Nenhuma negociação ativa encontrada
+                Nenhum atendimento ativo encontrado
               </div>
             ) : (
               <div className="divide-y divide-gray-100">
@@ -424,7 +425,7 @@ function AcompanhamentoPage() {
           {!negociacaoSelecionada ? (
             <div className="p-8 text-center text-gray-500">
               <Eye size={48} className="mx-auto mb-4 text-gray-300" />
-              <p>Selecione uma negociação para visualizar os detalhes</p>
+              <p>Selecione um atendimento para visualizar os detalhes</p>
             </div>
           ) : (
             <>

@@ -232,7 +232,7 @@ Se `8000` ou `3000` estiverem ocupados fora do Docker, o QA não sobe. Se `8001`
 
 ### Erro no Vite: `proxy error` / `ECONNREFUSED 127.0.0.1:8001`
 
-Sintoma: aba Acompanhamento mostra *"Erro ao carregar negociações ativas"*; terminal do Vite registra `connect ECONNREFUSED 127.0.0.1:8001`; **backend Docker não mostra erro** (a requisição nem chega na API).
+Sintoma: aba Acompanhamento mostra *"Erro ao carregar atendimentos ativos"*; terminal do Vite registra `connect ECONNREFUSED 127.0.0.1:8001`; **backend Docker não mostra erro** (a requisição nem chega na API).
 
 Causa: Vite (`npm run dev`, porta 3001) aponta proxy para porta errada. Backend Docker escuta em **8000**; dev nativo (`backend/run.sh`) em **8001**.
 

@@ -77,7 +77,7 @@ function ChatArea({ telefone, mensagens, dadosConversa, loading, erro, onEnviarM
         </div>
       </div>
 
-      {/* Informações da conversa (empresa, contato, negociação) */}
+      {/* Informações da conversa (empresa, contato, atendimento) */}
       {telefone && dadosConversa && <ConversaInfo dados={dadosConversa} />}
 
       {/* Mensagens */}

@@ -2,10 +2,10 @@ import { useState } from 'react'
 import { Building2, User, Briefcase } from 'lucide-react'
 import DetalheModal from './DetalheModal'
 import EmpresaDetalhes from './EmpresaDetalhes'
-import NegociacaoDetalhes from './NegociacaoDetalhes'
+import AtendimentoDetalhes from './AtendimentoDetalhes'
 
 function ConversaInfo({ dados }) {
-  const [modal, setModal] = useState(null) // 'empresa' | 'negociacao' | null
+  const [modal, setModal] = useState(null) // 'empresa' | 'atendimento' | null
 
   const empresa = dados?.empresa
   const contato = dados?.contato
@@ -43,20 +43,20 @@ function ConversaInfo({ dados }) {
           )}
         </div>
 
-        {/* Negociação */}
+        {/* Atendimento */}
         <div className="flex items-center gap-1.5">
           <Briefcase size={14} className="text-inforrel-primary" />
           {atendimento ? (
             <button
-              onClick={() => setModal('negociacao')}
+              onClick={() => setModal('atendimento')}
               className="text-inforrel-primary hover:underline font-medium"
-              title="Ver detalhes da negociação"
+              title="Ver detalhes do atendimento"
             >
-              Negociação #{atendimento.id}
+              Atendimento #{atendimento.id}
               <span className="text-gray-600 font-normal"> ({atendimento.status})</span>
             </button>
           ) : (
-            <span className="text-gray-500 italic">Negociação não identificada</span>
+            <span className="text-gray-500 italic">Atendimento não identificado</span>
           )}
         </div>
       </div>
@@ -67,9 +67,9 @@ function ConversaInfo({ dados }) {
         </DetalheModal>
       )}
 
-      {modal === 'negociacao' && atendimento && (
-        <DetalheModal titulo={`Negociação #${atendimento.id}`} onClose={() => setModal(null)}>
-          <NegociacaoDetalhes negociacaoId={atendimento.id} />
+      {modal === 'atendimento' && atendimento && (
+        <DetalheModal titulo={`Atendimento #${atendimento.id}`} onClose={() => setModal(null)}>
+          <AtendimentoDetalhes atendimentoId={atendimento.id} />
         </DetalheModal>
       )}
     </div>

@@ -99,9 +99,15 @@ export const api = {
     }
   },
 
-  /** @deprecated use obterAtendimento — removido em T-A11 */
+  /** @deprecated use obterAtendimento */
   async obterNegociacao(atendimentoId) {
     return this.obterAtendimento(atendimentoId)
+  },
+
+  /** @deprecated use listarAtendimentosAtivos */
+  async listarNegociacoesAtivas() {
+    const data = await this.listarAtendimentosAtivos()
+    return { ...data, negociacoes: data.atendimentos, atendimentos: data.atendimentos }
   },
 
   async obterProcessamento(processamentoId) {
@@ -216,12 +222,6 @@ export const api = {
     const response = await fetch(`${API_URL}/api/atendimentos/ativas`)
     if (!response.ok) throw new ApiError('Erro ao listar atendimentos', response.status, 'server')
     return response.json()
-  },
-
-  /** @deprecated use listarAtendimentosAtivos — removido em T-A11 */
-  async listarNegociacoesAtivas() {
-    const data = await this.listarAtendimentosAtivos()
-    return { ...data, negociacoes: data.atendimentos }
   },
 
   async alterarModoOperacao(atendimentoId, modoOperacao) {
