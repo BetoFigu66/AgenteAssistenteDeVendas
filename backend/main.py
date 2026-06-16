@@ -5,7 +5,7 @@ Assistente de Vendas via WhatsApp com IA - Backend FastAPI
 import logging
 import traceback
 from contextlib import asynccontextmanager
-from datetime import datetime
+from utils.datetime_utils import serialize_utc_datetime, utc_now
 from typing import Optional
 
 import uvicorn
@@ -367,7 +367,7 @@ async def listar_atendimentos_ativos():
                     "empresa_id": empresa.id if empresa else None,
                     "empresa_nome": (empresa.fantasia or empresa.nome) if empresa else None,
                     "mensagens_pendentes": int(pendentes or 0),
-                    "updated_at": (atendimento.updated_at.isoformat() if atendimento.updated_at else None),
+                    "updated_at": serialize_utc_datetime(atendimento.updated_at),
                 }
             )
         return {"total": len(resultado), "atendimentos": resultado}
@@ -478,7 +478,7 @@ async def enviar_mensagem_manual(atendimento_id: int, payload: EnviarMensagemMan
             contato_id=contato.id if contato else None,
             atendimento_id=atendimento.id,
             aprovador_id=aprovador.id if aprovador else None,
-            timestamp_aprovacao=datetime.utcnow() if aprovador else None,
+            timestamp_aprovacao=utc_now() if aprovador else None,
         )
         session.add(mensagem)
         session.flush()
@@ -585,7 +585,7 @@ async def aprovar_mensagem(mensagem_id: int, payload: AprovarMensagemRequest):
                 if foi_reprovada
                 else (
                     f"Mensagem já aprovada por aprovador_id={mensagem.aprovador_id} "
-                    f"em {mensagem.timestamp_aprovacao.isoformat() if mensagem.timestamp_aprovacao else 'N/A'}"
+                    f"em {serialize_utc_datetime(mensagem.timestamp_aprovacao) or 'N/A'}"
                 )
             )
             raise HTTPException(status_code=409, detail=detalhe)
@@ -598,7 +598,7 @@ async def aprovar_mensagem(mensagem_id: int, payload: AprovarMensagemRequest):
             )
 
         mensagem.aprovador_id = aprovador.id
-        mensagem.timestamp_aprovacao = datetime.utcnow()
+        mensagem.timestamp_aprovacao = utc_now()
         session.flush()
         session.refresh(mensagem)
         return mensagem.to_dict()
@@ -653,7 +653,7 @@ async def reprovar_mensagem(mensagem_id: int, payload: ReprovarMensagemRequest):
 
             # Marca a mensagem como "revisada" para sair do estado pendente_aprovacao
             mensagem.aprovador_id = reprovador.id
-            mensagem.timestamp_aprovacao = datetime.utcnow()
+            mensagem.timestamp_aprovacao = utc_now()
 
             # Cria o report vinculado à mensagem (e ao processamento se existir)
             report = ReportProblema(
@@ -765,7 +765,7 @@ async def atualizar_report(report_id: int, payload: AtualizarReportRequest):
         if status_novo is not None:
             report.status = status_novo
             if status_novo in (StatusReport.RESOLVIDO, StatusReport.DESCARTADO):
-                report.resolvido_em = datetime.utcnow()
+                report.resolvido_em = utc_now()
                 if payload.resolvido_por:
                     report.resolvido_por = payload.resolvido_por
             else:
@@ -843,7 +843,7 @@ async def listar_todos_reports(
                         "id": msg.id,
                         "telefone": msg.telefone,
                         "conteudo": msg.conteudo,
-                        "timestamp": msg.timestamp.isoformat() if msg.timestamp else None,
+                        "timestamp": serialize_utc_datetime(msg.timestamp),
                     }
             result.append(d)
         return {"reports": result}

@@ -11,6 +11,9 @@ from sqlalchemy import JSON, Boolean, Date, DateTime, Enum, ForeignKey, Index, I
 from sqlalchemy.dialects.postgresql import ARRAY, JSONB, TSVECTOR
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 from sqlalchemy.types import UserDefinedType
+from utils.datetime_utils import serialize_utc_datetime, utc_now
+
+UTCDateTime = DateTime(timezone=True)
 
 
 class Base(DeclarativeBase):
@@ -110,7 +113,7 @@ class Mensagem(Base):
         Enum(OrigemMensagem, values_callable=lambda x: [e.value for e in x]), nullable=False
     )
     message_sid: Mapped[Optional[str]] = mapped_column(String(50), nullable=True, unique=True)
-    timestamp: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False)
+    timestamp: Mapped[datetime] = mapped_column(UTCDateTime, default=utc_now, nullable=False)
 
     # Novos campos - relacionamentos
     contato_id: Mapped[Optional[int]] = mapped_column(ForeignKey("contatos.id"), nullable=True, index=True)
@@ -121,7 +124,7 @@ class Mensagem(Base):
 
     # Aprovação de mensagens geradas pelo agente (REQ-aprovação)
     aprovador_id: Mapped[Optional[int]] = mapped_column(ForeignKey("users.id"), nullable=True, index=True)
-    timestamp_aprovacao: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
+    timestamp_aprovacao: Mapped[Optional[datetime]] = mapped_column(UTCDateTime, nullable=True)
 
     # Relacionamentos
     contato: Mapped[Optional["Contato"]] = relationship(back_populates="mensagens")
@@ -155,12 +158,12 @@ class Mensagem(Base):
             "telefone": self.telefone,
             "conteudo": self.conteudo,
             "origem": self.origem.value if isinstance(self.origem, OrigemMensagem) else self.origem,
-            "timestamp": self.timestamp.isoformat() if self.timestamp else None,
+            "timestamp": serialize_utc_datetime(self.timestamp),
             "contato_id": self.contato_id,
             "atendimento_id": self.atendimento_id,
             "processamento_id": self.processamento_id,
             "aprovador_id": self.aprovador_id,
-            "timestamp_aprovacao": (self.timestamp_aprovacao.isoformat() if self.timestamp_aprovacao else None),
+            "timestamp_aprovacao": serialize_utc_datetime(self.timestamp_aprovacao),
             "pendente_aprovacao": self.pendente_aprovacao,
         }
 
@@ -176,7 +179,7 @@ class User(Base):
 
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
     nome: Mapped[str] = mapped_column(String(100), nullable=False)
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(UTCDateTime, default=utc_now, nullable=False)
 
     # Relacionamentos
     mensagens_aprovadas: Mapped[List["Mensagem"]] = relationship(
@@ -190,7 +193,7 @@ class User(Base):
         return {
             "id": self.id,
             "nome": self.nome,
-            "created_at": self.created_at.isoformat() if self.created_at else None,
+            "created_at": serialize_utc_datetime(self.created_at),
         }
 
 
@@ -252,10 +255,10 @@ class Empresa(Base):
     simei_optante: Mapped[Optional[bool]] = mapped_column(Boolean, nullable=True)
 
     # Controle
-    ultima_atualizacao_api: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False)
+    ultima_atualizacao_api: Mapped[Optional[datetime]] = mapped_column(UTCDateTime, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(UTCDateTime, default=utc_now, nullable=False)
     updated_at: Mapped[datetime] = mapped_column(
-        DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False
+        UTCDateTime, default=utc_now, onupdate=utc_now, nullable=False
     )
 
     # Relacionamentos
@@ -354,7 +357,7 @@ class Contato(Base):
     telefone: Mapped[str] = mapped_column(String(20), nullable=False, unique=True, index=True)
     email: Mapped[Optional[str]] = mapped_column(String(200), nullable=True)
     cargo: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(UTCDateTime, default=utc_now, nullable=False)
 
     # Relacionamentos
     empresa: Mapped[Optional["Empresa"]] = relationship(back_populates="contatos")
@@ -393,14 +396,14 @@ class Pessoa(Base):
     nome: Mapped[Optional[str]] = mapped_column(String(200), nullable=True)
     data_nascimento: Mapped[Optional[date]] = mapped_column(Date, nullable=True)
     situacao: Mapped[Optional[str]] = mapped_column(String(30), nullable=True)
-    ultima_atualizacao_api: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
+    ultima_atualizacao_api: Mapped[Optional[datetime]] = mapped_column(UTCDateTime, nullable=True)
     user_id_verificador: Mapped[Optional[int]] = mapped_column(
         ForeignKey("users.id"), nullable=True, index=True
     )
-    timestamp_verificacao: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False)
+    timestamp_verificacao: Mapped[Optional[datetime]] = mapped_column(UTCDateTime, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(UTCDateTime, default=utc_now, nullable=False)
     updated_at: Mapped[datetime] = mapped_column(
-        DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False
+        UTCDateTime, default=utc_now, onupdate=utc_now, nullable=False
     )
 
     # Relacionamentos
@@ -418,9 +421,7 @@ class Pessoa(Base):
             "data_nascimento": self.data_nascimento.isoformat() if self.data_nascimento else None,
             "situacao": self.situacao,
             "user_id_verificador": self.user_id_verificador,
-            "timestamp_verificacao": (
-                self.timestamp_verificacao.isoformat() if self.timestamp_verificacao else None
-            ),
+            "timestamp_verificacao": serialize_utc_datetime(self.timestamp_verificacao),
             "verificado": self.user_id_verificador is not None and self.timestamp_verificacao is not None,
         }
 
@@ -462,9 +463,9 @@ class Atendimento(Base):
         index=True,
     )
     valor_estimado: Mapped[Optional[Decimal]] = mapped_column(Numeric(15, 2), nullable=True)
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(UTCDateTime, default=utc_now, nullable=False)
     updated_at: Mapped[datetime] = mapped_column(
-        DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False
+        UTCDateTime, default=utc_now, onupdate=utc_now, nullable=False
     )
 
     # Relacionamentos
@@ -492,7 +493,7 @@ class Atendimento(Base):
             "motivo_encerramento": self.motivo_encerramento,
             "modo_operacao": self.modo_operacao.value if self.modo_operacao else None,
             "valor_estimado": str(self.valor_estimado) if self.valor_estimado else None,
-            "created_at": self.created_at.isoformat() if self.created_at else None,
+            "created_at": serialize_utc_datetime(self.created_at),
         }
 
 
@@ -513,9 +514,9 @@ class Orcamento(Base):
     valor_total: Mapped[Optional[Decimal]] = mapped_column(Numeric(15, 2), nullable=True)
     validade: Mapped[Optional[date]] = mapped_column(Date, nullable=True)
     observacoes: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(UTCDateTime, default=utc_now, nullable=False)
     updated_at: Mapped[datetime] = mapped_column(
-        DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False
+        UTCDateTime, default=utc_now, onupdate=utc_now, nullable=False
     )
 
     # Relacionamentos
@@ -546,7 +547,7 @@ class TipoProduto(Base):
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
     descricao: Mapped[str] = mapped_column(String(100), nullable=False, unique=True)
     ativo: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(UTCDateTime, default=utc_now, nullable=False)
 
     # Relacionamentos
     produtos: Mapped[List["Produto"]] = relationship(back_populates="tipo_produto")
@@ -572,9 +573,9 @@ class Produto(Base):
     unidade: Mapped[Optional[str]] = mapped_column(String(20), nullable=True, default="UN")
     categoria: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
     ativo: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(UTCDateTime, default=utc_now, nullable=False)
     updated_at: Mapped[datetime] = mapped_column(
-        DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False
+        UTCDateTime, default=utc_now, onupdate=utc_now, nullable=False
     )
 
     # Relacionamentos
@@ -617,11 +618,11 @@ class DocumentoConhecimento(Base):
     conteudo_hash: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
     embedding: Mapped[List[float]] = mapped_column(Vector(1536), nullable=False)
     ativo: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False, index=True)
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(UTCDateTime, default=utc_now, nullable=False)
     updated_at: Mapped[datetime] = mapped_column(
-        DateTime,
-        default=datetime.utcnow,
-        onupdate=datetime.utcnow,
+        UTCDateTime,
+        default=utc_now,
+        onupdate=utc_now,
         nullable=False,
     )
 
@@ -643,8 +644,8 @@ class DocumentoConhecimento(Base):
             "metadata": self.metadados,
             "conteudo_hash": self.conteudo_hash,
             "ativo": self.ativo,
-            "created_at": self.created_at.isoformat() if self.created_at else None,
-            "updated_at": self.updated_at.isoformat() if self.updated_at else None,
+            "created_at": serialize_utc_datetime(self.created_at),
+            "updated_at": serialize_utc_datetime(self.updated_at),
         }
 
 
@@ -669,11 +670,11 @@ class ParQA(Base):
     ativo: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
     aprovado: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     criado_por: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
-    criado_em: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False)
+    criado_em: Mapped[datetime] = mapped_column(UTCDateTime, default=utc_now, nullable=False)
     atualizado_em: Mapped[datetime] = mapped_column(
-        DateTime,
-        default=datetime.utcnow,
-        onupdate=datetime.utcnow,
+        UTCDateTime,
+        default=utc_now,
+        onupdate=utc_now,
         nullable=False,
     )
 
@@ -694,8 +695,8 @@ class ParQA(Base):
             "ativo": self.ativo,
             "aprovado": self.aprovado,
             "criado_por": self.criado_por,
-            "criado_em": self.criado_em.isoformat() if self.criado_em else None,
-            "atualizado_em": self.atualizado_em.isoformat() if self.atualizado_em else None,
+            "criado_em": serialize_utc_datetime(self.criado_em),
+            "atualizado_em": serialize_utc_datetime(self.atualizado_em),
         }
 
 
@@ -744,9 +745,9 @@ class ItemAtendimento(Base):
     produto_id: Mapped[Optional[int]] = mapped_column(ForeignKey("produtos.id"), nullable=True, index=True)
     quantidade: Mapped[Decimal] = mapped_column(Numeric(10, 3), nullable=False, default=1)
     observacoes: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(UTCDateTime, default=utc_now, nullable=False)
     updated_at: Mapped[datetime] = mapped_column(
-        DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False
+        UTCDateTime, default=utc_now, onupdate=utc_now, nullable=False
     )
 
     # Relacionamentos
@@ -794,9 +795,9 @@ class AtendimentoInfo(Base):
     origem: Mapped[Optional[OrigemInfo]] = mapped_column(
         Enum(OrigemInfo, values_callable=lambda x: [e.value for e in x]), nullable=True
     )
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(UTCDateTime, default=utc_now, nullable=False)
     updated_at: Mapped[datetime] = mapped_column(
-        DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False
+        UTCDateTime, default=utc_now, onupdate=utc_now, nullable=False
     )
 
     # Relacionamentos
@@ -813,7 +814,7 @@ class AtendimentoInfo(Base):
             "valor": self.valor,
             "pendente": self.pendente,
             "origem": self.origem.value if self.origem else None,
-            "updated_at": self.updated_at.isoformat() if self.updated_at else None,
+            "updated_at": serialize_utc_datetime(self.updated_at),
         }
 
 
@@ -875,7 +876,7 @@ class ProcessamentoMensagem(Base):
     # --- Controle ---
     duracao_ms: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
     erro: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(UTCDateTime, default=utc_now, nullable=False)
 
     # Relacionamento inverso (mensagem aponta para cá via FK)
     mensagem: Mapped[Optional["Mensagem"]] = relationship(
@@ -914,7 +915,7 @@ class ProcessamentoMensagem(Base):
             "rag_score_maximo": (float(self.rag_score_maximo) if self.rag_score_maximo is not None else None),
             "duracao_ms": self.duracao_ms,
             "erro": self.erro,
-            "created_at": self.created_at.isoformat() if self.created_at else None,
+            "created_at": serialize_utc_datetime(self.created_at),
         }
 
 
@@ -995,13 +996,13 @@ class ReportProblema(Base):
     # Resolução
     resolucao: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     resolvido_por: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
-    resolvido_em: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
+    resolvido_em: Mapped[Optional[datetime]] = mapped_column(UTCDateTime, nullable=True)
 
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(UTCDateTime, default=utc_now, nullable=False)
     updated_at: Mapped[datetime] = mapped_column(
-        DateTime,
-        default=datetime.utcnow,
-        onupdate=datetime.utcnow,
+        UTCDateTime,
+        default=utc_now,
+        onupdate=utc_now,
         nullable=False,
     )
 
@@ -1027,9 +1028,9 @@ class ReportProblema(Base):
             "resolvido": self.resolvido,
             "resolucao": self.resolucao,
             "resolvido_por": self.resolvido_por,
-            "resolvido_em": self.resolvido_em.isoformat() if self.resolvido_em else None,
-            "created_at": self.created_at.isoformat() if self.created_at else None,
-            "updated_at": self.updated_at.isoformat() if self.updated_at else None,
+            "resolvido_em": serialize_utc_datetime(self.resolvido_em),
+            "created_at": serialize_utc_datetime(self.created_at),
+            "updated_at": serialize_utc_datetime(self.updated_at),
         }
 
 
@@ -1048,9 +1049,9 @@ class Parametro(Base):
     nome: Mapped[str] = mapped_column(String(100), unique=True, nullable=False, index=True)
     valor: Mapped[str] = mapped_column(Text, nullable=False)
     descricao: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(UTCDateTime, default=utc_now, nullable=False)
     updated_at: Mapped[datetime] = mapped_column(
-        DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False
+        UTCDateTime, default=utc_now, onupdate=utc_now, nullable=False
     )
 
     def to_dict(self) -> dict:
@@ -1059,5 +1060,5 @@ class Parametro(Base):
             "nome": self.nome,
             "valor": self.valor,
             "descricao": self.descricao,
-            "updated_at": self.updated_at.isoformat() if self.updated_at else None,
+            "updated_at": serialize_utc_datetime(self.updated_at),
         }

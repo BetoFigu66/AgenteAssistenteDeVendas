@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Flag, RefreshCw, AlertTriangle, Loader2 } from 'lucide-react'
 import { api } from '../services/api'
+import { formatDatetimeBRT } from '../utils/datetime'
 import {
   CATEGORIAS,
   SEVERIDADES,
@@ -204,7 +205,7 @@ function ReportsPage({ onVoltar }) {
                   </span>
                 </div>
                 <span className="text-xs text-gray-500">
-                  {new Date(r.created_at).toLocaleString('pt-BR')}
+                  {formatDatetimeBRT(r.created_at)}
                 </span>
               </div>
               <p className="text-sm text-gray-800 line-clamp-2 mb-1.5">{r.descricao}</p>

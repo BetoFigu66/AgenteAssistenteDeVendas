@@ -3,6 +3,7 @@ import { Eye, CheckCircle, XCircle, Send, UserPlus, Users, RefreshCw, Bot, User,
 import { api } from '../services/api'
 import DetalheModal from './DetalheModal'
 import ProcessamentoDetalhes from './ProcessamentoDetalhes'
+import { formatDatetimeBRT } from '../utils/datetime'
 
 function AcompanhamentoPage() {
   // Estado das negociações
@@ -289,17 +290,7 @@ function AcompanhamentoPage() {
     }
   }
 
-  const formatarData = (timestamp) => {
-    if (!timestamp) return ''
-    const date = new Date(timestamp)
-    return date.toLocaleString('pt-BR', {
-      day: '2-digit',
-      month: '2-digit',
-      year: '2-digit',
-      hour: '2-digit',
-      minute: '2-digit'
-    })
-  }
+  const formatarData = (timestamp) => formatDatetimeBRT(timestamp)
 
   return (
     <div className="container mx-auto px-4 py-6 max-w-7xl">

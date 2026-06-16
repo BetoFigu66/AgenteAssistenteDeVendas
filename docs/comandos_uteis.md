@@ -251,6 +251,10 @@ uvicorn main:app --host 0.0.0.0 --port 8001 --reload
 # LOG_LEVEL=WARNING
 # SQL_ECHO=false
 
+# Timestamps: gravados em UTC (timestamptz). Exibição no painel em America/Sao_Paulo.
+# Consulta SQL direta — ver horário BRT:
+#   SELECT timestamp AT TIME ZONE 'America/Sao_Paulo' FROM mensagens ORDER BY id DESC LIMIT 5;
+
 # Rodar migrations do banco
 alembic upgrade head
 

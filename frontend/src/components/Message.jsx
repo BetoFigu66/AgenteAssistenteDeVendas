@@ -2,23 +2,14 @@ import { useState } from 'react'
 import { User, Bot, Brain } from 'lucide-react'
 import DetalheModal from './DetalheModal'
 import ProcessamentoDetalhes from './ProcessamentoDetalhes'
+import { formatDatetimeBRT } from '../utils/datetime'
 
 function Message({ mensagem }) {
   const isUser = mensagem.origem === 'user'
   const [mostrarDebug, setMostrarDebug] = useState(false)
   const temProcessamento = !!mensagem.processamento_id
 
-  const formatarData = (timestamp) => {
-    if (!timestamp) return ''
-    const date = new Date(timestamp)
-    return date.toLocaleString('pt-BR', {
-      day: '2-digit',
-      month: '2-digit',
-      year: '2-digit',
-      hour: '2-digit',
-      minute: '2-digit'
-    })
-  }
+  const formatarData = (timestamp) => formatDatetimeBRT(timestamp)
 
   return (
     <div className={`flex ${isUser ? 'justify-end' : 'justify-start'}`}>

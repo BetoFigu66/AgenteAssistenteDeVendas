@@ -15,7 +15,7 @@ from __future__ import annotations
 
 import hashlib
 import logging
-from datetime import datetime
+from utils.datetime_utils import utc_now
 from typing import Optional
 
 from database import Database
@@ -226,7 +226,7 @@ async def atualizar_par_qa(par_id: int, payload: AtualizarParQARequest):
         if payload.ativo is not None:
             par.ativo = payload.ativo
 
-        par.atualizado_em = datetime.utcnow()
+        par.atualizado_em = utc_now()
         session.flush()
         session.refresh(par)
         logger.info(
@@ -252,7 +252,7 @@ async def desativar_par_qa(par_id: int):
         if not par.ativo:
             raise HTTPException(status_code=409, detail="Par Q&A já está inativo")
         par.ativo = False
-        par.atualizado_em = datetime.utcnow()
+        par.atualizado_em = utc_now()
         session.flush()
         logger.info("[pares_qa] Desativado (soft delete) id=%d", par_id)
         return {"ok": True, "id": par_id, "ativo": False}
@@ -289,7 +289,7 @@ async def aprovar_par_qa(par_id: int):
         par = session.query(ParQA).filter_by(id=par_id).first()
         par.embedding = embedding
         par.aprovado = True
-        par.atualizado_em = datetime.utcnow()
+        par.atualizado_em = utc_now()
         session.flush()
         session.refresh(par)
         logger.info("[pares_qa] Aprovado id=%d id_externo=%s", par.id, par.id_externo)
