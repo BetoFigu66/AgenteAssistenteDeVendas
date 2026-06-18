@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { api } from '../services/api'
 import { formatDatetimeBRT } from '../utils/datetime'
+import { rotuloAtendimento, numeroAtendimentoExibicao } from '../utils/atendimento'
 
 function Campo({ label, valor }) {
   if (valor === null || valor === undefined || valor === '') return null
@@ -43,11 +44,14 @@ function AtendimentoDetalhes({ atendimentoId }) {
   return (
     <div className="space-y-4">
       <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-        <Campo label="ID" valor={atendimento.id} />
+        <Campo label="Atendimento" valor={rotuloAtendimento(atendimento)} />
+        <Campo label="ID interno" valor={atendimento.id} />
+        <Campo label="Nº cliente" valor={numeroAtendimentoExibicao(atendimento)} />
         <Campo label="Status" valor={atendimento.status} />
         <Campo label="Título" valor={atendimento.titulo} />
         <Campo label="Valor Estimado" valor={atendimento.valor_estimado} />
         <Campo label="Criado em" valor={formatDatetimeBRT(atendimento.created_at)} />
+        <Campo label="Última mensagem" valor={formatDatetimeBRT(atendimento.ultima_mensagem_at)} />
       </div>
 
       {atendimento.empresa && (

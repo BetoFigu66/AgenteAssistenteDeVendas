@@ -1,7 +1,7 @@
-# Sprint 03 — Planning (fonte única do planejamento técnico)
-# Gerado no dia 1 do sprint pelo [gerente]. Análise detalhada task a task: [implementador].
-# Issues GitHub: milestone "Sprint 03" (REQ-016). Sincronizar campo `issue` quando tiver o número.
-# Backlog detalhado: artefatos/gerente_de_projetos/backlog_req016_atendimentos.md
+# Sprint 03 — Planning v3 (entregáveis)
+# Modelo: uma issue GitHub F0x = uma task entregável no YAML (subtarefas T-* aninhadas).
+# Planejamento anterior (task a task): AnotacoesPessoais/Beto/gerente_de_projetos/sprint_03_V01/
+# Issues granulares antigas (#7–#21) foram fechadas; milestone atual usa #76–#84 + bugs #2–#5.
 
 sprint_numero: 3
 data_inicio: "2026-06-15"
@@ -9,292 +9,396 @@ data_fim: "2026-06-28"
 duracao_dias: 14
 
 objetivos:
-  - "Renomear Negociação → Atendimento no schema, backend e frontend (REQ-016)."
-  - "Entregar ciclo de vida mínimo: estados ativo/encerrado, numeração sequencial e parâmetro de janela de continuação."
-  - "Deixar perguntas de continuação/fechamento e painel avançado para Sprint 04 (T-A5 a T-A12)."
+  - "Concluir migração Negociação → Atendimento e domínio mínimo de atendimento (REQ-016 F01/F02)."
+  - "Entregar captura CNPJ/CPF com confirmação e tentativas (REQ-001 F01, REQ-015 F01)."
+  - "Evoluir classificador + roteamento pré-qualificação (REQ-002 F01/F02) testável via painel."
+  - "Fechar gaps de curadoria Q&A (REQ-013 F01/F02) e bugs CTF do milestone."
+  - "O que não couber até 2026-06-28 segue para Sprint 04 — merge parcial é aceitável."
 
 meta:
-  versao: 1
-  criado_em: "2026-06-15"
+  versao: 3
+  modelo: entregavel
+  criado_em: "2026-06-17"
+  atualizado_em: "2026-06-17"
   criado_por: "[gerente]"
-  status: esqueleto
-  # esqueleto = gerente preencheu ordem/grupos/estimativas; implementador ainda não analisou
-  # em_analise = implementador preenchendo analise por task
-  # pronto = planning fechado para execução
+  status: em_analise
+  arquivado_v01: AnotacoesPessoais/Beto/gerente_de_projetos/sprint_03_V01/
   fontes:
+    - https://github.com/BetoFigu66/AgenteAssistenteDeVendas/milestone/1
     - artefatos/gerente_de_projetos/backlog_req016_atendimentos.md
-    - scripts/criar_issues_req016_sprint03.ps1
+    - artefatos/gerente_de_projetos/backlog_req001_tarefas.md
+    - artefatos/gerente_de_projetos/backlog_req002_tarefas.md
+    - artefatos/gerente_de_projetos/backlog_req013_tarefas.md
+    - artefatos/gerente_de_projetos/backlog_req015_tarefas.md
 
-# Sequência de implementação (ordem global). Tasks no mesmo `ordem` podem rodar em paralelo.
+github:
+  milestone: "Sprint 03"
+  milestone_number: 1
+  sincronizado_em: "2026-06-17"
+  open_issues: 13
+  closed_issues_granulares: 22
+  nota: "Issues #60–#68 são duplicatas fechadas da reestruturação; usar #76–#84 como fonte."
+
+# Sequência de entregas. Itens na mesma ordem podem rodar em paralelo se capacidade permitir.
 ordem_implementacao:
   - ordem: 1
-    grupo: G1
-    nota: "Migration mecânica — baixo risco; base para todo o restante."
+    entregas: [REQ-016-F01]
+    nota: "Fechar rename UI (T-A11); desbloqueia todo o restante."
   - ordem: 2
-    grupo: G2
-    nota: "Migration semântica — risco médio; PR separado de G1."
+    entregas: [REQ-016-F02]
+    nota: "Domínio atendimento: T-A4 + T-A8; T-A3 já no código."
   - ordem: 3
-    grupo: G3
-    nota: "Refactor transversal; desbloqueia backend e frontend."
+    entregas: [BUG-CTF-001-03]
+    nota: "Validar fix UTC/BRT (#2) e fechar."
   - ordem: 4
-    grupos: [G4, G5, G7]
-    nota: "Três frentes em paralelo após G3 (T-A3, T-A4, T-A8, T-A11)."
+    entregas: [REQ-002-F01, REQ-002-F02]
+    nota: "Classificador + PF/PJ antes da qualificação longa (T-05+ ficou fora do milestone)."
+  - ordem: 5
+    entregas: [REQ-001-F01, REQ-015-F01]
+    nota: "Captura documento fiscal PF/PJ."
+  - ordem: 6
+    entregas: [REQ-013-F01, REQ-013-F02]
+    nota: "Curadoria e observabilidade Q&A."
+  - ordem: 7
+    entregas: [REQ-001-F02, BUG-CTF-QA-002-003]
+    nota: "Métricas CNPJ + bugs Q&A/email se sobrar capacidade."
 
-# Agrupamento temático + sugestão de branch. Nem todo grupo vira uma única branch — ver `tasks`.
 grupos:
-  - id: G1
-    assunto: "Schema — rename mecânico"
-    branch_sugerida: feature/migration-rename-atendimentos
-    tasks: [T-A1]
-    estimativa_grupo: S
-
-  - id: G2
-    assunto: "Schema — estados e motivo_encerramento"
-    branch_sugerida: feature/migration-estados-atendimento
-    tasks: [T-A1b]
-    estimativa_grupo: M
-
-  - id: G3
-    assunto: "Backend — refactor Python (models, services, rotas)"
-    branch_sugerida: feature/refactor-atendimento-python
-    tasks: [T-A2]
+  - id: G-REQ016
+    assunto: "REQ-016 — Atendimento (rename + domínio)"
+    entregas: [REQ-016-F01, REQ-016-F02]
     estimativa_grupo: L
 
-  - id: G4
-    assunto: "Backend — domínio atendimento (timestamp + criação automática)"
-    branch_sugerida: null
-    nota: "T-A3 e T-A4 em branches separadas (escopo distinto); mesmo assunto de domínio."
-    tasks: [T-A3, T-A4]
+  - id: G-REQ001
+    assunto: "REQ-001 — CNPJ Receita Federal"
+    entregas: [REQ-001-F01, REQ-001-F02]
+    estimativa_grupo: L
+
+  - id: G-REQ002
+    assunto: "REQ-002 — Classificador e roteamento inicial"
+    entregas: [REQ-002-F01, REQ-002-F02]
+    estimativa_grupo: L
+
+  - id: G-REQ013
+    assunto: "REQ-013 — Pares Q&A curados"
+    entregas: [REQ-013-F01, REQ-013-F02]
     estimativa_grupo: M
 
-  - id: G5
-    assunto: "Configuração — parâmetro janela de continuação"
-    branch_sugerida: feature/parametro-janela-continuacao
-    tasks: [T-A8]
-    estimativa_grupo: S
-
-  - id: G7
-    assunto: "Frontend — rename UI Negociação → Atendimento"
-    branch_sugerida: feature/ui-rename-atendimento
-    tasks: [T-A11]
+  - id: G-REQ015
+    assunto: "REQ-015 — CPF"
+    entregas: [REQ-015-F01]
     estimativa_grupo: M
 
-# Estimativa: T-shirt (S | M | L | XL) + percentual de capacidade do sprint.
-# Percentuais desta sprint: ver tshirt_escala. Histórico cross-sprint: tshirt_calibracao.yaml
+  - id: G-BUGS
+    assunto: "Bugs QA — CTF Sprint 03"
+    entregas: [BUG-CTF-001-03, BUG-CTF-QA-002-003]
+    estimativa_grupo: M
+
 tshirt_escala:
   confianca: hipotese
   percentual:
     S: 5
     M: 19
     L: 28
-    XL: null
-  proporcoes:
-    M_por_S: 3.8
-    L_por_S: 5.6
-  verificacao: "3×S + 3×M + 1×L = 15 + 57 + 28 = 100%"
+  nota: "13 issues abertas > capacidade nominal; percentuais indicam peso relativo, não soma 100%."
 
 capacidade:
   sprint_pct: 100
-  planejada_pct: 100
-  consumida_pct: 0
-  restante_pct: 100
+  planejada_pct: null
   composicao:
-    total_tasks: 7
-    por_tamanho: { S: 3, M: 3, L: 1 }
+    entregas_abertas: 11
+    issues_github_abertas: 13
+  nota: "Priorizar ordem_implementacao; excedente vai para Sprint 04."
 
-# Registro diário de execução — alimenta calibração das próximas sprints.
-# tipo: processo | analise | implementacao | review | qa
 execucao:
-  ultima_atualizacao: "2026-06-15"
+  ultima_atualizacao: "2026-06-17"
   dias:
-    - data: "2026-06-15"
-      dia_sprint: 1
+    - data: "2026-06-17"
+      dia_sprint: 3
       itens:
         - tipo: processo
-          descricao: "Planejamento e organização do Sprint (planning.yaml, G07, calibração T-shirt)"
+          descricao: "Reestruturação planning v3 — entregáveis F0x espelhando GitHub #76–#84"
           task_id: null
-          capacidade_pct: null
-        - tipo: analise
-          task_id: T-A1
-          descricao: "Análise da task T-A1"
-          capacidade_pct: null
-        - tipo: analise
-          task_id: T-A1b
-          descricao: "Análise da task T-A1b"
-          capacidade_pct: null
-        - tipo: analise
-          task_id: T-A2
-          descricao: "Análise da task T-A2"
-          capacidade_pct: null
-        - tipo: analise
-          task_id: T-A3
-          descricao: "Análise da task T-A3"
-          capacidade_pct: null
-        - tipo: analise
-          task_id: T-A4
-          descricao: "Análise da task T-A4"
-          capacidade_pct: null
-        - tipo: analise
-          task_id: T-A8
-          descricao: "Análise da task T-A8"
-          capacidade_pct: null
-        - tipo: analise
-          task_id: T-A11
-          descricao: "Análise da task T-A11"
-          capacidade_pct: null
         - tipo: implementacao
-          task_id: T-A1
-          observacoes: "Análise concluída; migration implementada e testada."
+          task_id: REQ-016-F01
+          observacoes: "T-A11 concluído — rename UI completo + badge Atendimento #N."
       capacidade_dia_pct: null
-      nota: "Dia 1 focado em processo + análises; capacidade_pct das tasks preenchida ao concluir implementação."
 
 tasks:
-  - id: T-A1
-    issue: null
-    arquivo: tasks/T-A1.yaml
-    titulo: "Migration Alembic: rename negociacoes -> atendimentos (tabelas, colunas, FKs)"
-    grupo: G1
-    req: [REQ-016]
-    estimativa: S
-    capacidade_pct: 5
-    execucao_status: done
-    capacidade_real_pct: null
-
-  - id: T-A1b
-    issue: null
-    arquivo: tasks/T-A1b.yaml
-    titulo: "Migration Alembic: drop dos estados antigos com remapeamento"
-    grupo: G2
-    req: [REQ-016, REQ-006]
+  - id: REQ-016-F01
+    issue: 76
+    titulo: "Migração completa do modelo negociação → atendimento"
+    grupo: G-REQ016
+    req: [REQ-016, REQ-010]
     estimativa: M
     capacidade_pct: 19
+    branch_sugerida: feature/migration-rename-atendimentos
+    criterio_aceite: "Painel exibe Atendimento #N; pytest backend/tests passa; sem label Negociação visível."
+    roteiros_teste: []
     execucao_status: done
-    capacidade_real_pct: null
+    subtarefas:
+      - id: T-A1
+        issue_historica: 7
+        titulo: "Migration rename negociacoes → atendimentos"
+        status: done
+      - id: T-A1b
+        issue_historica: 8
+        titulo: "Migration estados ativo/encerrado + motivo_encerramento"
+        status: done
+      - id: T-A2
+        issue_historica: 9
+        titulo: "Refactor Python + rotas /api/atendimentos/*"
+        status: done
+      - id: T-A11
+        issue_historica: 13
+        titulo: "Frontend: labels, badges, rotas /atendimentos/*"
+        status: done
+    analise_implementador: "Ver tasks/REQ-016-F01.yaml"
+    status_planning: pronto
+    arquivo: tasks/REQ-016-F01.yaml
 
-  - id: T-A2
-    issue: null
-    titulo: "Refactor Python: models, schemas, services e rotas para o novo vocabulário"
-    grupo: G3
-    req: [REQ-016]
-    labels: [tipo:task, prio:alta, area:backend, REQ-016]
+  - id: REQ-016-F02
+    issue: 77
+    titulo: "Criação automática de atendimento com numeração sequencial"
+    grupo: G-REQ016
+    req: [REQ-016, REQ-014]
+    estimativa: M
+    capacidade_pct: 19
+    branch_sugerida: feature/criacao-automatica-atendimento
+    criterio_aceite: "Telefone novo → Atendimento #1; #2 na segunda demanda; ultima_mensagem_at atualiza em tempo real."
+    roteiros_teste: []
+    depende_de: [REQ-016-F01]
+    execucao_status: done
+    subtarefas:
+      - id: T-A3
+        issue_historica: 10
+        titulo: "Coluna ultima_mensagem_at + atualização no processador"
+        status: done
+      - id: T-A4
+        issue_historica: 11
+        titulo: "services/atendimentos.py — obter_ou_criar + numeração com lock"
+        status: done
+      - id: T-A8
+        issue_historica: 12
+        titulo: "Parâmetro janela_continuacao_atendimento_horas"
+        status: done
+    analise_implementador: "Ver tasks/REQ-016-F02.yaml"
+    status_planning: pronto
+    arquivo: tasks/REQ-016-F02.yaml
+
+  - id: REQ-001-F01
+    issue: 78
+    titulo: "Captura e confirmação de CNPJ com política de tentativas"
+    grupo: G-REQ001
+    req: [REQ-001, REQ-004]
     estimativa: L
     capacidade_pct: 28
-    confianca: media
-    branch_sugerida: feature/refactor-atendimento-python
-    depende_de: [T-A1, T-A1b]
-    escopo_resumo: "Negociacao -> Atendimento em models/services/schemas; /api/atendimentos/*; testes verdes."
-    status_planning: pronto
-    execucao_status: done
-    capacidade_real_pct: null
-    analise_implementador: "Ver tasks/T-A2.yaml"
-    duvidas_decisoes: []
-
-  - id: T-A3
-    issue: null
-    titulo: "Coluna ultima_mensagem_at no atendimento + atualização a cada mensagem"
-    grupo: G4
-    req: [REQ-016]
-    labels: [tipo:task, prio:alta, area:backend, REQ-016]
-    estimativa: S
-    capacidade_pct: 5
-    confianca: alta
-    branch_sugerida: feature/atendimento-ultima-mensagem-at
-    depende_de: [T-A1, T-A2]
-    escopo_resumo: "Migration + atualização no processador a cada mensagem do cliente."
-    status_planning: esqueleto
+    branch_sugerida: feature/REQ-001-captura-cnpj-completo
+    criterio_aceite: "CNPJ válido → confirmação; 3 inválidos → escalonamento; timeout API não consome tentativa."
+    roteiros_teste: [RT-001]
+    depende_de: [REQ-016-F01]
     execucao_status: nao_iniciada
-    capacidade_real_pct: null
+    subtarefas:
+      - { id: T-01, titulo: "Eco/confirmação dados Receita", status: nao_iniciada }
+      - { id: T-02, titulo: "Política 3 tentativas + escalonamento", status: nao_iniciada }
+      - { id: T-03, titulo: "Retry backoff API Receita", status: nao_iniciada }
+      - { id: T-04, titulo: "Tipagem erro cliente vs infra", status: nao_iniciada }
     analise_implementador: null
-    duvidas_decisoes: []
+    arquivo: null
 
-  - id: T-A4
-    issue: null
-    titulo: "Lógica de criação automática de atendimento (services/atendimentos.py)"
-    grupo: G4
-    req: [REQ-016, REQ-002]
-    labels: [tipo:task, prio:alta, area:backend, REQ-016]
+  - id: REQ-001-F02
+    issue: 79
+    titulo: "Auditoria e métricas da consulta CNPJ"
+    grupo: G-REQ001
+    req: [REQ-001, REQ-005]
     estimativa: M
     capacidade_pct: 19
-    confianca: media
-    branch_sugerida: feature/criacao-automatica-atendimento
-    depende_de: [T-A1, T-A2]
-    escopo_resumo: "obter_ou_criar_atendimento_para_mensagem; numeração sequencial com lock."
-    status_planning: esqueleto
+    branch_sugerida: feature/REQ-001-auditoria-metricas
+    criterio_aceite: "Timeline de tentativas CNPJ no painel; aba métricas REQ-001 com agregados 24h/7d/30d."
+    roteiros_teste: [RT-001]
+    depende_de: [REQ-001-F01]
     execucao_status: nao_iniciada
-    capacidade_real_pct: null
+    subtarefas:
+      - { id: T-05, titulo: "Instrumentação NFRs latência/disponibilidade", status: nao_iniciada }
+      - { id: T-06, titulo: "Evento auditoria tentativa_cnpj", status: nao_iniciada }
     analise_implementador: null
-    duvidas_decisoes: []
+    arquivo: null
 
-  - id: T-A8
-    issue: null
-    titulo: "Parâmetro janela_continuacao_atendimento_horas em parametros (REQ-014.2C)"
-    grupo: G5
-    req: [REQ-016, REQ-014]
-    labels: [tipo:task, prio:alta, area:backend, REQ-016, REQ-014]
-    estimativa: S
-    capacidade_pct: 5
-    confianca: alta
-    branch_sugerida: feature/parametro-janela-continuacao
-    depende_de: []
-    escopo_resumo: "Seed default 24h; validação >= 1; expor em GET config; leitura sem cache longo."
-    status_planning: esqueleto
-    execucao_status: nao_iniciada
-    capacidade_real_pct: null
-    analise_implementador: null
-    duvidas_decisoes: []
-
-  - id: T-A11
-    issue: null
-    titulo: "Frontend: renomear UI Negociação -> Atendimento (labels, badges, rotas)"
-    grupo: G7
-    req: [REQ-016, REQ-010]
-    labels: [tipo:task, prio:media, area:frontend, REQ-016, REQ-010]
+  - id: REQ-002-F01
+    issue: 80
+    titulo: "Classificador com categorias e fallback para RAG"
+    grupo: G-REQ002
+    req: [REQ-002, REQ-003, REQ-014]
     estimativa: M
     capacidade_pct: 19
-    confianca: alta
-    branch_sugerida: feature/ui-rename-atendimento
-    depende_de: [T-A2]
-    escopo_resumo: "Labels, rotas /atendimentos/*, badges Atendimento #N; sem regressão visual."
-    status_planning: esqueleto
+    branch_sugerida: feature/classificador-categorias-fallback
+    criterio_aceite: "Painel mostra categoria e confiança; baixa confiança consulta Q&A; mensagem composta tratada."
+    roteiros_teste: [RT-001]
+    depende_de: [REQ-016-F01]
     execucao_status: nao_iniciada
-    capacidade_real_pct: null
+    subtarefas:
+      - { id: T-01, titulo: "Categoria 1-4 + limiares REQ-014", status: nao_iniciada }
+      - { id: T-02, titulo: "Fallback REQ-003 + mensagem composta", status: nao_iniciada }
     analise_implementador: null
-    duvidas_decisoes: []
+    arquivo: null
 
-# Fora do Sprint 03 — registrado para visibilidade no planning (Sprint 04)
+  - id: REQ-002-F02
+    issue: 81
+    titulo: "Identificação PF/PJ e roteamento antes da qualificação"
+    grupo: G-REQ002
+    req: [REQ-002, REQ-015]
+    estimativa: M
+    capacidade_pct: 19
+    branch_sugerida: feature/identificacao-pf-pj-roteamento
+    criterio_aceite: "Pergunta produto sem documento → contato anônimo + RAG; CNPJ posterior promove contato."
+    roteiros_teste: [RT-001]
+    depende_de: [REQ-002-F01]
+    execucao_status: nao_iniciada
+    subtarefas:
+      - { id: T-03, titulo: "Roteamento pré-identificação (contato anônimo)", status: nao_iniciada }
+      - { id: T-04, titulo: "Inferência PF/PJ + roteamento documento", status: nao_iniciada }
+    analise_implementador: null
+    arquivo: null
+
+  - id: REQ-013-F01
+    issue: 82
+    titulo: "Curadoria e workflow de aprovação Q&A"
+    grupo: G-REQ013
+    req: [REQ-013, REQ-012, REQ-005]
+    estimativa: M
+    capacidade_pct: 19
+    branch_sugerida: feature/REQ-013-curadoria-workflow-aprovacao
+    criterio_aceite: "Criar par a partir de report; alerta duplicata; timeline de revisões."
+    roteiros_teste: [RT-002, RT-004]
+    execucao_status: nao_iniciada
+    subtarefas:
+      - { id: T-01, titulo: "Criar par Q&A a partir de report", status: nao_iniciada }
+      - { id: T-04, titulo: "Detecção de duplicatas na criação", status: nao_iniciada }
+      - { id: T-07, titulo: "Workflow aprovação + histórico revisões", status: nao_iniciada }
+    analise_implementador: null
+    arquivo: null
+
+  - id: REQ-013-F02
+    issue: 83
+    titulo: "Busca, auditoria e estatísticas da base Q&A"
+    grupo: G-REQ013
+    req: [REQ-013, REQ-005]
+    estimativa: M
+    capacidade_pct: 19
+    branch_sugerida: feature/REQ-013-busca-auditoria-estatisticas
+    criterio_aceite: "Detalhe mensagem mostra caminho_resposta; cabeçalho Q&A com 4 cards de contadores."
+    roteiros_teste: [RT-001, RT-002]
+    execucao_status: nao_iniciada
+    subtarefas:
+      - { id: T-02, titulo: "Filtro por contexto na busca", status: nao_iniciada }
+      - { id: T-03, titulo: "Auditoria caminho_resposta em ProcessamentoMensagem", status: nao_iniciada }
+      - { id: T-05, titulo: "Estatísticas no cabeçalho QABasePage", status: nao_iniciada }
+    analise_implementador: null
+    arquivo: null
+
+  - id: REQ-015-F01
+    issue: 84
+    titulo: "Captura e confirmação de CPF com política de tentativas"
+    grupo: G-REQ015
+    req: [REQ-015, REQ-004]
+    estimativa: M
+    capacidade_pct: 19
+    branch_sugerida: feature/REQ-015-captura-cpf-completo
+    criterio_aceite: "CPF válido → confirmação; 3 inválidos → escalonamento; recusa CPF ainda coleta nome/endereço."
+    roteiros_teste: []
+    depende_de: [REQ-002-F02]
+    execucao_status: nao_iniciada
+    subtarefas:
+      - { id: T-01, titulo: "Eco/confirmação CPF", status: nao_iniciada }
+      - { id: T-02, titulo: "Política 3 tentativas CPF", status: nao_iniciada }
+      - { id: T-03, titulo: "PF que recusa fornecer CPF", status: nao_iniciada }
+    analise_implementador: null
+    arquivo: null
+
+  - id: BUG-CTF-001-03
+    issue: 2
+    titulo: "Bug CTF-001-03 — Mostrar data/hora corretamente"
+    grupo: G-BUGS
+    req: [REQ-010]
+    estimativa: S
+    capacidade_pct: 5
+    criterio_aceite: "Timestamps no painel em horário BRT; armazenamento UTC no backend."
+    execucao_status: em_progresso
+    subtarefas: []
+    escopo_resumo: "Solução A (UTC+Z + America/Sao_Paulo na UI) — validar e fechar #2."
+    analise_implementador: null
+    arquivo: null
+
+  - id: BUG-CTF-QA-002-003
+    issue: null
+    titulo: "Bugs CTF — Q&A e captura de email (#3, #4, #5)"
+    grupo: G-BUGS
+    req: [REQ-002, REQ-003]
+    estimativa: M
+    capacidade_pct: 19
+    issues_github: [3, 4, 5]
+    criterio_aceite: "Cenários CTF-002-03, CTF-002-04 e CTF-003-03 passam no painel."
+    execucao_status: nao_iniciada
+    subtarefas:
+      - { id: CTF-002-03, issue: 3, titulo: "Q&A não responde corretamente", status: nao_iniciada }
+      - { id: CTF-002-04, issue: 4, titulo: "Email informado não identificado", status: nao_iniciada }
+      - { id: CTF-003-03, issue: 5, titulo: "Pergunta simples não encontrada na base", status: nao_iniciada }
+    analise_implementador: null
+    arquivo: null
+
 backlog_proximo_sprint:
-  - id: T-A5
-    titulo: "Janela de continuação + pergunta de continuação"
-    req: [REQ-016]
-  - id: T-A6
-    titulo: "Encerramento explícito + pergunta de fechamento"
-    req: [REQ-016]
-  - id: T-A7
-    titulo: "Reabertura de atendimento encerrado"
-    req: [REQ-016]
-  - id: T-A9
-    titulo: "Painel: Atendimento #N + ações encerrar/reabrir"
-    req: [REQ-016, REQ-010]
-  - id: T-A10
-    titulo: "Eventos de auditoria de atendimento (REQ-005.4)"
-    req: [REQ-016, REQ-005]
-  - id: T-A12
-    titulo: "Cenários de teste manual no QA Runner"
-    req: [REQ-016]
+  nota: "Itens que estavam no milestone antigo ou nos scripts, mas não nas entregas F0x abertas."
+  req_016:
+    - { id: T-A5, titulo: "Janela continuação + pergunta" }
+    - { id: T-A6, titulo: "Encerramento explícito + pergunta fechamento" }
+    - { id: T-A7, titulo: "Reabertura atendimento encerrado" }
+    - { id: T-A9, titulo: "Painel Atendimento #N + ações encerrar/reabrir" }
+    - { id: T-A10, titulo: "Eventos auditoria atendimento" }
+    - { id: T-A12, titulo: "Cenários QA Runner ciclo atendimento" }
+  req_002:
+    - { id: T-05, titulo: "Estado campos + perguntas dinâmicas", issues_historicas: [18] }
+    - { id: T-06, titulo: "Captura adaptativa por etapa", issues_historicas: [19] }
+    - { id: T-07, titulo: "Validações respostas capturadas", issues_historicas: [20] }
+    - { id: T-08, titulo: "Confirmação dados + sumarização", issues_historicas: [21] }
+    - { id: T-09, titulo: "Ambiguidade, retry e RAG na qualificação" }
+    - { id: T-10, titulo: "Abandono e reengajamento" }
+    - { id: T-11, titulo: "Integração WhatsApp canal real" }
+  req_013:
+    - { id: T-06, titulo: "Persistência config runtime", issue_historica: 38 }
+    - { id: T-08, titulo: "Ingestão em lote CSV/pastas" }
+  req_015:
+    - { id: T-04, titulo: "Integração provedor consulta débitos" }
+    - { id: T-09, titulo: "Reuso CPF validado", issue_historica: 49 }
+
+referencias_legado:
+  planning_v01_v02: AnotacoesPessoais/Beto/gerente_de_projetos/sprint_03_V01/planning.yaml
+  tasks_subtarefa_v01:
+    - AnotacoesPessoais/Beto/gerente_de_projetos/sprint_03_V01/tasks/T-A1.yaml
+    - AnotacoesPessoais/Beto/gerente_de_projetos/sprint_03_V01/tasks/T-A2.yaml
 
 resumo_estimativas:
-  total_tasks: 7
-  por_tamanho:
-    S: 3
-    M: 3
-    L: 1
-  capacidade_planejada_pct: 100
-  verificacao: "3×5 + 3×19 + 1×28 = 100%"
-  nota: "T-A2 concentra 28% da capacidade. Calibrar proporções ao fechar sprint em tshirt_calibracao.yaml."
+  entregas_planejadas: 11
+  issues_github_abertas: 13
+  analise_implementador:
+    prontas: [REQ-016-F01, REQ-016-F02]
+    concluidas: [REQ-016-F01, REQ-016-F02]
+    pendentes: 7
+  por_status:
+    done: 2
+    em_progresso: 1
+    nao_iniciada: 8
+  por_req:
+    REQ-016: { entregas: 2, em_progresso: 2 }
+    REQ-001: { entregas: 2 }
+    REQ-002: { entregas: 2 }
+    REQ-013: { entregas: 2 }
+    REQ-015: { entregas: 1 }
+    bugs: { entregas: 2, issues: 4 }
+  nota: "Capacidade excede 100% se todas forem feitas na sprint; usar ordem_implementacao."
 
 riscos:
-  - "T-A1b altera semântica de dados — PR isolado e testes com estados sintéticos antes do merge."
-  - "T-A2 é transversal — merge conflita com outras frentes se demorar; priorizar após migrations."
-  - "T-A11 depende de T-A2 — iniciar frontend só com endpoints estáveis."
+  - "REQ-016 F01/F02 parcialmente implementados no código — sincronizar checkboxes GitHub (#76, #77) ao validar."
+  - "Qualificação longa (REQ-002 T-05+) ficou fora do milestone reestruturado — confirmar se entra na Sprint 04."
+  - "4 bugs CTF podem depender de REQ-002 F01 (RAG) e REQ-013 F02 — priorizar após classificador."
 
 bloqueios: []

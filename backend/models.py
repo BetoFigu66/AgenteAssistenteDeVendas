@@ -7,7 +7,7 @@ from datetime import date, datetime
 from decimal import Decimal
 from typing import List, Optional
 
-from sqlalchemy import JSON, Boolean, Date, DateTime, Enum, ForeignKey, Index, Integer, Numeric, String, Text
+from sqlalchemy import JSON, Boolean, Date, DateTime, Enum, ForeignKey, Index, Integer, Numeric, String, Text, UniqueConstraint
 from sqlalchemy.dialects.postgresql import ARRAY, JSONB, TSVECTOR
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 from sqlalchemy.types import UserDefinedType
@@ -467,6 +467,16 @@ class Atendimento(Base):
     updated_at: Mapped[datetime] = mapped_column(
         UTCDateTime, default=utc_now, onupdate=utc_now, nullable=False
     )
+    ultima_mensagem_at: Mapped[Optional[datetime]] = mapped_column(UTCDateTime, nullable=True)
+    numero_atendimento_cliente: Mapped[int] = mapped_column(nullable=False)
+
+    __table_args__ = (
+        UniqueConstraint(
+            "contato_id",
+            "numero_atendimento_cliente",
+            name="uq_atendimentos_contato_numero",
+        ),
+    )
 
     # Relacionamentos
     contato: Mapped["Contato"] = relationship(back_populates="atendimentos")
@@ -494,6 +504,9 @@ class Atendimento(Base):
             "modo_operacao": self.modo_operacao.value if self.modo_operacao else None,
             "valor_estimado": str(self.valor_estimado) if self.valor_estimado else None,
             "created_at": serialize_utc_datetime(self.created_at),
+            "updated_at": serialize_utc_datetime(self.updated_at),
+            "ultima_mensagem_at": serialize_utc_datetime(self.ultima_mensagem_at),
+            "numero_atendimento_cliente": self.numero_atendimento_cliente,
         }
 
 

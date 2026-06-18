@@ -4,36 +4,31 @@ import { api } from '../services/api'
 import DetalheModal from './DetalheModal'
 import ProcessamentoDetalhes from './ProcessamentoDetalhes'
 import { formatDatetimeBRT } from '../utils/datetime'
+import { numeroAtendimentoExibicao, rotuloAtendimento } from '../utils/atendimento'
 
 function AcompanhamentoPage() {
-  // Estado das negociações
-  const [negociacoes, setNegociacoes] = useState([])
-  const [negociacaoSelecionada, setNegociacaoSelecionada] = useState(null)
-  const [mensagensNegociacao, setMensagensNegociacao] = useState([])
-  const [carregandoNegociacoes, setCarregandoNegociacoes] = useState(false)
+  const [atendimentos, setAtendimentos] = useState([])
+  const [atendimentoSelecionado, setAtendimentoSelecionado] = useState(null)
+  const [mensagensAtendimento, setMensagensAtendimento] = useState([])
+  const [carregandoAtendimentos, setCarregandoAtendimentos] = useState(false)
   const [carregandoMensagens, setCarregandoMensagens] = useState(false)
   const [erro, setErro] = useState(null)
 
-  // Estado dos usuários
   const [users, setUsers] = useState([])
   const [userSelecionado, setUserSelecionado] = useState(null)
   const [mostrarModalCriarUser, setMostrarModalCriarUser] = useState(false)
   const [novoUserNome, setNovoUserNome] = useState('')
 
-  // Estado do modo de operação e mensagem manual
   const [modoOperacao, setModoOperacao] = useState('agente')
   const [mensagemManual, setMensagemManual] = useState('')
   const [enviandoMensagem, setEnviandoMensagem] = useState(false)
 
-  // Estado do modal de raciocínio
   const [processamentoSelecionado, setProcessamentoSelecionado] = useState(null)
 
-  // Estado do modal de reprovação
   const [mensagemReprovando, setMensagemReprovando] = useState(null)
   const [justificativaReprovacao, setJustificativaReprovacao] = useState('')
   const [enviandoReprovacao, setEnviandoReprovacao] = useState(false)
 
-  // Estado do rascunho Q&A dentro do modal de reprovação
   const [perguntaQA, setPerguntaQA] = useState('')
   const [contextoQA, setContextoQA] = useState('')
   const [respostaQA, setRespostaQA] = useState('')
@@ -41,27 +36,24 @@ function AcompanhamentoPage() {
   const [carregandoPendentesQA, setCarregandoPendentesQA] = useState(false)
   const [confirmandoPendentesQA, setConfirmandoPendentesQA] = useState(false)
 
-  // Carregar negociações e usuários ao montar
   useEffect(() => {
-    carregarNegociacoes()
+    carregarAtendimentos()
     carregarUsers()
   }, [])
 
-  // Carregar mensagens quando selecionar negociação
   useEffect(() => {
-    if (negociacaoSelecionada) {
-      carregarMensagensNegociacao(negociacaoSelecionada.telefone)
-      setModoOperacao(negociacaoSelecionada.modo_operacao || 'agente')
+    if (atendimentoSelecionado) {
+      carregarMensagensAtendimento(atendimentoSelecionado.telefone)
+      setModoOperacao(atendimentoSelecionado.modo_operacao || 'agente')
     } else {
-      setMensagensNegociacao([])
+      setMensagensAtendimento([])
     }
-  }, [negociacaoSelecionada])
+  }, [atendimentoSelecionado])
 
-  // Pré-preenche pergunta com a última mensagem do cliente ao abrir modal
   useEffect(() => {
     if (mensagemReprovando) {
-      const idx = mensagensNegociacao.findIndex(m => m.id === mensagemReprovando.id)
-      const msgCliente = mensagensNegociacao.slice(0, idx).reverse().find(m => m.origem === 'user')
+      const idx = mensagensAtendimento.findIndex(m => m.id === mensagemReprovando.id)
+      const msgCliente = mensagensAtendimento.slice(0, idx).reverse().find(m => m.origem === 'user')
       setPerguntaQA(msgCliente?.conteudo || '')
       setContextoQA('')
       setRespostaQA('')
@@ -80,17 +72,17 @@ function AcompanhamentoPage() {
     setConfirmandoPendentesQA(false)
   }
 
-  const carregarNegociacoes = async () => {
-    setCarregandoNegociacoes(true)
+  const carregarAtendimentos = async () => {
+    setCarregandoAtendimentos(true)
     setErro(null)
     try {
       const data = await api.listarAtendimentosAtivos()
-      setNegociacoes(data.atendimentos || [])
+      setAtendimentos(data.atendimentos || [])
     } catch (error) {
       console.error('Erro ao carregar atendimentos:', error)
       setErro('Erro ao carregar atendimentos ativos')
     } finally {
-      setCarregandoNegociacoes(false)
+      setCarregandoAtendimentos(false)
     }
   }
 
@@ -106,14 +98,14 @@ function AcompanhamentoPage() {
     }
   }
 
-  const carregarMensagensNegociacao = async (telefone) => {
+  const carregarMensagensAtendimento = async (telefone) => {
     setCarregandoMensagens(true)
     try {
       const data = await api.obterHistorico(telefone)
-      setMensagensNegociacao(data.mensagens || [])
+      setMensagensAtendimento(data.mensagens || [])
     } catch (error) {
       console.error('Erro ao carregar mensagens:', error)
-      setMensagensNegociacao([])
+      setMensagensAtendimento([])
     } finally {
       setCarregandoMensagens(false)
     }
@@ -134,42 +126,39 @@ function AcompanhamentoPage() {
   }
 
   const handleAlterarModo = async (novoModo) => {
-    if (!negociacaoSelecionada) return
+    if (!atendimentoSelecionado) return
     try {
-      await api.alterarModoOperacao(negociacaoSelecionada.id, novoModo)
+      await api.alterarModoOperacao(atendimentoSelecionado.id, novoModo)
       setModoOperacao(novoModo)
-      // Atualiza a lista de negociações para refletir a mudança
-      carregarNegociacoes()
+      carregarAtendimentos()
     } catch (error) {
       console.error('Erro ao alterar modo:', error)
       alert('Erro ao alterar modo de operação: ' + error.message)
     }
   }
 
-  // Copia para a area de transferencia um JSON com o contexto da mensagem,
-  // para colar no QA Runner ao reportar um bug.
   const handleCopiarContextoQA = async (msg) => {
     try {
-      const idx = mensagensNegociacao.findIndex(m => m.id === msg.id)
+      const idx = mensagensAtendimento.findIndex(m => m.id === msg.id)
       let perguntaCliente = null
       let respostaSistema = null
       if (msg.origem === 'system') {
         respostaSistema = msg
-        perguntaCliente = mensagensNegociacao
+        perguntaCliente = mensagensAtendimento
           .slice(0, idx)
           .reverse()
           .find(m => m.origem === 'user') || null
       } else {
         perguntaCliente = msg
-        respostaSistema = mensagensNegociacao
+        respostaSistema = mensagensAtendimento
           .slice(idx + 1)
           .find(m => m.origem === 'system') || null
       }
       const contexto = {
         fonte: 'AcompanhamentoPage',
-        telefone: negociacaoSelecionada?.telefone || null,
-        negociacao_id: negociacaoSelecionada?.id || null,
-        atendimento_id: negociacaoSelecionada?.id || null,
+        telefone: atendimentoSelecionado?.telefone || null,
+        atendimento_id: atendimentoSelecionado?.id || null,
+        atendimento_numero: numeroAtendimentoExibicao(atendimentoSelecionado),
         modo_operacao: modoOperacao || null,
         capturado_em: new Date().toISOString(),
         pergunta_cliente: perguntaCliente ? {
@@ -187,7 +176,6 @@ function AcompanhamentoPage() {
       }
       const texto = JSON.stringify(contexto, null, 2)
       await navigator.clipboard.writeText(texto)
-      // Feedback visual minimo via alert (sem dependencia extra)
       alert('Contexto copiado. Cole no QA Runner ao reportar um bug.')
     } catch (error) {
       console.error('Erro ao copiar contexto QA:', error)
@@ -202,12 +190,10 @@ function AcompanhamentoPage() {
     }
     try {
       await api.aprovarMensagem(mensagemId, userSelecionado)
-      // Recarrega as mensagens da negociação
-      if (negociacaoSelecionada) {
-        carregarMensagensNegociacao(negociacaoSelecionada.telefone)
+      if (atendimentoSelecionado) {
+        carregarMensagensAtendimento(atendimentoSelecionado.telefone)
       }
-      // Atualiza a lista de negociações (contagem de pendentes pode mudar)
-      carregarNegociacoes()
+      carregarAtendimentos()
     } catch (error) {
       console.error('Erro ao aprovar mensagem:', error)
       alert('Erro ao aprovar mensagem: ' + error.message)
@@ -221,7 +207,6 @@ function AcompanhamentoPage() {
       return
     }
 
-    // Se há nova resposta e ainda não confirmou pendentes, verificar antes
     if (respostaQA.trim() && !confirmandoPendentesQA) {
       setCarregandoPendentesQA(true)
       try {
@@ -258,10 +243,10 @@ function AcompanhamentoPage() {
       }
 
       fecharModalReprovacao()
-      if (negociacaoSelecionada) {
-        carregarMensagensNegociacao(negociacaoSelecionada.telefone)
+      if (atendimentoSelecionado) {
+        carregarMensagensAtendimento(atendimentoSelecionado.telefone)
       }
-      carregarNegociacoes()
+      carregarAtendimentos()
       alert(mensagemAlerta)
     } catch (error) {
       console.error('Erro ao reprovar mensagem:', error)
@@ -272,17 +257,16 @@ function AcompanhamentoPage() {
   }
 
   const handleEnviarMensagemManual = async () => {
-    if (!mensagemManual.trim() || !negociacaoSelecionada) return
+    if (!mensagemManual.trim() || !atendimentoSelecionado) return
     setEnviandoMensagem(true)
     try {
       await api.enviarMensagemManual(
-        negociacaoSelecionada.id,
+        atendimentoSelecionado.id,
         mensagemManual.trim(),
         userSelecionado
       )
       setMensagemManual('')
-      // Recarrega mensagens
-      carregarMensagensNegociacao(negociacaoSelecionada.telefone)
+      carregarMensagensAtendimento(atendimentoSelecionado.telefone)
     } catch (error) {
       console.error('Erro ao enviar mensagem manual:', error)
       alert('Erro ao enviar mensagem: ' + error.message)
@@ -293,9 +277,16 @@ function AcompanhamentoPage() {
 
   const formatarData = (timestamp) => formatDatetimeBRT(timestamp)
 
+  const tituloListaAtendimento = (atendimento) => {
+    const rotulo = rotuloAtendimento(atendimento)
+    if (atendimento.empresa_nome) {
+      return `${rotulo} — ${atendimento.empresa_nome}`
+    }
+    return rotulo
+  }
+
   return (
     <div className="container mx-auto px-4 py-6 max-w-7xl">
-      {/* Header com controles */}
       <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 mb-4">
         <div className="flex flex-wrap items-center justify-between gap-4">
           <div className="flex items-center gap-4">
@@ -303,17 +294,16 @@ function AcompanhamentoPage() {
               Acompanhamento de Atendimentos
             </h2>
             <button
-              onClick={carregarNegociacoes}
+              onClick={carregarAtendimentos}
               className="flex items-center gap-1.5 px-3 py-1.5 text-sm text-gray-600 hover:text-inforrel-primary transition"
               title="Atualizar lista"
             >
-              <RefreshCw size={16} className={carregandoNegociacoes ? 'animate-spin' : ''} />
+              <RefreshCw size={16} className={carregandoAtendimentos ? 'animate-spin' : ''} />
               Atualizar
             </button>
           </div>
 
           <div className="flex items-center gap-4">
-            {/* Seletor de usuário */}
             <div className="flex items-center gap-2">
               <Users size={18} className="text-gray-500" />
               <select
@@ -330,7 +320,6 @@ function AcompanhamentoPage() {
               </select>
             </div>
 
-            {/* Botão criar usuário */}
             <button
               onClick={() => setMostrarModalCriarUser(true)}
               className="flex items-center gap-1.5 px-3 py-1.5 bg-inforrel-primary text-white rounded-md text-sm hover:bg-inforrel-secondary transition"
@@ -349,65 +338,70 @@ function AcompanhamentoPage() {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        {/* Lista de negociações */}
         <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
           <div className="px-4 py-3 bg-gray-50 border-b border-gray-200">
             <h3 className="font-medium text-gray-700">
-              Atendimentos Ativos ({negociacoes.length})
+              Atendimentos Ativos ({atendimentos.length})
             </h3>
             <p className="text-xs text-gray-500 mt-1">
-              Ordenadas por mensagens pendentes de aprovação
+              Ordenados por mensagens pendentes de aprovação
             </p>
           </div>
 
           <div className="max-h-[calc(100vh-280px)] overflow-y-auto">
-            {carregandoNegociacoes ? (
+            {carregandoAtendimentos ? (
               <div className="p-8 text-center text-gray-500">
                 <RefreshCw size={24} className="animate-spin mx-auto mb-2" />
                 Carregando...
               </div>
-            ) : negociacoes.length === 0 ? (
+            ) : atendimentos.length === 0 ? (
               <div className="p-8 text-center text-gray-500">
                 Nenhum atendimento ativo encontrado
               </div>
             ) : (
               <div className="divide-y divide-gray-100">
-                {negociacoes.map((neg) => (
+                {atendimentos.map((atendimento) => (
                   <div
-                    key={neg.id}
-                    onClick={() => setNegociacaoSelecionada(neg)}
+                    key={atendimento.id}
+                    onClick={() => setAtendimentoSelecionado(atendimento)}
                     className={`p-4 cursor-pointer transition hover:bg-gray-50 ${
-                      negociacaoSelecionada?.id === neg.id ? 'bg-blue-50 border-l-4 border-inforrel-primary' : 'border-l-4 border-transparent'
+                      atendimentoSelecionado?.id === atendimento.id ? 'bg-blue-50 border-l-4 border-inforrel-primary' : 'border-l-4 border-transparent'
                     }`}
                   >
                     <div className="flex items-start justify-between">
                       <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 mb-1">
-                          <span className="font-medium text-gray-900 truncate">
-                            {neg.empresa_nome}
+                        <div className="flex items-center gap-2 mb-1 flex-wrap">
+                          <span className="px-2 py-0.5 text-xs rounded-full bg-inforrel-primary/10 text-inforrel-primary font-semibold">
+                            {rotuloAtendimento(atendimento)}
                           </span>
+                          {atendimento.empresa_nome && (
+                            <span className="font-medium text-gray-900 truncate">
+                              {atendimento.empresa_nome}
+                            </span>
+                          )}
                           <span
                             className={`px-2 py-0.5 text-xs rounded-full ${
-                              neg.modo_operacao === 'humano'
+                              atendimento.modo_operacao === 'humano'
                                 ? 'bg-orange-100 text-orange-700'
                                 : 'bg-green-100 text-green-700'
                             }`}
                           >
-                            {neg.modo_operacao === 'humano' ? 'HUMANO' : 'AGENTE'}
+                            {atendimento.modo_operacao === 'humano' ? 'HUMANO' : 'AGENTE'}
                           </span>
                         </div>
                         <div className="text-sm text-gray-600">
-                          {neg.nome_contato || 'Sem nome'} • {neg.telefone}
+                          {atendimento.nome_contato || 'Sem nome'} • {atendimento.telefone}
                         </div>
                         <div className="text-xs text-gray-500 mt-1">
-                          Status: {neg.status} • Atualizado: {formatarData(neg.updated_at)}
+                          Status: {atendimento.status} • Última msg:{' '}
+                          {formatarData(atendimento.ultima_mensagem_at || atendimento.updated_at)}
                         </div>
                       </div>
 
                       <div className="flex flex-col items-end gap-1 ml-3">
-                        {neg.mensagens_pendentes > 0 && (
+                        {atendimento.mensagens_pendentes > 0 && (
                           <span className="px-2 py-1 bg-red-100 text-red-700 text-xs font-medium rounded-full">
-                            {neg.mensagens_pendentes} pendente{neg.mensagens_pendentes > 1 ? 's' : ''}
+                            {atendimento.mensagens_pendentes} pendente{atendimento.mensagens_pendentes > 1 ? 's' : ''}
                           </span>
                         )}
                         <Eye size={16} className="text-gray-400" />
@@ -420,29 +414,31 @@ function AcompanhamentoPage() {
           </div>
         </div>
 
-        {/* Detalhes da negociação selecionada */}
         <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
-          {!negociacaoSelecionada ? (
+          {!atendimentoSelecionado ? (
             <div className="p-8 text-center text-gray-500">
               <Eye size={48} className="mx-auto mb-4 text-gray-300" />
               <p>Selecione um atendimento para visualizar os detalhes</p>
             </div>
           ) : (
             <>
-              {/* Header da negociação */}
               <div className="px-4 py-3 bg-gray-50 border-b border-gray-200">
                 <div className="flex items-center justify-between">
                   <div>
+                    <div className="flex items-center gap-2 mb-1">
+                      <span className="px-2 py-0.5 text-xs rounded-full bg-inforrel-primary/10 text-inforrel-primary font-semibold">
+                        {rotuloAtendimento(atendimentoSelecionado)}
+                      </span>
+                    </div>
                     <h3 className="font-medium text-gray-900">
-                      {negociacaoSelecionada.empresa_nome}
+                      {tituloListaAtendimento(atendimentoSelecionado)}
                     </h3>
                     <p className="text-sm text-gray-600">
-                      {negociacaoSelecionada.nome_contato} • {negociacaoSelecionada.telefone}
+                      {atendimentoSelecionado.nome_contato || 'Sem nome'} • {atendimentoSelecionado.telefone}
                     </p>
                   </div>
                 </div>
 
-                {/* Controles de modo de operação */}
                 <div className="mt-3 p-3 bg-white rounded-md border border-gray-200">
                   <label className="text-sm font-medium text-gray-700 block mb-2">
                     Modo de Operação
@@ -480,13 +476,12 @@ function AcompanhamentoPage() {
                 </div>
               </div>
 
-              {/* Alerta de mensagens pendentes */}
-              {mensagensNegociacao.filter(m => m.origem === 'system' && m.pendente_aprovacao).length > 0 && (
+              {mensagensAtendimento.filter(m => m.origem === 'system' && m.pendente_aprovacao).length > 0 && (
                 <div className="mx-4 mt-3 p-3 bg-yellow-50 border border-yellow-300 rounded-md">
                   <div className="flex items-center gap-2 text-yellow-800">
                     <CheckCircle size={18} />
                     <span className="font-medium text-sm">
-                      {mensagensNegociacao.filter(m => m.origem === 'system' && m.pendente_aprovacao).length} mensagen(s) pendente(s) de aprovação
+                      {mensagensAtendimento.filter(m => m.origem === 'system' && m.pendente_aprovacao).length} mensagen(s) pendente(s) de aprovação
                     </span>
                   </div>
                   {!userSelecionado && (
@@ -497,19 +492,18 @@ function AcompanhamentoPage() {
                 </div>
               )}
 
-              {/* Lista de mensagens */}
               <div className="max-h-[calc(100vh-450px)] overflow-y-auto p-4 space-y-3">
                 {carregandoMensagens ? (
                   <div className="text-center text-gray-500 py-8">
                     <RefreshCw size={20} className="animate-spin mx-auto mb-2" />
                     Carregando mensagens...
                   </div>
-                ) : mensagensNegociacao.length === 0 ? (
+                ) : mensagensAtendimento.length === 0 ? (
                   <div className="text-center text-gray-500 py-8">
                     Nenhuma mensagem encontrada
                   </div>
                 ) : (
-                  mensagensNegociacao.map((msg) => (
+                  mensagensAtendimento.map((msg) => (
                     <div
                       key={msg.id}
                       className={`flex ${
@@ -545,12 +539,10 @@ function AcompanhamentoPage() {
                               )}
                             </>
                           )}
-                          {/* Botão ver raciocínio */}
                           {msg.processamento_id && (
                             <button
                               onClick={(e) => {
                                 e.stopPropagation()
-                                console.log('[Debug] Abrindo raciocínio:', msg.processamento_id)
                                 setProcessamentoSelecionado(msg.processamento_id)
                               }}
                               className={`${msg.processamento_id ? 'ml-auto' : ''} text-gray-400 hover:text-inforrel-primary transition`}
@@ -560,7 +552,6 @@ function AcompanhamentoPage() {
                               <Brain size={14} />
                             </button>
                           )}
-                          {/* Botão copiar contexto para QA Runner */}
                           <button
                             onClick={(e) => {
                               e.stopPropagation()
@@ -575,10 +566,8 @@ function AcompanhamentoPage() {
                         </div>
                         <p className="text-gray-800 text-sm">{msg.conteudo}</p>
 
-                        {/* Botões de ação para mensagens do sistema */}
                         {msg.origem === 'system' && (
                           <div className="mt-2 flex items-center gap-2">
-                            {/* Botões de aprovação/reprovação */}
                             {msg.pendente_aprovacao && (
                               <>
                                 <button
@@ -611,7 +600,6 @@ function AcompanhamentoPage() {
                                 </button>
                               </>
                             )}
-                            {/* Botão reportar problema */}
                             {msg.processamento_id && (
                               <button
                                 onClick={() => setProcessamentoSelecionado(msg.processamento_id)}
@@ -630,7 +618,6 @@ function AcompanhamentoPage() {
                 )}
               </div>
 
-              {/* Área de envio manual (apenas modo HUMANO) */}
               {modoOperacao === 'humano' && (
                 <div className="p-4 bg-gray-50 border-t border-gray-200">
                   <div className="flex gap-2">
@@ -669,7 +656,6 @@ function AcompanhamentoPage() {
         </div>
       </div>
 
-      {/* Modal para criar usuário */}
       {mostrarModalCriarUser && (
         <DetalheModal
           titulo="Criar Novo Usuário"
@@ -715,7 +701,6 @@ function AcompanhamentoPage() {
         </DetalheModal>
       )}
 
-      {/* Modal de reprovação de mensagem */}
       {mensagemReprovando && (
         <DetalheModal
           titulo="Reprovar Mensagem"
@@ -743,7 +728,6 @@ function AcompanhamentoPage() {
               </p>
             </div>
 
-            {/* Seção opcional: registrar nova resposta como rascunho Q&A */}
             <div className="border border-gray-200 rounded-md">
               <div className="px-3 py-2 bg-gray-50 border-b border-gray-200 rounded-t-md">
                 <p className="text-sm font-medium text-gray-700">Registrar nova resposta (opcional)</p>
@@ -837,7 +821,6 @@ function AcompanhamentoPage() {
         </DetalheModal>
       )}
 
-      {/* Modal de raciocínio do cérebro / reportar problema */}
       {processamentoSelecionado && (
         <DetalheModal
           titulo={`Raciocínio do cérebro — processamento #${processamentoSelecionado}`}

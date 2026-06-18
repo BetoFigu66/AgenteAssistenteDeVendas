@@ -23,6 +23,7 @@ from models import (
     ModoOperacao,
     Atendimento,
     OrigemMensagem,
+    Parametro,
     ProcessamentoMensagem,
     ReportProblema,
     SeveridadeReport,
@@ -294,6 +295,7 @@ async def obter_dados_conversa(telefone: str):
             else None,
             "atendimento": {
                 "id": atendimento.id,
+                "numero_atendimento_cliente": atendimento.numero_atendimento_cliente,
                 "titulo": atendimento.titulo,
                 "status": atendimento.status.value if atendimento.status else None,
                 "modo_operacao": (atendimento.modo_operacao.value if atendimento.modo_operacao else None),
@@ -350,7 +352,7 @@ async def listar_atendimentos_ativos():
             .filter(Atendimento.status.in_(STATUS_ATENDIMENTO_ATIVOS))
             .order_by(
                 func.coalesce(subq.c.pendentes, 0).desc(),
-                Atendimento.updated_at.desc(),
+                func.coalesce(Atendimento.ultima_mensagem_at, Atendimento.updated_at).desc(),
             )
         )
 
@@ -359,6 +361,7 @@ async def listar_atendimentos_ativos():
             resultado.append(
                 {
                     "id": atendimento.id,
+                    "numero_atendimento_cliente": atendimento.numero_atendimento_cliente,
                     "status": atendimento.status.value if atendimento.status else None,
                     "modo_operacao": (atendimento.modo_operacao.value if atendimento.modo_operacao else None),
                     "titulo": atendimento.titulo,
@@ -368,6 +371,7 @@ async def listar_atendimentos_ativos():
                     "empresa_nome": (empresa.fantasia or empresa.nome) if empresa else None,
                     "mensagens_pendentes": int(pendentes or 0),
                     "updated_at": serialize_utc_datetime(atendimento.updated_at),
+                    "ultima_mensagem_at": serialize_utc_datetime(atendimento.ultima_mensagem_at),
                 }
             )
         return {"total": len(resultado), "atendimentos": resultado}
@@ -928,6 +932,14 @@ class RagConfigUpdate(BaseModel):
     rag_top_k: Optional[int] = None
 
 
+class AtendimentoConfigUpdate(BaseModel):
+    janela_continuacao_atendimento_horas: Optional[int] = None
+
+
+class ParametroValorUpdate(BaseModel):
+    valor: str
+
+
 @app.get("/api/config/rag")
 async def get_config_rag():
     """Retorna a configuração atual da RAG em memória."""
@@ -974,6 +986,81 @@ async def patch_config_rag(body: RagConfigUpdate):
         "rag_score_minimo": servico._score_minimo_padrao,
         "rag_top_k": servico._top_k_padrao,
     }
+
+
+# ============================================================================
+# Configuração de atendimento (runtime) — REQ-014.2C / REQ-016.18
+# ============================================================================
+
+
+@app.get("/api/config/atendimento")
+async def get_config_atendimento():
+    """Retorna parâmetros de atendimento persistidos em `parametros`."""
+    from services.parametro_service import ParametroService
+
+    with db.get_session() as session:
+        svc = ParametroService(session)
+        return {
+            "janela_continuacao_atendimento_horas": svc.janela_continuacao_atendimento_horas(),
+        }
+
+
+@app.patch("/api/config/atendimento")
+async def patch_config_atendimento(body: AtendimentoConfigUpdate):
+    """Atualiza parâmetros de atendimento sem reiniciar o servidor."""
+    from services.parametro_service import (
+        JANELA_CONTINUACAO_ATENDIMENTO_HORAS,
+        ParametroService,
+    )
+
+    with db.get_session() as session:
+        svc = ParametroService(session)
+        if body.janela_continuacao_atendimento_horas is not None:
+            try:
+                svc.set_int(
+                    JANELA_CONTINUACAO_ATENDIMENTO_HORAS,
+                    body.janela_continuacao_atendimento_horas,
+                    minimo=1,
+                )
+            except ValueError as exc:
+                raise HTTPException(status_code=422, detail=str(exc)) from exc
+        return {
+            "janela_continuacao_atendimento_horas": svc.janela_continuacao_atendimento_horas(),
+        }
+
+
+# ============================================================================
+# Parâmetros de configuração (tabela parametros) — REQ-014
+# ============================================================================
+
+
+@app.get("/api/parametros")
+async def listar_parametros():
+    """Lista todos os parâmetros (nome, descrição, valor)."""
+    with db.get_session() as session:
+        rows = session.query(Parametro).order_by(Parametro.nome.asc()).all()
+        return {
+            "total": len(rows),
+            "parametros": [p.to_dict() for p in rows],
+        }
+
+
+@app.patch("/api/parametros/{nome}")
+async def atualizar_parametro(nome: str, body: ParametroValorUpdate):
+    """Atualiza apenas o valor de um parâmetro existente."""
+    from services.parametro_service import ParametroService, validar_valor_parametro
+
+    with db.get_session() as session:
+        row = session.query(Parametro).filter(Parametro.nome == nome).first()
+        if not row:
+            raise HTTPException(status_code=404, detail="Parâmetro não encontrado")
+        try:
+            valor = validar_valor_parametro(nome, body.valor)
+        except ValueError as exc:
+            raise HTTPException(status_code=422, detail=str(exc)) from exc
+        svc = ParametroService(session)
+        atualizado = svc.set(nome, valor)
+        return atualizado.to_dict()
 
 
 @app.get("/health")

@@ -99,17 +99,6 @@ export const api = {
     }
   },
 
-  /** @deprecated use obterAtendimento */
-  async obterNegociacao(atendimentoId) {
-    return this.obterAtendimento(atendimentoId)
-  },
-
-  /** @deprecated use listarAtendimentosAtivos */
-  async listarNegociacoesAtivas() {
-    const data = await this.listarAtendimentosAtivos()
-    return { ...data, negociacoes: data.atendimentos, atendimentos: data.atendimentos }
-  },
-
   async obterProcessamento(processamentoId) {
     try {
       const response = await fetch(`${API_URL}/api/processamentos/${processamentoId}`)
@@ -378,6 +367,25 @@ export const api = {
       if (error instanceof ApiError) throw error
       throw new ApiError('Backend não está respondendo', 0, 'network')
     }
+  },
+
+  async listarParametros() {
+    const response = await fetch(`${API_URL}/api/parametros`)
+    if (!response.ok) throw new ApiError('Erro ao listar parâmetros', response.status, 'server')
+    return response.json()
+  },
+
+  async atualizarParametro(nome, valor) {
+    const response = await fetch(`${API_URL}/api/parametros/${encodeURIComponent(nome)}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ valor }),
+    })
+    if (!response.ok) {
+      const detail = await response.json().catch(() => null)
+      throw new ApiError(detail?.detail || 'Erro ao atualizar parâmetro', response.status, 'server')
+    }
+    return response.json()
   },
 }
 

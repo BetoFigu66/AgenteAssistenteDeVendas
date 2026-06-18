@@ -4,12 +4,14 @@ import DetalheModal from './DetalheModal'
 import EmpresaDetalhes from './EmpresaDetalhes'
 import AtendimentoDetalhes from './AtendimentoDetalhes'
 
+import { numeroAtendimentoExibicao, rotuloAtendimento } from '../utils/atendimento'
+
 function ConversaInfo({ dados }) {
   const [modal, setModal] = useState(null) // 'empresa' | 'atendimento' | null
 
   const empresa = dados?.empresa
   const contato = dados?.contato
-  const atendimento = dados?.atendimento ?? dados?.negociacao
+  const atendimento = dados?.atendimento
 
   return (
     <div className="px-4 py-2 bg-gray-50 border-b border-gray-200 text-sm">
@@ -52,7 +54,7 @@ function ConversaInfo({ dados }) {
               className="text-inforrel-primary hover:underline font-medium"
               title="Ver detalhes do atendimento"
             >
-              Atendimento #{atendimento.id}
+              {rotuloAtendimento(atendimento)}
               <span className="text-gray-600 font-normal"> ({atendimento.status})</span>
             </button>
           ) : (
@@ -68,7 +70,7 @@ function ConversaInfo({ dados }) {
       )}
 
       {modal === 'atendimento' && atendimento && (
-        <DetalheModal titulo={`Atendimento #${atendimento.id}`} onClose={() => setModal(null)}>
+        <DetalheModal titulo={rotuloAtendimento(atendimento)} onClose={() => setModal(null)}>
           <AtendimentoDetalhes atendimentoId={atendimento.id} />
         </DetalheModal>
       )}

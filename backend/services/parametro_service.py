@@ -11,8 +11,27 @@ from typing import Optional, TypeVar, Union
 
 from models import Parametro
 from sqlalchemy.orm import Session
+from utils.datetime_utils import utc_now
 
 logger = logging.getLogger(__name__)
+
+JANELA_CONTINUACAO_ATENDIMENTO_HORAS = "janela_continuacao_atendimento_horas"
+DEFAULT_JANELA_CONTINUACAO_ATENDIMENTO_HORAS = 24
+
+# Validação na escrita (REQ-014 §5.1)
+_PARAM_FLOAT_0_1 = frozenset({
+    "qa_fulltext_responde_min",
+    "qa_fulltext_desambigua_min",
+    "qa_embedding_responde_min",
+    "qa_embedding_desambigua_min",
+    "classificador_conf_alta_min",
+    "classificador_conf_baixa_max",
+})
+_PARAM_INT_MIN_1 = frozenset({
+    JANELA_CONTINUACAO_ATENDIMENTO_HORAS,
+    "desambiguador_max_opcoes",
+    "desambiguador_timeout_min",
+})
 
 T = TypeVar("T", int, float, bool, str)
 
@@ -73,6 +92,46 @@ class ParametroService:
     def get_str(self, nome: str, padrao: Optional[str] = None) -> Optional[str]:
         return self.get(nome, padrao, str)
 
+    def invalidar_cache(self, nome: Optional[str] = None) -> None:
+        """Remove entrada(s) do cache de sessão (após PATCH)."""
+        if nome is None:
+            self._cache.clear()
+        else:
+            self._cache.pop(nome, None)
+
+    def set(self, nome: str, valor: str, *, descricao: Optional[str] = None) -> Parametro:
+        """Persiste parâmetro na tabela `parametros` e invalida cache da chave."""
+        row = self._db.query(Parametro).filter(Parametro.nome == nome).first()
+        if row:
+            row.valor = valor
+            if descricao is not None:
+                row.descricao = descricao
+            row.updated_at = utc_now()
+        else:
+            row = Parametro(nome=nome, valor=valor, descricao=descricao)
+            self._db.add(row)
+        self._db.commit()
+        self._db.refresh(row)
+        self.invalidar_cache(nome)
+        logger.info("[Parametro] '%s' atualizado para %r", nome, valor)
+        return row
+
+    def set_int(self, nome: str, valor: int, *, minimo: int = 1, descricao: Optional[str] = None) -> int:
+        if valor < minimo:
+            raise ValueError(f"'{nome}' deve ser inteiro >= {minimo}")
+        self.set(nome, str(valor), descricao=descricao)
+        return valor
+
+    def janela_continuacao_atendimento_horas(self) -> int:
+        """Janela REQ-016.7 / REQ-014.2C (default 24h)."""
+        return (
+            self.get_int(
+                JANELA_CONTINUACAO_ATENDIMENTO_HORAS,
+                DEFAULT_JANELA_CONTINUACAO_ATENDIMENTO_HORAS,
+            )
+            or DEFAULT_JANELA_CONTINUACAO_ATENDIMENTO_HORAS
+        )
+
     def limiares_zona_cinza(self) -> dict[str, float]:
         """
         Retorna os 4 limiares de zona cinza usados pelo QAService.
@@ -92,6 +151,22 @@ class ParametroService:
             "alta_min": self.get_float("classificador_conf_alta_min", 0.70),
             "baixa_max": self.get_float("classificador_conf_baixa_max", 0.40),
         }
+
+
+def validar_valor_parametro(nome: str, valor: str) -> str:
+    """Valida valor textual antes de persistir (REQ-014 §5.1)."""
+    v = valor.strip()
+    if not v:
+        raise ValueError("valor não pode ser vazio")
+    if nome in _PARAM_FLOAT_0_1:
+        n = float(v)
+        if not 0.0 <= n <= 1.0:
+            raise ValueError(f"'{nome}' deve ser um número entre 0.0 e 1.0")
+    elif nome in _PARAM_INT_MIN_1:
+        n = int(v)
+        if n < 1:
+            raise ValueError(f"'{nome}' deve ser inteiro >= 1")
+    return v
 
 
 def _cast(valor: str, tipo: type[T]) -> T:

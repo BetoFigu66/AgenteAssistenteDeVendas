@@ -552,6 +552,10 @@ npm run dev
 # Build de produção
 npm run build
 
+# Se npm falhar com UNABLE_TO_VERIFY_LEAF_SIGNATURE (certificado/proxy no Windows),
+# validar o build via Docker (usa node:20-alpine dentro do container):
+docker compose build frontend
+
 # Preview do build
 npm run preview
 
@@ -579,8 +583,70 @@ wsl --list --verbose
 wsl --shutdown
 
 # Acessar pasta do Windows no WSL
-cd /mnt/c/Users/SeuUsuario/...
+cd /mnt/c/Beto/Pessoal/Python/git/AgenteAssistenteDeVendas
 ```
+
+### gh CLI instalado no WSL (não no PowerShell)
+
+**Diagnóstico** — se aparecer `Error: no such option: --milestone` ou
+`Usage: gh issue [OPTIONS] USER_REPO_NUMBER`, o binário `gh` **não** é o
+GitHub CLI oficial (ou está muito antigo):
+
+```bash
+which gh
+gh --version          # esperado: gh version 2.x (https://github.com/cli/cli)
+gh issue list --help  # deve listar -m, --milestone
+```
+
+Instalação correta no WSL (Ubuntu/Debian):
+
+```bash
+(type -p wget >/dev/null || (sudo apt update && sudo apt install wget -y)) \
+  && sudo mkdir -p -m 755 /etc/apt/keyrings \
+  && wget -qO- https://cli.github.com/packages/githubcli-archive-keyring.gpg | sudo tee /etc/apt/keyrings/githubcli-archive-keyring.gpg > /dev/null \
+  && sudo chmod go+r /etc/apt/keyrings/githubcli-archive-keyring.gpg \
+  && echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main" | sudo tee /etc/apt/sources.list.d/github-cli.list > /dev/null \
+  && sudo apt update && sudo apt install gh -y
+gh auth login
+```
+
+**Listar issues do Sprint 03** (repo já configurado com `git remote`):
+
+```bash
+cd /mnt/c/Beto/Pessoal/Python/git/AgenteAssistenteDeVendas
+
+# Opção A — flag curta (GitHub CLI 2.x)
+gh issue list -m "Sprint 03" -s open -L 100
+
+# Opção B — search (funciona quando --milestone falha em versões antigas)
+gh issue list --search 'milestone:"Sprint 03" state:open' -L 100
+
+# Opção C — REST API (sempre funciona, milestone Sprint 03 = número 1)
+gh api 'repos/BetoFigu66/AgenteAssistenteDeVendas/issues?milestone=1&state=open&per_page=100' \
+  --jq '.[] | "\(.number)\t\(.title)"'
+```
+
+Fechar issue após implementar:
+
+```bash
+gh issue close 10 --comment "T-A3: ultima_mensagem_at implementada."
+```
+
+Do **PowerShell**, delegar ao WSL:
+
+```powershell
+wsl bash -lc "cd /mnt/c/Beto/Pessoal/Python/git/AgenteAssistenteDeVendas && gh issue list -m 'Sprint 03' -s open -L 100"
+```
+
+Se `wsl` falhar com timeout (`Wsl/Service/0x8007274c`), reinicie o serviço (`wsl --shutdown` como Admin, depois `wsl`) ou liste issues pela **API pública** (sem auth):
+
+```powershell
+# milestone Sprint 03 = número 1 no repo
+Invoke-RestMethod "https://api.github.com/repos/BetoFigu66/AgenteAssistenteDeVendas/issues?milestone=1&state=open&per_page=100" |
+  Select-Object number, title
+```
+
+Para fechar issues e criar PRs, o `gh` autenticado no WSL continua sendo o caminho preferido.
 
 ---
 

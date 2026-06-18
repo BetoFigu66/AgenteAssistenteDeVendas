@@ -1,0 +1,110 @@
+# REQ-016-F02 — Criação automática de atendimento com numeração sequencial
+# Entregável Sprint 03 | Issue GitHub: #77
+# Subtarefas: T-A3 (done), T-A4, T-A8 (pendentes)
+
+id: REQ-016-F02
+issue: 77
+grupo: G-REQ016
+req: [REQ-016, REQ-014]
+titulo: "Criação automática de atendimento com numeração sequencial"
+
+estimativa: M
+capacidade_pct: 19
+branch_sugerida: feature/criacao-automatica-atendimento
+depende_de: [REQ-016-F01]
+
+status:
+  planning: pronto
+  execucao: done
+  capacidade_real_pct: null
+
+criterio_aceite: |
+  Telefone novo → Atendimento #1 no painel; segundo atendimento do mesmo contato → #2;
+  ultima_mensagem_at atualiza a cada mensagem do cliente; parâmetro janela_continuacao
+  legível via API de config (default 24h).
+
+subtarefas:
+  - id: T-A3
+    issue_historica: 10
+    status: done
+    migration: backend/alembic/versions/2026061504_ultima_mensagem_at.py
+  - id: T-A4
+    issue_historica: 11
+    status: done
+    migration: backend/alembic/versions/2026061505_numero_atendimento_cliente.py
+    servico: backend/services/atendimentos.py
+  - id: T-A8
+    issue_historica: 12
+    status: done
+    migration: backend/alembic/versions/2026061506_seed_janela_continuacao_atendimento_horas.py
+    endpoint: GET/PATCH /api/config/atendimento
+
+analise_implementador:
+  data: "2026-06-17"
+  abordagem: |
+    T-A3 concluída: coluna ultima_mensagem_at em atendimentos, backfill via MAX(mensagens.timestamp)
+    where origem=user, atualização em processador._atualizar_ultima_mensagem_at ao vincular msg do cliente.
+    Campo exposto em GET /api/atendimentos/ativas e to_dict().
+
+    T-A4 — extrair e evoluir lógica hoje inline no processador:
+    - Criar backend/services/atendimentos.py com obter_ou_criar_atendimento_para_mensagem(db, contato, ...).
+    - Migration NOVA: adicionar coluna numero_atendimento_cliente (Integer, NOT NULL após backfill)
+      com UNIQUE (contato_id, numero_atendimento_cliente). Gap: T-A1 não renomeou essa coluna porque
+      ela ainda não existia no POC — confirmar no psql antes de autogenerate.
+    - Numeração: SELECT COALESCE(MAX(numero_atendimento_cliente),0)+1 ... FOR UPDATE no contato
+      (ou lock advisory por contato_id) para evitar race em webhooks concorrentes.
+    - Regras v1 (sem T-A5/T-A7): contato novo → ativo #1; contato com ativo → reutiliza;
+      só encerrados → criar novo #N+1 (placeholder T-A5: pergunta continuação fica Sprint 04).
+    - Substituir _obter_ou_criar_atendimento e _obter_ou_criar_atendimento_pf_pendente no processador
+      por chamadas ao serviço (manter métodos privados como thin wrapper se reduzir diff).
+    - API listagem: incluir numero_atendimento_cliente para badge "Atendimento #N" na F01/F02.
+
+    T-A8 — parâmetro runtime:
+    - Migration seed: INSERT parametros (janela_continuacao_atendimento_horas, 24, descricao).
+    - Validacao int >= 1 na escrita (PATCH admin ou seed).
+    - Expor em GET /api/config/rag ou novo GET /api/config/atendimento (preferir endpoint dedicado
+      ou estender resposta existente sem quebrar frontend RAG).
+    - ParametroService.get_int sem cache longo — cache por sessão OK (D02); invalidar cache após PATCH.
+    - Consumo efetivo do parâmetro fica para T-A5 (Sprint 04); nesta entrega basta persistir + ler + expor.
+  criterios_pronto:
+    - "Migration T-A4 head OK; backfill numero=1 para atendimentos existentes por contato (ordem created_at)"
+    - "Dois POST simultâneos simulados não geram mesmo numero_atendimento_cliente"
+    - "GET /api/atendimentos/ativas retorna numero_atendimento_cliente"
+    - "Parametro janela_continuacao_atendimento_horas visível no GET config"
+    - "pytest backend/tests verdes; teste unitário do serviço atendimentos"
+  riscos:
+    - "Coluna numero_atendimento_cliente ausente no schema atual — migration aditiva necessária."
+    - "Lógica duplicada em _obter_ou_criar_atendimento_pf_pendente — unificar no serviço."
+    - "T-A8 PATCH config: seguir padrão RAG in-memory vs persistir em parametros — usar tabela parametros como fonte."
+
+implementacao:
+  concluido:
+    - backend/alembic/versions/2026061504_ultima_mensagem_at.py
+    - backend/alembic/versions/2026061505_numero_atendimento_cliente.py
+    - backend/models.py  # ultima_mensagem_at, numero_atendimento_cliente
+    - backend/services/atendimentos.py
+    - backend/services/processador.py  # delega ao serviço + _atualizar_ultima_mensagem_at
+    - backend/main.py  # numero_atendimento_cliente na listagem e conversa
+    - backend/tests/test_atendimentos.py
+    - backend/alembic/versions/2026061506_seed_janela_continuacao_atendimento_horas.py
+    - backend/services/parametro_service.py  # set_int, janela_continuacao_atendimento_horas()
+    - backend/main.py  # GET/PATCH /api/config/atendimento
+    - backend/tests/test_parametro_service.py
+  pendente: []
+  commit_sugerido: "feat(REQ-016/F02): servico atendimentos, numeracao sequencial e param janela"
+
+duvidas_decisoes:
+  - id: D-F02-1
+    pergunta: "numero_atendimento_cliente não existe no banco — criar do zero ou havia numero_negociacao_cliente?"
+    decisao: "Criar coluna nova; grep no repo não encontrou legado — validar psql antes da migration."
+    status: aberta
+  - id: D-F02-2
+    pergunta: "Onde expor janela_continuacao — /api/config/rag ou endpoint novo?"
+    decisao: "GET/PATCH /api/config/atendimento dedicado; RAG permanece inalterado."
+    status: fechada
+
+execucao_log:
+  - data: "2026-06-16"
+    descricao: "T-A3 implementada (migration 2026061504 + processador)."
+  - data: "2026-06-17"
+    descricao: "T-A8: seed janela_continuacao_atendimento_horas + GET/PATCH /api/config/atendimento."

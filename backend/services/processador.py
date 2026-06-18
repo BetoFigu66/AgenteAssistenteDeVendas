@@ -14,7 +14,7 @@ Fluxo:
 import logging
 import time
 from dataclasses import dataclass
-from datetime import date
+from datetime import date, datetime
 from typing import Optional
 
 from config import settings
@@ -35,6 +35,7 @@ from models import (
 )
 from sqlalchemy.orm import Session
 
+from services import atendimentos as atendimentos_svc
 from services.classificador import Intencao, ResultadoClassificacao, classificar
 from services.cnpj import ConsultaCnpjError, obter_ou_criar_empresa
 from services.cnpj.receitaws import validar_cnpj
@@ -53,6 +54,7 @@ from services.llm import LLMProvider
 from services.rag import DocumentoRecuperado, ParRecuperado, QAService, RetrievalService
 from services.respostas import GeradorRespostas, RespostaGerada
 from services.respostas import templates as T
+from utils.datetime_utils import utc_now
 
 logger = logging.getLogger(__name__)
 
@@ -246,6 +248,7 @@ class ProcessadorMensagem:
             msg_in.contato_id = contato.id
             if atendimento:
                 msg_in.atendimento_id = atendimento.id
+                self._atualizar_ultima_mensagem_at(atendimento, msg_in.timestamp)
 
         # 9. Persiste resposta do sistema APENAS quando modo=AGENTE.
         # No modo HUMANO, o operador enviará a resposta manualmente pela UI.
@@ -807,15 +810,17 @@ class ProcessadorMensagem:
 
     STATUS_ATIVOS = (StatusAtendimento.ATIVO,)
 
+    @staticmethod
+    def _atualizar_ultima_mensagem_at(
+        atendimento: Atendimento,
+        quando: Optional[datetime] = None,
+    ) -> None:
+        """Atualiza timestamp da última mensagem do cliente (REQ-016 T-A3)."""
+        atendimento.ultima_mensagem_at = quando or utc_now()
+
     def _atendimento_ativo(self, db: Session, contato: Contato) -> Optional[Atendimento]:
         """Retorna o atendimento ativo do contato (se houver)."""
-        return (
-            db.query(Atendimento)
-            .filter(Atendimento.contato_id == contato.id)
-            .filter(Atendimento.status == StatusAtendimento.ATIVO)
-            .order_by(Atendimento.created_at.desc())
-            .first()
-        )
+        return atendimentos_svc.atendimento_ativo(db, contato)
 
     def _obter_ou_criar_atendimento(
         self,
@@ -824,43 +829,8 @@ class ProcessadorMensagem:
         empresa: Optional[Empresa] = None,
         pessoa: Optional[Pessoa] = None,
     ) -> Atendimento:
-        """
-        Retorna negociação ativa ou cria uma nova.
-
-        `empresa` ou `pessoa` identificam PJ ou PF respectivamente.
-        """
-        atendimento = self._atendimento_ativo(db, contato)
-        if atendimento:
-            if empresa is not None and atendimento.empresa_id is None:
-                self._promover_atendimento_empresa(db, atendimento, empresa)
-            if pessoa is not None and atendimento.pessoa_id is None:
-                self._promover_atendimento_pessoa(db, atendimento, pessoa)
-            return atendimento
-
-        if empresa:
-            titulo = f"Atendimento - {empresa.nome}"
-        elif pessoa:
-            titulo = f"Atendimento - {pessoa.nome or 'Pessoa Física'}"
-        else:
-            titulo = "Atendimento (sem empresa)"
-
-        tipo_doc = TipoDocumento.CNPJ if empresa else TipoDocumento.CPF if pessoa else TipoDocumento.INDEFINIDO
-        atendimento = Atendimento(
-            contato_id=contato.id,
-            empresa_id=empresa.id if empresa else None,
-            pessoa_id=pessoa.id if pessoa else None,
-            tipo_documento=tipo_doc,
-            status=StatusAtendimento.ATIVO,
-            titulo=titulo,
-        )
-        db.add(atendimento)
-        db.commit()
-        db.refresh(atendimento)
-        logger.info(
-            f"[Processador] Negociação criada id={atendimento.id} "
-            f"empresa_id={atendimento.empresa_id} pessoa_id={atendimento.pessoa_id}"
-        )
-        return atendimento
+        """Retorna atendimento ativo ou cria um novo."""
+        return atendimentos_svc.obter_ou_criar_atendimento(db, contato, empresa=empresa, pessoa=pessoa)
 
     def _obter_ou_criar_atendimento_pf_pendente(
         self,
@@ -868,24 +838,10 @@ class ProcessadorMensagem:
         contato: Contato,
         cpf: str,
     ) -> Atendimento:
-        """Cria ou retorna negociação PF aguardando data de nascimento."""
-        atendimento = self._atendimento_ativo(db, contato)
-        if atendimento:
-            atendimento.tipo_documento = TipoDocumento.CPF
-            db.commit()
-            return atendimento
-
-        atendimento = Atendimento(
-            contato_id=contato.id,
-            tipo_documento=TipoDocumento.CPF,
-            status=StatusAtendimento.ATIVO,
-            titulo="Atendimento - Pessoa Física (pendente)",
+        """Cria ou retorna atendimento PF aguardando data de nascimento."""
+        return atendimentos_svc.obter_ou_criar_atendimento_pf_pendente(
+            db, contato, cpf_mascarado=mascarar_cpf(cpf)
         )
-        db.add(atendimento)
-        db.commit()
-        db.refresh(atendimento)
-        logger.info(f"[Processador] Negociação PF pendente criada id={atendimento.id} cpf={mascarar_cpf(cpf)}")
-        return atendimento
 
     def _promover_atendimento_pessoa(
         self,
@@ -893,18 +849,8 @@ class ProcessadorMensagem:
         atendimento: Atendimento,
         pessoa: Pessoa,
     ) -> Atendimento:
-        """Vincula pessoa (PF) a uma negociação existente."""
-        if atendimento.pessoa_id is None:
-            atendimento.pessoa_id = pessoa.id
-            atendimento.tipo_documento = TipoDocumento.CPF
-            if not atendimento.titulo or atendimento.titulo.startswith("Atendimento (sem"):
-                atendimento.titulo = f"Atendimento - {pessoa.nome or 'Pessoa Física'}"
-            db.commit()
-            db.refresh(atendimento)
-            logger.info(
-                f"[Processador] Negociação id={atendimento.id} promovida para pessoa id={pessoa.id}"
-            )
-        return atendimento
+        """Vincula pessoa (PF) a um atendimento existente."""
+        return atendimentos_svc.promover_atendimento_pessoa(db, atendimento, pessoa)
 
     def _parse_data_entidade(self, entidades, conteudo: str) -> Optional[date]:
         """Obtém data de nascimento das entidades extraídas ou do texto bruto."""
@@ -968,17 +914,8 @@ class ProcessadorMensagem:
         atendimento: Atendimento,
         empresa: Empresa,
     ) -> Atendimento:
-        """Vincula a empresa a uma negociação anônima existente."""
-        if atendimento.empresa_id is None:
-            atendimento.empresa_id = empresa.id
-            if not atendimento.titulo or atendimento.titulo == "Atendimento (sem empresa)":
-                atendimento.titulo = f"Atendimento - {empresa.nome}"
-            db.commit()
-            db.refresh(atendimento)
-            logger.info(
-                f"[Processador] Negociação id={atendimento.id} promovida para empresa id={empresa.id}"
-            )
-        return atendimento
+        """Vincula a empresa a um atendimento existente."""
+        return atendimentos_svc.promover_atendimento_empresa(db, atendimento, empresa)
 
     async def _atualizar_infos_atendimento(
         self,

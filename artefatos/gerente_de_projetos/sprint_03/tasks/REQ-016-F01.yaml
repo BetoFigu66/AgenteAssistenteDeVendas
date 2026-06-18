@@ -1,0 +1,107 @@
+# REQ-016-F01 — Migração completa negociação → atendimento
+# Entregável Sprint 03 | Issue GitHub: #76
+# Subtarefas: T-A1, T-A1b, T-A2, T-A11 (done)
+
+id: REQ-016-F01
+issue: 76
+grupo: G-REQ016
+req: [REQ-016, REQ-010]
+titulo: "Migração completa do modelo negociação → atendimento"
+
+estimativa: M
+capacidade_pct: 19
+branch_sugerida: feature/migration-rename-atendimentos
+depende_de: []
+
+status:
+  planning: pronto
+  execucao: done
+  capacidade_real_pct: null
+
+criterio_aceite: |
+  Painel exibe "Atendimento" (e badge #N quando F02 entregar numeração); pytest backend/tests passa;
+  grep no frontend por "Negocia" retorna só comentários de compat ou zero; labels visíveis atualizados.
+
+subtarefas:
+  - id: T-A1
+    issue_historica: 7
+    status: done
+    detalhe: tasks/T-A1.yaml (legado V01 em AnotacoesPessoais/Beto/gerente_de_projetos/sprint_03_V01/tasks/)
+  - id: T-A1b
+    issue_historica: 8
+    status: done
+    migration: backend/alembic/versions/2026061502_estados_atendimento_ativo_encerrado.py
+  - id: T-A2
+    issue_historica: 9
+    status: done
+    detalhe: AnotacoesPessoais/.../sprint_03_V01/tasks/T-A2.yaml
+  - id: T-A11
+    issue_historica: 13
+    status: done
+    escopo_restante: concluído — ver commit T-A11
+
+analise_implementador:
+  data: "2026-06-17"
+  abordagem: |
+    Backend e migrations (T-A1, T-A1b, T-A2) estão concluídos: tabelas atendimentos/atendimento_infos,
+    StatusAtendimento ATIVO/ENCERRADO, rotas /api/atendimentos/*, processador usando Atendimento.
+    Migration 2026061503 aplicou timestamptz UTC (apoio ao bug #2, fora do escopo direto desta entrega).
+
+    Restante da entrega = T-A11 (frontend cosmético + consistência):
+    1. Renomear estado interno em AcompanhamentoPage.jsx (negociacoes → atendimentos, etc.).
+    2. Labels visíveis: lista lateral, headers, comentários de código expostos ao usuário.
+    3. Badge "Atendimento #N" no cabecalho da conversa (ConversaInfo) e na lista de ativos —
+       hoje ConversaInfo usa atendimento.id; numero_atendimento_cliente vem na F02 (#77).
+       Até F02: exibir "Atendimento #id" ou placeholder até API expor numero_atendimento_cliente.
+    4. Manter aliases deprecated em api.js (listarNegociacoesAtivas) até grep limpo, depois remover.
+    5. Compatibilidade: ConversaInfo e ProcessamentoDetalhes já leem atendimento ?? negociacao legado.
+
+    Rotas /negociacoes/* → /atendimentos/*: o App.jsx usa estado local (pagina), não react-router.
+    Não há URLs /negociacoes hoje. Critério prático: nomenclatura e componentes; deep links ficam fora.
+  criterios_pronto:
+    - "grep -ri Negocia frontend/src --include='*.jsx' --include='*.js' sem matches em strings visíveis ao usuário"
+    - "AcompanhamentoPage renderiza sem erro; listarAtendimentosAtivos OK"
+    - "ConversaInfo e AtendimentoDetalhes exibem Atendimento #N (id ou numero_atendimento_cliente)"
+    - "pytest backend/tests passa (regressão backend)"
+    - "Fechar issue #76 no GitHub com checklist T-A11 marcada"
+  riscos:
+    - "Badge #N depende parcialmente de F02 (numero_atendimento_cliente ainda não existe no schema Python)."
+    - "Container frontend :3000 precisa rebuild se não usar volume bind mount."
+    - "Renomear variáveis em AcompanhamentoPage é diff grande mas mecânico — risco baixo de regressão lógica."
+
+implementacao:
+  concluido:
+    migrations:
+      - backend/alembic/versions/2026061501_rename_negociacoes_atendimentos.py
+      - backend/alembic/versions/2026061502_estados_atendimento_ativo_encerrado.py
+      - backend/alembic/versions/2026061503_timestamptz_utc.py
+    backend:
+      - backend/models.py
+      - backend/main.py
+      - backend/services/processador.py
+    frontend:
+      - frontend/src/services/api.js
+      - frontend/src/components/ConversaInfo.jsx
+      - frontend/src/components/AtendimentoDetalhes.jsx
+      - frontend/src/components/ProcessamentoDetalhes.jsx
+      - frontend/src/components/AcompanhamentoPage.jsx
+      - frontend/src/utils/atendimento.js
+  commit_sugerido: "refactor(REQ-016/F01): conclui rename UI Negociacao -> Atendimento"
+
+duvidas_decisoes:
+  - id: D-F01-1
+    pergunta: "Exibir Atendimento #id até F02 entregar numero_atendimento_cliente?"
+    decisao: "Sim — id interno é aceitável como N provisório; trocar para numero_atendimento_cliente na F02."
+    status: fechada
+  - id: D-F01-2
+    pergunta: "Implementar react-router /atendimentos/* nesta entrega?"
+    decisao: "Não — app não usa router por URL; escopo limitado a labels/badges/componentes."
+    status: fechada
+
+execucao_log:
+  - data: "2026-06-15"
+    descricao: "T-A1, T-A1b, T-A2 implementados (ver V01)."
+  - data: "2026-06-16"
+    descricao: "UI parcial — api.js, ConversaInfo, AtendimentoDetalhes."
+  - data: "2026-06-17"
+    descricao: "T-A11 concluído: AcompanhamentoPage rename, badges Atendimento #N, utils/atendimento.js."

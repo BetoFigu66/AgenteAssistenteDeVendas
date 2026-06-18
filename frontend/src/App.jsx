@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { Flag, Monitor, BookOpen } from 'lucide-react'
+import { Flag, Monitor, BookOpen, Settings } from 'lucide-react'
 import Header from './components/Header'
 import Footer from './components/Footer'
 import PhonePanel from './components/PhonePanel'
@@ -7,10 +7,11 @@ import ChatArea from './components/ChatArea'
 import ReportsPage from './components/ReportsPage'
 import AcompanhamentoPage from './components/AcompanhamentoPage'
 import QABasePage from './components/QABasePage'
+import ParametrosPage from './components/ParametrosPage'
 import { api } from './services/api'
 
 function App() {
-  const [pagina, setPagina] = useState('chat') // 'chat' | 'reports' | 'acompanhamento' | 'qa-base'
+  const [pagina, setPagina] = useState('chat') // 'chat' | 'reports' | 'acompanhamento' | 'qa-base' | 'parametros'
   const [telefoneAtual, setTelefoneAtual] = useState(null)
   const [telefones, setTelefones] = useState([])
   const [mensagens, setMensagens] = useState([])
@@ -136,6 +137,16 @@ function App() {
           >
             <BookOpen size={14} /> Base Q&A
           </button>
+          <button
+            onClick={() => setPagina('parametros')}
+            className={`px-4 py-2 text-sm font-medium border-b-2 transition flex items-center gap-1.5 ${
+              pagina === 'parametros'
+                ? 'border-inforrel-primary text-inforrel-primary'
+                : 'border-transparent text-gray-600 hover:text-inforrel-primary'
+            }`}
+          >
+            <Settings size={14} /> Parâmetros
+          </button>
         </div>
       </nav>
 
@@ -162,6 +173,7 @@ function App() {
         {pagina === 'acompanhamento' && <AcompanhamentoPage />}
         {pagina === 'reports' && <ReportsPage onVoltar={() => setPagina('chat')} />}
         {pagina === 'qa-base' && <QABasePage />}
+        {pagina === 'parametros' && <ParametrosPage />}
       </main>
 
       <Footer />
