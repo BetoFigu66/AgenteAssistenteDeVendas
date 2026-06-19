@@ -3,11 +3,12 @@ Persistência de Pessoa Física (PF) identificada por CPF.
 """
 
 import logging
-from datetime import date, datetime
+from datetime import date
 from typing import Optional
 
 from models import Pessoa
 from sqlalchemy.orm import Session
+from utils.datetime_utils import utc_now
 
 from .consulta_credito import ResultadoConsultaCredito, consultar_credito
 from .validacao import formatar_cpf, normalizar_cpf
@@ -53,7 +54,7 @@ async def obter_ou_criar_pessoa(
         resultado_credito = await consultar_credito(cpf_formatado)
         pessoa.situacao = _situacao_de_credito(resultado_credito)
         if resultado_credito.consulta_realizada:
-            pessoa.ultima_atualizacao_api = datetime.utcnow()
+            pessoa.ultima_atualizacao_api = utc_now()
 
     db.commit()
     db.refresh(pessoa)

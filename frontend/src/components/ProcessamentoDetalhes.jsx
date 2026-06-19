@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { AlertTriangle, CheckCircle2, Flag, Loader2 } from 'lucide-react'
 import { api } from '../services/api'
+import { formatDatetimeBRT } from '../utils/datetime'
 import {
   CATEGORIAS,
   SEVERIDADES,
@@ -193,7 +194,7 @@ function ReportsSection({ processamentoId, reportsIniciais }) {
               >
                 <div className="flex items-center justify-between mb-1 flex-wrap gap-1">
                   <span className="text-xs text-gray-500">
-                    #{r.id} — {new Date(r.created_at).toLocaleString('pt-BR')}
+                    #{r.id} — {formatDatetimeBRT(r.created_at)}
                   </span>
                   <div className="flex gap-1 flex-wrap">
                     {r.categoria && (
@@ -286,7 +287,7 @@ function ProcessamentoDetalhes({ processamentoId }) {
           <Campo label="Status" valor={proc.status_identificacao} />
           <Campo label="Contato ID" valor={proc.contato_id_identificado} />
           <Campo label="Empresa ID" valor={proc.empresa_id_identificada} />
-          <Campo label="Negociação ativa" valor={proc.negociacao_id_ativa} />
+          <Campo label="Atendimento ativo" valor={proc.atendimento_id_ativa ?? proc.negociacao_id_ativa} />
         </div>
       </Secao>
 

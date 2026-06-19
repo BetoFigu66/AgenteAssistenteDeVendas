@@ -2,14 +2,14 @@ import { useState } from 'react'
 import { Building2, User, Briefcase } from 'lucide-react'
 import DetalheModal from './DetalheModal'
 import EmpresaDetalhes from './EmpresaDetalhes'
-import NegociacaoDetalhes from './NegociacaoDetalhes'
+import AtendimentoDetalhes from './AtendimentoDetalhes'
 
 function ConversaInfo({ dados }) {
-  const [modal, setModal] = useState(null) // 'empresa' | 'negociacao' | null
+  const [modal, setModal] = useState(null) // 'empresa' | 'atendimento' | null
 
   const empresa = dados?.empresa
   const contato = dados?.contato
-  const negociacao = dados?.negociacao
+  const atendimento = dados?.atendimento ?? dados?.negociacao
 
   return (
     <div className="px-4 py-2 bg-gray-50 border-b border-gray-200 text-sm">
@@ -43,20 +43,20 @@ function ConversaInfo({ dados }) {
           )}
         </div>
 
-        {/* Negociação */}
+        {/* Atendimento */}
         <div className="flex items-center gap-1.5">
           <Briefcase size={14} className="text-inforrel-primary" />
-          {negociacao ? (
+          {atendimento ? (
             <button
-              onClick={() => setModal('negociacao')}
+              onClick={() => setModal('atendimento')}
               className="text-inforrel-primary hover:underline font-medium"
-              title="Ver detalhes da negociação"
+              title="Ver detalhes do atendimento"
             >
-              Negociação #{negociacao.id}
-              <span className="text-gray-600 font-normal"> ({negociacao.status})</span>
+              Atendimento #{atendimento.id}
+              <span className="text-gray-600 font-normal"> ({atendimento.status})</span>
             </button>
           ) : (
-            <span className="text-gray-500 italic">Negociação não identificada</span>
+            <span className="text-gray-500 italic">Atendimento não identificado</span>
           )}
         </div>
       </div>
@@ -67,9 +67,9 @@ function ConversaInfo({ dados }) {
         </DetalheModal>
       )}
 
-      {modal === 'negociacao' && negociacao && (
-        <DetalheModal titulo={`Negociação #${negociacao.id}`} onClose={() => setModal(null)}>
-          <NegociacaoDetalhes negociacaoId={negociacao.id} />
+      {modal === 'atendimento' && atendimento && (
+        <DetalheModal titulo={`Atendimento #${atendimento.id}`} onClose={() => setModal(null)}>
+          <AtendimentoDetalhes atendimentoId={atendimento.id} />
         </DetalheModal>
       )}
     </div>

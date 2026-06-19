@@ -1,0 +1,300 @@
+# Sprint 03 — Planning (fonte única do planejamento técnico)
+# Gerado no dia 1 do sprint pelo [gerente]. Análise detalhada task a task: [implementador].
+# Issues GitHub: milestone "Sprint 03" (REQ-016). Sincronizar campo `issue` quando tiver o número.
+# Backlog detalhado: artefatos/gerente_de_projetos/backlog_req016_atendimentos.md
+
+sprint_numero: 3
+data_inicio: "2026-06-15"
+data_fim: "2026-06-28"
+duracao_dias: 14
+
+objetivos:
+  - "Renomear Negociação → Atendimento no schema, backend e frontend (REQ-016)."
+  - "Entregar ciclo de vida mínimo: estados ativo/encerrado, numeração sequencial e parâmetro de janela de continuação."
+  - "Deixar perguntas de continuação/fechamento e painel avançado para Sprint 04 (T-A5 a T-A12)."
+
+meta:
+  versao: 1
+  criado_em: "2026-06-15"
+  criado_por: "[gerente]"
+  status: esqueleto
+  # esqueleto = gerente preencheu ordem/grupos/estimativas; implementador ainda não analisou
+  # em_analise = implementador preenchendo analise por task
+  # pronto = planning fechado para execução
+  fontes:
+    - artefatos/gerente_de_projetos/backlog_req016_atendimentos.md
+    - scripts/criar_issues_req016_sprint03.ps1
+
+# Sequência de implementação (ordem global). Tasks no mesmo `ordem` podem rodar em paralelo.
+ordem_implementacao:
+  - ordem: 1
+    grupo: G1
+    nota: "Migration mecânica — baixo risco; base para todo o restante."
+  - ordem: 2
+    grupo: G2
+    nota: "Migration semântica — risco médio; PR separado de G1."
+  - ordem: 3
+    grupo: G3
+    nota: "Refactor transversal; desbloqueia backend e frontend."
+  - ordem: 4
+    grupos: [G4, G5, G7]
+    nota: "Três frentes em paralelo após G3 (T-A3, T-A4, T-A8, T-A11)."
+
+# Agrupamento temático + sugestão de branch. Nem todo grupo vira uma única branch — ver `tasks`.
+grupos:
+  - id: G1
+    assunto: "Schema — rename mecânico"
+    branch_sugerida: feature/migration-rename-atendimentos
+    tasks: [T-A1]
+    estimativa_grupo: S
+
+  - id: G2
+    assunto: "Schema — estados e motivo_encerramento"
+    branch_sugerida: feature/migration-estados-atendimento
+    tasks: [T-A1b]
+    estimativa_grupo: M
+
+  - id: G3
+    assunto: "Backend — refactor Python (models, services, rotas)"
+    branch_sugerida: feature/refactor-atendimento-python
+    tasks: [T-A2]
+    estimativa_grupo: L
+
+  - id: G4
+    assunto: "Backend — domínio atendimento (timestamp + criação automática)"
+    branch_sugerida: null
+    nota: "T-A3 e T-A4 em branches separadas (escopo distinto); mesmo assunto de domínio."
+    tasks: [T-A3, T-A4]
+    estimativa_grupo: M
+
+  - id: G5
+    assunto: "Configuração — parâmetro janela de continuação"
+    branch_sugerida: feature/parametro-janela-continuacao
+    tasks: [T-A8]
+    estimativa_grupo: S
+
+  - id: G7
+    assunto: "Frontend — rename UI Negociação → Atendimento"
+    branch_sugerida: feature/ui-rename-atendimento
+    tasks: [T-A11]
+    estimativa_grupo: M
+
+# Estimativa: T-shirt (S | M | L | XL) + percentual de capacidade do sprint.
+# Percentuais desta sprint: ver tshirt_escala. Histórico cross-sprint: tshirt_calibracao.yaml
+tshirt_escala:
+  confianca: hipotese
+  percentual:
+    S: 5
+    M: 19
+    L: 28
+    XL: null
+  proporcoes:
+    M_por_S: 3.8
+    L_por_S: 5.6
+  verificacao: "3×S + 3×M + 1×L = 15 + 57 + 28 = 100%"
+
+capacidade:
+  sprint_pct: 100
+  planejada_pct: 100
+  consumida_pct: 0
+  restante_pct: 100
+  composicao:
+    total_tasks: 7
+    por_tamanho: { S: 3, M: 3, L: 1 }
+
+# Registro diário de execução — alimenta calibração das próximas sprints.
+# tipo: processo | analise | implementacao | review | qa
+execucao:
+  ultima_atualizacao: "2026-06-15"
+  dias:
+    - data: "2026-06-15"
+      dia_sprint: 1
+      itens:
+        - tipo: processo
+          descricao: "Planejamento e organização do Sprint (planning.yaml, G07, calibração T-shirt)"
+          task_id: null
+          capacidade_pct: null
+        - tipo: analise
+          task_id: T-A1
+          descricao: "Análise da task T-A1"
+          capacidade_pct: null
+        - tipo: analise
+          task_id: T-A1b
+          descricao: "Análise da task T-A1b"
+          capacidade_pct: null
+        - tipo: analise
+          task_id: T-A2
+          descricao: "Análise da task T-A2"
+          capacidade_pct: null
+        - tipo: analise
+          task_id: T-A3
+          descricao: "Análise da task T-A3"
+          capacidade_pct: null
+        - tipo: analise
+          task_id: T-A4
+          descricao: "Análise da task T-A4"
+          capacidade_pct: null
+        - tipo: analise
+          task_id: T-A8
+          descricao: "Análise da task T-A8"
+          capacidade_pct: null
+        - tipo: analise
+          task_id: T-A11
+          descricao: "Análise da task T-A11"
+          capacidade_pct: null
+        - tipo: implementacao
+          task_id: T-A1
+          observacoes: "Análise concluída; migration implementada e testada."
+      capacidade_dia_pct: null
+      nota: "Dia 1 focado em processo + análises; capacidade_pct das tasks preenchida ao concluir implementação."
+
+tasks:
+  - id: T-A1
+    issue: null
+    arquivo: tasks/T-A1.yaml
+    titulo: "Migration Alembic: rename negociacoes -> atendimentos (tabelas, colunas, FKs)"
+    grupo: G1
+    req: [REQ-016]
+    estimativa: S
+    capacidade_pct: 5
+    execucao_status: done
+    capacidade_real_pct: null
+
+  - id: T-A1b
+    issue: null
+    arquivo: tasks/T-A1b.yaml
+    titulo: "Migration Alembic: drop dos estados antigos com remapeamento"
+    grupo: G2
+    req: [REQ-016, REQ-006]
+    estimativa: M
+    capacidade_pct: 19
+    execucao_status: done
+    capacidade_real_pct: null
+
+  - id: T-A2
+    issue: null
+    titulo: "Refactor Python: models, schemas, services e rotas para o novo vocabulário"
+    grupo: G3
+    req: [REQ-016]
+    labels: [tipo:task, prio:alta, area:backend, REQ-016]
+    estimativa: L
+    capacidade_pct: 28
+    confianca: media
+    branch_sugerida: feature/refactor-atendimento-python
+    depende_de: [T-A1, T-A1b]
+    escopo_resumo: "Negociacao -> Atendimento em models/services/schemas; /api/atendimentos/*; testes verdes."
+    status_planning: pronto
+    execucao_status: done
+    capacidade_real_pct: null
+    analise_implementador: "Ver tasks/T-A2.yaml"
+    duvidas_decisoes: []
+
+  - id: T-A3
+    issue: null
+    titulo: "Coluna ultima_mensagem_at no atendimento + atualização a cada mensagem"
+    grupo: G4
+    req: [REQ-016]
+    labels: [tipo:task, prio:alta, area:backend, REQ-016]
+    estimativa: S
+    capacidade_pct: 5
+    confianca: alta
+    branch_sugerida: feature/atendimento-ultima-mensagem-at
+    depende_de: [T-A1, T-A2]
+    escopo_resumo: "Migration + atualização no processador a cada mensagem do cliente."
+    status_planning: esqueleto
+    execucao_status: nao_iniciada
+    capacidade_real_pct: null
+    analise_implementador: null
+    duvidas_decisoes: []
+
+  - id: T-A4
+    issue: null
+    titulo: "Lógica de criação automática de atendimento (services/atendimentos.py)"
+    grupo: G4
+    req: [REQ-016, REQ-002]
+    labels: [tipo:task, prio:alta, area:backend, REQ-016]
+    estimativa: M
+    capacidade_pct: 19
+    confianca: media
+    branch_sugerida: feature/criacao-automatica-atendimento
+    depende_de: [T-A1, T-A2]
+    escopo_resumo: "obter_ou_criar_atendimento_para_mensagem; numeração sequencial com lock."
+    status_planning: esqueleto
+    execucao_status: nao_iniciada
+    capacidade_real_pct: null
+    analise_implementador: null
+    duvidas_decisoes: []
+
+  - id: T-A8
+    issue: null
+    titulo: "Parâmetro janela_continuacao_atendimento_horas em parametros (REQ-014.2C)"
+    grupo: G5
+    req: [REQ-016, REQ-014]
+    labels: [tipo:task, prio:alta, area:backend, REQ-016, REQ-014]
+    estimativa: S
+    capacidade_pct: 5
+    confianca: alta
+    branch_sugerida: feature/parametro-janela-continuacao
+    depende_de: []
+    escopo_resumo: "Seed default 24h; validação >= 1; expor em GET config; leitura sem cache longo."
+    status_planning: esqueleto
+    execucao_status: nao_iniciada
+    capacidade_real_pct: null
+    analise_implementador: null
+    duvidas_decisoes: []
+
+  - id: T-A11
+    issue: null
+    titulo: "Frontend: renomear UI Negociação -> Atendimento (labels, badges, rotas)"
+    grupo: G7
+    req: [REQ-016, REQ-010]
+    labels: [tipo:task, prio:media, area:frontend, REQ-016, REQ-010]
+    estimativa: M
+    capacidade_pct: 19
+    confianca: alta
+    branch_sugerida: feature/ui-rename-atendimento
+    depende_de: [T-A2]
+    escopo_resumo: "Labels, rotas /atendimentos/*, badges Atendimento #N; sem regressão visual."
+    status_planning: esqueleto
+    execucao_status: nao_iniciada
+    capacidade_real_pct: null
+    analise_implementador: null
+    duvidas_decisoes: []
+
+# Fora do Sprint 03 — registrado para visibilidade no planning (Sprint 04)
+backlog_proximo_sprint:
+  - id: T-A5
+    titulo: "Janela de continuação + pergunta de continuação"
+    req: [REQ-016]
+  - id: T-A6
+    titulo: "Encerramento explícito + pergunta de fechamento"
+    req: [REQ-016]
+  - id: T-A7
+    titulo: "Reabertura de atendimento encerrado"
+    req: [REQ-016]
+  - id: T-A9
+    titulo: "Painel: Atendimento #N + ações encerrar/reabrir"
+    req: [REQ-016, REQ-010]
+  - id: T-A10
+    titulo: "Eventos de auditoria de atendimento (REQ-005.4)"
+    req: [REQ-016, REQ-005]
+  - id: T-A12
+    titulo: "Cenários de teste manual no QA Runner"
+    req: [REQ-016]
+
+resumo_estimativas:
+  total_tasks: 7
+  por_tamanho:
+    S: 3
+    M: 3
+    L: 1
+  capacidade_planejada_pct: 100
+  verificacao: "3×5 + 3×19 + 1×28 = 100%"
+  nota: "T-A2 concentra 28% da capacidade. Calibrar proporções ao fechar sprint em tshirt_calibracao.yaml."
+
+riscos:
+  - "T-A1b altera semântica de dados — PR isolado e testes com estados sintéticos antes do merge."
+  - "T-A2 é transversal — merge conflita com outras frentes se demorar; priorizar após migrations."
+  - "T-A11 depende de T-A2 — iniciar frontend só com endpoints estáveis."
+
+bloqueios: []

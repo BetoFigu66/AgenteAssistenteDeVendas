@@ -1,0 +1,65 @@
+# T-A2 — Refactor Python: models, services e rotas para Atendimento
+# Grupo: G3 | Sprint: 03 | REQ: REQ-016
+# Branch: feature/refactor-atendimento-python
+
+id: T-A2
+grupo: G3
+issue: null
+titulo: "Refactor Python: models, schemas, services e rotas para o novo vocabulário"
+
+estimativa: L
+capacidade_pct: 28
+confianca: media
+branch_sugerida: feature/refactor-atendimento-python
+depende_de: [T-A1, T-A1b]
+
+status:
+  planning: pronto
+  execucao: done
+  capacidade_real_pct: null
+
+escopo:
+  inclui:
+    - "Negociacao -> Atendimento, NegociacaoInfo -> AtendimentoInfo, ItemNegociacao -> ItemAtendimento em models.py"
+    - "StatusNegociacao -> StatusAtendimento (ATIVO/ENCERRADO) alinhado ao ENUM do banco"
+    - "FKs negociacao_id -> atendimento_id; negociacao_id_ativa -> atendimento_id_ativa"
+    - "processador.py: busca/criação de atendimento ativo com StatusAtendimento.ATIVO"
+    - "Rotas /api/negociacoes/* -> /api/atendimentos/*; resposta com chave atendimentos/atendimento"
+    - "Ajuste mínimo no frontend (api.js + leitura de atendimento) para app não quebrar até T-A11"
+  fora_escopo:
+    - "Renomear tabela itens_negociacao (fica com nome legado)"
+    - "Labels e componentes React (T-A11)"
+    - "Novo domínio de criação automática / ultima_mensagem_at (T-A3, T-A4)"
+
+analise_implementador:
+  data: "2026-06-15"
+  abordagem: |
+    Refactor mecânico em models, main e processador após migrations T-A1/T-A1b.
+    STATUS_ATIVOS reduzido a (StatusAtendimento.ATIVO,) — semântica antiga de múltiplos
+    status "em andamento" já colapsada na migration.
+    Frontend: endpoints novos em api.js; aliases deprecated listarNegociacoesAtivas/obterNegociacao
+    mantêm AcompanhamentoPage funcionando; ConversaInfo aceita atendimento ou negociacao.
+  criterios_pronto:
+    - "Import de main/models/processador OK no container"
+    - "GET /health e GET /api/atendimentos/ativas retornam 200"
+    - "GET /api/conversa/{telefone} retorna chave atendimento"
+    - "Grep no backend (exceto alembic) sem Negociacao/StatusNegociacao/negociacao_id"
+  riscos:
+    - "Container frontend em produção (porta 3000) precisa rebuild para pegar api.js — dev com volume já reflete."
+    - "Variáveis locais neg/neg_pendente no processador mantidas por escopo; renomear é cosmético."
+
+implementacao:
+  arquivos:
+    - backend/models.py
+    - backend/main.py
+    - backend/services/processador.py
+    - frontend/src/services/api.js
+    - frontend/src/components/ConversaInfo.jsx
+    - frontend/src/components/ProcessamentoDetalhes.jsx
+  commit_sugerido: "feat(REQ-016): refactor backend Negociacao -> Atendimento e rotas /api/atendimentos"
+
+execucao_log:
+  - data: "2026-06-15"
+    descricao: "Models, main, processador refatorados; bug _atendimento_ativa corrigido."
+  - data: "2026-06-15"
+    descricao: "Frontend mínimo (api.js, ConversaInfo); smoke test /health e /api/atendimentos/ativas OK."

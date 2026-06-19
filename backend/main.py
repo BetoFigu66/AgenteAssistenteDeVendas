@@ -5,7 +5,7 @@ Assistente de Vendas via WhatsApp com IA - Backend FastAPI
 import logging
 import traceback
 from contextlib import asynccontextmanager
-from datetime import datetime
+from utils.datetime_utils import serialize_utc_datetime, utc_now
 from typing import Optional
 
 import uvicorn
@@ -21,12 +21,12 @@ from models import (
     Empresa,
     Mensagem,
     ModoOperacao,
-    Negociacao,
+    Atendimento,
     OrigemMensagem,
     ProcessamentoMensagem,
     ReportProblema,
     SeveridadeReport,
-    StatusNegociacao,
+    StatusAtendimento,
     StatusReport,
     User,
 )
@@ -37,7 +37,14 @@ from services.llm import get_llm_provider
 from services.processador import ProcessadorMensagem
 from sqlalchemy import func
 
-logging.basicConfig(level=logging.INFO)
+def _configurar_logging() -> None:
+    level = getattr(logging, settings.LOG_LEVEL.upper(), logging.WARNING)
+    logging.basicConfig(level=level, format="%(levelname)s [%(name)s] %(message)s")
+    for name in ("sqlalchemy.engine", "sqlalchemy.engine.Engine", "uvicorn.access"):
+        logging.getLogger(name).setLevel(logging.WARNING)
+
+
+_configurar_logging()
 logger = logging.getLogger(__name__)
 
 db: Database = None
@@ -172,7 +179,7 @@ async def webhook_twilio(
         logger.exception(f"Erro ao processar webhook: {e}")
         resposta = RESPOSTA_FALLBACK
 
-    # Se não há resposta (ex.: negociação em modo HUMANO), devolve TwiML vazio
+    # Se não há resposta (ex.: atendimento em modo HUMANO), devolve TwiML vazio
     # — o Twilio não envia nada para o cliente e o operador responderá pela UI.
     if not resposta:
         twiml_response = """<?xml version="1.0" encoding="UTF-8"?>
@@ -238,16 +245,7 @@ async def listar_telefones():
     return {"telefones": telefones}
 
 
-STATUS_NEGOCIACAO_ATIVOS = [
-    s.value
-    for s in (
-        StatusNegociacao.NOVO,
-        StatusNegociacao.EM_CONTATO,
-        StatusNegociacao.AGUARDANDO_ORCAMENTO,
-        StatusNegociacao.ORCAMENTO_ENVIADO,
-        StatusNegociacao.EM_NEGOCIACAO,
-    )
-]
+STATUS_ATENDIMENTO_ATIVOS = [StatusAtendimento.ATIVO.value]
 
 
 @app.get("/api/conversa/{telefone}")
@@ -255,7 +253,7 @@ async def obter_dados_conversa(telefone: str):
     """
     Retorna dados consolidados de uma conversa (telefone) para exibir no header.
 
-    Inclui: contato, empresa e negociação ativa (quando identificados).
+    Inclui: contato, empresa e atendimento ativo (quando identificados).
     """
     tel_norm = normalizar_telefone(telefone)
 
@@ -265,13 +263,13 @@ async def obter_dados_conversa(telefone: str):
         contato = ident.contato
         empresa = ident.empresa
 
-        negociacao = None
+        atendimento = None
         if contato:
-            negociacao = (
-                session.query(Negociacao)
-                .filter(Negociacao.contato_id == contato.id)
-                .filter(Negociacao.status.in_(STATUS_NEGOCIACAO_ATIVOS))
-                .order_by(Negociacao.created_at.desc())
+            atendimento = (
+                session.query(Atendimento)
+                .filter(Atendimento.contato_id == contato.id)
+                .filter(Atendimento.status.in_(STATUS_ATENDIMENTO_ATIVOS))
+                .order_by(Atendimento.created_at.desc())
                 .first()
             )
 
@@ -294,13 +292,13 @@ async def obter_dados_conversa(telefone: str):
             }
             if empresa
             else None,
-            "negociacao": {
-                "id": negociacao.id,
-                "titulo": negociacao.titulo,
-                "status": negociacao.status.value if negociacao.status else None,
-                "modo_operacao": (negociacao.modo_operacao.value if negociacao.modo_operacao else None),
+            "atendimento": {
+                "id": atendimento.id,
+                "titulo": atendimento.titulo,
+                "status": atendimento.status.value if atendimento.status else None,
+                "modo_operacao": (atendimento.modo_operacao.value if atendimento.modo_operacao else None),
             }
-            if negociacao
+            if atendimento
             else None,
         }
 
@@ -316,14 +314,14 @@ async def obter_empresa(empresa_id: int):
 
 
 # =============================================================================
-# Rotas de Negociação - ORDEM IMPORTA: rotas estáticas ANTES de rotas dinâmicas
+# Rotas de Atendimento - ORDEM IMPORTA: rotas estáticas ANTES de rotas dinâmicas
 # =============================================================================
 
 
-@app.get("/api/negociacoes/ativas")
-async def listar_negociacoes_ativas():
+@app.get("/api/atendimentos/ativas")
+async def listar_atendimentos_ativos():
     """
-    Lista negociações ativas ordenadas pela quantidade de mensagens pendentes
+    Lista atendimentos ativos ordenados pela quantidade de mensagens pendentes
     de aprovação (maior primeiro).
 
     Retorna: id, status, modo_operacao, telefone, nome_contato, empresa_nome,
@@ -334,60 +332,60 @@ async def listar_negociacoes_ativas():
         pendentes_expr = func.count(Mensagem.id).label("pendentes")
         subq = (
             session.query(
-                Mensagem.negociacao_id.label("neg_id"),
+                Mensagem.atendimento_id.label("neg_id"),
                 pendentes_expr,
             )
             .filter(Mensagem.origem == OrigemMensagem.SYSTEM)
             .filter(Mensagem.aprovador_id.is_(None))
-            .filter(Mensagem.negociacao_id.isnot(None))
-            .group_by(Mensagem.negociacao_id)
+            .filter(Mensagem.atendimento_id.isnot(None))
+            .group_by(Mensagem.atendimento_id)
             .subquery()
         )
 
         stmt = (
-            session.query(Negociacao, Contato, Empresa, subq.c.pendentes)
-            .join(Contato, Contato.id == Negociacao.contato_id)
-            .join(Empresa, Empresa.id == Negociacao.empresa_id)
-            .outerjoin(subq, subq.c.neg_id == Negociacao.id)
-            .filter(Negociacao.status.in_(STATUS_NEGOCIACAO_ATIVOS))
+            session.query(Atendimento, Contato, Empresa, subq.c.pendentes)
+            .join(Contato, Contato.id == Atendimento.contato_id)
+            .outerjoin(Empresa, Empresa.id == Atendimento.empresa_id)
+            .outerjoin(subq, subq.c.neg_id == Atendimento.id)
+            .filter(Atendimento.status.in_(STATUS_ATENDIMENTO_ATIVOS))
             .order_by(
                 func.coalesce(subq.c.pendentes, 0).desc(),
-                Negociacao.updated_at.desc(),
+                Atendimento.updated_at.desc(),
             )
         )
 
         resultado = []
-        for negociacao, contato, empresa, pendentes in stmt.all():
+        for atendimento, contato, empresa, pendentes in stmt.all():
             resultado.append(
                 {
-                    "id": negociacao.id,
-                    "status": negociacao.status.value if negociacao.status else None,
-                    "modo_operacao": (negociacao.modo_operacao.value if negociacao.modo_operacao else None),
-                    "titulo": negociacao.titulo,
+                    "id": atendimento.id,
+                    "status": atendimento.status.value if atendimento.status else None,
+                    "modo_operacao": (atendimento.modo_operacao.value if atendimento.modo_operacao else None),
+                    "titulo": atendimento.titulo,
                     "telefone": contato.telefone,
                     "nome_contato": contato.nome,
-                    "empresa_id": empresa.id,
-                    "empresa_nome": empresa.fantasia or empresa.nome,
+                    "empresa_id": empresa.id if empresa else None,
+                    "empresa_nome": (empresa.fantasia or empresa.nome) if empresa else None,
                     "mensagens_pendentes": int(pendentes or 0),
-                    "updated_at": (negociacao.updated_at.isoformat() if negociacao.updated_at else None),
+                    "updated_at": serialize_utc_datetime(atendimento.updated_at),
                 }
             )
-        return {"total": len(resultado), "negociacoes": resultado}
+        return {"total": len(resultado), "atendimentos": resultado}
 
 
-@app.get("/api/negociacoes/{negociacao_id}")
-async def obter_negociacao(negociacao_id: int):
-    """Retorna detalhes completos de uma negociação, incluindo itens, infos e orçamentos."""
+@app.get("/api/atendimentos/{atendimento_id}")
+async def obter_atendimento(atendimento_id: int):
+    """Retorna detalhes completos de um atendimento, incluindo itens, infos e orçamentos."""
     with db.get_session() as session:
-        negociacao = session.query(Negociacao).filter_by(id=negociacao_id).first()
-        if not negociacao:
-            raise HTTPException(status_code=404, detail="Negociação não encontrada")
+        atendimento = session.query(Atendimento).filter_by(id=atendimento_id).first()
+        if not atendimento:
+            raise HTTPException(status_code=404, detail="Atendimento não encontrado")
 
-        contato = negociacao.contato
-        empresa = negociacao.empresa
+        contato = atendimento.contato
+        empresa = atendimento.empresa
 
         return {
-            **negociacao.to_dict(),
+            **atendimento.to_dict(),
             "contato": contato.to_dict() if contato else None,
             "empresa": {
                 "id": empresa.id,
@@ -396,9 +394,9 @@ async def obter_negociacao(negociacao_id: int):
             }
             if empresa
             else None,
-            "itens": [item.to_dict() for item in negociacao.itens],
-            "informacoes": [info.to_dict() for info in negociacao.informacoes],
-            "orcamentos": [orc.to_dict() for orc in negociacao.orcamentos],
+            "itens": [item.to_dict() for item in atendimento.itens],
+            "informacoes": [info.to_dict() for info in atendimento.informacoes],
+            "orcamentos": [orc.to_dict() for orc in atendimento.orcamentos],
         }
 
 
@@ -406,10 +404,10 @@ class AlterarModoRequest(BaseModel):
     modo_operacao: str  # "agente" | "humano"
 
 
-@app.patch("/api/negociacoes/{negociacao_id}/modo-operacao")
-async def alterar_modo_operacao(negociacao_id: int, payload: AlterarModoRequest):
+@app.patch("/api/atendimentos/{atendimento_id}/modo-operacao")
+async def alterar_modo_operacao(atendimento_id: int, payload: AlterarModoRequest):
     """
-    Alterna o modo de operação de uma negociação entre AGENTE e HUMANO.
+    Alterna o modo de operação de um atendimento entre AGENTE e HUMANO.
 
     - AGENTE: sistema gera respostas automáticas.
     - HUMANO: sistema só registra mensagens recebidas; operador responde pela UI.
@@ -424,14 +422,14 @@ async def alterar_modo_operacao(negociacao_id: int, payload: AlterarModoRequest)
         )
 
     with db.get_session() as session:
-        negociacao = session.query(Negociacao).filter_by(id=negociacao_id).first()
-        if not negociacao:
-            raise HTTPException(status_code=404, detail="Negociação não encontrada")
-        negociacao.modo_operacao = novo_modo
+        atendimento = session.query(Atendimento).filter_by(id=atendimento_id).first()
+        if not atendimento:
+            raise HTTPException(status_code=404, detail="Atendimento não encontrado")
+        atendimento.modo_operacao = novo_modo
         session.flush()
-        session.refresh(negociacao)
-        logger.info(f"[ModoOperacao] Negociação {negociacao.id} alterada para modo={novo_modo.value}")
-        return negociacao.to_dict()
+        session.refresh(atendimento)
+        logger.info(f"[ModoOperacao] Atendimento {atendimento.id} alterado para modo={novo_modo.value}")
+        return atendimento.to_dict()
 
 
 class EnviarMensagemManualRequest(BaseModel):
@@ -439,8 +437,8 @@ class EnviarMensagemManualRequest(BaseModel):
     aprovador_id: Optional[int] = None  # quem enviou (opcional nesta etapa)
 
 
-@app.post("/api/negociacoes/{negociacao_id}/mensagens-manuais", status_code=201)
-async def enviar_mensagem_manual(negociacao_id: int, payload: EnviarMensagemManualRequest):
+@app.post("/api/atendimentos/{atendimento_id}/mensagens-manuais", status_code=201)
+async def enviar_mensagem_manual(atendimento_id: int, payload: EnviarMensagemManualRequest):
     """
     Registra uma mensagem enviada manualmente pelo operador (modo HUMANO).
 
@@ -452,16 +450,16 @@ async def enviar_mensagem_manual(negociacao_id: int, payload: EnviarMensagemManu
         raise HTTPException(status_code=400, detail="Conteúdo da mensagem é obrigatório")
 
     with db.get_session() as session:
-        negociacao = session.query(Negociacao).filter_by(id=negociacao_id).first()
-        if not negociacao:
-            raise HTTPException(status_code=404, detail="Negociação não encontrada")
+        atendimento = session.query(Atendimento).filter_by(id=atendimento_id).first()
+        if not atendimento:
+            raise HTTPException(status_code=404, detail="Atendimento não encontrado")
 
-        contato = negociacao.contato
+        contato = atendimento.contato
         telefone = contato.telefone if contato and contato.telefone else None
         if not telefone:
             raise HTTPException(
                 status_code=400,
-                detail="Negociação não tem contato com telefone associado",
+                detail="Atendimento não tem contato com telefone associado",
             )
 
         aprovador = None
@@ -478,9 +476,9 @@ async def enviar_mensagem_manual(negociacao_id: int, payload: EnviarMensagemManu
             conteudo=conteudo,
             origem=OrigemMensagem.SYSTEM,
             contato_id=contato.id if contato else None,
-            negociacao_id=negociacao.id,
+            atendimento_id=atendimento.id,
             aprovador_id=aprovador.id if aprovador else None,
-            timestamp_aprovacao=datetime.utcnow() if aprovador else None,
+            timestamp_aprovacao=utc_now() if aprovador else None,
         )
         session.add(mensagem)
         session.flush()
@@ -587,7 +585,7 @@ async def aprovar_mensagem(mensagem_id: int, payload: AprovarMensagemRequest):
                 if foi_reprovada
                 else (
                     f"Mensagem já aprovada por aprovador_id={mensagem.aprovador_id} "
-                    f"em {mensagem.timestamp_aprovacao.isoformat() if mensagem.timestamp_aprovacao else 'N/A'}"
+                    f"em {serialize_utc_datetime(mensagem.timestamp_aprovacao) or 'N/A'}"
                 )
             )
             raise HTTPException(status_code=409, detail=detalhe)
@@ -600,7 +598,7 @@ async def aprovar_mensagem(mensagem_id: int, payload: AprovarMensagemRequest):
             )
 
         mensagem.aprovador_id = aprovador.id
-        mensagem.timestamp_aprovacao = datetime.utcnow()
+        mensagem.timestamp_aprovacao = utc_now()
         session.flush()
         session.refresh(mensagem)
         return mensagem.to_dict()
@@ -655,7 +653,7 @@ async def reprovar_mensagem(mensagem_id: int, payload: ReprovarMensagemRequest):
 
             # Marca a mensagem como "revisada" para sair do estado pendente_aprovacao
             mensagem.aprovador_id = reprovador.id
-            mensagem.timestamp_aprovacao = datetime.utcnow()
+            mensagem.timestamp_aprovacao = utc_now()
 
             # Cria o report vinculado à mensagem (e ao processamento se existir)
             report = ReportProblema(
@@ -767,7 +765,7 @@ async def atualizar_report(report_id: int, payload: AtualizarReportRequest):
         if status_novo is not None:
             report.status = status_novo
             if status_novo in (StatusReport.RESOLVIDO, StatusReport.DESCARTADO):
-                report.resolvido_em = datetime.utcnow()
+                report.resolvido_em = utc_now()
                 if payload.resolvido_por:
                     report.resolvido_por = payload.resolvido_por
             else:
@@ -845,7 +843,7 @@ async def listar_todos_reports(
                         "id": msg.id,
                         "telefone": msg.telefone,
                         "conteudo": msg.conteudo,
-                        "timestamp": msg.timestamp.isoformat() if msg.timestamp else None,
+                        "timestamp": serialize_utc_datetime(msg.timestamp),
                     }
             result.append(d)
         return {"reports": result}

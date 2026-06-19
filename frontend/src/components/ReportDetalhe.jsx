@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { Loader2, Save, AlertTriangle, CheckCircle2, MessageCircle } from 'lucide-react'
 import { api } from '../services/api'
 import DetalheModal from './DetalheModal'
+import { formatDatetimeBRT, formatTimeBRT } from '../utils/datetime'
 import {
   CATEGORIAS,
   SEVERIDADES,
@@ -98,7 +99,7 @@ function ReportDetalhe({ reportId, onClose, onAtualizado }) {
               {report.descricao}
             </p>
             <p className="text-xs text-gray-500 mt-1">
-              Criado em {new Date(report.created_at).toLocaleString('pt-BR')}
+              Criado em {formatDatetimeBRT(report.created_at)}
               {report.autor && ` — por ${report.autor}`}
             </p>
           </div>
@@ -131,10 +132,7 @@ function ReportDetalhe({ reportId, onClose, onAtualizado }) {
                         </span>
                         <span className="text-xs text-gray-400">
                           {m.timestamp &&
-                            new Date(m.timestamp).toLocaleTimeString('pt-BR', {
-                              hour: '2-digit',
-                              minute: '2-digit',
-                            })}
+                            formatTimeBRT(m.timestamp)}
                         </span>
                       </div>
                       <p className="text-gray-800 mt-0.5">{m.conteudo}</p>

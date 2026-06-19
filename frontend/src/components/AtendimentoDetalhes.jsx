@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { api } from '../services/api'
+import { formatDatetimeBRT } from '../utils/datetime'
 
 function Campo({ label, valor }) {
   if (valor === null || valor === undefined || valor === '') return null
@@ -11,8 +12,8 @@ function Campo({ label, valor }) {
   )
 }
 
-function NegociacaoDetalhes({ negociacaoId }) {
-  const [negociacao, setNegociacao] = useState(null)
+function AtendimentoDetalhes({ atendimentoId }) {
+  const [atendimento, setAtendimento] = useState(null)
   const [loading, setLoading] = useState(true)
   const [erro, setErro] = useState(null)
 
@@ -20,9 +21,9 @@ function NegociacaoDetalhes({ negociacaoId }) {
     let cancelado = false
     setLoading(true)
     api
-      .obterNegociacao(negociacaoId)
+      .obterAtendimento(atendimentoId)
       .then((data) => {
-        if (!cancelado) setNegociacao(data)
+        if (!cancelado) setAtendimento(data)
       })
       .catch((e) => {
         if (!cancelado) setErro(e.message)
@@ -33,45 +34,47 @@ function NegociacaoDetalhes({ negociacaoId }) {
     return () => {
       cancelado = true
     }
-  }, [negociacaoId])
+  }, [atendimentoId])
 
   if (loading) return <p className="text-gray-500 text-sm">Carregando...</p>
   if (erro) return <p className="text-red-600 text-sm">{erro}</p>
-  if (!negociacao) return null
+  if (!atendimento) return null
 
   return (
     <div className="space-y-4">
       <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-        <Campo label="ID" valor={negociacao.id} />
-        <Campo label="Status" valor={negociacao.status} />
-        <Campo label="Título" valor={negociacao.titulo} />
-        <Campo label="Valor Estimado" valor={negociacao.valor_estimado} />
-        <Campo label="Criada em" valor={negociacao.created_at} />
+        <Campo label="ID" valor={atendimento.id} />
+        <Campo label="Status" valor={atendimento.status} />
+        <Campo label="Título" valor={atendimento.titulo} />
+        <Campo label="Valor Estimado" valor={atendimento.valor_estimado} />
+        <Campo label="Criado em" valor={formatDatetimeBRT(atendimento.created_at)} />
       </div>
 
-      {negociacao.empresa && (
+      {atendimento.empresa && (
         <div>
           <h3 className="text-sm font-semibold text-inforrel-primary mb-1">Empresa</h3>
           <p className="text-sm text-gray-800">
-            {negociacao.empresa.nome} <span className="text-gray-500">({negociacao.empresa.cnpj})</span>
+            {atendimento.empresa.nome}{' '}
+            <span className="text-gray-500">({atendimento.empresa.cnpj})</span>
           </p>
         </div>
       )}
 
-      {negociacao.contato && (
+      {atendimento.contato && (
         <div>
           <h3 className="text-sm font-semibold text-inforrel-primary mb-1">Contato</h3>
           <p className="text-sm text-gray-800">
-            {negociacao.contato.nome || '—'} <span className="text-gray-500">{negociacao.contato.telefone}</span>
+            {atendimento.contato.nome || '—'}{' '}
+            <span className="text-gray-500">{atendimento.contato.telefone}</span>
           </p>
         </div>
       )}
 
-      {negociacao.itens?.length > 0 && (
+      {atendimento.itens?.length > 0 && (
         <div>
           <h3 className="text-sm font-semibold text-inforrel-primary mb-2">Itens</h3>
           <ul className="space-y-1 text-sm">
-            {negociacao.itens.map((item) => (
+            {atendimento.itens.map((item) => (
               <li key={item.id} className="text-gray-800">
                 Tipo #{item.tipo_produto_id} - Qtd: {item.quantidade}
                 {item.produto_id && <span> (Produto #{item.produto_id})</span>}
@@ -82,7 +85,7 @@ function NegociacaoDetalhes({ negociacaoId }) {
         </div>
       )}
 
-      {negociacao.informacoes?.length > 0 && (
+      {atendimento.informacoes?.length > 0 && (
         <div>
           <h3 className="text-sm font-semibold text-inforrel-primary mb-2">Informações coletadas</h3>
           <table className="w-full text-sm">
@@ -95,7 +98,7 @@ function NegociacaoDetalhes({ negociacaoId }) {
               </tr>
             </thead>
             <tbody>
-              {negociacao.informacoes.map((info) => (
+              {atendimento.informacoes.map((info) => (
                 <tr key={info.id} className="border-b last:border-0">
                   <td className="py-1 pr-2 font-mono text-xs">{info.chave}</td>
                   <td className="py-1 pr-2">{info.valor || '—'}</td>
@@ -108,11 +111,11 @@ function NegociacaoDetalhes({ negociacaoId }) {
         </div>
       )}
 
-      {negociacao.orcamentos?.length > 0 && (
+      {atendimento.orcamentos?.length > 0 && (
         <div>
           <h3 className="text-sm font-semibold text-inforrel-primary mb-2">Orçamentos</h3>
           <ul className="space-y-1 text-sm">
-            {negociacao.orcamentos.map((o) => (
+            {atendimento.orcamentos.map((o) => (
               <li key={o.id} className="text-gray-800">
                 #{o.id} - {o.status} - Total: {o.valor_total || '—'}
               </li>
@@ -124,4 +127,4 @@ function NegociacaoDetalhes({ negociacaoId }) {
   )
 }
 
-export default NegociacaoDetalhes
+export default AtendimentoDetalhes

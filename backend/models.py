@@ -11,6 +11,9 @@ from sqlalchemy import JSON, Boolean, Date, DateTime, Enum, ForeignKey, Index, I
 from sqlalchemy.dialects.postgresql import ARRAY, JSONB, TSVECTOR
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 from sqlalchemy.types import UserDefinedType
+from utils.datetime_utils import serialize_utc_datetime, utc_now
+
+UTCDateTime = DateTime(timezone=True)
 
 
 class Base(DeclarativeBase):
@@ -68,17 +71,11 @@ class OrigemMensagem(str, enum.Enum):
     SYSTEM = "system"
 
 
-class StatusNegociacao(str, enum.Enum):
-    """Status da negociação."""
+class StatusAtendimento(str, enum.Enum):
+    """Status do atendimento (REQ-016.4)."""
 
-    NOVO = "novo"
-    EM_CONTATO = "em_contato"
-    AGUARDANDO_ORCAMENTO = "aguardando_orcamento"
-    ORCAMENTO_ENVIADO = "orcamento_enviado"
-    EM_NEGOCIACAO = "em_negociacao"
-    FECHADO_VENDA = "fechado_venda"
-    FECHADO_PERDA = "fechado_perda"
-    ARQUIVADO = "arquivado"
+    ATIVO = "ativo"
+    ENCERRADO = "encerrado"
 
 
 class StatusOrcamento(str, enum.Enum):
@@ -93,7 +90,7 @@ class StatusOrcamento(str, enum.Enum):
 
 
 class ModoOperacao(str, enum.Enum):
-    """Modo de operação da negociação.
+    """Modo de operação do atendimento.
 
     - AGENTE: sistema gera respostas automáticas (padrão).
     - HUMANO: sistema apenas recebe e registra mensagens; respostas são
@@ -116,22 +113,22 @@ class Mensagem(Base):
         Enum(OrigemMensagem, values_callable=lambda x: [e.value for e in x]), nullable=False
     )
     message_sid: Mapped[Optional[str]] = mapped_column(String(50), nullable=True, unique=True)
-    timestamp: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False)
+    timestamp: Mapped[datetime] = mapped_column(UTCDateTime, default=utc_now, nullable=False)
 
     # Novos campos - relacionamentos
     contato_id: Mapped[Optional[int]] = mapped_column(ForeignKey("contatos.id"), nullable=True, index=True)
-    negociacao_id: Mapped[Optional[int]] = mapped_column(ForeignKey("negociacoes.id"), nullable=True, index=True)
+    atendimento_id: Mapped[Optional[int]] = mapped_column(ForeignKey("atendimentos.id"), nullable=True, index=True)
     processamento_id: Mapped[Optional[int]] = mapped_column(
         ForeignKey("processamentos_mensagem.id"), nullable=True, index=True
     )
 
     # Aprovação de mensagens geradas pelo agente (REQ-aprovação)
     aprovador_id: Mapped[Optional[int]] = mapped_column(ForeignKey("users.id"), nullable=True, index=True)
-    timestamp_aprovacao: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
+    timestamp_aprovacao: Mapped[Optional[datetime]] = mapped_column(UTCDateTime, nullable=True)
 
     # Relacionamentos
     contato: Mapped[Optional["Contato"]] = relationship(back_populates="mensagens")
-    negociacao: Mapped[Optional["Negociacao"]] = relationship(back_populates="mensagens")
+    atendimento: Mapped[Optional["Atendimento"]] = relationship(back_populates="mensagens")
     processamento: Mapped[Optional["ProcessamentoMensagem"]] = relationship(
         back_populates="mensagem", foreign_keys=[processamento_id]
     )
@@ -142,7 +139,7 @@ class Mensagem(Base):
     __table_args__ = (
         Index("idx_mensagens_telefone_timestamp", "telefone", "timestamp"),
         Index("idx_mensagens_contato", "contato_id"),
-        Index("idx_mensagens_negociacao", "negociacao_id"),
+        Index("idx_mensagens_atendimento", "atendimento_id"),
     )
 
     @property
@@ -161,12 +158,12 @@ class Mensagem(Base):
             "telefone": self.telefone,
             "conteudo": self.conteudo,
             "origem": self.origem.value if isinstance(self.origem, OrigemMensagem) else self.origem,
-            "timestamp": self.timestamp.isoformat() if self.timestamp else None,
+            "timestamp": serialize_utc_datetime(self.timestamp),
             "contato_id": self.contato_id,
-            "negociacao_id": self.negociacao_id,
+            "atendimento_id": self.atendimento_id,
             "processamento_id": self.processamento_id,
             "aprovador_id": self.aprovador_id,
-            "timestamp_aprovacao": (self.timestamp_aprovacao.isoformat() if self.timestamp_aprovacao else None),
+            "timestamp_aprovacao": serialize_utc_datetime(self.timestamp_aprovacao),
             "pendente_aprovacao": self.pendente_aprovacao,
         }
 
@@ -182,7 +179,7 @@ class User(Base):
 
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
     nome: Mapped[str] = mapped_column(String(100), nullable=False)
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(UTCDateTime, default=utc_now, nullable=False)
 
     # Relacionamentos
     mensagens_aprovadas: Mapped[List["Mensagem"]] = relationship(
@@ -196,7 +193,7 @@ class User(Base):
         return {
             "id": self.id,
             "nome": self.nome,
-            "created_at": self.created_at.isoformat() if self.created_at else None,
+            "created_at": serialize_utc_datetime(self.created_at),
         }
 
 
@@ -258,17 +255,17 @@ class Empresa(Base):
     simei_optante: Mapped[Optional[bool]] = mapped_column(Boolean, nullable=True)
 
     # Controle
-    ultima_atualizacao_api: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False)
+    ultima_atualizacao_api: Mapped[Optional[datetime]] = mapped_column(UTCDateTime, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(UTCDateTime, default=utc_now, nullable=False)
     updated_at: Mapped[datetime] = mapped_column(
-        DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False
+        UTCDateTime, default=utc_now, onupdate=utc_now, nullable=False
     )
 
     # Relacionamentos
     atividades: Mapped[List["AtividadeEmpresa"]] = relationship(back_populates="empresa", cascade="all, delete-orphan")
     socios: Mapped[List["SocioEmpresa"]] = relationship(back_populates="empresa", cascade="all, delete-orphan")
     contatos: Mapped[List["Contato"]] = relationship(back_populates="empresa", cascade="all, delete-orphan")
-    negociacoes: Mapped[List["Negociacao"]] = relationship(back_populates="empresa")
+    atendimentos: Mapped[List["Atendimento"]] = relationship(back_populates="empresa")
 
     def to_dict(self) -> dict:
         """Converte o modelo para dicionário."""
@@ -360,12 +357,12 @@ class Contato(Base):
     telefone: Mapped[str] = mapped_column(String(20), nullable=False, unique=True, index=True)
     email: Mapped[Optional[str]] = mapped_column(String(200), nullable=True)
     cargo: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(UTCDateTime, default=utc_now, nullable=False)
 
     # Relacionamentos
     empresa: Mapped[Optional["Empresa"]] = relationship(back_populates="contatos")
     mensagens: Mapped[List["Mensagem"]] = relationship(back_populates="contato")
-    negociacoes: Mapped[List["Negociacao"]] = relationship(back_populates="contato")
+    atendimentos: Mapped[List["Atendimento"]] = relationship(back_populates="contato")
 
     def to_dict(self) -> dict:
         """Converte o modelo para dicionário."""
@@ -376,7 +373,7 @@ class Contato(Base):
 
 
 class TipoDocumento(str, enum.Enum):
-    """Tipo de documento fiscal associado à negociação."""
+    """Tipo de documento fiscal associado ao atendimento."""
 
     CPF = "cpf"
     CNPJ = "cnpj"
@@ -399,18 +396,18 @@ class Pessoa(Base):
     nome: Mapped[Optional[str]] = mapped_column(String(200), nullable=True)
     data_nascimento: Mapped[Optional[date]] = mapped_column(Date, nullable=True)
     situacao: Mapped[Optional[str]] = mapped_column(String(30), nullable=True)
-    ultima_atualizacao_api: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
+    ultima_atualizacao_api: Mapped[Optional[datetime]] = mapped_column(UTCDateTime, nullable=True)
     user_id_verificador: Mapped[Optional[int]] = mapped_column(
         ForeignKey("users.id"), nullable=True, index=True
     )
-    timestamp_verificacao: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False)
+    timestamp_verificacao: Mapped[Optional[datetime]] = mapped_column(UTCDateTime, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(UTCDateTime, default=utc_now, nullable=False)
     updated_at: Mapped[datetime] = mapped_column(
-        DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False
+        UTCDateTime, default=utc_now, onupdate=utc_now, nullable=False
     )
 
     # Relacionamentos
-    negociacoes: Mapped[List["Negociacao"]] = relationship(back_populates="pessoa")
+    atendimentos: Mapped[List["Atendimento"]] = relationship(back_populates="pessoa")
     verificador: Mapped[Optional["User"]] = relationship(
         back_populates="pessoas_verificadas", foreign_keys=[user_id_verificador]
     )
@@ -424,20 +421,18 @@ class Pessoa(Base):
             "data_nascimento": self.data_nascimento.isoformat() if self.data_nascimento else None,
             "situacao": self.situacao,
             "user_id_verificador": self.user_id_verificador,
-            "timestamp_verificacao": (
-                self.timestamp_verificacao.isoformat() if self.timestamp_verificacao else None
-            ),
+            "timestamp_verificacao": serialize_utc_datetime(self.timestamp_verificacao),
             "verificado": self.user_id_verificador is not None and self.timestamp_verificacao is not None,
         }
 
 
-class Negociacao(Base):
+class Atendimento(Base):
     """
-    Negociação com um contato.
-    Representa o ciclo de vendas desde o primeiro contato até fechamento.
+    Atendimento com um contato (REQ-016).
+    Agrupa conversas e orçamentos de uma mesma demanda do cliente.
     """
 
-    __tablename__ = "negociacoes"
+    __tablename__ = "atendimentos"
 
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
     contato_id: Mapped[int] = mapped_column(ForeignKey("contatos.id"), nullable=False, index=True)
@@ -451,10 +446,16 @@ class Negociacao(Base):
     )
     titulo: Mapped[Optional[str]] = mapped_column(String(200), nullable=True)
     descricao: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
-    status: Mapped[StatusNegociacao] = mapped_column(
-        Enum(StatusNegociacao, values_callable=lambda x: [e.value for e in x]),
-        default=StatusNegociacao.NOVO, nullable=False
+    status: Mapped[StatusAtendimento] = mapped_column(
+        Enum(
+            StatusAtendimento,
+            values_callable=lambda x: [e.value for e in x],
+            name="statusatendimento",
+        ),
+        default=StatusAtendimento.ATIVO,
+        nullable=False,
     )
+    motivo_encerramento: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
     modo_operacao: Mapped[ModoOperacao] = mapped_column(
         Enum(ModoOperacao, values_callable=lambda x: [e.value for e in x], name="modooperacao"),
         default=ModoOperacao.AGENTE,
@@ -462,20 +463,20 @@ class Negociacao(Base):
         index=True,
     )
     valor_estimado: Mapped[Optional[Decimal]] = mapped_column(Numeric(15, 2), nullable=True)
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(UTCDateTime, default=utc_now, nullable=False)
     updated_at: Mapped[datetime] = mapped_column(
-        DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False
+        UTCDateTime, default=utc_now, onupdate=utc_now, nullable=False
     )
 
     # Relacionamentos
-    contato: Mapped["Contato"] = relationship(back_populates="negociacoes")
-    empresa: Mapped[Optional["Empresa"]] = relationship(back_populates="negociacoes")
-    pessoa: Mapped[Optional["Pessoa"]] = relationship(back_populates="negociacoes")
-    mensagens: Mapped[List["Mensagem"]] = relationship(back_populates="negociacao")
-    orcamentos: Mapped[List["Orcamento"]] = relationship(back_populates="negociacao", cascade="all, delete-orphan")
-    itens: Mapped[List["ItemNegociacao"]] = relationship(back_populates="negociacao", cascade="all, delete-orphan")
-    informacoes: Mapped[List["NegociacaoInfo"]] = relationship(
-        back_populates="negociacao", cascade="all, delete-orphan"
+    contato: Mapped["Contato"] = relationship(back_populates="atendimentos")
+    empresa: Mapped[Optional["Empresa"]] = relationship(back_populates="atendimentos")
+    pessoa: Mapped[Optional["Pessoa"]] = relationship(back_populates="atendimentos")
+    mensagens: Mapped[List["Mensagem"]] = relationship(back_populates="atendimento")
+    orcamentos: Mapped[List["Orcamento"]] = relationship(back_populates="atendimento", cascade="all, delete-orphan")
+    itens: Mapped[List["ItemAtendimento"]] = relationship(back_populates="atendimento", cascade="all, delete-orphan")
+    informacoes: Mapped[List["AtendimentoInfo"]] = relationship(
+        back_populates="atendimento", cascade="all, delete-orphan"
     )
 
     def to_dict(self) -> dict:
@@ -489,21 +490,22 @@ class Negociacao(Base):
             "titulo": self.titulo,
             "descricao": self.descricao,
             "status": self.status.value if self.status else None,
+            "motivo_encerramento": self.motivo_encerramento,
             "modo_operacao": self.modo_operacao.value if self.modo_operacao else None,
             "valor_estimado": str(self.valor_estimado) if self.valor_estimado else None,
-            "created_at": self.created_at.isoformat() if self.created_at else None,
+            "created_at": serialize_utc_datetime(self.created_at),
         }
 
 
 class Orcamento(Base):
     """
-    Orçamento enviado em uma negociação.
+    Orçamento enviado em um atendimento.
     """
 
     __tablename__ = "orcamentos"
 
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
-    negociacao_id: Mapped[int] = mapped_column(ForeignKey("negociacoes.id"), nullable=False, index=True)
+    atendimento_id: Mapped[int] = mapped_column(ForeignKey("atendimentos.id"), nullable=False, index=True)
     numero: Mapped[Optional[str]] = mapped_column(String(50), nullable=True, unique=True)
     status: Mapped[StatusOrcamento] = mapped_column(
         Enum(StatusOrcamento, values_callable=lambda x: [e.value for e in x]),
@@ -512,20 +514,20 @@ class Orcamento(Base):
     valor_total: Mapped[Optional[Decimal]] = mapped_column(Numeric(15, 2), nullable=True)
     validade: Mapped[Optional[date]] = mapped_column(Date, nullable=True)
     observacoes: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(UTCDateTime, default=utc_now, nullable=False)
     updated_at: Mapped[datetime] = mapped_column(
-        DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False
+        UTCDateTime, default=utc_now, onupdate=utc_now, nullable=False
     )
 
     # Relacionamentos
-    negociacao: Mapped["Negociacao"] = relationship(back_populates="orcamentos")
+    atendimento: Mapped["Atendimento"] = relationship(back_populates="orcamentos")
     itens: Mapped[List["ItemOrcamento"]] = relationship(back_populates="orcamento", cascade="all, delete-orphan")
 
     def to_dict(self) -> dict:
         """Converte o modelo para dicionário."""
         return {
             "id": self.id,
-            "negociacao_id": self.negociacao_id,
+            "atendimento_id": self.atendimento_id,
             "numero": self.numero,
             "status": self.status.value if self.status else None,
             "valor_total": str(self.valor_total) if self.valor_total else None,
@@ -545,11 +547,11 @@ class TipoProduto(Base):
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
     descricao: Mapped[str] = mapped_column(String(100), nullable=False, unique=True)
     ativo: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(UTCDateTime, default=utc_now, nullable=False)
 
     # Relacionamentos
     produtos: Mapped[List["Produto"]] = relationship(back_populates="tipo_produto")
-    itens_negociacao: Mapped[List["ItemNegociacao"]] = relationship(back_populates="tipo_produto")
+    itens_atendimento: Mapped[List["ItemAtendimento"]] = relationship(back_populates="tipo_produto")
 
     def to_dict(self) -> dict:
         """Converte o modelo para dicionário."""
@@ -571,15 +573,15 @@ class Produto(Base):
     unidade: Mapped[Optional[str]] = mapped_column(String(20), nullable=True, default="UN")
     categoria: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
     ativo: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(UTCDateTime, default=utc_now, nullable=False)
     updated_at: Mapped[datetime] = mapped_column(
-        DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False
+        UTCDateTime, default=utc_now, onupdate=utc_now, nullable=False
     )
 
     # Relacionamentos
     tipo_produto: Mapped["TipoProduto"] = relationship(back_populates="produtos")
     itens_orcamento: Mapped[List["ItemOrcamento"]] = relationship(back_populates="produto")
-    itens_negociacao: Mapped[List["ItemNegociacao"]] = relationship(back_populates="produto")
+    itens_atendimento: Mapped[List["ItemAtendimento"]] = relationship(back_populates="produto")
 
     def to_dict(self) -> dict:
         """Converte o modelo para dicionário."""
@@ -616,11 +618,11 @@ class DocumentoConhecimento(Base):
     conteudo_hash: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
     embedding: Mapped[List[float]] = mapped_column(Vector(1536), nullable=False)
     ativo: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False, index=True)
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(UTCDateTime, default=utc_now, nullable=False)
     updated_at: Mapped[datetime] = mapped_column(
-        DateTime,
-        default=datetime.utcnow,
-        onupdate=datetime.utcnow,
+        UTCDateTime,
+        default=utc_now,
+        onupdate=utc_now,
         nullable=False,
     )
 
@@ -642,8 +644,8 @@ class DocumentoConhecimento(Base):
             "metadata": self.metadados,
             "conteudo_hash": self.conteudo_hash,
             "ativo": self.ativo,
-            "created_at": self.created_at.isoformat() if self.created_at else None,
-            "updated_at": self.updated_at.isoformat() if self.updated_at else None,
+            "created_at": serialize_utc_datetime(self.created_at),
+            "updated_at": serialize_utc_datetime(self.updated_at),
         }
 
 
@@ -668,11 +670,11 @@ class ParQA(Base):
     ativo: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
     aprovado: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     criado_por: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
-    criado_em: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False)
+    criado_em: Mapped[datetime] = mapped_column(UTCDateTime, default=utc_now, nullable=False)
     atualizado_em: Mapped[datetime] = mapped_column(
-        DateTime,
-        default=datetime.utcnow,
-        onupdate=datetime.utcnow,
+        UTCDateTime,
+        default=utc_now,
+        onupdate=utc_now,
         nullable=False,
     )
 
@@ -693,8 +695,8 @@ class ParQA(Base):
             "ativo": self.ativo,
             "aprovado": self.aprovado,
             "criado_por": self.criado_por,
-            "criado_em": self.criado_em.isoformat() if self.criado_em else None,
-            "atualizado_em": self.atualizado_em.isoformat() if self.atualizado_em else None,
+            "criado_em": serialize_utc_datetime(self.criado_em),
+            "atualizado_em": serialize_utc_datetime(self.atualizado_em),
         }
 
 
@@ -728,9 +730,9 @@ class ItemOrcamento(Base):
         }
 
 
-class ItemNegociacao(Base):
+class ItemAtendimento(Base):
     """
-    Item de uma negociação (pré-orçamento).
+    Item de um atendimento (pré-orçamento).
     Começa apenas com tipo_produto e quantidade.
     O produto específico é definido quando o modelo for escolhido.
     """
@@ -738,26 +740,26 @@ class ItemNegociacao(Base):
     __tablename__ = "itens_negociacao"
 
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
-    negociacao_id: Mapped[int] = mapped_column(ForeignKey("negociacoes.id"), nullable=False, index=True)
+    atendimento_id: Mapped[int] = mapped_column(ForeignKey("atendimentos.id"), nullable=False, index=True)
     tipo_produto_id: Mapped[int] = mapped_column(ForeignKey("tipos_produto.id"), nullable=False, index=True)
     produto_id: Mapped[Optional[int]] = mapped_column(ForeignKey("produtos.id"), nullable=True, index=True)
     quantidade: Mapped[Decimal] = mapped_column(Numeric(10, 3), nullable=False, default=1)
     observacoes: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(UTCDateTime, default=utc_now, nullable=False)
     updated_at: Mapped[datetime] = mapped_column(
-        DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False
+        UTCDateTime, default=utc_now, onupdate=utc_now, nullable=False
     )
 
     # Relacionamentos
-    negociacao: Mapped["Negociacao"] = relationship(back_populates="itens")
-    tipo_produto: Mapped["TipoProduto"] = relationship(back_populates="itens_negociacao")
-    produto: Mapped[Optional["Produto"]] = relationship(back_populates="itens_negociacao")
+    atendimento: Mapped["Atendimento"] = relationship(back_populates="itens")
+    tipo_produto: Mapped["TipoProduto"] = relationship(back_populates="itens_atendimento")
+    produto: Mapped[Optional["Produto"]] = relationship(back_populates="itens_atendimento")
 
     def to_dict(self) -> dict:
         """Converte o modelo para dicionário."""
         return {
             "id": self.id,
-            "negociacao_id": self.negociacao_id,
+            "atendimento_id": self.atendimento_id,
             "tipo_produto_id": self.tipo_produto_id,
             "produto_id": self.produto_id,
             "quantidade": str(self.quantidade),
@@ -774,45 +776,45 @@ class OrigemInfo(str, enum.Enum):
     ATENDENTE = "atendente"  # Preenchido manualmente por atendente humano
 
 
-class NegociacaoInfo(Base):
+class AtendimentoInfo(Base):
     """
-    Informações coletadas/pendentes durante uma negociação.
-    Modelo chave-valor auditável para rastrear dados da negociação.
+    Informações coletadas/pendentes durante um atendimento.
+    Modelo chave-valor auditável para rastrear dados do atendimento.
 
     Exemplos de chaves: cnpj, nome_contato, localizacao_instalacao,
                        sistema_cliente, prazo_desejado, etc.
     """
 
-    __tablename__ = "negociacao_infos"
+    __tablename__ = "atendimento_infos"
 
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
-    negociacao_id: Mapped[int] = mapped_column(ForeignKey("negociacoes.id"), nullable=False, index=True)
+    atendimento_id: Mapped[int] = mapped_column(ForeignKey("atendimentos.id"), nullable=False, index=True)
     chave: Mapped[str] = mapped_column(String(100), nullable=False)
     valor: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     pendente: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
     origem: Mapped[Optional[OrigemInfo]] = mapped_column(
         Enum(OrigemInfo, values_callable=lambda x: [e.value for e in x]), nullable=True
     )
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(UTCDateTime, default=utc_now, nullable=False)
     updated_at: Mapped[datetime] = mapped_column(
-        DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False
+        UTCDateTime, default=utc_now, onupdate=utc_now, nullable=False
     )
 
     # Relacionamentos
-    negociacao: Mapped["Negociacao"] = relationship(back_populates="informacoes")
+    atendimento: Mapped["Atendimento"] = relationship(back_populates="informacoes")
 
-    __table_args__ = (Index("idx_negociacao_info_chave", "negociacao_id", "chave", unique=True),)
+    __table_args__ = (Index("idx_atendimento_info_chave", "atendimento_id", "chave", unique=True),)
 
     def to_dict(self) -> dict:
         """Converte o modelo para dicionário."""
         return {
             "id": self.id,
-            "negociacao_id": self.negociacao_id,
+            "atendimento_id": self.atendimento_id,
             "chave": self.chave,
             "valor": self.valor,
             "pendente": self.pendente,
             "origem": self.origem.value if self.origem else None,
-            "updated_at": self.updated_at.isoformat() if self.updated_at else None,
+            "updated_at": serialize_utc_datetime(self.updated_at),
         }
 
 
@@ -852,7 +854,7 @@ class ProcessamentoMensagem(Base):
     status_identificacao: Mapped[Optional[str]] = mapped_column(String(30), nullable=True)
     contato_id_identificado: Mapped[Optional[int]] = mapped_column(ForeignKey("contatos.id"), nullable=True)
     empresa_id_identificada: Mapped[Optional[int]] = mapped_column(ForeignKey("empresas.id"), nullable=True)
-    negociacao_id_ativa: Mapped[Optional[int]] = mapped_column(ForeignKey("negociacoes.id"), nullable=True)
+    atendimento_id_ativa: Mapped[Optional[int]] = mapped_column(ForeignKey("atendimentos.id"), nullable=True)
 
     # --- Decisão de resposta ---
     template_usado: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
@@ -874,7 +876,7 @@ class ProcessamentoMensagem(Base):
     # --- Controle ---
     duracao_ms: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
     erro: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(UTCDateTime, default=utc_now, nullable=False)
 
     # Relacionamento inverso (mensagem aponta para cá via FK)
     mensagem: Mapped[Optional["Mensagem"]] = relationship(
@@ -899,7 +901,7 @@ class ProcessamentoMensagem(Base):
             "status_identificacao": self.status_identificacao,
             "contato_id_identificado": self.contato_id_identificado,
             "empresa_id_identificada": self.empresa_id_identificada,
-            "negociacao_id_ativa": self.negociacao_id_ativa,
+            "atendimento_id_ativa": self.atendimento_id_ativa,
             "template_usado": self.template_usado,
             "personalizado_via_llm": self.personalizado_via_llm,
             "llm_provider": self.llm_provider,
@@ -913,7 +915,7 @@ class ProcessamentoMensagem(Base):
             "rag_score_maximo": (float(self.rag_score_maximo) if self.rag_score_maximo is not None else None),
             "duracao_ms": self.duracao_ms,
             "erro": self.erro,
-            "created_at": self.created_at.isoformat() if self.created_at else None,
+            "created_at": serialize_utc_datetime(self.created_at),
         }
 
 
@@ -994,13 +996,13 @@ class ReportProblema(Base):
     # Resolução
     resolucao: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     resolvido_por: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
-    resolvido_em: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
+    resolvido_em: Mapped[Optional[datetime]] = mapped_column(UTCDateTime, nullable=True)
 
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(UTCDateTime, default=utc_now, nullable=False)
     updated_at: Mapped[datetime] = mapped_column(
-        DateTime,
-        default=datetime.utcnow,
-        onupdate=datetime.utcnow,
+        UTCDateTime,
+        default=utc_now,
+        onupdate=utc_now,
         nullable=False,
     )
 
@@ -1026,9 +1028,9 @@ class ReportProblema(Base):
             "resolvido": self.resolvido,
             "resolucao": self.resolucao,
             "resolvido_por": self.resolvido_por,
-            "resolvido_em": self.resolvido_em.isoformat() if self.resolvido_em else None,
-            "created_at": self.created_at.isoformat() if self.created_at else None,
-            "updated_at": self.updated_at.isoformat() if self.updated_at else None,
+            "resolvido_em": serialize_utc_datetime(self.resolvido_em),
+            "created_at": serialize_utc_datetime(self.created_at),
+            "updated_at": serialize_utc_datetime(self.updated_at),
         }
 
 
@@ -1047,9 +1049,9 @@ class Parametro(Base):
     nome: Mapped[str] = mapped_column(String(100), unique=True, nullable=False, index=True)
     valor: Mapped[str] = mapped_column(Text, nullable=False)
     descricao: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(UTCDateTime, default=utc_now, nullable=False)
     updated_at: Mapped[datetime] = mapped_column(
-        DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False
+        UTCDateTime, default=utc_now, onupdate=utc_now, nullable=False
     )
 
     def to_dict(self) -> dict:
@@ -1058,5 +1060,5 @@ class Parametro(Base):
             "nome": self.nome,
             "valor": self.valor,
             "descricao": self.descricao,
-            "updated_at": self.updated_at.isoformat() if self.updated_at else None,
+            "updated_at": serialize_utc_datetime(self.updated_at),
         }

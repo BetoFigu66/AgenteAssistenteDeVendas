@@ -59,7 +59,40 @@ git log --oneline -- caminho/do/arquivo
 git log -p -- caminho/do/arquivo
 ```
 
-**Dica VSCode/Windsurf:** botão direito no arquivo → `Open Timeline`. Lista todos os commits que tocaram aquele arquivo; `Ctrl+Click` em duas entradas compara as versões lado a lado.
+**Dica VSCode/Windsurf/Cursor:** botão direito no arquivo → `Open Timeline`. Lista todos os commits que tocaram aquele arquivo; `Ctrl+Click` em duas entradas compara as versões lado a lado.
+
+### Conflitos de merge — Merge Editor não abre
+
+Sintoma: em **Source Control**, ao clicar em **Resolve in Merge Editor**, nada acontece (comum no Cursor/VS Code no Windows).
+
+**Ordem recomendada (do mais rápido ao mais manual):**
+
+1. **Abrir o arquivo com conflito primeiro** (ex.: `docs/comandos_uteis.md`) — o editor inline mostra botões *Accept Current Change* / *Accept Incoming Change* / *Accept Both* acima de cada bloco `<<<<<<<`.
+
+2. **Paleta de comandos:** `Ctrl+Shift+P` → digite **`Merge Editor: Open Merge Editor`** (com o arquivo em foco e em estado *unmerged*).
+
+3. **Conferir setting** (`Ctrl+,` → buscar `merge editor`):
+   - `git.mergeEditor` = **true**
+   - Reiniciar o Cursor após alterar.
+
+4. **Terminal (sempre funciona):**
+   ```powershell
+   git status                          # arquivos em "Unmerged paths"
+   git diff --name-only --diff-filter=U
+   # Editar o arquivo: remover <<<<<<< ======= >>>>>>> e deixar o texto final
+   git add caminho/do/arquivo
+   git commit                          # conclui o merge (sem -m usa msg padrão)
+   ```
+
+5. **Comparar versões manualmente:**
+   ```powershell
+   git show :2:docs/comandos_uteis.md   # sua branch (HEAD / "Current")
+   git show :3:docs/comandos_uteis.md   # branch entrando ("Incoming")
+   ```
+
+6. **Desistir do merge:** `git merge --abort`
+
+**No merge atual deste repo:** só `docs/comandos_uteis.md` está em conflito — dá para resolver editando o arquivo (manter as duas seções se fizer sentido) e `git add docs/comandos_uteis.md`.
 
 ### GitHub — permissões para colaboradora (Projects / Issues)
 
@@ -184,7 +217,7 @@ Acessos: http://localhost:3000 (local) · https://app.auxvendas.com (público)
 ### Checklist de configuração
 
 1. **`backend/.env`:** `API_PORT=8001` (dev). Docker ignora isso e usa porta `8000` interna.
-2. **`frontend/.env` ou `.env.development`:** `VITE_DEV_PORT=3001`, `VITE_DEV_API_PROXY=http://127.0.0.1:8001` (opcional — já são os padrões no `vite.config.js`).
+2. **`frontend/.env` ou `.env.development`:** dev nativo (`run.sh`): `VITE_DEV_PORT=3001`, `VITE_DEV_API_PROXY=http://127.0.0.1:8001`. Backend via Docker + Vite local: **não** use `8001` — omita o `.env` (padrão do `vite.config.js` é `8000`) ou `VITE_DEV_API_PROXY=http://127.0.0.1:8000`.
 3. **`%USERPROFILE%\.cloudflared\config.yml`:** ingress `app.auxvendas.com` → `http://localhost:3000` (sem alteração).
 4. **Twilio webhook:** `https://app.auxvendas.com/webhook` (QA). Dev em `8001` não recebe webhook da Twilio salvo túnel separado.
 5. **Postgres:** ambos usam `localhost:5433` / DB `assistente_vendas` por padrão — **dados compartilhados**. Para isolar dev de QA, crie outro database no mesmo Postgres e ajuste `DATABASE_URL` no `.env` de dev.
@@ -196,6 +229,27 @@ netstat -ano | findstr ":8000 :8001 :3000 :3001"
 ```
 
 Se `8000` ou `3000` estiverem ocupados fora do Docker, o QA não sobe. Se `8001`/`3001` ocupados, o dev não sobe. Os dois ambientes **podem** rodar ao mesmo tempo.
+
+### Erro no Vite: `proxy error` / `ECONNREFUSED 127.0.0.1:8001`
+
+Sintoma: aba Acompanhamento mostra *"Erro ao carregar atendimentos ativos"*; terminal do Vite registra `connect ECONNREFUSED 127.0.0.1:8001`; **backend Docker não mostra erro** (a requisição nem chega na API).
+
+Causa: Vite (`npm run dev`, porta 3001) aponta proxy para porta errada. Backend Docker escuta em **8000**; dev nativo (`backend/run.sh`) em **8001**.
+
+Correção:
+
+```powershell
+# Backend Docker + Vite local — apague ou ajuste frontend/.env:
+# VITE_DEV_API_PROXY=http://127.0.0.1:8000
+# (sem .env, o vite.config.js já usa 8000 por padrão)
+
+# Dev nativo (run.sh nos dois) — frontend/.env:
+# VITE_DEV_API_PROXY=http://127.0.0.1:8001
+```
+
+Reinicie o Vite após alterar. Teste: http://localhost:3001/health ou http://localhost:8000/health conforme o ambiente.
+
+Alternativa sem Vite: use o frontend Docker em http://localhost:3000 (Nginx já faz proxy para `backend:8000`).
 
 ---
 
@@ -225,6 +279,14 @@ python main.py
 # Dev local: porta 8001 (QA/docker usa 8000)
 uvicorn main:app --host 0.0.0.0 --port 8001 --reload
 # ou: .\run.sh
+
+# Nível de log (padrão WARNING). SQL só aparece com SQL_ECHO=true no .env
+# LOG_LEVEL=WARNING
+# SQL_ECHO=false
+
+# Timestamps: gravados em UTC (timestamptz). Exibição no painel em America/Sao_Paulo.
+# Consulta SQL direta — ver horário BRT:
+#   SELECT timestamp AT TIME ZONE 'America/Sao_Paulo' FROM mensagens ORDER BY id DESC LIMIT 5;
 
 # Rodar migrations do banco
 alembic upgrade head
@@ -818,6 +880,27 @@ O check `ruff-lint` do QA Engineer invoca `ruff check` automaticamente no pre-co
 
 ---
 
+## Windsurf — Troubleshooting
+
+### Tela em branco ao abrir
+
+1. Fechar completamente (inclusive da bandeja do sistema)
+2. Limpar cache de GPU e dados cached:
+   ```powershell
+   Remove-Item -Recurse -Force "$env:APPDATA\Windsurf\Cache"
+   Remove-Item -Recurse -Force "$env:APPDATA\Windsurf\CachedData"
+   Remove-Item -Recurse -Force "$env:APPDATA\Windsurf\Global Storage"
+   ```
+3. Reabrir. Se persistir, iniciar com GPU desabilitada:
+   ```powershell
+   $env:ELECTRON_DISABLE_GPU=1
+   & "$env:LOCALAPPDATA\Programs\Windsurf\Windsurf.exe"
+   ```
+4. Se ainda não funcionar, reinstalar após remover totalmente:
+   ```powershell
+   Remove-Item -Recurse -Force "$env:APPDATA\Windsurf"
+   ```
+
 ## Cursor — MCP GitHub
 
 Permite que o agente no chat acesse issues, PRs, repositórios etc. via [servidor oficial do GitHub](https://github.com/github/github-mcp-server). **Não confundir** com o `gh` no terminal — são canais separados.
@@ -917,6 +1000,7 @@ Alternativa por projeto: `"envFile": "${workspaceFolder}/.env"` no bloco do serv
 | 2026-04-20 | Beto | Como ativar venv no Windows? | `venv\Scripts\Activate.ps1` |
 | 2026-04-20 | Beto | Precisa de venv para frontend? | Não, Node.js usa `node_modules` |
 | 2026-04-25 | Beto | Como quebrar a visualizacao de linhas longas no VSCode? | Ativar `editor.wordWrap: on` ou usar `Alt + Z` |
+| 2026-06-12 | Beto | Windsurf abre tela em branco | Limpar cache (`%APPDATA%\Windsurf\Cache`) ou iniciar com `ELECTRON_DISABLE_GPU=1` |
 
 ---
 
