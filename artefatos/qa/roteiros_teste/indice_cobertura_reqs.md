@@ -35,7 +35,7 @@
 | REQ-013 | Pares Q&A curados | 🟡 Parcial substancial | RT-002 | ✅ Majoritariamente |
 | REQ-014 | Configuração runtime RAG | 🟡 Parcial inicial | RT-005 | ✅ Parâmetros RAG sim · 🚧 Persistência e Q&A não |
 | REQ-015 | Validação CPF / débitos | — | — | — |
-| REQ-016 | Identificação / numeração atendimentos | — | — | — |
+| REQ-016 | Identificação / numeração atendimentos | 🔴 Não iniciado | RT-009, RT-010, RT-011 | 🚧 Aguardando implementação |
 
 ---
 
@@ -60,13 +60,15 @@
 |---------|---------|--------------|
 | RT-007 | Reclamação e escalonamento por sentimento | REQ-007, REQ-004.2 |
 | RT-008 | Reclamação pós-venda com orçamento | REQ-009, REQ-006 (UI) |
+| RT-009 | Criação automática de atendimento e numeração sequencial | REQ-016 (não implementado) |
+| RT-010 | Janela de continuação e pergunta de continuação | REQ-016 (não implementado) |
+| RT-011 | Encerramento de atendimento (manual, fechamento e abandono) | REQ-016 (não implementado) |
 
 ---
 
 ## REQs sem cobertura de roteiro
 
 - **REQ-015** (Validação CPF / débitos) — nenhum roteiro criado ainda.
-- **REQ-016** (Identificação / numeração de atendimentos) — nenhum roteiro criado ainda.
 
 ---
 
@@ -75,3 +77,4 @@
 | Data | Versão | Mudança |
 |------|--------|---------|
 | 2026-06-15 | 1.0 | Criação inicial com 8 roteiros (RT-001 a RT-008). |
+| 2026-06-19 | 1.1 | Adição de RT-009, RT-010 e RT-011 para REQ-016 (todos com status 🚧 aguardando implementação). |
