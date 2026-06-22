@@ -162,6 +162,43 @@ export const api = {
     return response.json()
   },
 
+  async baixarPacoteAnaliseReport(reportId, { antes = 5, depois = 3 } = {}) {
+    try {
+      const params = new URLSearchParams({
+        formato: 'yaml',
+        antes: String(antes),
+        depois: String(depois),
+      })
+      const response = await fetch(
+        `${API_URL}/api/reports/${reportId}/pacote-analise?${params}`,
+      )
+      if (!response.ok) {
+        const detail = await response.json().catch(() => null)
+        const msg = detail?.detail || 'Erro ao gerar pacote de análise'
+        throw new ApiError(
+          typeof msg === 'string' && msg === 'Not Found'
+            ? 'Endpoint não encontrado no backend — reinicie o backend (Docker: docker compose up -d backend)'
+            : msg,
+          response.status,
+          'server',
+        )
+      }
+      const yaml = await response.text()
+      const blob = new Blob([yaml], { type: 'text/yaml;charset=utf-8' })
+      const url = URL.createObjectURL(blob)
+      const link = document.createElement('a')
+      link.href = url
+      link.download = `report_${String(reportId).padStart(3, '0')}_pacote_analise.yaml`
+      document.body.appendChild(link)
+      link.click()
+      link.remove()
+      URL.revokeObjectURL(url)
+    } catch (error) {
+      if (error instanceof ApiError) throw error
+      throw new ApiError('Backend não está respondendo', 0, 'network')
+    }
+  },
+
   async atualizarReport(reportId, payload) {
     const response = await fetch(`${API_URL}/api/reports/${reportId}`, {
       method: 'PATCH',

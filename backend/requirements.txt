@@ -17,3 +17,6 @@ groq==0.11.0
 
 # Embeddings / RAG
 openai==1.55.3
+
+# Serialização YAML (pacote-analise do curador)
+PyYAML==6.0.2

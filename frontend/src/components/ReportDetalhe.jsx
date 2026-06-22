@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Loader2, Save, AlertTriangle, CheckCircle2, MessageCircle } from 'lucide-react'
+import { Loader2, Save, AlertTriangle, CheckCircle2, MessageCircle, Download } from 'lucide-react'
 import { api } from '../services/api'
 import DetalheModal from './DetalheModal'
 import { formatDatetimeBRT, formatTimeBRT } from '../utils/datetime'
@@ -28,6 +28,8 @@ function ReportDetalhe({ reportId, onClose, onAtualizado }) {
   const [salvando, setSalvando] = useState(false)
   const [erroSave, setErroSave] = useState(null)
   const [sucessoSave, setSucessoSave] = useState(false)
+  const [baixandoYaml, setBaixandoYaml] = useState(false)
+  const [erroYaml, setErroYaml] = useState(null)
 
   useEffect(() => {
     let cancelado = false
@@ -71,6 +73,18 @@ function ReportDetalhe({ reportId, onClose, onAtualizado }) {
       setErroSave(e.message || 'Falha ao salvar')
     } finally {
       setSalvando(false)
+    }
+  }
+
+  const baixarYaml = async () => {
+    setBaixandoYaml(true)
+    setErroYaml(null)
+    try {
+      await api.baixarPacoteAnaliseReport(reportId)
+    } catch (e) {
+      setErroYaml(e.message || 'Falha ao baixar YAML')
+    } finally {
+      setBaixandoYaml(false)
     }
   }
 
@@ -181,6 +195,41 @@ function ReportDetalhe({ reportId, onClose, onAtualizado }) {
               </div>
             </div>
           )}
+
+          <div className="border rounded-lg p-3 bg-slate-50">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+              <div>
+                <h3 className="text-sm font-semibold text-inforrel-primary">
+                  Pacote para curador
+                </h3>
+                <p className="text-xs text-gray-600 mt-0.5">
+                  Gera YAML com re-busca Q&A/RAG e sugestão de documentos para o{' '}
+                  <span className="font-mono">[curador_conhecimento]</span>.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={baixarYaml}
+                disabled={baixandoYaml}
+                className="btn-secondary text-sm px-4 py-1.5 rounded flex items-center gap-1.5 disabled:opacity-50 shrink-0"
+              >
+                {baixandoYaml ? (
+                  <>
+                    <Loader2 size={14} className="animate-spin" /> Gerando...
+                  </>
+                ) : (
+                  <>
+                    <Download size={14} /> Download YAML
+                  </>
+                )}
+              </button>
+            </div>
+            {erroYaml && (
+              <div className="text-xs text-red-600 flex items-center gap-1 mt-2">
+                <AlertTriangle size={12} /> {erroYaml}
+              </div>
+            )}
+          </div>
 
           {/* Triagem / Resolução */}
           <div className="border-t pt-4">

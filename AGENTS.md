@@ -55,6 +55,7 @@ O projeto tem varios agentes especializados em `agentes/` (cada um com seu propr
 | `[implementador]` | Implementador | `agentes/implementador.md` + `.py` | `artefatos/implementador/` | Codificacao de backend/frontend, migrations, fixes, diretrizes de implementacao |
 | `[gerente]` | Gerente de Projetos | `agentes/gerente_de_projetos.md` + `.py` | `artefatos/gerente_de_projetos/` | Coordenacao, relatorios de sprint, acompanhamento de pendencias, atas |
 | `[ia_expert]` | Especialista em IA | `agentes/ia_expert.md` | `artefatos/ia_expert/` | Governanca de IA, revisao de prompts/harness, tendencias, benchmark interno de uso de IA |
+| `[curador_conhecimento]` | Curador de Conhecimento | `agentes/curador_conhecimento.md` | `artefatos/curador_conhecimento/` | Evolucao da base Q&A/RAG a partir de reports (REQ-012); propostas de conteudo em `docs/FoldersProdutos/` |
 
 ### Como usar
 
@@ -118,6 +119,7 @@ Cada agente tem **dois arquivos** com papeis bem definidos:
 | `[gerente]` | OK | OK (G01-G05; `README.md` mantido como narrativa) |
 | `[arquiteto]` | OK | OK (indice A01-A05 com pointers para `.md` tematicos) |
 | `[ia_expert]` | OK | OK (IA01) |
+| `[curador_conhecimento]` | OK | OK (C01-C05) |
 | `[auxiliar]` | OK | criar quando surgirem regras |
 | `[planejador]` | OK | criar quando surgirem regras |
 | `[qa]` | pendente (prompt ainda no `.py`) | criar quando surgirem regras |

@@ -151,6 +151,30 @@ class QAService:
             )
         return filtrados
 
+    async def buscar_candidatos(
+        self,
+        query: str,
+        top_k: int = 10,
+        contexto: Optional[str] = None,
+        apenas_aprovados: bool = False,
+    ) -> list[ParRecuperado]:
+        """
+        Diagnóstico: retorna top-K por similaridade sem filtrar por score_minimo.
+
+        Usado pelo pacote de análise do [curador_conhecimento] para expor
+        quase-hits abaixo do limiar de produção.
+        """
+        if not query or not query.strip() or top_k <= 0:
+            return []
+
+        vetor = await self._embeddings.embed_um(query)
+        return self._consultar_por_similaridade(
+            vetor=vetor,
+            top_k=top_k,
+            contexto=contexto,
+            apenas_aprovados=apenas_aprovados,
+        )
+
     # ------------------------------------------------------------------
     # Interno
     # ------------------------------------------------------------------

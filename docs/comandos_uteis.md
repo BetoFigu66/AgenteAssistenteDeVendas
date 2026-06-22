@@ -450,6 +450,29 @@ docker exec inforrel_postgres psql -U inforrel -d assistente_vendas -c "\d+ docu
 
 ---
 
+### Curador de conhecimento — pacote de análise de report
+
+Gera YAML com contexto do report, re-busca Q&A/RAG e sugestão de documentos em `docs/FoldersProdutos/`. Ver `artefatos/curador_conhecimento/guia_operacional.md`.
+
+```powershell
+# YAML (salvar para o agente [curador_conhecimento])
+curl -s "http://localhost:8000/api/reports/42/pacote-analise" -o artefatos\curador_conhecimento\pacotes\report_042.yaml
+
+# JSON (debug)
+curl -s "http://localhost:8000/api/reports/42/pacote-analise?formato=json"
+
+# Janela maior de mensagens
+curl -s "http://localhost:8000/api/reports/42/pacote-analise?antes=8&depois=5"
+```
+
+No Cursor, após salvar o YAML:
+
+```
+[curador_conhecimento] analise artefatos/curador_conhecimento/pacotes/report_042.yaml e gere proposta
+```
+
+---
+
 ### QA Engineer — checks automatizados e pre-commit
 
 Os checks de qualidade ficam em `agentes/qa_engineer.py` (registry via `@registrar_check`). Ver diretriz D06 em `artefatos/implementador/diretrizes.md`.
@@ -758,6 +781,13 @@ $ms = $milestones | Where-Object { $_.title -eq 'Sprint 03' }
 Aplica-se a qualquer comando externo no Windows quando o argumento tem
 aspas e/ou pipe — não é específico de `gh`. Em PowerShell 7+ (`pwsh`) o
 problema some com `$PSNativeCommandArgumentPassing = 'Standard'`.
+
+### Criar comandos e aliases:
+
+Edite ou crie o arquivo de profile:
+notepad $PROFILE
+
+Crie funções com os comandos que deseja:
 
 ---
 

@@ -922,6 +922,62 @@ async def obter_contexto_report(report_id: int, antes: int = 3, depois: int = 3)
         }
 
 
+@app.get("/api/reports/{report_id}/pacote-analise")
+async def obter_pacote_analise_report(
+    report_id: int,
+    antes: int = 5,
+    depois: int = 3,
+    formato: str = "yaml",
+):
+    """
+    Gera pacote de análise para o agente [curador_conhecimento].
+
+    Extrai contexto do report, reprocessa classificação e buscas Q&A/RAG sobre a
+    pergunta original (estado atual da base), e sugere documentos fonte em
+    docs/FoldersProdutos/.
+
+    Query `formato`: `yaml` (default) ou `json`.
+    """
+    from services.curador import montar_pacote_analise
+
+    formato_norm = (formato or "yaml").lower().strip()
+    if formato_norm not in ("yaml", "json"):
+        raise HTTPException(
+            status_code=400,
+            detail="formato inválido; use 'yaml' ou 'json'",
+        )
+
+    try:
+        with db.get_session() as session:
+            pacote = await montar_pacote_analise(
+                session=session,
+                report_id=report_id,
+                antes=antes,
+                depois=depois,
+            )
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except Exception as exc:
+        logger.exception("[PacoteAnalise] Falha ao gerar pacote report_id=%s", report_id)
+        raise HTTPException(status_code=500, detail="Erro ao gerar pacote de análise") from exc
+
+    if formato_norm == "json":
+        return pacote
+
+    import yaml
+
+    yaml_text = yaml.dump(
+        pacote,
+        allow_unicode=True,
+        default_flow_style=False,
+        sort_keys=False,
+    )
+    return PlainTextResponse(
+        content=yaml_text,
+        media_type="text/yaml; charset=utf-8",
+    )
+
+
 # ============================================================================
 # Configuração RAG (runtime) — para ajuste dinâmico durante testes
 # ============================================================================
