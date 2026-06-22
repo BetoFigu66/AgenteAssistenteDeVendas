@@ -172,7 +172,7 @@ foreach ($file in $bugFiles) {
 
   $idFromFile = [System.IO.Path]::GetFileNameWithoutExtension($file.Name)
 
-  $cobreLine = $content | Where-Object { $_ -match '^\- \*\*Cobre:\*\*\s+(REQ-\d+' } | Select-Object -First 1
+  $cobreLine = $content | Where-Object { $_ -match '^\- \*\*Cobre:\*\*\s+REQ-\d+' } | Select-Object -First 1
   $req = if ($cobreLine) {
     if ($cobreLine -match '(REQ-\d+)') { $Matches[1] } else { "REQ-???" }
   } else { "REQ-???" }
