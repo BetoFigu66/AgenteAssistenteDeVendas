@@ -1,21 +1,23 @@
 """
-Gerador de respostas - híbrido (templates + LLM para personalização).
+Gerador de respostas - híbrido (catálogo estruturado + LLM para personalização).
 
 Fluxo:
-1. Escolhe template baseado em intenção + estado da negociação
-2. Preenche com contexto (nome, empresa, etc.)
+1. Resolve mensagem pelo ID estável (catalogo.py)
+2. Aplica transformers e preenche placeholders
 3. Opcionalmente personaliza via LLM para tom mais natural
 """
 
 import logging
 from dataclasses import dataclass, field
-from typing import Any, List, Optional
+from typing import Any, List, Optional, Sequence, Tuple, Union
 
 from services.llm import LLMProvider
 
-from . import templates as T
+from .catalogo import MensagemId, renderizar_mensagem
 
 logger = logging.getLogger(__name__)
+
+ParteMensagem = Tuple[Union[MensagemId, int], Optional[dict]]
 
 
 @dataclass
@@ -81,32 +83,27 @@ class GeradorRespostas:
 
     async def gerar(
         self,
-        template: str,
+        mensagem_id: Union[MensagemId, int],
         contexto: Optional[dict] = None,
         personalizar: bool = False,
         mensagem_cliente: Optional[str] = None,
-        template_nome: Optional[str] = None,
     ) -> RespostaGerada:
         """
-        Gera uma resposta a partir de um template.
+        Gera uma resposta a partir de um ID do catálogo.
 
         Args:
-            template: String de template (veja templates.py)
-            contexto: Dict com variáveis para preencher o template
-            personalizar: Se True, passa pela LLM para suavizar o tom
-            mensagem_cliente: Mensagem original do cliente (para contexto à LLM)
-            template_nome: Nome identificador do template para auditoria (ex: "SAUDACAO_NOVO_CONTATO").
-                Se None, tenta inferir.
+            mensagem_id: ID estável da mensagem (MensagemId).
+            contexto: Dict com variáveis para transformers e placeholders.
+            personalizar: Se True, passa pela LLM para suavizar o tom.
+            mensagem_cliente: Mensagem original do cliente (para contexto à LLM).
 
         Returns:
             RespostaGerada com texto e metadados.
         """
-        contexto = contexto or {}
-        resposta_base = T.formatar(template, **contexto)
-        nome = template_nome or _nome_template(template)
+        resposta_base, codigo = renderizar_mensagem(mensagem_id, contexto)
 
         if not personalizar or not self._usar_llm:
-            return RespostaGerada(texto=resposta_base, template_usado=nome)
+            return RespostaGerada(texto=resposta_base, template_usado=codigo)
 
         prompt_usuario = f"Resposta padrão base: {resposta_base}"
         if mensagem_cliente:
@@ -122,22 +119,69 @@ class GeradorRespostas:
             texto_final = resultado.conteudo.strip() or resposta_base
             return RespostaGerada(
                 texto=texto_final,
-                template_usado=nome,
+                template_usado=codigo,
                 personalizado_via_llm=True,
                 llm_tokens_input=resultado.tokens_input,
                 llm_tokens_output=resultado.tokens_output,
             )
         except Exception as e:
             logger.warning(f"[Gerador] Falha ao personalizar via LLM, usando template: {e}")
-            return RespostaGerada(texto=resposta_base, template_usado=nome)
+            return RespostaGerada(texto=resposta_base, template_usado=codigo)
+
+    async def gerar_composta(
+        self,
+        partes: Sequence[ParteMensagem],
+        separador: str = "\n\n",
+        personalizar: bool = False,
+        mensagem_cliente: Optional[str] = None,
+    ) -> RespostaGerada:
+        """
+        Compõe várias mensagens do catálogo numa única resposta.
+
+        template_usado registra os códigos unidos por '+' (ex: SAUDACAO_NOVO_CONTATO+PEDIR_TIPO_PRODUTO).
+        """
+        textos: list[str] = []
+        codigos: list[str] = []
+        for mensagem_id, contexto in partes:
+            texto, codigo = renderizar_mensagem(mensagem_id, contexto)
+            textos.append(texto)
+            codigos.append(codigo)
+
+        resposta_base = separador.join(textos)
+        codigo_composto = "+".join(codigos)
+
+        if not personalizar or not self._usar_llm:
+            return RespostaGerada(texto=resposta_base, template_usado=codigo_composto)
+
+        prompt_usuario = f"Resposta padrão base: {resposta_base}"
+        if mensagem_cliente:
+            prompt_usuario = f"Mensagem do cliente: {mensagem_cliente}\n\n{prompt_usuario}"
+
+        try:
+            resultado = await self._llm.completar(
+                prompt_sistema=_PROMPT_SISTEMA_PERSONALIZACAO,
+                prompt_usuario=prompt_usuario,
+                temperatura=0.5,
+                max_tokens=400,
+            )
+            texto_final = resultado.conteudo.strip() or resposta_base
+            return RespostaGerada(
+                texto=texto_final,
+                template_usado=codigo_composto,
+                personalizado_via_llm=True,
+                llm_tokens_input=resultado.tokens_input,
+                llm_tokens_output=resultado.tokens_output,
+            )
+        except Exception as e:
+            logger.warning(f"[Gerador] Falha ao personalizar composta via LLM: {e}")
+            return RespostaGerada(texto=resposta_base, template_usado=codigo_composto)
 
     async def gerar_com_rag(
         self,
         pergunta_cliente: str,
         trechos: List[Any],
         permitir_sugestao_produto: bool = False,
-        template_fallback: str = T.PRODUTO_SEM_CONTEXTO,
-        template_fallback_nome: str = "PRODUTO_SEM_CONTEXTO",
+        template_fallback: Union[MensagemId, int] = MensagemId.PRODUTO_SEM_CONTEXTO,
     ) -> RespostaGerada:
         """
         Gera resposta usando trechos recuperados da RAG como unico contexto factual.
@@ -148,24 +192,23 @@ class GeradorRespostas:
                 Quando vazia, retorna o template de fallback.
             permitir_sugestao_produto: Se True, o prompt libera sugestao cautelosa de modelo; se False,
             pede apenas explicacao + coleta.
-            template_fallback: Template usado quando `trechos` e vazia ou quando a LLM nao esta disponivel.
-            template_fallback_nome: Nome do template de fallback para auditoria.
+            template_fallback: ID do catálogo usado quando `trechos` e vazia ou LLM indisponivel.
 
         Returns:
             `RespostaGerada` com metadata de RAG preenchida.
         """
+        texto_fallback, codigo_fallback = renderizar_mensagem(template_fallback)
         trechos_meta = [_trecho_para_metadata(t) for t in (trechos or [])]
         score_max = max((t["score"] for t in trechos_meta), default=None)
 
-        # Sem trechos ou sem LLM: cai no template de fallback seguro.
         if not trechos or not self._usar_llm:
             if not trechos:
-                logger.info("[Gerador] RAG sem trechos; usando fallback %s", template_fallback_nome)
+                logger.info("[Gerador] RAG sem trechos; usando fallback %s", codigo_fallback)
             else:
-                logger.info("[Gerador] RAG sem LLM disponivel; usando fallback %s", template_fallback_nome)
+                logger.info("[Gerador] RAG sem LLM disponivel; usando fallback %s", codigo_fallback)
             return RespostaGerada(
-                texto=template_fallback,
-                template_usado=template_fallback_nome,
+                texto=texto_fallback,
+                template_usado=codigo_fallback,
                 rag_utilizada=bool(trechos),
                 trechos_rag=trechos_meta,
                 rag_score_maximo=score_max,
@@ -185,8 +228,8 @@ class GeradorRespostas:
             if not texto_final:
                 logger.warning("[Gerador] LLM retornou vazio na RAG; usando fallback")
                 return RespostaGerada(
-                    texto=template_fallback,
-                    template_usado=template_fallback_nome,
+                    texto=texto_fallback,
+                    template_usado=codigo_fallback,
                     rag_utilizada=True,
                     trechos_rag=trechos_meta,
                     rag_score_maximo=score_max,
@@ -204,8 +247,8 @@ class GeradorRespostas:
         except Exception as e:
             logger.warning(f"[Gerador] Falha ao gerar resposta com RAG: {e}")
             return RespostaGerada(
-                texto=template_fallback,
-                template_usado=template_fallback_nome,
+                texto=texto_fallback,
+                template_usado=codigo_fallback,
                 rag_utilizada=True,
                 trechos_rag=trechos_meta,
                 rag_score_maximo=score_max,
@@ -248,11 +291,3 @@ def _trecho_para_metadata(trecho: Any) -> dict:
         "distancia": float(getattr(trecho, "distancia", 0.0) or 0.0),
         "url": url,
     }
-
-
-def _nome_template(template_str: str) -> Optional[str]:
-    """Tenta inferir o nome de um template pelo seu conteúdo (reverse lookup)."""
-    for nome in dir(T):
-        if nome.isupper() and getattr(T, nome) is template_str:
-            return nome
-    return None

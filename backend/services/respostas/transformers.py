@@ -1,0 +1,93 @@
+"""
+Transformers de contexto para mensagens estruturadas.
+
+Cada função recebe um dict de contexto e retorna o dict enriquecido.
+As chaves dos transformers são serializáveis (futuro: coluna no banco).
+"""
+
+from __future__ import annotations
+
+from typing import Callable
+
+ContextoMensagem = dict
+TransformerFn = Callable[[ContextoMensagem], ContextoMensagem]
+
+
+def _juntar_lista(itens: list[str]) -> str:
+    """Junta itens com vírgula e 'e' antes do último."""
+    itens = [i for i in itens if i]
+    if not itens:
+        return ""
+    if len(itens) == 1:
+        return itens[0]
+    if len(itens) == 2:
+        return f"{itens[0]} e {itens[1]}"
+    return f"{', '.join(itens[:-1])} e {itens[-1]}"
+
+
+def _nome_informado(ctx: ContextoMensagem) -> str:
+    return (ctx.get("nome") or "").strip()
+
+
+def _tem_documento(ctx: ContextoMensagem) -> bool:
+    if ctx.get("tem_documento"):
+        return True
+    return bool(ctx.get("cnpj") or ctx.get("cpf"))
+
+
+def montar_pedido_identificacao(ctx: ContextoMensagem) -> ContextoMensagem:
+    """Monta o trecho pedindo nome e/ou documento, conforme o que falta."""
+    pedidos: list[str] = []
+    if not _nome_informado(ctx):
+        pedidos.append("o seu nome")
+    if not _tem_documento(ctx):
+        pedidos.append("o CNPJ da sua empresa ou seu CPF")
+    ctx["pedido_identificacao"] = _juntar_lista(pedidos)
+    return ctx
+
+
+def montar_saudacao_novo(ctx: ContextoMensagem) -> ContextoMensagem:
+    """
+    Preenche saudacao e linha_pedido para SAUDACAO_NOVO_CONTATO.
+
+    Contexto opcional:
+    - nome: str
+    - tem_documento: bool
+    - modo: 'identificacao' (padrão) | 'orcamento'
+    """
+    nome = _nome_informado(ctx)
+    modo = ctx.get("modo", "identificacao")
+
+    ctx["saudacao"] = f"Olá, {nome}!" if nome else "Olá!"
+
+    if modo == "orcamento":
+        ctx["linha_pedido"] = ""
+        return ctx
+
+    ctx = montar_pedido_identificacao(ctx)
+    pedido = ctx.get("pedido_identificacao", "")
+    if pedido:
+        ctx["linha_pedido"] = (
+            f"\nPara te atender melhor, poderia me informar {pedido}?"
+        )
+    else:
+        ctx["linha_pedido"] = ""
+    return ctx
+
+
+def montar_perguntar_cnpj(ctx: ContextoMensagem) -> ContextoMensagem:
+    """Preenche pedido_identificacao para PERGUNTAR_CNPJ."""
+    ctx = montar_pedido_identificacao(ctx)
+    pedido = ctx.get("pedido_identificacao", "")
+    if pedido:
+        ctx["texto_corpo"] = f"Para prosseguir, poderia me informar {pedido}?"
+    else:
+        ctx["texto_corpo"] = "Em que posso te ajudar hoje?"
+    return ctx
+
+
+TRANSFORMERS: dict[str, TransformerFn] = {
+    "montar_saudacao_novo": montar_saudacao_novo,
+    "montar_pedido_identificacao": montar_pedido_identificacao,
+    "montar_perguntar_cnpj": montar_perguntar_cnpj,
+}

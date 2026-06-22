@@ -46,14 +46,14 @@ from services.identificador import (
     ResultadoIdentificacao,
     StatusIdentificacao,
     criar_contato,
+    criar_contato_sem_empresa,
     identificar_por_telefone,
     normalizar_telefone,
     vincular_empresa_ao_contato,
 )
 from services.llm import LLMProvider
 from services.rag import DocumentoRecuperado, ParRecuperado, QAService, RetrievalService
-from services.respostas import GeradorRespostas, RespostaGerada
-from services.respostas import templates as T
+from services.respostas import GeradorRespostas, MensagemId, RespostaGerada
 from utils.datetime_utils import utc_now
 
 logger = logging.getLogger(__name__)
@@ -66,6 +66,16 @@ _INTENCOES_RAG = frozenset(
         "perguntar_produto",
         "perguntar_preco",
         "fora_contexto",
+    }
+)
+
+# Intenções comerciais que disparam contato + atendimento anônimos (REQ-002.1B, REQ-016.6).
+_INTENCOES_QUALIFICACAO = frozenset(
+    {
+        Intencao.PEDIR_ORCAMENTO,
+        Intencao.PERGUNTAR_PRECO,
+        Intencao.PERGUNTAR_PRODUTO,
+        Intencao.PERGUNTAR_PRAZO,
     }
 )
 
@@ -365,13 +375,13 @@ class ProcessadorMensagem:
         if intencao == Intencao.ESCALAR_HUMANO:
             if dlog:
                 dlog.log("rota", "ESCALAR_HUMANO → ESCALADO_HUMANO")
-            return await self._gerador.gerar(T.ESCALADO_HUMANO)
+            return await self._gerador.gerar(MensagemId.ESCALADO_HUMANO)
 
         # Regra: Reclamação também escala
         if intencao == Intencao.RECLAMAR:
             if dlog:
                 dlog.log("rota", "RECLAMAR → RECLAMACAO_ESCALADA")
-            return await self._gerador.gerar(T.RECLAMACAO_ESCALADA)
+            return await self._gerador.gerar(MensagemId.RECLAMACAO_ESCALADA)
 
         # Se o cliente forneceu CNPJ, processa fluxo PJ
         if entidades.cnpjs:
@@ -418,16 +428,40 @@ class ProcessadorMensagem:
 
         # Telefone novo ou sem empresa -> pedir identificação
         if identificacao.status == StatusIdentificacao.NOVO:
+            nome_novo = entidades.nomes[0] if entidades.nomes else None
+            tem_documento = bool(entidades.cnpjs or entidades.cpfs)
+            ctx_novo = {
+                "nome": nome_novo,
+                "tem_documento": tem_documento,
+            }
+
+            if intencao in _INTENCOES_QUALIFICACAO:
+                await self._garantir_contato_e_atendimento_qualificacao(
+                    db, telefone, None, resultado_class, dlog=dlog
+                )
+            elif nome_novo:
+                criar_contato_sem_empresa(db, telefone, nome=nome_novo)
+
+            if intencao == Intencao.PEDIR_ORCAMENTO:
+                if dlog:
+                    dlog.log("rota", "NOVO + PEDIR_ORCAMENTO → composta")
+                ctx_novo["modo"] = "orcamento"
+                return await self._gerador.gerar_composta([
+                    (MensagemId.SAUDACAO_NOVO_CONTATO, ctx_novo),
+                    (MensagemId.PEDIR_TIPO_PRODUTO, None),
+                ])
+
             if dlog:
                 dlog.log("rota", "NOVO → SAUDACAO_NOVO_CONTATO")
-            return await self._gerador.gerar(T.SAUDACAO_NOVO_CONTATO)
+            ctx_novo["modo"] = "identificacao"
+            return await self._gerador.gerar(MensagemId.SAUDACAO_NOVO_CONTATO, ctx_novo)
 
         if identificacao.status == StatusIdentificacao.MULTIPLO:
             if dlog:
                 dlog.log("rota", "MULTIPLO → MULTIPLAS_EMPRESAS")
             nomes_empresas = ", ".join(e.nome for e in identificacao.empresas[:5])
             return await self._gerador.gerar(
-                T.MULTIPLAS_EMPRESAS,
+                MensagemId.MULTIPLAS_EMPRESAS,
                 contexto={"empresas": nomes_empresas},
             )
 
@@ -450,9 +484,29 @@ class ProcessadorMensagem:
                         conteudo_cliente=conteudo,
                         dlog=dlog,
                     )
+                if intencao in _INTENCOES_QUALIFICACAO:
+                    if entidades.nomes and not contato.nome:
+                        contato.nome = entidades.nomes[0]
+                        db.commit()
+                    neg = self._obter_ou_criar_atendimento(db, contato)
+                    await self._atualizar_infos_atendimento(db, neg, resultado_class)
+                    if dlog:
+                        dlog.log("rota", f"SEM_EMPRESA + qualificação → atendimento id={neg.id}")
+                    return await self._gerar_resposta_por_intencao(
+                        intencao=intencao,
+                        contato=contato,
+                        empresa=None,
+                        pessoa=None,
+                        conteudo_cliente=conteudo,
+                        dlog=dlog,
+                    )
             if dlog:
                 dlog.log("rota", "SEM_EMPRESA → PERGUNTAR_CNPJ")
-            return await self._gerador.gerar(T.PERGUNTAR_CNPJ)
+            nome_contato = contato.nome if contato else None
+            return await self._gerador.gerar(
+                MensagemId.PERGUNTAR_CNPJ,
+                contexto={"nome": nome_contato},
+            )
 
         # A partir daqui: contato identificado com empresa
         contato = identificacao.contato
@@ -498,12 +552,12 @@ class ProcessadorMensagem:
 
         if intencao == Intencao.SAUDACAO:
             if nome:
-                return await self._gerador.gerar(T.SAUDACAO_COM_NOME, {"nome": nome})
-            return await self._gerador.gerar(T.PERGUNTAR_NOME)
+                return await self._gerador.gerar(MensagemId.SAUDACAO_COM_NOME, {"nome": nome})
+            return await self._gerador.gerar(MensagemId.PERGUNTAR_NOME)
 
         if intencao == Intencao.PERGUNTAR_PRAZO:
             return await self._gerador.gerar(
-                T.PRAZO_NAO_PROMETIDO,
+                MensagemId.PRAZO_NAO_PROMETIDO,
                 personalizar=True,
                 mensagem_cliente=conteudo_cliente,
             )
@@ -514,7 +568,7 @@ class ProcessadorMensagem:
             # registrar trechos relacionados em auditoria.
             trechos_preco = await self._buscar_trechos_rag(conteudo_cliente, dlog=dlog)
             resposta = await self._gerador.gerar(
-                T.PRECO_NAO_NEGOCIADO,
+                MensagemId.PRECO_NAO_NEGOCIADO,
                 personalizar=True,
                 mensagem_cliente=conteudo_cliente,
             )
@@ -522,27 +576,25 @@ class ProcessadorMensagem:
             return resposta
 
         if intencao == Intencao.PEDIR_ORCAMENTO:
-            return await self._gerador.gerar(T.PEDIR_TIPO_PRODUTO)
+            return await self._gerador.gerar(MensagemId.PEDIR_TIPO_PRODUTO)
 
         if intencao == Intencao.PERGUNTAR_PRODUTO:
             return await self._responder_com_rag(
                 conteudo_cliente=conteudo_cliente,
-                template_fallback=T.PRODUTO_SEM_CONTEXTO,
-                template_fallback_nome="PRODUTO_SEM_CONTEXTO",
+                template_fallback=MensagemId.PRODUTO_SEM_CONTEXTO,
                 dlog=dlog,
             )
 
         if intencao == Intencao.APROVAR_ORCAMENTO:
-            return await self._gerador.gerar(T.ORCAMENTO_APROVADO)
+            return await self._gerador.gerar(MensagemId.ORCAMENTO_APROVADO)
 
         if intencao == Intencao.REPROVAR_ORCAMENTO:
-            return await self._gerador.gerar(T.ORCAMENTO_REPROVADO)
+            return await self._gerador.gerar(MensagemId.ORCAMENTO_REPROVADO)
 
         if intencao == Intencao.FORA_CONTEXTO:
             return await self._responder_com_rag(
                 conteudo_cliente=conteudo_cliente,
-                template_fallback=T.FORA_CONTEXTO,
-                template_fallback_nome="FORA_CONTEXTO",
+                template_fallback=MensagemId.FORA_CONTEXTO,
                 dlog=dlog,
             )
 
@@ -566,7 +618,7 @@ class ProcessadorMensagem:
         if dlog:
             dlog.log("rota", f"intencao={intencao.value} não mapeada → NAO_ENTENDI")
         return await self._gerador.gerar(
-            T.NAO_ENTENDI,
+            MensagemId.NAO_ENTENDI,
             personalizar=True,
             mensagem_cliente=conteudo_cliente,
         )
@@ -643,11 +695,11 @@ class ProcessadorMensagem:
     async def _responder_com_rag(
         self,
         conteudo_cliente: str,
-        template_fallback: str,
-        template_fallback_nome: str,
+        template_fallback: MensagemId,
         dlog: Optional[DebugLogger] = None,
     ) -> RespostaGerada:
         """Busca pares/trechos e gera resposta; Q&A tem prioridade sobre chunks."""
+        codigo_fallback = template_fallback.name
         # Camada 1: Q&A pairs curados
         par = await self._buscar_resposta_qa(conteudo_cliente, dlog=dlog)
         if par is not None:
@@ -665,11 +717,8 @@ class ProcessadorMensagem:
         trechos = await self._buscar_trechos_rag(conteudo_cliente, dlog=dlog)
         if not trechos:
             if dlog:
-                dlog.log("rag_decisao", f"sem trechos → fallback template={template_fallback_nome}")
-            resposta = await self._gerador.gerar(
-                template_fallback,
-                template_nome=template_fallback_nome,
-            )
+                dlog.log("rag_decisao", f"sem trechos → fallback template={codigo_fallback}")
+            resposta = await self._gerador.gerar(template_fallback)
             resposta.rag_utilizada = settings.RAG_ENABLED and self._retrieval is not None
             return resposta
         if dlog:
@@ -679,7 +728,6 @@ class ProcessadorMensagem:
             trechos=trechos,
             permitir_sugestao_produto=settings.RAG_SUGERIR_PRODUTOS,
             template_fallback=template_fallback,
-            template_fallback_nome=template_fallback_nome,
         )
 
     # ------------------------------------------------------------------
@@ -695,13 +743,13 @@ class ProcessadorMensagem:
     ) -> RespostaGerada:
         """Processa quando o cliente forneceu um CNPJ: consulta, cria empresa/contato."""
         if not validar_cnpj(cnpj):
-            return await self._gerador.gerar(T.CNPJ_INVALIDO)
+            return await self._gerador.gerar(MensagemId.CNPJ_INVALIDO)
 
         try:
             empresa = await obter_ou_criar_empresa(db, cnpj)
         except ConsultaCnpjError as e:
             logger.warning(f"[Processador] Falha ao consultar CNPJ: {e}")
-            return await self._gerador.gerar(T.CNPJ_INVALIDO)
+            return await self._gerador.gerar(MensagemId.CNPJ_INVALIDO)
 
         # Procura contato existente por telefone (telefone é unique no modelo).
         # Inclui contatos anônimos (empresa_id=None) criados antes do CNPJ.
@@ -730,7 +778,7 @@ class ProcessadorMensagem:
         self._obter_ou_criar_atendimento(db, contato_existente, empresa)
 
         return await self._gerador.gerar(
-            T.CNPJ_CONSULTADO_OK,
+            MensagemId.CNPJ_CONSULTADO_OK,
             contexto={"nome": empresa.nome},
             personalizar=False,
         )
@@ -745,7 +793,7 @@ class ProcessadorMensagem:
     ) -> RespostaGerada:
         """Processa quando o cliente forneceu CPF: valida, persiste pessoa e vincula negociação."""
         if not validar_cpf(cpf):
-            return await self._gerador.gerar(T.CPF_INVALIDO)
+            return await self._gerador.gerar(MensagemId.CPF_INVALIDO)
 
         if data_nascimento is None:
             telefone_norm = normalizar_telefone(telefone)
@@ -762,7 +810,7 @@ class ProcessadorMensagem:
 
             atendimento = self._obter_ou_criar_atendimento_pf_pendente(db, contato, cpf)
             self._salvar_info_atendimento(db, atendimento.id, "cpf_pendente", cpf)
-            return await self._gerador.gerar(T.PERGUNTAR_DATA_NASCIMENTO)
+            return await self._gerador.gerar(MensagemId.PERGUNTAR_DATA_NASCIMENTO)
 
         pessoa, resultado_credito = await obter_ou_criar_pessoa(
             db,
@@ -799,7 +847,7 @@ class ProcessadorMensagem:
 
         nome_exibicao = pessoa.nome or contato_existente.nome or "cliente"
         return await self._gerador.gerar(
-            T.CPF_CONSULTADO_OK,
+            MensagemId.CPF_CONSULTADO_OK,
             contexto={"nome": nome_exibicao},
             personalizar=False,
         )
@@ -821,6 +869,34 @@ class ProcessadorMensagem:
     def _atendimento_ativo(self, db: Session, contato: Contato) -> Optional[Atendimento]:
         """Retorna o atendimento ativo do contato (se houver)."""
         return atendimentos_svc.atendimento_ativo(db, contato)
+
+    async def _garantir_contato_e_atendimento_qualificacao(
+        self,
+        db: Session,
+        telefone: str,
+        contato: Optional[Contato],
+        resultado_class: ResultadoClassificacao,
+        dlog: Optional[DebugLogger] = None,
+    ) -> Atendimento:
+        """REQ-002.1B / REQ-016.6: cria contato e atendimento anônimos na intenção comercial."""
+        nome = resultado_class.entidades.nomes[0] if resultado_class.entidades.nomes else None
+        if contato is None:
+            contato = criar_contato_sem_empresa(db, telefone, nome=nome)
+            if dlog:
+                dlog.log("rota", f"contato anônimo criado id={contato.id} nome={nome or '—'}")
+        elif nome and not contato.nome:
+            contato.nome = nome
+            db.commit()
+
+        atendimento = self._obter_ou_criar_atendimento(db, contato)
+        await self._atualizar_infos_atendimento(db, atendimento, resultado_class)
+        if dlog:
+            dlog.log(
+                "rota",
+                f"atendimento criado/ativo id={atendimento.id} "
+                f"numero={atendimento.numero_atendimento_cliente}",
+            )
+        return atendimento
 
     def _obter_ou_criar_atendimento(
         self,
