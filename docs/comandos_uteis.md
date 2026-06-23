@@ -472,6 +472,35 @@ No Cursor, após salvar o YAML:
 ```
 
 ---
+### Limpeza de dados de telefone da base
+
+Limpa dados relacionados a um telefone (reports, mensagens, processamentos, itens_orcamento, orcamentos, itens_negociacao, atendimento_infos, atendimentos, contatos).
+
+```powershell
+curl.exe -X DELETE "http://localhost:8000/api/dev/telefones/+5511999999999"
+```
+
+No Cursor, após salvar o YAML:
+
+```
+[curador_conhecimento] analise artefatos/curador_conhecimento/pacotes/report_042.yaml e gere proposta
+```
+---
+### Dev — apagar dados de teste por telefone
+
+Remove contato, atendimentos, mensagens, processamentos, reports e orçamentos vinculados ao número. **Não** remove empresa nem pessoa. Requer `DEBUG=True` no backend.
+
+```powershell
+# PowerShell: usar curl.exe (curl sozinho é alias do Invoke-WebRequest)
+curl.exe -X DELETE "http://localhost:8000/api/dev/telefones/+5511999999999"
+
+# Via túnel cloudflared (exemplo)
+curl.exe -X DELETE "https://auxvendas-dev.seudominio.com/api/dev/telefones/+5511999999999"
+```
+
+Resposta: contagem por entidade (`removidos.reports`, `removidos.mensagens`, etc.). `404` se não houver dados.
+
+---
 
 ### QA Engineer — checks automatizados e pre-commit
 

@@ -34,6 +34,7 @@ from models import (
 from pydantic import BaseModel
 from routers.pares_qa import router as pares_qa_router
 from services.identificador import identificar_por_telefone, normalizar_telefone
+from services.dev_limpeza_telefone import apagar_dados_telefone
 from services.llm import get_llm_provider
 from services.processador import ProcessadorMensagem
 from sqlalchemy import func
@@ -244,6 +245,42 @@ async def listar_telefones():
     """
     telefones = db.listar_telefones()
     return {"telefones": telefones}
+
+
+@app.delete("/api/dev/telefones/{telefone}")
+async def apagar_dados_dev_telefone(telefone: str):
+    """
+    Apaga todos os dados de teste vinculados a um telefone (somente DEBUG=True).
+
+    Remove: reports, mensagens, processamentos, orçamentos, itens de atendimento,
+    atendimentos e contato. Não remove empresa nem pessoa.
+    """
+    if not settings.DEBUG:
+        raise HTTPException(
+            status_code=403,
+            detail="Endpoint disponível apenas com DEBUG=True no backend.",
+        )
+
+    try:
+        with db.get_session() as session:
+            resultado = apagar_dados_telefone(session, telefone)
+    except Exception as e:
+        logger.exception("Erro ao apagar dados do telefone %s: %s", telefone, e)
+        raise HTTPException(status_code=500, detail=str(e)) from e
+
+    total = sum(resultado["removidos"].values())
+    if total == 0:
+        raise HTTPException(
+            status_code=404,
+            detail=f"Nenhum dado encontrado para o telefone {telefone}.",
+        )
+
+    logger.warning(
+        "[DEV] Dados apagados telefone=%s removidos=%s",
+        resultado["telefone_normalizado"],
+        resultado["removidos"],
+    )
+    return {"status": "ok", **resultado}
 
 
 STATUS_ATENDIMENTO_ATIVOS = [StatusAtendimento.ATIVO.value]
