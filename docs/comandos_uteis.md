@@ -477,7 +477,7 @@ No Cursor, após salvar o YAML:
 Limpa dados relacionados a um telefone (reports, mensagens, processamentos, itens_orcamento, orcamentos, itens_negociacao, atendimento_infos, atendimentos, contatos).
 
 ```powershell
-curl.exe -X DELETE "http://localhost:8000/api/dev/telefones/+5511999999999"
+curl.exe -X DELETE "http://localhost:8000/api/dev/telefones/198765412365"
 ```
 
 No Cursor, após salvar o YAML:
@@ -698,7 +698,89 @@ Invoke-RestMethod "https://api.github.com/repos/BetoFigu66/AgenteAssistenteDeVen
   Select-Object number, title
 ```
 
-Para fechar issues e criar PRs, o `gh` autenticado no WSL continua sendo o caminho preferido.
+### Reduzir tamanho do disco WSL (`ext4.vhdx` / `LocalState`)
+
+A pasta `LocalState` do Ubuntu na Microsoft Store guarda o arquivo **`ext4.vhdx`** — o disco virtual do WSL2. Apagar arquivos **dentro** do Linux **não encolhe** o `.vhdx` no Windows automaticamente.
+
+**Diagnóstico rápido:**
+
+```powershell
+# Tamanho do arquivo no Windows
+Get-Item "$env:LOCALAPPDATA\Packages\CanonicalGroupLimited.UbuntuonWindows_*\LocalState\ext4.vhdx" |
+  Select-Object FullName, @{N='GB';E={[math]::Round($_.Length/1GB,2)}}
+
+# Uso real dentro do Ubuntu
+wsl -d Ubuntu -e df -h /
+wsl -d Ubuntu -e bash -lc "du -sh /home /var /usr 2>/dev/null"
+```
+
+Se o `.vhdx` for muito maior que o `Used` do `df`, o ganho principal é **limpar dentro do WSL** + **compactar o VHDX**.
+
+**Passo 1 — limpar dentro do Ubuntu (WSL):**
+
+```bash
+# caches seguros
+pip cache purge
+sudo apt autoremove -y
+sudo apt clean
+sudo rm -rf /var/cache/apt/archives/*
+
+# Docker (se usar dentro do Ubuntu)
+docker system prune -a --volumes   # cuidado: remove imagens/containers não usados
+
+# ver maiores pastas do usuário
+du -sh ~/* ~/.[!.]* 2>/dev/null | sort -hr | head -20
+```
+
+Candidatos comuns: `~/.cache/pip`, `~/.cache/whisper`, `~/.vscode-server`, `miniconda3`, `.cargo`, `.rustup`, `.npm`, `.gradle`.
+
+**Passo 2 — encerrar todo o WSL (PowerShell):**
+
+```powershell
+# feche Docker Desktop antes, se estiver aberto
+wsl --shutdown
+```
+
+**Passo 3 — compactar o VHDX (PowerShell como Administrador):**
+
+Opção A — `diskpart` (funciona na maioria das instalações):
+
+```powershell
+$vhd = (Get-Item "$env:LOCALAPPDATA\Packages\CanonicalGroupLimited.UbuntuonWindows_*\LocalState\ext4.vhdx").FullName
+@"
+select vdisk file="$vhd"
+attach vdisk readonly
+compact vdisk
+detach vdisk
+exit
+"@ | diskpart
+```
+
+**Quanto tempo demora?** Em VHDX grande (ex.: 100+ GB), conte **15–60+ minutos** conforme SSD/HDD e quanto há para recuperar. A janela do DiskPart costuma ficar **quase em branco** durante o `compact vdisk` — isso é normal; não significa que travou.
+
+**Como saber se está processando:**
+
+1. **Gerenciador de Tarefas** → aba **Desempenho** → disco **C:** com atividade de leitura/gravação; ou aba **Detalhes** → `diskpart.exe` / `VmmemWSL` consumindo I/O.
+2. **Tamanho do arquivo** (outro PowerShell): `Get-Item $vhd | Select-Object Length, LastWriteTime` — o `LastWriteTime` muda e o tamanho pode ir caindo (nem sempre de forma contínua).
+3. **Não feche** a janela do DiskPart nem desligue o PC até voltar ao prompt `DISKPART>` ou fechar sozinha com `exit` concluído.
+
+Se após **1–2 h** o disco estiver em **0%** de atividade e o tamanho do `.vhdx` não mudou, aí sim pode ter travado — feche o DiskPart, confira se `wsl --shutdown` ainda vale e tente de novo.
+
+Opção B — Hyper-V (se o módulo existir):
+
+```powershell
+Optimize-VHD -Path "C:\Users\betof\AppData\Local\Packages\CanonicalGroupLimited.UbuntuonWindows_79rhkp1fndgsc\LocalState\ext4.vhdx" -Mode Full
+```
+
+**Passo 4 — evitar que cresça de novo sem recuperar espaço:**
+
+```powershell
+wsl --manage Ubuntu --set-sparse true
+```
+
+**Não fazer:** apagar manualmente a pasta `LocalState` ou o `ext4.vhdx` — isso destrói o Ubuntu.
+
+**Docker Desktop** usa outra distro WSL (`docker-desktop`) com VHDX próprio; se também estiver grande, repetir limpeza (`docker system prune`) + compactação na pasta `%LOCALAPPDATA%\Docker\wsl\`.
 
 ---
 
@@ -1115,6 +1197,97 @@ Alternativa por projeto: `"envFile": "${workspaceFolder}/.env"` no bloco do serv
 | 401 / auth | PAT expirado ou escopos insuficientes |
 | Ferramentas não aparecem | JSON inválido; reiniciar Cursor após editar `mcp.json` |
 | `${env:...}` não resolve | Variável definida só na sessão atual do terminal — usar escopo `User` no Windows |
+
+---
+
+## Windows — limpeza de disco
+
+O **TreeSize Free** é uma boa ferramenta de **diagnóstico** (mapa visual do que ocupa espaço). O ganho real vem de um **fluxo em fases**, não de trocar só a ferramenta.
+
+### Ferramentas (complementares, não substitutas)
+
+| Ferramenta | Quando usar |
+|------------|-------------|
+| **TreeSize Free** | Explorar pastas grandes com árvore e filtros |
+| **WizTree** | Mesma ideia, costuma ser mais rápido (lê MFT do NTFS) |
+| **Configurações → Sistema → Armazenamento** | Limpezas seguras do Windows (temp, Lixeira, Downloads antigos) |
+| **`cleanmgr`** | Limpeza de disco clássica; marcar “Arquivos temporários” |
+
+### Fluxo recomendado (do mais seguro ao mais agressivo)
+
+1. **Medir** — anotar os 5–10 maiores consumidores (GB e caminho completo).
+2. **Classificar** cada item:
+   - **Seguro:** Lixeira, `%TEMP%`, cache de navegador, `Downloads` antigos, logs.
+   - **Regenerável (dev):** `node_modules`, `venv`/`.venv`, `__pycache__`, `.vite`, imagens Docker não usadas.
+   - **Cuidado:** `AppData`, WSL (`ext4.vhdx`), OneDrive, backups, VMs.
+   - **Não apagar às cegas:** `Windows`, `Program Files`, `Users\<você>\Documents`.
+3. **Limpar o seguro primeiro** — muitas vezes libera vários GB sem risco.
+4. **Atacar caches de desenvolvimento** — ver comandos abaixo.
+5. **Repetir a medição** — confirmar ganho antes de ir para itens arriscados.
+
+### Comandos úteis (PowerShell)
+
+```powershell
+# Espaço livre no C:
+Get-PSDrive C | Select-Object @{N='LivreGB';E={[math]::Round($_.Free/1GB,1)}},
+                               @{N='UsadoGB';E={[math]::Round($_.Used/1GB,1)}}
+
+# Top 15 pastas imediatas de um diretório (ex.: perfil do usuário)
+$root = $env:USERPROFILE
+Get-ChildItem $root -Directory -ErrorAction SilentlyContinue |
+  ForEach-Object {
+    $s = (Get-ChildItem $_.FullName -Recurse -File -ErrorAction SilentlyContinue |
+          Measure-Object Length -Sum).Sum
+    [PSCustomObject]@{ Pasta = $_.Name; GB = [math]::Round($s/1GB, 2) }
+  } | Sort-Object GB -Descending | Select-Object -First 15
+
+# Limpar temp do usuário (seguro)
+Remove-Item "$env:TEMP\*" -Recurse -Force -ErrorAction SilentlyContinue
+
+# npm — cache global
+npm cache clean --force
+
+# pip — cache de pacotes baixados
+pip cache purge
+
+# Docker — imagens/containers/volumes não usados (cuidado: remove dados órfãos)
+docker system prune -a --volumes
+```
+
+### Onde costuma estar o problema (máquina de dev Windows)
+
+| Local | O que é |
+|-------|---------|
+| `%LOCALAPPDATA%\Docker\wsl\data` | Disco virtual do Docker Desktop |
+| `%LOCALAPPDATA%\Packages\...\LocalState\ext4.vhdx` | Disco do WSL2 |
+| `%APPDATA%\npm-cache` | Cache npm |
+| `%LOCALAPPDATA%\pip\cache` | Cache pip |
+| `C:\Users\<você>\.cursor`, `.vscode` | Extensões e cache de IDEs |
+| Vários `venv` / `node_modules` em projetos Git | Regeneráveis com `pip install` / `npm install` |
+
+### Neste repositório (medição rápida)
+
+Pastas regeneráveis que mais pesam:
+
+| Pasta | ~Tamanho |
+|-------|----------|
+| `dev_tools/.venv` | ~5 GB (PyTorch e deps de ML) |
+| `backend/venv` | ~130 MB |
+| `frontend/node_modules` | ~100 MB |
+
+Se `dev_tools` não estiver em uso no dia a dia, remover `dev_tools/.venv` e recriar só quando precisar libera bastante espaço.
+
+### Script pessoal de sugestões
+
+`AnotacoesPessoais/scripts/limpeza_disco_sugestoes.py` — varre um diretório e gera relatório **sem apagar nada**:
+
+```powershell
+python AnotacoesPessoais/scripts/limpeza_disco_sugestoes.py C:\caminho\do\projeto
+python AnotacoesPessoais/scripts/limpeza_disco_sugestoes.py . --dias-antigo 365 --saida relatorio.md
+python AnotacoesPessoais/scripts/limpeza_disco_sugestoes.py . --json
+```
+
+Seções do relatório: **Arquivo antigo — zipar**, **`.env` — apagar**, **Considerar remover** (`node_modules`, `venv`, caches, logs, etc.).
 
 ---
 
