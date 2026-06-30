@@ -924,6 +924,8 @@ async def obter_contexto_report(report_id: int, antes: int = 3, depois: int = 3)
 
         proc = report.processamento
         msg = proc.mensagem if proc else None
+        if not msg and report.mensagem_id:
+            msg = session.query(Mensagem).filter_by(id=report.mensagem_id).first()
 
         contexto_msgs = []
         if msg:
@@ -956,6 +958,7 @@ async def obter_contexto_report(report_id: int, antes: int = 3, depois: int = 3)
             "report": report.to_dict(),
             "processamento": proc.to_dict() if proc else None,
             "contexto_mensagens": contexto_msgs,
+            "telefone": msg.telefone if msg else None,
         }
 
 

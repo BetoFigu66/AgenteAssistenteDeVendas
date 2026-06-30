@@ -91,6 +91,8 @@ function ReportDetalhe({ reportId, onClose, onAtualizado }) {
   const report = ctx?.report
   const proc = ctx?.processamento
   const msgs = ctx?.contexto_mensagens || []
+  const telefone =
+    ctx?.telefone || msgs.find((m) => m.telefone)?.telefone || null
   const msgReportadaId = proc?.id ? msgs.find((m) => m.processamento_id === proc.id)?.id : null
 
   return (
@@ -206,6 +208,12 @@ function ReportDetalhe({ reportId, onClose, onAtualizado }) {
                   Gera YAML com re-busca Q&A/RAG e sugestão de documentos para o{' '}
                   <span className="font-mono">[curador_conhecimento]</span>.
                 </p>
+                {telefone && (
+                  <p className="text-xs text-gray-600 mt-1">
+                    Telefone:{' '}
+                    <span className="font-mono text-gray-800">{telefone}</span>
+                  </p>
+                )}
               </div>
               <button
                 type="button"
