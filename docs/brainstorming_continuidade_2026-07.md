@@ -266,6 +266,8 @@ Decisões já tomadas que alinham com visão Beto: DEC-001 (RAG não em toda men
 ## 7. Considerações da Kika [Kika — a preencher]
 
 > **Instrução:** Leia as seções 1–6. Escreva abaixo suas considerações. Não apague o conteúdo do Beto — acrescente, discorde ou proponha alternativas.
+>
+> **Catálogo piloto (2026-07-03):** O modelo Pergunta → Opção → Efeito foi materializado em `artefatos/analista_de_requisitos/catalogo_conversacao/` — vocabulário de negócio, 5 fases, perguntas espelhando REQ-016.9/10 e REQ-002.22, e campos CNPJ/software de ponto. Revise lá antes de opinar sobre formato de documentação.
 
 ### 7.1 Concordâncias
 
@@ -334,10 +336,11 @@ _(espaço em branco)_
 ## 10. Próximos passos sugeridos [Cascade]
 
 1. **[Kika]** Ler este documento e preencher seção 7.
-2. **[Beto + Kika]** Rodada de alinhamento: validar cenário (1, 2, 3 ou 4).
-3. **[Beto]** Detalhar exemplos Pergunta→Resposta→Ação para **Esclarecendo**, **Finalizando** e **Criando Orçamento** (como fez para inatividade).
-4. **[Beto + Kika]** Decidir se REQ-016 precisa de revisão para incluir `fase` explicitamente, ou se basta implementação.
-5. **[Implementador]** Se aprovado cenário 1: Sprint focada em `fase` + motor `campos_pendentes()` + REQ-016.9.
+2. **[Kika]** Revisar catálogo piloto em `artefatos/analista_de_requisitos/catalogo_conversacao/` (README + `indice.md` + fichas em `fases/`, `perguntas/`, `campos/`).
+3. **[Beto + Kika]** Rodada de alinhamento: validar cenário (1, 2, 3 ou 4).
+4. ~~**[Beto]** Detalhar exemplos Pergunta→Resposta→Ação para Esclarecendo, Finalizando e Criando Orçamento~~ → **feito em rascunho** no catálogo (fases + PERG/CAMPO); Kika valida e completa campos pendentes.
+5. **[Beto + Kika]** Decidir se REQ-016 precisa de revisão para incluir `fase` explicitamente, ou se basta implementação + referência ao catálogo.
+6. **[Implementador]** Se aprovado cenário 1: Sprint focada em `fase` + motor `campos_pendentes()` + REQ-016.9.
 
 ---
 
@@ -373,6 +376,7 @@ _(espaço em branco)_
 | Arquitetura POC / ADRs | `artefatos/arquiteto_de_sistemas/arquitetura_poc_v1.md` |
 | Processador (código) | `backend/services/processador.py` |
 | Modelos (código) | `backend/models.py` |
+| Catálogo de conversação (piloto) | `artefatos/analista_de_requisitos/catalogo_conversacao/` |
 
 ---
 
@@ -381,3 +385,4 @@ _(espaço em branco)_
 | Versão | Data | Autor | Alteração |
 |--------|------|-------|-----------|
 | 1.0 | 2026-07-02 | Beto + Cascade | Primeira versão após rodada 1 de brainstorming |
+| 1.1 | 2026-07-03 | Beto + Cascade | Referência ao catálogo de conversação piloto; próximos passos atualizados |
