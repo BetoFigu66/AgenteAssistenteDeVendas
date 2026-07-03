@@ -174,6 +174,76 @@ docker-compose up -d
 
 Se ainda falhar, apague o venv local (só afeta dev fora do Docker): `Remove-Item -Recurse -Force backend\venv`
 
+**Erro (WSL):** `bad interpreter: No such file or directory` ao rodar `./run.sh` ou `uvicorn`.
+
+**Causa:** o `backend/venv` foi criado com um Python que não existe mais — comum após limpeza de disco que removeu Miniconda (`~/miniconda3`) ou outro interpretador usado na criação do venv. O symlink `venv/bin/python` fica quebrado.
+
+**Diagnóstico (WSL):**
+
+```bash
+cd backend
+ls -la venv/bin/python    # symlink quebrado → alvo inexistente
+head -1 venv/bin/uvicorn  # shebang aponta para o python morto
+```
+
+**Correção:** recriar o venv no mesmo ambiente em que você desenvolve (WSL ou Windows — não misturar):
+
+```bash
+cd backend
+rm -rf venv
+python3 -m venv venv          # WSL/Linux
+source venv/bin/activate
+pip install -r requirements.txt
+./run.sh
+```
+
+No PowerShell (se dev for só no Windows): `python -m venv venv` → `venv\Scripts\Activate.ps1` → `pip install -r requirements.txt`.
+
+**Requisito:** Python **3.10+** (o código usa `list[str]` etc.). No WSL Ubuntu 20.04 o `python3` do sistema é **3.8** — insuficiente.
+
+**Opção recomendada (WSL, sem sudo, sem Miniconda):** instalar Python 3.11 via [uv](https://github.com/astral-sh/uv) (~30 MB, em `~/.local/share/uv/`):
+
+```bash
+# Uma vez no WSL
+curl -LsSf https://astral.sh/uv/install.sh | sh
+~/.local/bin/uv python install 3.11
+
+# Recriar venv do projeto
+cd backend
+bash _recreate_venv_wsl.sh
+source venv/bin/activate
+cd ..
+pip install -r requirements.txt    # pre-commit, pytest, agentes
+pre-commit install
+```
+
+O script `backend/_recreate_venv_wsl.sh` usa `~/.local/bin/python3.11` (uv). Para outro interpretador: `PYTHON_WSL=/caminho/python3.11 bash _recreate_venv_wsl.sh`.
+
+**Alternativa com sudo (apt/deadsnakes):** se preferir Python do sistema em vez de uv:
+
+```bash
+sudo add-apt-repository -y ppa:deadsnakes/ppa
+sudo apt update
+sudo apt install -y python3.11 python3.11-venv
+cd backend && rm -rf venv && python3.11 -m venv venv
+```
+
+**Não use** o `python3` do WSL 20.04 (3.8) nem o `python.exe` do Windows para criar o venv no WSL — o primeiro é antigo; o segundo gera `venv/Scripts/` (incompatível com `source venv/bin/activate` e `./run.sh`).
+
+**Erro (WSL):** `connection to server at "localhost" (127.0.0.1), port 5433 failed: server closed the connection unexpectedly`.
+
+**Causa:** container Postgres (`inforrel_postgres`) parou de forma abrupta (limpeza de disco, reboot, Docker reiniciado). O TCP na 5433 responde, mas o Postgres recusa o handshake.
+
+**Correção:**
+
+```powershell
+# PowerShell (Docker Desktop)
+docker restart inforrel_postgres
+docker exec inforrel_postgres pg_isready -U inforrel -d assistente_vendas
+```
+
+Se persistir: `docker-compose logs postgres` e, em último caso, `docker-compose up -d postgres` (volume `postgres_data` preserva os dados).
+
 ---
 
 ## Dois ambientes na mesma máquina (Dev + QA)
@@ -507,10 +577,32 @@ Resposta: contagem por entidade (`removidos.reports`, `removidos.mensagens`, etc
 Os checks de qualidade ficam em `agentes/qa_engineer.py` (registry via `@registrar_check`). Ver diretriz D06 em `artefatos/implementador/diretrizes.md`.
 
 **Setup (uma vez por clone):**
+
+Use o venv local do projeto (`backend/venv` no WSL). O `pre-commit` fica em `requirements.txt` da **raiz** (QA/agentes), não em `backend/requirements.txt`.
+
+```bash
+# WSL (recomendado para git commit)
+cd backend
+source venv/bin/activate          # recrie o venv se quebrado — ver seção venv abaixo
+cd ..
+pip install -r requirements.txt   # pre-commit, pytest, agentes
+pre-commit install                # grava INSTALL_PYTHON em .git/hooks/pre-commit
+```
+
 ```powershell
-pip install -r backend/requirements.txt
+# PowerShell (se commitar pelo Windows)
+cd backend
+venv\Scripts\Activate.ps1
+cd ..
+pip install -r requirements.txt
 pre-commit install
 ```
+
+**Erro:** `No module named pre_commit` com path de **outro projeto** (ex.: `Transcriptor/.venv/bin/python`).
+
+**Causa:** `pre-commit install` foi rodado com outro venv ativo; o hook grava esse Python em hardcode em `.git/hooks/pre-commit`.
+
+**Correção:** ativar `backend/venv` **deste** repo → `pip install -r requirements.txt` → `pre-commit install`. Confirme com `head -7 .git/hooks/pre-commit` que `INSTALL_PYTHON` aponta para `.../AgenteAssistenteDeVendas/backend/venv/bin/python`.
 
 **Rodar manualmente:**
 ```powershell

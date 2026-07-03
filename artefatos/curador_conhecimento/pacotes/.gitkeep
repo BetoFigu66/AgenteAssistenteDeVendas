@@ -1,6 +1,6 @@
 # Artefatos do [curador_conhecimento]
 
-- `pacotes/` — YAMLs gerados via `GET /api/reports/{id}/pacote-analise` (não versionar dados sensíveis de produção sem revisão).
-- `propostas/` — saídas do agente curador (`report_XXX_proposta.md`).
+- `pacotes/` — YAMLs gerados via `GET /api/reports/{id}/pacote-analise` (alternativa versionada; uso cotidiano em `AnotacoesPessoais/<colaborador>/Curadoria/`).
+- `propostas/` — fallback quando o pacote não está em disco; preferir co-localizar `report_XXX_proposta.md` no mesmo diretório do pacote (C06).
 - `guia_operacional.md` — fluxo completo dev + curador de conteúdo.
-- `diretrizes.md` — regras C01–C05.
+- `diretrizes.md` — regras C01–C06.

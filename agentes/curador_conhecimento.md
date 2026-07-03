@@ -29,13 +29,17 @@ Você **não altera código de produção** nem aplica mudanças automaticamente
 
 ## Entrada padrão
 
-1. Pacote YAML do report (`artefatos/curador_conhecimento/pacotes/report_XXX.yaml` ou resposta do endpoint)
+1. Pacote YAML do report (caminho informado pelo usuário, ex.: `AnotacoesPessoais/.../report_XXX_pacote_analise.yaml`, ou `artefatos/curador_conhecimento/pacotes/report_XXX.yaml`, ou resposta do endpoint)
 2. Documentos listados em `documentos_fonte_sugeridos`
 3. `artefatos/curador_conhecimento/diretrizes.md`
 
 ## Saída padrão
 
-Salvar proposta em `artefatos/curador_conhecimento/propostas/report_XXX_proposta.md` com:
+Salvar proposta **no mesmo diretório do pacote YAML analisado**, com nome `report_XXX_proposta.md` (ex.: pacote em `AnotacoesPessoais/Beto/Curadoria/report_006_pacote_analise.yaml` → proposta em `AnotacoesPessoais/Beto/Curadoria/report_006_proposta.md`).
+
+**Fallback:** se nenhum caminho de pacote for informado ou o arquivo ainda não existir em disco, usar `artefatos/curador_conhecimento/propostas/report_XXX_proposta.md`.
+
+Conteúdo da proposta:
 
 ```markdown
 # Proposta de curadoria — Report #XXX
@@ -76,5 +80,5 @@ Salvar proposta em `artefatos/curador_conhecimento/propostas/report_XXX_proposta
 
 ```
 [curador_conhecimento] analise o report 42
-[curador_conhecimento] gere proposta a partir de artefatos/curador_conhecimento/pacotes/report_042.yaml
+[curador_conhecimento] gere proposta a partir de AnotacoesPessoais/Beto/Curadoria/report_042_pacote_analise.yaml
 ```

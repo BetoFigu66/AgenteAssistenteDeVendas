@@ -13,7 +13,7 @@ Regras operacionais do agente `[curador_conhecimento]`. IDs estáveis; não reci
 
 **Motivação:** O pacote inclui re-busca Q&A/RAG no estado atual da base, classificação reprocessada e documentos sugeridos.
 
-**Aplicação:** Baixar YAML → salvar em `artefatos/curador_conhecimento/pacotes/` → só então produzir proposta.
+**Aplicação:** Baixar YAML → salvar no diretório de trabalho do curador (ex.: `AnotacoesPessoais/<colaborador>/Curadoria/` ou `artefatos/curador_conhecimento/pacotes/`) → só então produzir proposta (C06).
 
 ---
 
@@ -58,4 +58,26 @@ Regras operacionais do agente `[curador_conhecimento]`. IDs estáveis; não reci
 **Categoria:** processo  
 **Data:** 2026-06-18
 
-**Regra:** Após aplicar correção, mover report para `resolvido` com link à proposta e ao par Q&A / commit de documento. Reexecutar pacote-analise para confirmar `qa_hit_producao` ou `rag_hit_producao`.
+**Regra:** Após aplicar correção, mover report para `resolvido` com link à proposta (no mesmo diretório do pacote, C06) e ao par Q&A / commit de documento. Reexecutar pacote-analise para confirmar `qa_hit_producao` ou `rag_hit_producao`.
+
+---
+
+## C06 — Proposta co-localizada com o pacote
+
+**Categoria:** processo  
+**Data:** 2026-07-02
+
+**Regra:** A proposta (`report_XXX_proposta.md`) deve ser salva **no mesmo diretório** do pacote YAML que originou a análise (`report_XXX_pacote_analise.yaml` ou equivalente).
+
+**Motivação:** O curador costuma trabalhar em `AnotacoesPessoais/<colaborador>/Curadoria/`; manter pacote e proposta juntos facilita revisão, arquivamento em `DONE/` e rastreio por report.
+
+**Contexto originário:** pedido operacional do Beto (2026-07-02).
+
+**Aplicação prática:**
+
+- **Permitido:** `AnotacoesPessoais/Beto/Curadoria/report_006_pacote_analise.yaml` + `.../report_006_proposta.md`
+- **Permitido:** `artefatos/curador_conhecimento/pacotes/report_042.yaml` + `.../report_042_proposta.md` (se o pacote estiver nessa pasta)
+- **Proibido:** salvar proposta em `artefatos/curador_conhecimento/propostas/` quando o pacote analisado está em outro diretório
+- **Fallback:** sem caminho de pacote informado → `artefatos/curador_conhecimento/propostas/report_XXX_proposta.md`
+
+O campo **Pacote:** no cabeçalho da proposta deve registrar o caminho relativo real do YAML analisado.

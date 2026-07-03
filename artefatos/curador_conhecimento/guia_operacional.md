@@ -13,7 +13,7 @@ flowchart LR
     A[Report REQ-012] --> B[GET pacote-analise]
     B --> C[YAML salvo em artefatos/]
     C --> D["[curador_conhecimento]"]
-    D --> E[Proposta em propostas/]
+    D --> E["Proposta no mesmo dir do pacote"]
     E --> F{Aprovado?}
     F -->|sim| G[Par Q&A / editar .txt / RAG]
     F -->|não| H[Descartar ou revisar]
@@ -39,8 +39,8 @@ Anote o **`report_id`** (ex.: `42`).
 Com o backend rodando:
 
 ```powershell
-# YAML (default) — salvar em arquivo
-curl -s "http://localhost:8000/api/reports/42/pacote-analise" -o artefatos\curador_conhecimento\pacotes\report_042.yaml
+# YAML (default) — salvar no diretório de curadoria do colaborador
+curl -s "http://localhost:8000/api/reports/42/pacote-analise" -o AnotacoesPessoais\Beto\Curadoria\report_042_pacote_analise.yaml
 
 # JSON (debug)
 curl -s "http://localhost:8000/api/reports/42/pacote-analise?formato=json"
@@ -93,10 +93,10 @@ Ordem sugerida de leitura do YAML:
 No Cursor:
 
 ```
-[curador_conhecimento] analise artefatos/curador_conhecimento/pacotes/report_042.yaml e gere proposta
+[curador_conhecimento] analise AnotacoesPessoais/Beto/Curadoria/report_042_pacote_analise.yaml e gere proposta
 ```
 
-O agente deve produzir `artefatos/curador_conhecimento/propostas/report_042_proposta.md`.
+O agente deve produzir a proposta **no mesmo diretório do pacote** — ex.: `AnotacoesPessoais/Beto/Curadoria/report_042_proposta.md` (C06). Fallback sem pacote em disco: `artefatos/curador_conhecimento/propostas/`.
 
 Tipos de ação na proposta:
 
@@ -155,4 +155,4 @@ O campo `meta.agente_sugerido` no pacote indica isso automaticamente.
 - REQ-013 — Pares Q&A curados
 - REQ-003 — RAG
 - `agentes/curador_conhecimento.md` — identidade do agente
-- `artefatos/curador_conhecimento/diretrizes.md` — C01–C05
+- `artefatos/curador_conhecimento/diretrizes.md` — C01–C06

@@ -1,6 +1,7 @@
 # Pre-commit hooks do projeto.
-# Setup:
-#   pip install pre-commit
+# Setup (WSL):
+#   source backend/venv/bin/activate
+#   pip install -r requirements.txt
 #   pre-commit install
 #
 # Rodar manualmente sobre tudo:
