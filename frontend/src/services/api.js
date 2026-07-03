@@ -148,8 +148,13 @@ export const api = {
     return response.json()
   },
 
-  async statsReports() {
-    const response = await fetch(`${API_URL}/api/reports/stats`)
+  async statsReports(filtros = {}) {
+    const params = new URLSearchParams()
+    Object.entries(filtros).forEach(([k, v]) => {
+      if (v !== undefined && v !== null && v !== '') params.append(k, v)
+    })
+    const qs = params.toString()
+    const response = await fetch(`${API_URL}/api/reports/stats${qs ? `?${qs}` : ''}`)
     if (!response.ok) throw new ApiError('Erro ao obter estatísticas', response.status, 'server')
     return response.json()
   },

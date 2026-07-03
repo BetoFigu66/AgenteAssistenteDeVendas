@@ -838,6 +838,59 @@ async def listar_reports_problema(processamento_id: int):
         return {"reports": [r.to_dict() for r in reports]}
 
 
+_STATUS_REPORTS_ABERTOS = (
+    StatusReport.ABERTO,
+    StatusReport.EM_ANALISE,
+    StatusReport.AGUARDANDO_FIX,
+)
+
+
+def _aplicar_filtros_reports(
+    q,
+    *,
+    status_enum=None,
+    categoria_enum=None,
+    severidade_enum=None,
+    apenas_abertos=False,
+):
+    if status_enum:
+        q = q.filter(ReportProblema.status == status_enum)
+    elif apenas_abertos:
+        q = q.filter(ReportProblema.status.in_(_STATUS_REPORTS_ABERTOS))
+    if categoria_enum:
+        q = q.filter(ReportProblema.categoria == categoria_enum)
+    if severidade_enum:
+        q = q.filter(ReportProblema.severidade == severidade_enum)
+    return q
+
+
+def _calcular_stats_reports(q):
+    from sqlalchemy import func
+
+    total = q.count()
+    por_status = dict(
+        q.with_entities(ReportProblema.status, func.count(ReportProblema.id))
+        .group_by(ReportProblema.status)
+        .all()
+    )
+    por_categoria = dict(
+        q.with_entities(ReportProblema.categoria, func.count(ReportProblema.id))
+        .group_by(ReportProblema.categoria)
+        .all()
+    )
+    por_severidade = dict(
+        q.with_entities(ReportProblema.severidade, func.count(ReportProblema.id))
+        .group_by(ReportProblema.severidade)
+        .all()
+    )
+    return {
+        "total": total,
+        "por_status": {k.value if k else "null": v for k, v in por_status.items()},
+        "por_categoria": {k.value if k else "null": v for k, v in por_categoria.items()},
+        "por_severidade": {k.value if k else "null": v for k, v in por_severidade.items()},
+    }
+
+
 @app.get("/api/reports")
 async def listar_todos_reports(
     status: Optional[str] = None,
@@ -852,17 +905,13 @@ async def listar_todos_reports(
 
     with db.get_session() as session:
         q = session.query(ReportProblema)
-
-        if status_enum:
-            q = q.filter(ReportProblema.status == status_enum)
-        elif apenas_abertos:
-            q = q.filter(
-                ReportProblema.status.in_([StatusReport.ABERTO, StatusReport.EM_ANALISE, StatusReport.AGUARDANDO_FIX])
-            )
-        if categoria_enum:
-            q = q.filter(ReportProblema.categoria == categoria_enum)
-        if severidade_enum:
-            q = q.filter(ReportProblema.severidade == severidade_enum)
+        q = _aplicar_filtros_reports(
+            q,
+            status_enum=status_enum,
+            categoria_enum=categoria_enum,
+            severidade_enum=severidade_enum,
+            apenas_abertos=apenas_abertos,
+        )
 
         q = q.order_by(ReportProblema.created_at.desc())
         reports = q.all()
@@ -891,27 +940,27 @@ async def listar_todos_reports(
 
 
 @app.get("/api/reports/stats")
-async def stats_reports():
+async def stats_reports(
+    status: Optional[str] = None,
+    categoria: Optional[str] = None,
+    severidade: Optional[str] = None,
+    apenas_abertos: bool = False,
+):
     """Estatísticas agregadas dos reports (para header da tela de triagem)."""
-    from sqlalchemy import func
+    status_enum = _validar_enum(status, StatusReport, "status")
+    categoria_enum = _validar_enum(categoria, CategoriaReport, "categoria")
+    severidade_enum = _validar_enum(severidade, SeveridadeReport, "severidade")
 
     with db.get_session() as session:
-        total = session.query(func.count(ReportProblema.id)).scalar()
-        por_status = dict(session.query(
-            ReportProblema.status, func.count(ReportProblema.id)).group_by(
-                ReportProblema.status).all())
-        por_categoria = dict(session.query(
-            ReportProblema.categoria, func.count(ReportProblema.id)).group_by(ReportProblema.categoria).all()
+        q = session.query(ReportProblema)
+        q = _aplicar_filtros_reports(
+            q,
+            status_enum=status_enum,
+            categoria_enum=categoria_enum,
+            severidade_enum=severidade_enum,
+            apenas_abertos=apenas_abertos,
         )
-        por_severidade = dict(session.query(
-                ReportProblema.severidade, func.count(ReportProblema.id)
-            ).group_by(ReportProblema.severidade).all())
-        return {
-            "total": total,
-            "por_status": {k.value if k else "null": v for k, v in por_status.items()},
-            "por_categoria": {k.value if k else "null": v for k, v in por_categoria.items()},
-            "por_severidade": {k.value if k else "null": v for k, v in por_severidade.items()},
-        }
+        return _calcular_stats_reports(q)
 
 
 @app.get("/api/reports/{report_id}/contexto")

@@ -14,11 +14,12 @@ import {
 } from '../constants/reports'
 import ReportDetalhe from './ReportDetalhe'
 
-function StatCard({ label, valor, cor = 'bg-gray-100 text-gray-700' }) {
+function StatCard({ label, valor, valorFiltrado, temFiltro, cor = 'bg-gray-100 text-gray-700' }) {
+  const display = temFiltro ? `${valorFiltrado ?? 0}/${valor ?? 0}` : (valor ?? 0)
   return (
     <div className={`rounded-lg px-3 py-2 ${cor}`}>
       <div className="text-xs font-medium uppercase tracking-wide opacity-80">{label}</div>
-      <div className="text-xl font-bold">{valor ?? 0}</div>
+      <div className="text-xl font-bold">{display}</div>
     </div>
   )
 }
@@ -26,6 +27,7 @@ function StatCard({ label, valor, cor = 'bg-gray-100 text-gray-700' }) {
 function ReportsPage({ onVoltar }) {
   const [reports, setReports] = useState([])
   const [stats, setStats] = useState(null)
+  const [statsFiltrados, setStatsFiltrados] = useState(null)
   const [loading, setLoading] = useState(true)
   const [erro, setErro] = useState(null)
   const [selecionado, setSelecionado] = useState(null)
@@ -36,19 +38,29 @@ function ReportsPage({ onVoltar }) {
   const [filtroSeveridade, setFiltroSeveridade] = useState('')
   const [apenasAbertos, setApenasAbertos] = useState(true)
 
+  const montarFiltrosApi = () => ({
+    status: filtroStatus,
+    categoria: filtroCategoria,
+    severidade: filtroSeveridade,
+    apenas_abertos: !filtroStatus && apenasAbertos ? 'true' : '',
+  })
+
+  const temFiltroAtivo =
+    !!filtroStatus || !!filtroCategoria || !!filtroSeveridade || (!filtroStatus && apenasAbertos)
+
   const carregar = async () => {
     setLoading(true)
     setErro(null)
     try {
-      const filtros = {
-        status: filtroStatus,
-        categoria: filtroCategoria,
-        severidade: filtroSeveridade,
-        apenas_abertos: !filtroStatus && apenasAbertos ? 'true' : '',
-      }
-      const [data, s] = await Promise.all([api.listarReports(filtros), api.statsReports()])
+      const filtros = montarFiltrosApi()
+      const [data, s, sFiltrado] = await Promise.all([
+        api.listarReports(filtros),
+        api.statsReports(),
+        temFiltroAtivo ? api.statsReports(filtros) : Promise.resolve(null),
+      ])
       setReports(data.reports || [])
       setStats(s)
+      setStatsFiltrados(sFiltrado)
     } catch (e) {
       setErro(e.message || 'Erro ao carregar reports')
     } finally {
@@ -65,8 +77,16 @@ function ReportsPage({ onVoltar }) {
     setReports((prev) =>
       prev.map((r) => (r.id === reportAtualizado.id ? { ...r, ...reportAtualizado } : r)),
     )
-    // Recarrega stats
-    api.statsReports().then(setStats).catch(() => {})
+    const filtros = montarFiltrosApi()
+    Promise.all([
+      api.statsReports(),
+      temFiltroAtivo ? api.statsReports(filtros) : Promise.resolve(null),
+    ])
+      .then(([s, sFiltrado]) => {
+        setStats(s)
+        setStatsFiltrados(sFiltrado)
+      })
+      .catch(() => {})
   }
 
   return (
@@ -99,12 +119,49 @@ function ReportsPage({ onVoltar }) {
 
       {/* Stats */}
       {stats && (
-        <div className="grid grid-cols-2 md:grid-cols-5 gap-2 mb-4">
-          <StatCard label="Total" valor={stats.total} cor="bg-inforrel-primary text-white" />
-          <StatCard label="Abertos" valor={stats.por_status?.aberto} cor="bg-yellow-100 text-yellow-800" />
-          <StatCard label="Em análise" valor={stats.por_status?.em_analise} cor="bg-blue-100 text-blue-800" />
-          <StatCard label="Aguardando fix" valor={stats.por_status?.aguardando_fix} cor="bg-purple-100 text-purple-800" />
-          <StatCard label="Resolvidos" valor={stats.por_status?.resolvido} cor="bg-green-100 text-green-800" />
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2 mb-4">
+          <StatCard
+            label="Total"
+            valor={stats.total}
+            valorFiltrado={statsFiltrados?.total}
+            temFiltro={temFiltroAtivo}
+            cor="bg-inforrel-primary text-white"
+          />
+          <StatCard
+            label="Abertos"
+            valor={stats.por_status?.aberto}
+            valorFiltrado={statsFiltrados?.por_status?.aberto}
+            temFiltro={temFiltroAtivo}
+            cor="bg-yellow-100 text-yellow-800"
+          />
+          <StatCard
+            label="Em análise"
+            valor={stats.por_status?.em_analise}
+            valorFiltrado={statsFiltrados?.por_status?.em_analise}
+            temFiltro={temFiltroAtivo}
+            cor="bg-blue-100 text-blue-800"
+          />
+          <StatCard
+            label="Aguardando fix"
+            valor={stats.por_status?.aguardando_fix}
+            valorFiltrado={statsFiltrados?.por_status?.aguardando_fix}
+            temFiltro={temFiltroAtivo}
+            cor="bg-purple-100 text-purple-800"
+          />
+          <StatCard
+            label="Resolvidos"
+            valor={stats.por_status?.resolvido}
+            valorFiltrado={statsFiltrados?.por_status?.resolvido}
+            temFiltro={temFiltroAtivo}
+            cor="bg-green-100 text-green-800"
+          />
+          <StatCard
+            label="Descartados"
+            valor={stats.por_status?.descartado}
+            valorFiltrado={statsFiltrados?.por_status?.descartado}
+            temFiltro={temFiltroAtivo}
+            cor="bg-gray-200 text-gray-600"
+          />
         </div>
       )}
 
