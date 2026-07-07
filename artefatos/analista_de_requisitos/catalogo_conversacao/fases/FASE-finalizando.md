@@ -1,7 +1,7 @@
 # FASE-finalizando
 
 **Nome exibido:** Finalizando  
-**Versão:** 0.1  
+**Versão:** 0.2  
 **Status:** Rascunho
 
 ---
@@ -23,8 +23,8 @@ Cliente decidiu que quer orçamento. O sistema **coleta as informações necess�
 
 | Origem | Condição |
 |--------|----------|
-| Esclarecendo | Cliente manifesta intenção de orçamento/compra (REQ-002.1 cat. 1) |
-| Retorno direto | Mensagem inicial já é pedido de orçamento com dados (REQ-002.2) |
+| Esclarecendo | Cliente manifesta intenção de orçamento/compra (REQ-002.1 cat. 1) **E** já informou (ou sistema confirmou) modelo + quantidade |
+| Primeiro contato com todos os dados | Mensagem inicial contendo todos os dados para orçamento, sem haver necessidade de passar pela fase de Esclarecimento (REQ-002.2) |
 
 ---
 
@@ -34,8 +34,8 @@ Cliente decidiu que quer orçamento. O sistema **coleta as informações necess�
 - Faz **perguntas de coleta** (`CAMPO-xxx`) apenas para o que ainda falta — REQ-002.4.
 - Aplica **`nao_perguntar_de_novo`** para dados já capturados em Esclarecendo.
 - Se cliente intercalar **dúvida sobre produto**, responde via REQ-003 e **retoma** a última pergunta pendente — REQ-002.17.
-- **Ecoa dados extraídos** da mensagem inicial para confirmação — REQ-002.16 (CNPJ confirmado via REQ-001.4).
-- Ao completar todos os campos, apresenta **resumo do pedido** e pede confirmação — REQ-002.5.
+- **Ecoa dados extraídos da mensagem inicial** para confirmação imediata — REQ-002.16 (ex.: CNPJ extraído confirmado via REQ-001.4). Acontece assim que o sistema extrai entidades do primeiro contato; objetivo: evitar erro de interpretação antes de continuar a coleta.
+- Ao completar todos os campos, apresenta **resumo final do pedido** e pede confirmação para handoff — REQ-002.5. Acontece no final da qualificação; objetivo: validar o pedido completo antes de notificar o vendedor.
 - **CNPJ/CPF tornam-se obrigatórios** nesta fase (não em Esclarecendo) — brainstorming §4.3.
 
 ---
@@ -81,6 +81,7 @@ Todos os campos do REQ-002.5 conforme PF ou PJ:
 | ID | Obrigatório nesta fase? |
 |----|------------------------|
 | CAMPO-cnpj | Sim, para PJ (após REQ-002.2A) |
+| CAMPO-cpf | Sim, para PF (alternativa ao CNPJ) |
 | CAMPO-software-ponto | Condicional — Relógio de Ponto |
 | CAMPO-tipo-produto | Sim — REQ-002.3A |
 | CAMPO-modelo-produto | Sim — REQ-002.3B |

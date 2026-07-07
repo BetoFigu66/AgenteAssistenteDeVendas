@@ -1,7 +1,7 @@
 # REQ-014: Configuração em Runtime das Camadas de Conhecimento (RAG e Q&A)
 
-**Versão**: 1.1
-**Data**: 2026-06-06
+**Versão**: 1.3
+**Data**: 2026-07-04
 **Autor**: Kika (Analista de Requisitos)
 **Status**: Em Elaboração
 **Prioridade**: Média
@@ -78,9 +78,18 @@ Este requisito **formaliza** o que está parcialmente implementado nas Sprints 1
 
   Mesma persistência da REQ-014.2A (tabela `parametros`). Validação: inteiro positivo. Aplicação imediata: o cálculo da janela usa o valor vigente no momento da chegada da mensagem (sem cache de longo prazo).
 
+- [ ] **REQ-014.2D — Parâmetros de abandono de conversa (REQ-002.22)**: Tempos usados pelo tratamento de abandono de conversa pelo cliente, permitindo ajuste conforme a realidade de uso sem alterar código ou `.env`:
+  - `abandono_inatividade_horas` (int, ≥ 1) — tempo sem resposta do cliente para considerar a conversa inativa e enviar a mensagem de reengajamento (default: `24`)
+  - `abandono_total_horas` (int, > `abandono_inatividade_horas`) — tempo total desde a última resposta do cliente para transicionar a conversa para encerrado com motivo `abandono` (default: `72`). Deve ser maior que `abandono_inatividade_horas`, pois inclui o período de inatividade + o tempo aguardando resposta após o reengajamento.
+  - `abandono_reengajamento_max_mensagens` (int, ≥ 0) — quantidade máxima de mensagens de reengajamento enviadas antes de considerar abandono (default: `1`). No POC, o valor é `1`; versões futuras podem permitir mais tentativas.
+
+  Mesma persistência da REQ-014.2A (tabela `parametros`). Validação: `abandono_inatividade_horas` < `abandono_total_horas`; inteiros positivos. Aplicação imediata: o job/scheduler de abandono usa o valor vigente no momento da verificação.
+
 - [ ] **REQ-014.3 — Validação de valores**: Toda alteração deve validar:
   - `*_score_minimo`: valor entre `0.0` e `1.0` (inclusive)
   - `*_top_k`: valor inteiro `≥ 1`
+  - `abandono_*_horas`: valor inteiro `≥ 1`, com `abandono_inatividade_horas` < `abandono_total_horas`
+  - `abandono_reengajamento_max_mensagens`: valor inteiro `≥ 0`
   - Tipos coerentes (bool, float, int)
   - Resposta de erro `422` com mensagem clara em caso de violação
 
@@ -165,6 +174,9 @@ Este requisito **formaliza** o que está parcialmente implementado nas Sprints 1
 | `qa_embedding_responde_min` | float | `0.80` | 0.0 - 1.0 |
 | `qa_embedding_desambigua_min` | float | `0.65` | 0.0 - 1.0 |
 | `janela_continuacao_atendimento_horas` | int | `24` | ≥ 1 |
+| `abandono_inatividade_horas` | int | `24` | ≥ 1 |
+| `abandono_total_horas` | int | `72` | > `abandono_inatividade_horas` |
+| `abandono_reengajamento_max_mensagens` | int | `1` | ≥ 0 |
 
 ### 5.2 Tabela `parametros` (implementada no POC)
 
@@ -324,6 +336,7 @@ Este requisito **formaliza** o que está parcialmente implementado nas Sprints 1
 | 18/05/2026 | 1.0 | Criação inicial do requisito formalizando o mecanismo de configuração runtime das camadas de conhecimento (RAG e Q&A). Endpoints `GET/PATCH /api/config/rag` e settings em `backend/config.py` parcialmente implementados nas Sprints 1-2; este REQ expande para cobrir parâmetros de Q&A, toggles `enabled`, persistência entre reinícios e auditoria de alterações. | Kika |
 | 06/06/2026 | 1.1 | REQ-014.2A (limiares do classificador REQ-002.1A) e REQ-014.2B (zona cinza Q&A); tabela `parametros` documentada como persistência efetiva no POC; defaults de seed alinhados à migration `2026060601`. | Beto |
 | 09/06/2026 | 1.2 | REQ-014.2C (parâmetro `janela_continuacao_atendimento_horas`, default 24h) decorrente de REQ-016 v2.0 (renomeação Negociação → Atendimento + nova lógica de continuação no REQ-016.7). Linha adicionada na tabela §5.1. | Beto |
+| 04/07/2026 | 1.3 | REQ-014.2D (parâmetros de abandono de conversa: `abandono_inatividade_horas`, `abandono_total_horas`, `abandono_reengajamento_max_mensagens`) decorrente de REQ-002.22. Linhas adicionadas na tabela §5.1; validação incluída em REQ-014.3. | Cascade |
 
 ---
 

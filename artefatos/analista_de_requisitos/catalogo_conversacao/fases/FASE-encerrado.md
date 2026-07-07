@@ -1,7 +1,7 @@
 # FASE-encerrado
 
 **Nome exibido:** Encerrado  
-**Versão:** 0.1  
+**Versão:** 0.2  
 **Status:** Rascunho
 
 ---
@@ -26,6 +26,7 @@ Atendimento **encerrado** — não há expectativa de continuação imediata. O 
 | Esclarecendo | Desistência explícita do cliente |
 | Finalizando | Desistência ou abandono após REQ-002.22 |
 | Criando Orçamento | Orçamento enviado + PERG-016-010 com despedida; ou desfecho operacional |
+| Qualquer fase | Orçamento marcado como `convertido` pelo vendedor (REQ-016.12) |
 | Encerrado por Inatividade | Abandono 72h (REQ-002.22) |
 | Vendedor | Encerramento manual pelo painel (REQ-016) |
 
@@ -34,8 +35,7 @@ Atendimento **encerrado** — não há expectativa de continuação imediata. O 
 ## O que o sistema faz nesta fase
 
 - **Não inicia** novo ciclo de qualificação automaticamente.
-- Se cliente enviar mensagem **dentro da janela** REQ-016.7 → pode `reabrir_atendimento` ou `fazer_pergunta` → PERG-016-009.
-- Se cliente enviar mensagem **fora da janela** → `criar_novo_atendimento` ou PERG-016-009 conforme matriz REQ-016.7.
+- Se cliente enviar mensagem (dentro ou fora da janela) → **sempre pergunta** (PERG-016-009) com resumo do atendimento anterior. Dentro da janela: default = continuar; fora: default = novo pedido (REQ-016.7).
 - Mensagens estritamente sociais ("obrigado") em atendimento encerrado **não** criam atendimento novo (REQ-016.13).
 - Preserva histórico e dados capturados (REQ-002.22).
 
@@ -46,11 +46,12 @@ Atendimento **encerrado** — não há expectativa de continuação imediata. O 
 | Motivo | Origem típica |
 |--------|---------------|
 | `concluido_pelo_cliente` | PERG-016-010 — "não preciso de mais nada" |
-| `abandono` | REQ-002.22 — 72h sem resposta após reengajamento |
+| `concluido_conversao` | Vendedor marcou orçamento como `convertido` (REQ-016.12) |
+| `abandono` | REQ-002.22 — `abandono_total_horas` sem resposta após reengajamento |
 | `desistencia` | Cliente desiste em Esclarecendo ou Finalizando |
-| Decisão do vendedor | Painel REQ-010 / REQ-016.8 |
+| `manual_vendedor` | Painel REQ-010 / REQ-016.8 |
 
-> Desfecho comercial **ganha/perdida** pertence ao orçamento (REQ-006), não a este motivo.
+> Orçamento **perdido** não encerra o atendimento (REQ-016.12). O vendedor pode encerrar manualmente se concluir que não há mais interesse.
 
 ---
 

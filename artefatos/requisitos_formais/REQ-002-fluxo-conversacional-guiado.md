@@ -1,7 +1,7 @@
 # REQ-002: Fluxo Conversacional Guiado
 
-**Versão**: 1.25  
-**Data**: 2026-06-07  
+**Versão**: 1.32  
+**Data**: 2026-07-06  
 **Autor**: Kika (Analista de Requisitos)  
 **Status**: Em Elaboração  
 **Prioridade**: Alta  
@@ -89,6 +89,17 @@ O sistema deve conduzir conversas de forma estruturada, porém **adaptativa**, c
 
   Exemplo: o sistema acabou de perguntar `"quantas catracas você precisa?"` e o cliente responde `"5, mas vocês têm modelo com biometria facial?"` — o sistema captura `quantidade=5` (cat. 2) e também responde sobre biometria facial via REQ-003.
 
+  **Caso 4 — Resposta com citação de pergunta (WhatsApp reply)**
+
+  Quando o cliente usar o recurso "Responder" do WhatsApp, gerando uma mensagem com citação/bloco de citação, o sistema deve usar o texto citado para identificar a qual pergunta anterior a resposta se refere, antes de aplicar a classificação do REQ-002.1:
+  - Extrair o **texto citado** (pergunta original) e o **texto digitado** pelo cliente.
+  - Comparar o texto citado com as perguntas recentes do sistema no atendimento (especialmente perguntas pendentes de qualificação).
+  - Se houver correspondência com uma pergunta de qualificação: tratar o texto digitado como **resposta direta daquele campo**, mesmo que a resposta chegue fora de ordem ou após outras mensagens.
+  - Se não houver correspondência com pergunta do sistema, ou o texto citado não for identificável: tratar o texto digitado como mensagem normal, aplicando REQ-002.1.
+  - Se o texto digitado também contiver uma nova pergunta: aplicar o **Caso 3** (mensagem composta), vinculando a resposta ao campo da citação e respondendo a dúvida embutida.
+
+  Exemplo: o sistema perguntou `"Qual o CNPJ?"` e depois `"Quantas catracas?"`. O cliente cita `"Qual o CNPJ?"` e responde `"12.345.678/0001-99"`. O sistema identifica que a resposta é para `CAMPO-cnpj`, não para `quantidade`.
+
   **Auditoria**: cada decisão de fallback deve ser registrada em REQ-005.6 contendo:
   - categoria escolhida pelo classificador, `confianca` e `confianca_nivel`
   - se houve fallback para REQ-003 (sim/não)
@@ -104,14 +115,31 @@ O sistema deve conduzir conversas de forma estruturada, porém **adaptativa**, c
 
   **O que não muda**: categorias 1, 2 e 4 continuam exigindo o fluxo de qualificação/identificação conforme REQ-002.2 em diante. Apenas cat. 3 com confiança alta tem tratamento especial pré-identificação.
 
-- [ ] **REQ-002.2 — Identificar dados iniciais do cliente e armazená-los**: Sistema deve analisar a mensagem inicial e **pré-preencher** os dados já fornecidos pelo cliente (quando identificáveis)
+- [ ] **REQ-002.1C — Roteamento entre fases do catálogo de conversação**: O sistema deve implementar as fases e perguntas descritas no `catalogo_conversacao` (FASE-esclarecendo, FASE-finalizando, FASE-criando-orcamento, FASE-encerrado-por-inatividade, FASE-encerrado) como estados operacionais do atendimento.
+
+  **Transição de Esclarecendo para Finalizando**:
+  - O sistema só deve transitar de FASE-esclarecendo para FASE-finalizando quando:
+    1. O cliente manifestar intenção explícita de orçamento/compra (categoria 1 do REQ-002.1); **E**
+    2. O sistema já tiver confirmado ou extraído os dados mínimos: tipo de produto, modelo/especificação e quantidade/faixa de pessoas (quando aplicável).
+  - Se faltar algum dos dados mínimos, o sistema permanece em FASE-esclarecendo e faz as perguntas necessárias (REQ-002.3A, REQ-002.3B, REQ-002.3C) antes de transitar.
+  - Se a mensagem inicial já contiver todos os dados mínimos para orçamento, o sistema pode iniciar diretamente em FASE-finalizando (sem passar por FASE-esclarecendo).
+
+  **Referências ao catálogo**:
+  - FASE-esclarecendo: `artefatos/analista_de_requisitos/catalogo_conversacao/fases/FASE-esclarecendo.md`
+  - FASE-finalizando: `artefatos/analista_de_requisitos/catalogo_conversacao/fases/FASE-finalizando.md`
+  - PERG-002-022: `artefatos/analista_de_requisitos/catalogo_conversacao/perguntas/PERG-002-022.md`
+  - PERG-016-009, PERG-016-010: `artefatos/analista_de_requisitos/catalogo_conversacao/perguntas/PERG-016-009.md` e `PERG-016-010.md`
+
+- [ ] **REQ-002.2 — Identificar dados iniciais do cliente e armazená-los**: Sistema deve analisar a mensagem inicial e **pré-preencher** os dados já fornecidos pelo cliente (quando identificáveis), vinculando-os aos campos do catálogo de conversação (`CAMPO-cnpj`, `CAMPO-cpf`, `CAMPO-software-ponto`, etc.).
+
+  **Primeiro contato com todos os dados**: se a mensagem inicial já contiver os dados mínimos para orçamento (tipo de produto, modelo, quantidade/faixa e documento fiscal quando identificável), o sistema pode iniciar diretamente em FASE-finalizando (REQ-002.1C), ecoando os dados para confirmação antes de seguir (REQ-002.16).
 
 - [ ] **REQ-002.2A — Identificar tipo de cliente (Pessoa Física ou Pessoa Jurídica)**: Logo após a intenção de orçamento ser detectada (REQ-002.1) e antes de pedir documento fiscal, o sistema deve identificar se o solicitante é **Pessoa Física (PF)** ou **Pessoa Jurídica (PJ)**.
 
   **Regras de inferência**:
   - Se a mensagem inicial mencionar CNPJ, razão social, nome fantasia ou termos como "empresa", "minha empresa", "para a empresa", "escritório", "loja" → **PJ**
   - Se a mensagem mencionar CPF, ou termos como "para mim", "residencial", "para minha casa", "pessoa física" → **PF**
-  - Em caso de ambiguidade, o sistema deve perguntar diretamente: "O orçamento é para uma **empresa** (CNPJ) ou para **pessoa física** (CPF)?"
+  - Em caso de ambiguidade, o sistema deve perguntar diretamente (template do catálogo de conversação `PERG-002-2A`): "O orçamento é para uma **empresa** (CNPJ) ou para **pessoa física** (CPF)?"
 
   **Roteamento**:
   - **PJ** → segue REQ-001 (consulta CNPJ na Receita Federal)
@@ -119,7 +147,7 @@ O sistema deve conduzir conversas de forma estruturada, porém **adaptativa**, c
 
   Os dois fluxos são mutuamente exclusivos na mesma conversa: nunca se pede CNPJ e CPF ao mesmo tempo. Se o cliente trocar de tipo no meio da conversa (ex: começa como PF e depois informa CNPJ da empresa), o sistema deve fazer uma confirmação pontual e reiniciar a coleta do documento fiscal apropriado, preservando os demais campos já capturados.
 
-- [ ] **REQ-002.3 — Controle de estado dos campos de qualificação**: Sistema deve manter um conjunto de informações necessárias para orçamento (campos) e marcar cada campo como:
+- [ ] **REQ-002.3 — Controle de estado dos campos de qualificação**: Sistema deve manter um conjunto de informações necessárias para orçamento (campos do catálogo de conversação: `CAMPO-cnpj`, `CAMPO-cpf`, `CAMPO-modelo`, `CAMPO-software-ponto`, `CAMPO-quantidade`, `CAMPO-faixa-funcionarios`, `CAMPO-contato`, `CAMPO-endereco`) e marcar cada campo como:
   - Capturado
   - Pendente
   - Não aplicável
@@ -134,20 +162,20 @@ O sistema deve conduzir conversas de forma estruturada, porém **adaptativa**, c
   - Assistência técnica
   - Outro / não identificado
 
-  Quando o tipo não estiver claro na mensagem inicial, o sistema deve fazer uma pergunta direta para classificar antes de prosseguir com a qualificação dos demais campos. O tipo identificado direciona as próximas perguntas dinâmicas (REQ-002.4) e as regras específicas por produto (REQ-002.14, REQ-002.14A).
+  Quando o tipo não estiver claro na mensagem inicial, o sistema deve fazer uma pergunta direta para classificar antes de prosseguir com a qualificação dos demais campos. O tipo identificado direciona as próximas perguntas dinâmicas (REQ-002.4) e as regras específicas por produto (REQ-002.14, REQ-002.14A). Dado registrado internamente como tipo de produto (não há CAMPO específico — faz parte da estrutura do atendimento).
 
 - [ ] **REQ-002.3B — Identificar modelo do produto**: Após identificar o tipo (REQ-002.3A), o sistema deve identificar o **modelo específico** do produto solicitado. Exemplos por tipo:
   - **Catraca**: Fit, Box, Pedestal, Giratória, Cancela, etc.
   - **Relógio de ponto**: cartográfico ou eletrônico, este último com tecnologia (cartão de proximidade, cartão de barras, biometria, reconhecimento facial)
   - **Câmeras / CFTV, Roteadores, Softwares, Cancelas, Assistência técnica**: modelo/especificação conforme catálogo Inforrel
 
-  Quando o modelo não estiver claro, o sistema deve perguntar diretamente, oferecendo a lista de opções válidas para o tipo de produto correspondente.
+  Quando o modelo não estiver claro, o sistema deve perguntar diretamente, oferecendo a lista de opções válidas para o tipo de produto correspondente. Dado registrado no catálogo de conversação como `CAMPO-modelo`.
 
 - [ ] **REQ-002.3C — Coletar informações adicionais para orçamento**: O sistema deve coletar os dados complementares que não pertencem nem ao tipo/modelo nem ao endereço de entrega:
   - **Nome do solicitante** — **obrigatório para PF** (substitui a função identificadora da razão social, que existe apenas para PJ); **recomendado para PJ** quando informado pelo cliente (útil para tratamento personalizado, mas não bloqueia a qualificação se ausente)
-  - Quantidade ou faixa de pessoas (funcionários/usuários)
-  - Software de controle existente (controle de ponto ou controle de acesso), quando aplicável — quando o cliente mencionar um software, o sistema deve capturar o nome e, se necessário, pedir confirmação
-  - Contato para envio do orçamento (e-mail e/ou telefone)
+  - Quantidade ou faixa de pessoas (funcionários/usuários) → `CAMPO-faixa-funcionarios` (ponto) ou `CAMPO-quantidade` (acesso)
+  - Software de controle existente (controle de ponto ou controle de acesso), quando aplicável → `CAMPO-software-ponto`
+  - Contato para envio do orçamento (e-mail e/ou telefone) → `CAMPO-contato`
 
   Esta etapa aciona as regras específicas REQ-002.14 (faixa de funcionários em controle de ponto sem software), REQ-002.14A (quantidade de equipamentos em controle de acesso sem software) e REQ-002.15 (quantidade opcional para catraca com software existente). A flexibilidade de formato da quantidade/faixa é tratada pela validação em REQ-002.6.
 
@@ -158,11 +186,13 @@ O sistema deve conduzir conversas de forma estruturada, porém **adaptativa**, c
   - Cidade, UF, CEP
   - Indicador se a operação é de instalação no local, apenas entrega ou retirada
 
-  Quando o endereço vier preenchido em parte pela mensagem inicial (REQ-002.2), o sistema deve solicitar apenas os elementos faltantes.
+  Quando o endereço vier preenchido em parte pela mensagem inicial (REQ-002.2), o sistema deve solicitar apenas os elementos faltantes. Dado registrado no catálogo de conversação como `CAMPO-endereco`.
 
 - [ ] **REQ-002.4 — Mecanismo geral de definição de perguntas dinâmicas**: Sistema deve solicitar **apenas** os campos pendentes (perguntas dinâmicas), podendo alterar a ordem conforme o contexto
 
 - [ ] **REQ-002.5 — Sumarização de dados de orçamento**: Visão consolidada dos campos coletados pelas etapas REQ-002.2, REQ-002.3A, REQ-002.3B, REQ-002.3C e REQ-002.3D. O conjunto de campos varia conforme o tipo de cliente identificado em REQ-002.2A. O sistema só deve considerar a qualificação concluída quando todos os campos abaixo estiverem capturados ou marcados como não aplicáveis.
+
+  **Resumo final do pedido**: ao completar a qualificação (FASE-finalizando), o sistema deve apresentar o resumo dos dados capturados e pedir confirmação antes de transitar para FASE-criando-orcamento. Este resumo é diferente do eco inicial do REQ-002.16: o eco trata dos dados extraídos da mensagem inicial; o resumo final valida o pedido completo.
 
   **Campos comuns (PF e PJ)**:
   - Tipo de cliente (PF/PJ) — capturado em REQ-002.2A
@@ -206,19 +236,32 @@ O sistema deve conduzir conversas de forma estruturada, porém **adaptativa**, c
 
 - [ ] **REQ-002.15 — Quantidade opcional para catraca com software existente**: Para catracas, se o cliente já tiver software de controle de acesso, a quantidade/faixa de pessoas pode ser tratada como opcional; se o cliente não souber ou não quiser informar, o sistema deve seguir o fluxo e solicitar apenas os demais campos pendentes
 
-- [ ] **REQ-002.16 — Confirmação dos dados extraídos da mensagem inicial**: Quando o sistema extrair um ou mais dados da mensagem inicial do cliente (REQ-002.2), antes de prosseguir com a próxima pergunta dinâmica deve **ecoar ao cliente os dados entendidos** para que ele possa corrigir, se necessário.
+- [ ] **REQ-002.16 — Confirmação dos dados extraídos da mensagem inicial**: Quando o sistema extrair um ou mais dados da **mensagem inicial** do cliente (REQ-002.2), deve validar se é necessário confirmar a interpretação antes de prosseguir. A confirmação **não deve ocorrer a cada campo** nem a cada mensagem — apenas quando o risco de interpretação incorreta for relevante.
 
-  **Interação com REQ-001.4 (CNPJ)**: quando um dos dados extraídos for o **CNPJ**, a confirmação desse campo é satisfeita pelo **REQ-001.4** (exibição dos dados retornados pela Receita Federal para confirmação). O REQ-002.16 não deve gerar uma segunda solicitação de confirmação do CNPJ; o eco do REQ-002.16 cobre apenas os **demais campos** extraídos (ex: tipo de produto, modelo, quantidade, endereço, contato). Quando possível, o sistema pode consolidar tudo (CNPJ + demais campos) numa **única mensagem de resumo** para evitar dupla confirmação.
+  **Quando ecoar (critérios)**:
+  - Sempre que houver **ambiguidade** ou baixa confiança na extração (ex: endereço incompleto, modelo não reconhecido, quantidade com faixa aproximada).
+  - Quando forem extraídos **múltiplos campos relevantes** de uma só mensagem (ex: tipo, modelo, quantidade e CNPJ) — neste caso, o eco pode ser consolidado numa única mensagem.
+  - Quando o cliente não tiver confirmado implicitamente o dado (ex: disse "preciso de 5 catracas" → eco pode ser suprimido para quantidade, mas mantido para modelo/endereço se extraídos automaticamente).
+
+  **Como ecoar**:
+  - Preferir **mensagem única consolidada** com os dados entendidos, em vez de um eco por campo.
+  - Oferecer ao cliente a chance de corrigir apenas o que estiver incorreto; campos certos não precisam ser reconfirmados.
+  - Não usar a confirmação como "passo obrigatório" se não houver dúvida razoável.
+
+  **Interação com REQ-001.4 (CNPJ)**: quando um dos dados extraídos for o **CNPJ**, a confirmação desse campo é satisfeita pelo **REQ-001.4**. O REQ-002.16 não deve gerar uma segunda confirmação do CNPJ; o eco cobre apenas os **demais campos** extraídos (tipo, modelo, quantidade, endereço, contato). Quando possível, consolidar CNPJ + demais campos numa **única mensagem de resumo**.
+
+  **Diferença para o resumo final**: o eco do REQ-002.16 valida a interpretação da **mensagem inicial**. O **resumo final do pedido** é tratado pelo REQ-002.5, após todos os campos obrigatórios estarem capturados, e pede confirmação antes de encaminhar para o vendedor. Ver também FASE-finalizando.md.
 
 - [ ] **REQ-002.17 — Consulta à base de respostas automáticas durante a qualificação**: Durante o fluxo de qualificação, se o cliente enviar uma **pergunta sobre produto/serviço** (ex: características técnicas, compatibilidade, preço, prazos, catálogo, serviços prestados), o sistema deve:
   - Delegar a resposta ao REQ-003 (Base de Conhecimento / RAG)
   - Após responder a dúvida, **retomar a qualificação** no ponto em que estava, reapresentando a última pergunta pendente
   - Não descartar os dados já capturados
+  - Quando a pergunta sobre produto estiver embutida em uma resposta a uma pergunta de decisão do catálogo, aplicar também as regras de **Desvios e robustez** da PERG correspondente (REQ-002.1A Caso 3).
 
-- [ ] **REQ-002.22 — Tratamento de abandono de conversa pelo cliente**: Se o cliente parar de responder durante o fluxo de qualificação, o sistema deve:
-  - Considerar a conversa **inativa** após **24 horas** sem nova mensagem do cliente
-  - Enviar **uma única mensagem de reengajamento** perguntando se o cliente quer continuar (ex: “Você ainda está aí? Posso continuar de onde paramos?”)
-  - Após **72 horas totais** sem resposta do cliente (24h iniciais + 48h após o reengajamento), transicionar a conversa para o estado `Finalização` (REQ-005.3) com motivo `abandono`
+- [ ] **REQ-002.22 — Tratamento de abandono de conversa pelo cliente**: Se o cliente parar de responder durante o fluxo de qualificação, o sistema deve usar os parâmetros configuráveis definidos em REQ-014.2D, aplicando os valores vigentes no momento da verificação:
+  - Considerar a conversa **inativa** após `abandono_inatividade_horas` sem nova mensagem do cliente (default: 24h)
+  - Enviar **mensagem de reengajamento** (PERG-002-022 do catálogo de conversação) perguntando se o cliente quer continuar (ex: “Você ainda está aí? Posso continuar de onde paramos?”). A quantidade máxima de mensagens de reengajamento é controlada por `abandono_reengajamento_max_mensagens` (default: 1 no POC).
+  - Após `abandono_total_horas` sem resposta do cliente, transicionar a conversa para o estado `Finalização` (REQ-005.3) com motivo `abandono` (default: 72h). O valor de `abandono_total_horas` deve ser maior que `abandono_inatividade_horas`.
   - **Preservar os dados já capturados** no histórico (não descartar)
   - Se o cliente voltar a enviar mensagens depois da finalização por abandono, **iniciar uma nova conversa** (passando novamente pelo classificador do REQ-002.1); quando se tratar do mesmo telefone/CNPJ, o sistema pode oferecer retomar de onde a conversa anterior parou (ex: “Vi que você já tinha conversado conosco. Quer continuar de onde paramos?”)
 
@@ -437,6 +480,12 @@ Cliente: "Facial."
 | 07/06/2026 | 1.24 | REQ-002.1A: adicionado exemplo concreto no Caso 3 ("5, mas vocês têm modelo com biometria facial?"); removidas as seções **Justificativa**, **Anti-padrão explícito** (incluindo nota de diagnóstico v1.21) e **Calibração complementar** para reduzir poluição do documento. | Kika |
 | 07/06/2026 | 1.25 | REQ-002.1A Caso 3 generalizado: título mudou para "Mensagem composta: resposta + outra pergunta"; tratamento estendido a qualquer pergunta embutida (não apenas sobre produto/empresa), com roteamento da pergunta embutida via REQ-002.1. | Kika |
 | 09/06/2026 | 1.26 | Renomeação Negociação → Atendimento (REQ-016 v2.0): trocas terminológicas em REQ-002.1 (campo `cnpj` do atendimento) e REQ-002.1B (contato/atendimento anônimos, promoção do contato/atendimento). Sem alteração de comportamento — apenas alinhamento de vocabulário. Análise em `analise_renomeacao_negociacao_para_atendimento.md`. | Beto |
+| 04/07/2026 | 1.27 | REQ-002.1A: adicionado Caso 4 sobre resposta com citação de pergunta no WhatsApp (reply), usando o texto citado para vincular a resposta ao campo de qualificação correto. | Kika |
+| 04/07/2026 | 1.28 | Alinhamento com o catálogo de conversação: criação do REQ-002.1C (roteamento entre fases e transição Esclarecendo→Finalizando com pré-requisitos); atualização do REQ-002.2 (primeiro contato com todos os dados); atualização do REQ-002.5 e REQ-002.16 (distinção eco inicial vs. resumo final); referências às PERGs e FASEs do catálogo. | Cascade |
+| 04/07/2026 | 1.29 | REQ-002.16 ajustado: eco de dados extraídos da mensagem inicial passa a ser condicional, consolidado e não obrigatório a cada campo. Evita confirmações repetitivas. | Cascade |
+| 04/07/2026 | 1.30 | REQ-002.22 ajustado: tempos de inatividade, reengajamento e abandono total passam a ser parametrizáveis via REQ-014.2D (`abandono_inatividade_horas`, `abandono_total_horas`, `abandono_reengajamento_max_mensagens`). | Cascade |
+| 06/07/2026 | 1.31 | REQ-002.2A: adicionada referência ao template do catálogo de conversação `PERG-002-2A` na pergunta de ambiguidade PF/PJ. | Cascade |
+| 06/07/2026 | 1.32 | REQ-002.3, REQ-002.3B, REQ-002.3C, REQ-002.3D: adicionadas referências explícitas aos campos do catálogo de conversação (`CAMPO-modelo`, `CAMPO-faixa-funcionarios`, `CAMPO-quantidade`, `CAMPO-software-ponto`, `CAMPO-contato`, `CAMPO-endereco`). | Cascade |
 
 ---
 

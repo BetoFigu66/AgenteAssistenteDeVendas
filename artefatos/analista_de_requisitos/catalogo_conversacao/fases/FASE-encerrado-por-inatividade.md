@@ -17,7 +17,7 @@ Cliente parou de interagir por um período configurável. O atendimento **não e
 - **Situação:** `ativo` (não confundir com `encerrado` — ver nota abaixo)
 - **Fase terminal?** Não
 
-> **Nota (brainstorming §4.2, §5.2):** O nome sugere "encerrado", mas a **situação** do atendimento permanece `ativo`. Apenas a **fase** indica suspensão por inatividade. Alternativa discutida: renomear para "Suspenso" — pendente decisão Kika (brainstorming §9).
+> **Nota:** O nome contém "encerrado", mas a **situação** do atendimento permanece `ativo`. Apenas a **fase** indica suspensão por inatividade. Decisão Kika (2026-07-06): manter o nome atual — equipe já está acostumada com o termo.
 
 ---
 
@@ -50,8 +50,10 @@ Mantém snapshot do atendimento no momento da inatividade: fase anterior, intere
 
 | Se... | Efeito |
 |-------|--------|
-| Cliente envia nova mensagem (dentro ou fora da janela REQ-016.7) | `fazer_pergunta` → PERG-016-009 ou continuação automática se dentro da janela |
-| Timer de abandono definitivo (REQ-002.22 — 72h totais após reengajamento) | `encerrar_atendimento` (motivo: abandono) → FASE-encerrado |
+| Cliente envia nova mensagem — atendimento `ativo` (dentro ou fora da janela) | Continuação automática no mesmo atendimento (sem pergunta); retorna à fase anterior |
+| Cliente envia nova mensagem — atendimento `encerrado`, **dentro** da janela (REQ-016.7) | `fazer_pergunta` → PERG-016-009 (default sugerido = continuar) |
+| Cliente envia nova mensagem — atendimento `encerrado`, **fora** da janela (REQ-016.7) | `fazer_pergunta` → PERG-016-009 (default sugerido = novo pedido) |
+| Timer de abandono definitivo (REQ-002.22 — `abandono_total_horas` após reengajamento) | `encerrar_atendimento` (motivo: abandono) → FASE-encerrado |
 | Vendedor encerra manualmente | `encerrar_atendimento` |
 
 ---

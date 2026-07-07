@@ -1,7 +1,7 @@
 # Catálogo de Conversação
 
-**Versão:** 0.1 (piloto)  
-**Data:** 2026-07-03  
+**Versão:** 0.2 (piloto)  
+**Data:** 2026-07-04  
 **Autor:** Beto + Cascade (rascunho para revisão da Kika)  
 **Status:** Rascunho — aguardando revisão da analista de requisitos  
 **Origem:** `docs/brainstorming_continuidade_2026-07.md` (modelo Estados → Perguntas → Respostas → Efeitos)
@@ -82,7 +82,7 @@ Descreve em que momento da jornada o cliente está: propósito, entradas, saída
 
 ### `PERG-xxx` — Pergunta de decisão
 
-Mensagem com opções fixas; cada opção lista efeitos.
+Mensagem com opções fixas; cada opção lista efeitos. Toda pergunta de decisão deve conter a seção **Desvios e robustez**, documentando o tratamento para: (a) pergunta sobre produto embutida, (b) resposta com citação do WhatsApp, (c) insatisfação/sinal crítico.
 
 → Ver template em [templates/pergunta-decisao.md](templates/pergunta-decisao.md)
 
@@ -147,3 +147,4 @@ Basta documentar **"Cliente também pode dizer: sim, continua"** — a interpret
 | Versão | Data | Autor | Alteração |
 |--------|------|-------|-----------|
 | 0.1 | 2026-07-03 | Beto + Cascade | Estrutura piloto: README, 5 fases, perguntas espelhando REQ-016.9/10 e REQ-002.22, campos CNPJ e software de ponto |
+| 0.2 | 2026-07-04 | Cascade | Padronização da seção **Desvios e robustez** em todas as perguntas de decisão (PERG) e no template, cobrindo pergunta embutida, citação do WhatsApp e insatisfação/escalonamento |

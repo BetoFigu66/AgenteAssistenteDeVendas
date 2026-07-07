@@ -35,6 +35,16 @@
 
 ---
 
+## Desvios e robustez
+
+| Situação | Tratamento |
+|----------|------------|
+| Cliente responde com uma **pergunta sobre produto/serviço** em vez de escolher uma opção | Aplicar REQ-002.17 / REQ-002.1A Caso 3: responder a dúvida via REQ-003 e retomar esta pergunta |
+| Cliente usa **citação do WhatsApp** (responder a esta pergunta) | Aplicar REQ-002.1A Caso 4: usar o texto citado para identificar que a resposta se refere a esta PERG; vincular a resposta à opção correspondente |
+| Cliente demonstra **insatisfação** ou sinal de situação crítica | Aplicar REQ-004.7 / REQ-007: marcar conversa como crítica e escalar para humano, interrompendo o fluxo desta pergunta |
+
+---
+
 ## Placeholders
 
 | Nome | Origem do valor |

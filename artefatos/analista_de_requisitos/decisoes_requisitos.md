@@ -119,8 +119,33 @@ IDs `DEC-XXX` são estáveis e não reciclados. Decisões revisadas ou descartad
 
 ---
 
+## DEC-005 — Efeito diferenciado de conversão vs. perdido no atendimento
+
+- **Data**: 2026-07-06
+- **REQs afetados**: REQ-016.4, REQ-016.12, REQ-006.5
+- **Status**: vigente
+
+**Contexto**: a regra original (REQ-016 v2.0) dizia que desfechos comerciais (ganha/perdida) ficam exclusivamente no orçamento e **nunca** afetam o estado do atendimento. Na prática, isso gerava dúvida: se o vendedor marca um orçamento como convertido, o atendimento permanece `ativo` indefinidamente? E se o cliente volta, reabre a mesma conversa de um pedido já concluído?
+
+**Decisão**: criar regra diferenciada:
+- Orçamento **convertido** → encerra o atendimento automaticamente com motivo `concluido_conversao`. A compra está concluída; se o cliente voltar, o sistema pergunta (PERG-016-009) e abre novo atendimento se necessário.
+- Orçamento **perdido** → **não** encerra o atendimento. O atendimento permanece `ativo` para que o vendedor possa oferecer alternativa ou o cliente volte sem fricção. Se o vendedor concluir que não há mais interesse, encerra manualmente (`manual_vendedor`).
+
+**Alternativas descartadas**:
+
+- **Ambos (convertido e perdido) encerram o atendimento** — descartada porque perdido não significa fim da conversa; o cliente pode querer trocar modelo, ajustar quantidade, negociar preço.
+- **Nenhum desfecho afeta o atendimento** (regra original) — descartada porque conversão representa fim natural do ciclo; manter o atendimento `ativo` após a compra gera confusão operacional e acúmulo de atendimentos "vivos".
+
+**Consequências**:
+- Novo motivo `concluido_conversao` em REQ-016.4.
+- REQ-016.12 deixa de ser "totalmente independente" — conversão é exceção.
+- No painel, o vendedor tem **duas ações distintas**: (1) marcar desfecho do orçamento (convertido/perdido) e (2) encerrar atendimento manualmente.
+
+---
+
 ## Histórico de revisões deste documento
 
 | Data | Alteração | Autor |
 |------|-----------|-------|
 | 07/06/2026 | Criação do documento. Registradas DEC-001 (fallback condicional REQ-003), DEC-002 (zona media sem fallback), DEC-003 (causa raiz do bug "Quais produtos a Inforrel vende?"), DEC-004 (estilo enxuto dos REQs). | Kika |
+| 06/07/2026 | DEC-005 (efeito diferenciado de conversão vs. perdido no atendimento). | Cascade |

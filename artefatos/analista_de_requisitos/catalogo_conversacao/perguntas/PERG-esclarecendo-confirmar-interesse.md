@@ -2,7 +2,7 @@
 
 **Título:** Confirmar interesses do atendimento anterior  
 **Tipo:** Decisão  
-**Versão:** 0.1  
+**Versão:** 0.2  
 **Status:** Rascunho
 
 ---
@@ -41,6 +41,16 @@ Aplicar REQ-002.21. Padrão após esgotar tentativas: tratar como "Sim, continuo
 
 ---
 
+## Desvios e robustez
+
+| Situação | Tratamento |
+|----------|------------|
+| Cliente responde com uma **pergunta sobre produto/serviço** em vez de escolher uma opção | Aplicar REQ-002.17 / REQ-002.1A Caso 3: responder a dúvida via REQ-003 e retomar a pergunta de confirmação de interesses |
+| Cliente usa **citação do WhatsApp** (responder a pergunta anterior) | Aplicar REQ-002.1A Caso 4: usar o texto citado para identificar a qual pergunta a resposta se refere; se a citação for a pergunta desta PERG, vincular a resposta a esta opção |
+| Cliente demonstra **insatisfação** ou sinal de situação crítica | Aplicar REQ-004.7 / REQ-007: marcar conversa como crítica e escalar para humano, interrompendo o fluxo de perguntas |
+
+---
+
 ## Placeholders
 
 | Nome | Origem do valor |
@@ -53,6 +63,10 @@ Aplicar REQ-002.21. Padrão após esgotar tentativas: tratar como "Sim, continuo
 ## REQs relacionados
 
 - REQ-016.9 (gatilho anterior)
+- REQ-002.17 / REQ-002.1A Caso 3 (responder dúvida embutida e retomar)
+- REQ-002.1A Caso 4 (resposta com citação de pergunta no WhatsApp)
+- REQ-002.21 (tratamento de não entendimento / ambiguidade)
+- REQ-004.7 / REQ-007 (escalonamento por insatisfação ou conversa crítica)
 - Brainstorming §4.4 — ação Beto: "levanta produtos/modelos e pergunta se ainda tem interesse"
 
 ---
