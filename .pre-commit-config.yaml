@@ -1,18 +1,20 @@
 # Pre-commit hooks do projeto.
-# Setup (WSL):
-#   source backend/venv/bin/activate
-#   pip install -r requirements.txt
+#
+# Setup — use o MESMO ambiente em que voce faz git commit (WSL ou PowerShell):
+#   pip install -r requirements.txt   # raiz do repo (pre-commit, pytest, agentes)
 #   pre-commit install
 #
 # Rodar manualmente sobre tudo:
 #   pre-commit run --all-files
+#
+# Ver docs/comandos_uteis.md — secao "QA Engineer — checks automatizados e pre-commit"
 
 repos:
   - repo: local
     hooks:
       - id: qa-check
         name: QA Engineer - checks pre-commit
-        entry: backend/venv/bin/python scripts/qa_check.py --escopo pre-commit --sem-cor
+        entry: bash scripts/run_qa_check_precommit.sh
         language: system
         pass_filenames: false
         always_run: true

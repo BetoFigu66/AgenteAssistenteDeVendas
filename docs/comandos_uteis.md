@@ -576,35 +576,77 @@ Resposta: contagem por entidade (`removidos.reports`, `removidos.mensagens`, etc
 
 Os checks de qualidade ficam em `agentes/qa_engineer.py` (registry via `@registrar_check`). Ver diretriz D06 em `artefatos/implementador/diretrizes.md`.
 
+O hook usa `bash scripts/run_qa_check_precommit.sh`, que localiza o Python em `backend/venv` tanto no **Windows** (`Scripts/python.exe`) quanto no **WSL/Linux** (`bin/python`) — sem caminho Unix fixo no `.pre-commit-config.yaml`.
+
+**Pré-requisito no Windows:** [Git for Windows](https://git-scm.com/download/win) (inclui `bash` no PATH — o hook chama `bash scripts/run_qa_check_precommit.sh`).
+
 **Setup (uma vez por clone):**
 
-Use o venv local do projeto (`backend/venv` no WSL). O `pre-commit` fica em `requirements.txt` da **raiz** (QA/agentes), não em `backend/requirements.txt`.
+Use o venv local do projeto (`backend/venv`). O `pre-commit` fica em `requirements.txt` da **raiz** (QA/agentes), não em `backend/requirements.txt`.
+
+**Regra:** rode `pre-commit install` no **mesmo ambiente** em que você faz `git commit` (PowerShell **ou** WSL — não misturar).
 
 ```bash
-# WSL (recomendado para git commit)
+# WSL (se commitar pelo WSL)
 cd backend
-source venv/bin/activate          # recrie o venv se quebrado — ver seção venv abaixo
+source venv/bin/activate
 cd ..
 pip install -r requirements.txt   # pre-commit, pytest, agentes
-pre-commit install                # grava INSTALL_PYTHON em .git/hooks/pre-commit
+pre-commit install
 ```
 
 ```powershell
-# PowerShell (se commitar pelo Windows)
+# PowerShell (se commitar pelo Windows / Git for Windows)
 cd backend
-venv\Scripts\Activate.ps1
+python -m venv venv                # se ainda não existir
+.\venv\Scripts\Activate.ps1
+pip install -r ..\requirements.txt
 cd ..
-pip install -r requirements.txt
 pre-commit install
+```
+
+**Erro:** hook falha no PowerShell com caminho `backend/venv/bin/python` ou `/mnt/c/...`.
+
+**Causa:** versão antiga do `.pre-commit-config.yaml` com Python Unix hardcoded, **ou** `pre-commit install` rodado no WSL enquanto o commit é feito no Git for Windows (o hook grava `INSTALL_PYTHON` com path WSL inacessível ao bash do Windows).
+
+**Correção (Kika — fluxo PowerShell):**
+
+```powershell
+cd C:\caminho\para\AgenteAssistenteDeVendas\backend
+python -m venv venv
+.\venv\Scripts\Activate.ps1
+pip install -r ..\requirements.txt
+cd ..
+pre-commit install
+pre-commit run --all-files          # testar antes do commit
+```
+
+Confirme o interpretador gravado no hook:
+
+```powershell
+Get-Content .git\hooks\pre-commit -TotalCount 10
+```
+
+`INSTALL_PYTHON` deve apontar para `...\backend\venv\Scripts\python.exe` (Windows), **não** para `/mnt/c/...` nem `.../bin/python`.
+
+**Rodar o check manualmente (sem pre-commit):**
+
+```powershell
+.\scripts\run_qa_check_precommit.ps1
+```
+
+```bash
+# WSL
+./scripts/run_qa_check_precommit.sh
 ```
 
 **Erro:** `No module named pre_commit` com path de **outro projeto** (ex.: `Transcriptor/.venv/bin/python`).
 
 **Causa:** `pre-commit install` foi rodado com outro venv ativo; o hook grava esse Python em hardcode em `.git/hooks/pre-commit`.
 
-**Correção:** ativar `backend/venv` **deste** repo → `pip install -r requirements.txt` → `pre-commit install`. Confirme com `head -7 .git/hooks/pre-commit` que `INSTALL_PYTHON` aponta para `.../AgenteAssistenteDeVendas/backend/venv/bin/python`.
+**Correção:** ativar `backend/venv` **deste** repo → `pip install -r requirements.txt` → `pre-commit install`. Confirme com `Get-Content .git\hooks\pre-commit -TotalCount 10` (PowerShell) ou `head -7 .git/hooks/pre-commit` (WSL) que `INSTALL_PYTHON` aponta para o venv **deste** repositório.
 
-**Rodar manualmente:**
+**Rodar manualmente (python direto, com venv ativo):**
 ```powershell
 # Todos os checks registrados
 python scripts/qa_check.py
