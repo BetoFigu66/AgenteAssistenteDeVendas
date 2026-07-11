@@ -8,7 +8,7 @@ from pathlib import Path
 from typing import Dict, List, Optional
 
 from config import settings
-from models import Base, Mensagem, OrigemMensagem
+from models import Mensagem, OrigemMensagem
 from sqlalchemy import create_engine, select
 from sqlalchemy.orm import sessionmaker
 
@@ -26,17 +26,11 @@ class Database:
 
         self.SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=self.engine)
 
-        self._criar_tabelas()
-
     def _garantir_diretorio(self):
         """Garante que o diretório do banco existe (apenas para SQLite)."""
         if "sqlite" in self.database_url:
             db_path = self.database_url.replace("sqlite:///", "")
             Path(db_path).parent.mkdir(parents=True, exist_ok=True)
-
-    def _criar_tabelas(self):
-        """Cria as tabelas se não existirem."""
-        Base.metadata.create_all(bind=self.engine)
 
     @contextmanager
     def get_session(self):

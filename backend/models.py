@@ -750,7 +750,7 @@ class ItemAtendimento(Base):
     O produto específico é definido quando o modelo for escolhido.
     """
 
-    __tablename__ = "itens_negociacao"
+    __tablename__ = "itens_atendimento"
 
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
     atendimento_id: Mapped[int] = mapped_column(ForeignKey("atendimentos.id"), nullable=False, index=True)

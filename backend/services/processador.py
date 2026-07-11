@@ -4,7 +4,7 @@ Orquestrador principal - processa mensagens recebidas do cliente.
 Fluxo:
 1. Salva mensagem recebida
 2. Identifica contato/empresa pelo telefone
-3. Carrega/cria negociação ativa
+3. Carrega/cria atendimento ativo
 4. Classifica intenção + extrai entidades
 5. Atualiza estado (CNPJ, nome, itens, etc.)
 6. Gera resposta
@@ -150,7 +150,7 @@ class ProcessadorMensagem:
         inicio_ms = time.monotonic()
         erro_processamento: Optional[str] = None
 
-        # 1. Salva mensagem do cliente (ainda sem contato/negociação)
+        # 1. Salva mensagem do cliente (ainda sem contato/atendimento)
         msg_in = Mensagem(
             telefone=telefone_norm,
             conteudo=conteudo,
@@ -193,13 +193,13 @@ class ProcessadorMensagem:
             f" via={resultado_class.origem}{_ent_str}",
         )
 
-        # 4. Verifica modo de operação da negociação ativa (se existir)
+        # 4. Verifica modo de operação do atendimento ativo (se existir)
         # Se modo=HUMANO, o sistema processa/classifica mas NÃO gera resposta.
         contato_inicial = identificacao.contato
         atendimento_inicial = self._atendimento_ativo(db, contato_inicial) if contato_inicial else None
         modo_humano = atendimento_inicial is not None and atendimento_inicial.modo_operacao == ModoOperacao.HUMANO
         if modo_humano:
-            logger.info(f"[Processador] Negociação {atendimento_inicial.id} em modo HUMANO — "
+            logger.info(f"[Processador] Atendimento {atendimento_inicial.id} em modo HUMANO — "
                 "não gerando resposta automática.")
         dlog.log("modo", "HUMANO → resposta suprimida" if modo_humano else "AGENTE")
 
@@ -252,7 +252,7 @@ class ProcessadorMensagem:
 
         dlog.log("processamento_id", f"id={processamento.id} duracao={duracao_ms}ms")
 
-        # 8. Vincula mensagem do cliente ao processamento/contato/negociação
+        # 8. Vincula mensagem do cliente ao processamento/contato/atendimento
         msg_in.processamento_id = processamento.id
         if contato:
             msg_in.contato_id = contato.id
@@ -517,7 +517,7 @@ class ProcessadorMensagem:
             contato.nome = entidades.nomes[0]
             db.commit()
 
-        # Carrega/cria negociação ativa
+        # Carrega/cria atendimento ativo
         atendimento = self._obter_ou_criar_atendimento(db, contato, empresa)
 
         # Salva informações coletadas
@@ -774,7 +774,7 @@ class ProcessadorMensagem:
                 contato_existente.nome = nome_informado
                 db.commit()
 
-        # Cria negociação ativa se ainda não houver
+        # Cria atendimento ativo se ainda não houver
         self._obter_ou_criar_atendimento(db, contato_existente, empresa)
 
         return await self._gerador.gerar(
@@ -791,7 +791,7 @@ class ProcessadorMensagem:
         nome_informado: Optional[str] = None,
         data_nascimento: Optional[date] = None,
     ) -> RespostaGerada:
-        """Processa quando o cliente forneceu CPF: valida, persiste pessoa e vincula negociação."""
+        """Processa quando o cliente forneceu CPF: valida, persiste pessoa e vincula atendimento."""
         if not validar_cpf(cpf):
             return await self._gerador.gerar(MensagemId.CPF_INVALIDO)
 
@@ -853,7 +853,7 @@ class ProcessadorMensagem:
         )
 
     # ------------------------------------------------------------------
-    # Negociação e informações
+    # Atendimento e informações
     # ------------------------------------------------------------------
 
     STATUS_ATIVOS = (StatusAtendimento.ATIVO,)
@@ -963,7 +963,7 @@ class ProcessadorMensagem:
         db.commit()
 
     def _registrar_resultado_credito(self, db: Session, atendimento: Atendimento, resultado) -> None:
-        """Registra resultado agregado da consulta de crédito na negociação (REQ-015)."""
+        """Registra resultado agregado da consulta de crédito no atendimento (REQ-015)."""
         registros = [
             ("consulta_credito_realizada", str(resultado.consulta_realizada).lower()),
             ("consulta_credito_provedor", resultado.provedor or "nenhum"),

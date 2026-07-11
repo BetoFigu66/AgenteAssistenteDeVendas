@@ -1,7 +1,7 @@
 # REQ-004: Escalonamento para Humano (Human Takeover)
 
-**Versão**: 1.6  
-**Data**: 2026-05-06  
+**Versão**: 1.8  
+**Data**: 2026-07-10  
 **Autor**: Kika (Analista de Requisitos)  
 **Status**: Em Elaboração  
 **Prioridade**: Alta  
@@ -60,7 +60,7 @@ No POC, o escalonamento deve notificar o vendedor, que responderá ao cliente pe
   - Ao assumir, o sistema deve aplicar o mesmo tratamento de uma conversa escalada (REQ-004.2 e REQ-004.4): marcar a conversa em modo humano, gerar resumo de contexto e bloquear respostas automáticas
   - Observação: o escalonamento iniciado por **pedido explícito do cliente** é tratado como gatilho explícito (REQ-004.1 + REQ-004.6), não por este requisito
 
-- [ ] **REQ-004.4 — Alterar conversa para estado "em modo humano"**: O sistema deve manter, por conversa, um **estado persistente** indicando se ela está em atendimento humano. Esse estado:
+- [ ] **REQ-004.4 — Alterar conversa para estado "em modo humano"**: O sistema deve manter, por conversa, um **estado persistente** indicando se ela está em modo humano. Esse estado:
   - É **ativado** no momento do handoff (REQ-004.2) ou quando o vendedor assume manualmente (REQ-004.3)
   - É **desativado** apenas quando o humano sinalizar a finalização do atendimento
   - Deve ser consultável pelos demais módulos do sistema (REQ-002, REQ-003) para decidir se podem responder automaticamente
@@ -227,6 +227,7 @@ O sistema deve gerar um resumo curto, orientado à ação, incluindo quando poss
 | 12/05/2026 | 1.5 | Atualização das menções a "dashboard" para referenciar o REQ-010 (Painel Administrativo POC), esclarecendo que o painel cobre gestão/visualização de escalonamentos mas que a resposta ao cliente continua pelo WhatsApp no POC | Kika |
 | 12/05/2026 | 1.6 | REQ-004.7 enriquecido com regra de prioridade: reclamações de pós-venda (atraso, defeito, suporte) seguem o fluxo do REQ-009 (identificação de orçamento antes do escalonamento); reclamações genéricas continuam escalando imediatamente | Kika |
 | 09/06/2026 | 1.7 | Renomeação do estado da conversa de `em atendimento humano` para `em modo humano` (decisão D6 da renomeação Negociação → Atendimento) para evitar ambiguidade com a entidade Atendimento (REQ-016 v2.0). Ajustes em REQ-004.3, REQ-004.4, REQ-004.10 e §11. | Beto |
+| 10/07/2026 | 1.8 | REQ-004.4: corrigida frase residual que ainda dizia "indicando se ela está em atendimento humano" (não foi ajustada na v1.7) para "em modo humano", eliminando a última ambiguidade com a entidade Atendimento. Cabeçalho do documento também corrigido (estava com Versão desatualizada em 1.6 desde a v1.7). Identificado durante implementação do passo A0 do MVP Continuidade. | Beto + Claude |
 
 ---
 

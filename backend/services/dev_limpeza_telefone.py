@@ -136,7 +136,7 @@ def apagar_dados_telefone(db: Session, telefone: str) -> dict[str, Any]:
         removidos["orcamentos"] = 0
 
     if atendimento_ids:
-        removidos["itens_negociacao"] = (
+        removidos["itens_atendimento"] = (
             db.query(ItemAtendimento)
             .filter(ItemAtendimento.atendimento_id.in_(atendimento_ids))
             .delete(synchronize_session=False)
@@ -152,7 +152,7 @@ def apagar_dados_telefone(db: Session, telefone: str) -> dict[str, Any]:
             .delete(synchronize_session=False)
         )
     else:
-        removidos["itens_negociacao"] = 0
+        removidos["itens_atendimento"] = 0
         removidos["atendimento_infos"] = 0
         removidos["atendimentos"] = 0
 

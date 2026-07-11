@@ -1,7 +1,7 @@
 # Plano de Implementação — MVP Continuidade (jul/2026)
 
-**Versão:** 1.2  
-**Data:** 2026-07-06 (atualizado 2026-07-09)  
+**Versão:** 1.3  
+**Data:** 2026-07-06 (atualizado 2026-07-10)  
 **Autor:** Beto + Cascade + Claude  
 **Status:** Provisório — aguardando validação da Kika  
 **Origem:** `docs/brainstorming_continuidade_2026-07.md` (cenário 1 — Laboratório OO)  
@@ -143,9 +143,13 @@ Fases fora do MVP (`encerrado_por_inatividade`, `encerrado`) permanecem no catá
 
 Ordem sugerida. Cada passo deve ser testável isoladamente no painel.
 
+### Fase A — Fundação de domínio
+
 | # | Entrega | Detalhe | Depende de |
 |---|---------|---------|------------|
-| **A0** | Concluir renomeação Negociação → Atendimento (débito técnico anterior) | Renomear tabela `itens_negociacao` → `itens_atendimento` (migration Alembic de rename, não recriação); atualizar comentários/logs remanescentes em `processador.py` que ainda dizem "negociação" (ex.: linhas 7, 153, 196, 202, 255, 520, 777, 794, 856, 966); remover fallback morto `?? proc.negociacao_id_ativa` em `frontend/src/components/ProcessamentoDetalhes.jsx:290` (campo não existe mais na API); revisar texto do REQ-004.4 que ainda mistura "atendimento humano" com a entidade "Atendimento". Identificado durante brainstorming com Claude Code (2026-07-09) a partir de `artefatos/analista_de_requisitos/analise_renomeacao_negociacao_para_atendimento.md`. **Serve de checklist-modelo** para a renomeação produto/tipo_produto → modelo/produto (§ítem 1 do brainstorming), que troca dois nomes entre si e não pode ser um find-replace direto. | — |
+| **A0** | ✅ Concluído (2026-07-10) — renomeação Negociação → Atendimento (débito técnico anterior) | Renomeada tabela `itens_negociacao` → `itens_atendimento` via migration Alembic (`2026071001_rename_itens_negociacao_para_itens_atendimento.py`, com rename de PK/FKs/índices/sequence); `backend/models.py::ItemAtendimento.__tablename__` atualizado; comentários/logs remanescentes em `processador.py` corrigidos; fallback morto `?? proc.negociacao_id_ativa` removido de `ProcessamentoDetalhes.jsx`; texto residual do REQ-004.4 corrigido (v1.8). **Achado importante durante a execução, não resolvido ainda** — ver nota abaixo e §8 item 8. | — |
+
+**Nota A0 (2026-07-10):** ao aplicar a migration, descobrimos que o banco local (dev/QA) tem **drift de DDL manual fora do Alembic** bem mais extenso do que o esperado: (a) constraints com nomes com typo em pelo menos 5 tabelas (`atendimentao` no lugar de `atendimento`, `atendimentoes` no lugar de `atendimentos` — ex.: `mensagens_atendimentao_id_fkey`, `atendimentoes_contato_id_fkey`); (b) tabelas fantasmas vazias (`negociacoes`, `negociacao_infos`, 0 linhas) coexistindo com as reais (`atendimentos` 9 linhas, `atendimento_infos` 18 linhas); (c) sequences nunca renomeadas (`atendimentos.id` ainda usa `negociacoes_id_seq`). **Causa raiz identificada:** `backend/database.py::Database._criar_tabelas()` chama `Base.metadata.create_all()` em **todo startup do backend** — isso cria tabelas fantasmas toda vez que um `__tablename__` muda e o app recarrega (via `--reload`) antes do `alembic upgrade head` rodar. A migration do A0 já inclui uma proteção defensiva (`_dropar_fantasma_vazia`) para não quebrar por causa disso, mas o problema de fundo (linhas 37-39 de `database.py`) continua e pode recriar fantasmas em qualquer edição futura de model. Registrado como pendência separada — ver §8 item 8. Não mexi nos 5 tabelas com typo nem nas tabelas fantasmas `negociacoes`/`negociacao_infos` (0 linhas, seguras de remover) porque isso está fora do escopo literal do A0; aguardando decisão do Beto sobre até onde estender essa limpeza.
 | **A1** | Enum `FaseAtendimento` | `esclarecendo`, `finalizando`, `em_orcamentacao` em `models.py` | — |
 | **A2** | Migration Alembic | Coluna `fase` em `atendimentos`, default `esclarecendo` para novos | A1 |
 | **A3** | Atendimentos novos iniciam em Esclarecendo | `services/atendimentos.py` — criar com `fase=esclarecendo` | A2 |
@@ -171,10 +175,6 @@ Ordem sugerida. Cada passo deve ser testável isoladamente no painel.
 | **C2** | `proxima_pergunta(atendimento) -> CampoDef \| None` | Primeiro pendente entre os **aplicáveis**, na ordem de exibição sugerida (modelo → software → faixa de funcionários). **Não é uma regra de sequência obrigatória** — o cliente pode responder qualquer campo antes de ser perguntado; isso só decide o que perguntar quando nada veio na mensagem | C1 |
 | **C3** | Regra `nao_perguntar_de_novo` | Se `AtendimentoInfo`/`ItemAtendimento` já tem valor, não retorna o campo | C1 |
 | **C4** | Regras condicionais (aplicabilidade) | (a) `software_controle_ponto` só é campo se `tipo_produto` = relógio de ponto; (b) `faixa_funcionarios` só é **pendente/aplicável** depois que `software_controle_ponto` for respondido = "nenhum" — antes disso ou se houver software, fica `nao_aplicavel` | C1 |
-
-
-Beto: Revisar a partir daqui.
-### Fase A — Fundação de domínio
 
 
 ### Fase D — Esclarecendo (responder sem qualificar)
@@ -267,6 +267,7 @@ Beto: Revisar a partir daqui.
 | 5 | PF vs PJ nesta fatia | Ignorar documento fiscal | **Ignorar** — alinhado ao escopo mínimo; PJ completo entra na próxima fatia |
 | 6 | Modelo sem correspondência no catálogo | Texto livre + sinalizar vendedor (texto atual de `CAMPO-modelo.md`) vs. escalar para modo atendente | **Escalar para modo atendente** (`escalar_humano`/`ModoOperacao.HUMANO`) — decisão 2026-07-09; requer atualizar REQ-002.3B/`CAMPO-modelo.md` com a Kika, hoje eles preveem texto livre |
 | 7 | Gatilho de transição Esclarecendo→Finalizando | Exigir modelo+quantidade confirmados antes (REQ-002.1C atual) vs. transitar já na intenção e coletar tudo em Finalizando | **Transitar já na intenção** — decisão 2026-07-09; requer atualizar REQ-002.1C com a Kika (ver §6) |
+| 8 | ~~Drift de DDL manual fora do Alembic no banco local~~ | — | **Resolvido (2026-07-10)** — `Database._criar_tabelas()`/`create_all()` removido de `backend/database.py` (Alembic é a única fonte de DDL agora); migration `2026071002_limpeza_drift_ddl_manual.py` removeu as tabelas fantasmas `negociacoes`/`negociacao_infos` (0 linhas), renomeou as sequences esquecidas e corrigiu as 7 constraints com typo (`atendimentao`/`atendimentoes`). Verificado: `alembic upgrade head` limpo, `pytest` (41 passed, 1 falha pré-existente não relacionada), backend sobe e serve dados reais (`/health`, `/api/atendimentos/ativas`) |
 
 ---
 
@@ -307,3 +308,4 @@ Beto: Revisar a partir daqui.
 | 1.0 | 2026-07-06 | Beto + Cascade | Plano MVP: relógio de ponto, Esclarecendo → Finalizando, modelo + quantidade + software |
 | 1.1 | 2026-07-09 | Beto + Claude | Adicionado passo A0 (concluir renomeação Negociação→Atendimento, débito técnico) à Fase A, a partir de brainstorming de arquitetura com Claude Code. Renomeação produto/tipo_produto→modelo/produto e o motor de fases (padrão Estado/Pergunta) seguem em discussão — ver `docs/dicionario_termos.md` e histórico da conversa. |
 | 1.2 | 2026-07-09 | Beto + Claude | Reconciliação com o pull da Kika (commit `c4cd9ef`, catálogo de conversação + REQ-002/014/016 atualizados): (1) substituído campo genérico "quantidade" por `CAMPO-faixa-funcionarios` (chave `faixa_funcionarios`), condicional a `software_controle_ponto="nenhum"` — `CAMPO-quantidade` é de catraca, fora desta fatia; (2) `CAMPO-modelo`/`CAMPO-faixa-funcionarios` já existem no catálogo (criados pela Kika 06/07), removida marcação de "ficha pendente"; (3) decidido que `modelo_produto` sem correspondência no catálogo escala para modo atendente (`escalar_humano`) em vez de aceitar texto livre — diverge do texto atual de `CAMPO-modelo.md`, pendente de ajuste com a Kika; (4) confirmado que a transição Esclarecendo→Finalizando é imediata pela intenção (categoria 1), com todos os campos obrigatórios cobrados em Finalizando — diverge do texto atual de REQ-002.1C, pendente de ajuste com a Kika; (5) roteiro §3 e fases B/C/E/F atualizados de acordo. |
+| 1.3 | 2026-07-10 | Beto + Claude | Passo A0 implementado e concluído: migration `2026071001` renomeia `itens_negociacao`→`itens_atendimento` (tabela, PK, FKs, índices, sequence); `models.py`, comentários de `processador.py`, fallback do frontend e texto do REQ-004.4 corrigidos. Descoberto durante a implementação um drift de DDL manual fora do Alembic mais extenso (constraints com typo, tabelas fantasmas `negociacoes`/`negociacao_infos`, sequences não renomeadas), causa raiz em `Database._criar_tabelas()` — **resolvido na mesma data**: `create_all()` removido de `database.py`, migration `2026071002` limpa o drift. Risco #8 fechado. |

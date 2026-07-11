@@ -24,7 +24,9 @@ Essa regra vale para qualquer termo futuro que se mostrar ambíguo — não é e
 ### Atendimento
 Unidade de negócio que agrupa mensagens, informações coletadas (`AtendimentoInfo`) e orçamentos (`Orcamento`) de uma mesma demanda de um contato. Tem numeração sequencial por contato (`numero_atendimento_cliente`) e `status` (`ativo`/`encerrado`). `backend/models.py:429` (classe `Atendimento`, tabela `atendimentos`).
 
-**Nome anterior:** *Negociação* — renomeado (ver `artefatos/analista_de_requisitos/analise_renomeacao_negociacao_para_atendimento.md`), mas **a renomeação ficou incompleta**: tabela `itens_negociacao` nunca foi renomeada (`backend/models.py:753`); comentários/logs em `backend/services/processador.py` ainda dizem "negociação" (linhas 7, 153, 196, 202, 255, 520, 777, 794, 856, 966) mesmo com os identificadores de código já em "atendimento"; o frontend guarda um fallback morto para um campo que não existe mais na API (`frontend/src/components/ProcessamentoDetalhes.jsx:290` — `proc.atendimento_id_ativa ?? proc.negociacao_id_ativa`). **Correção adicionada ao plano MVP como passo A0** (`docs/plano_implementacao_mvp_continuidade_2026-07.md`) — serve de checklist-modelo para a renomeação produto/modelo abaixo.
+**Nome anterior:** *Negociação* — renomeado (ver `artefatos/analista_de_requisitos/analise_renomeacao_negociacao_para_atendimento.md`). **Passo A0 do plano MVP concluído em 2026-07-10**: tabela `itens_negociacao` renomeada para `itens_atendimento` (migration `2026071001`, com PK/FKs/índices/sequence); comentários/logs remanescentes em `processador.py` corrigidos; fallback morto do frontend (`?? proc.negociacao_id_ativa`) removido; texto residual do REQ-004.4 corrigido.
+
+**⚠️ Achado durante o A0, ainda em aberto:** o banco local tem drift de DDL manual fora do Alembic bem mais extenso do que só o `itens_negociacao` — constraints com nomes com typo (`atendimentao`/`atendimentoes`) em pelo menos 5 tabelas, tabelas fantasmas vazias (`negociacoes`, `negociacao_infos`) e sequences nunca renomeadas. Causa raiz: `backend/database.py::Database._criar_tabelas()` chama `Base.metadata.create_all()` em todo startup do backend, o que cria tabelas fantasmas sempre que um `__tablename__` muda e o app recarrega antes do `alembic upgrade head` rodar. Detalhe completo e decisão pendente em `docs/plano_implementacao_mvp_continuidade_2026-07.md` §8, item 8.
 
 **Não confundir com:** "conversa" (termo coloquial usado em REQs e no componente `ConversaInfo.jsx`, sem entidade própria — mapeia para `Atendimento`); "atendimento humano" (ver entrada própria).
 
@@ -62,11 +64,6 @@ Campo `Produto.categoria: Optional[str]` (`backend/models.py:587`, será `Modelo
 - **ItemAtendimento** (`models.py:746`, tabela `itens_negociacao` — ver nota de renomeação pendente acima) — intenção de compra ainda em qualificação: começa só com a categoria (`tipo_produto_id`) e evolui para um `Modelo` real (`produto_id`) quando o cliente escolhe.
 
 ---
-
-#################################
-Considerações Beto:
-    Atendimento: Não precisa `status` (`ativo`/`encerrado`), isso vai ser substituido pelo etado do atendimento (Nova modelagem)
-#################################
 
 ## B) Conceitos de conversação/fluxo
 
