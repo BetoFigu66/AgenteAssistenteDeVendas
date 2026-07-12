@@ -101,6 +101,24 @@ class ModoOperacao(str, enum.Enum):
     HUMANO = "humano"
 
 
+class FaseAtendimento(str, enum.Enum):
+    """Estágio da jornada conversacional guiada (MVP Continuidade, jul/2026).
+
+    Eixo ortogonal a `StatusAtendimento` — complementa REQ-016, não substitui:
+    `status` indica se o atendimento está aberto para interação (ativo/encerrado);
+    `fase` indica em que ponto do fluxo guiado ele está enquanto ativo. Ver
+    `artefatos/analista_de_requisitos/catalogo_conversacao/README.md` e
+    `docs/dicionario_termos.md` (entrada "Fase (do atendimento)").
+
+    Fases fora do MVP (`encerrado_por_inatividade`, `encerrado`) ainda não têm
+    valor aqui — permanecem só no catálogo até serem implementadas.
+    """
+
+    ESCLARECENDO = "esclarecendo"
+    FINALIZANDO = "finalizando"
+    EM_ORCAMENTACAO = "em_orcamentacao"
+
+
 class Mensagem(Base):
     """Modelo para armazenar mensagens do chat."""
 
@@ -459,6 +477,12 @@ class Atendimento(Base):
     modo_operacao: Mapped[ModoOperacao] = mapped_column(
         Enum(ModoOperacao, values_callable=lambda x: [e.value for e in x], name="modooperacao"),
         default=ModoOperacao.AGENTE,
+        nullable=False,
+        index=True,
+    )
+    fase: Mapped[FaseAtendimento] = mapped_column(
+        Enum(FaseAtendimento, values_callable=lambda x: [e.value for e in x], name="faseatendimento"),
+        default=FaseAtendimento.ESCLARECENDO,
         nullable=False,
         index=True,
     )
