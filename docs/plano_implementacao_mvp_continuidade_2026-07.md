@@ -1,6 +1,6 @@
 # Plano de Implementação — MVP Continuidade (jul/2026)
 
-**Versão:** 1.5  
+**Versão:** 1.7  
 **Data:** 2026-07-06 (atualizado 2026-07-12)  
 **Autor:** Beto + Cascade + Claude  
 **Status:** Provisório — aguardando validação da Kika  
@@ -161,11 +161,13 @@ Ordem sugerida. Cada passo deve ser testável isoladamente no painel.
 
 | # | Entrega | Detalhe | Depende de |
 |---|---------|---------|------------|
-| **B1** | `catalogo_campos.py` | Definição declarativa dos campos do MVP: chave, texto da pergunta, produtos aplicáveis, regra de aplicabilidade | Catálogo analista |
-| **B2** | Mapear `CAMPO-software-ponto` | Texto de `campos/CAMPO-software-ponto.md` (existe, v0.1); chave `software_controle_ponto` | B1 |
-| **B3** | Mapear `CAMPO-modelo` | Texto de `campos/CAMPO-modelo.md` (existe, v0.1 — criado pela Kika); chave `modelo_produto`; lista de modelos p/ relógio: cartográfico/eletrônico (cartão, barras, biometria, facial); **deve resolver para uma linha real do catálogo** — sem correspondência → `escalar_humano` (ver §2, diverge do texto atual da ficha) | B1 |
-| **B4** | Mapear `CAMPO-faixa-funcionarios` | Texto de `campos/CAMPO-faixa-funcionarios.md` (existe, v0.1 — criado pela Kika); chave `faixa_funcionarios`; aplicável **somente se** `software_controle_ponto = "nenhum"` | B1, B2 |
-| **B5** | `MensagemId.PEDIR_MODELO`, `PEDIR_SOFTWARE_PONTO`, `PEDIR_FAIXA_FUNCIONARIOS` | Novos templates em `respostas/catalogo.py` (não reutilizar genéricos demais) | B1 |
+| **B1** | ✅ Concluído (2026-07-12) — `catalogo_campos.py` | Criado `backend/services/conversacao/catalogo_campos.py` (novo pacote `services/conversacao/`, conforme diagrama §4): `CampoDef` (id_catalogo, chave, produtos_aplicáveis, pergunta, ordem, `aplicavel` callable) + `campos_do_produto()`. Desacoplado de ORM/SQLAlchemy de propósito — `aplicavel` recebe snapshot `chave→valor`, não objetos do banco | Catálogo analista |
+| **B2** | ✅ Concluído (2026-07-12) — Mapear `CAMPO-software-ponto` | `CAMPO_SOFTWARE_PONTO` em `catalogo_campos.py`: chave `software_controle_ponto`, pergunta de `CAMPO-software-ponto.md`, aplicável a `relogio_ponto`. Testes em `tests/test_catalogo_campos.py` (5 casos, todos passando) | B1 |
+| **B3** | ✅ Concluído (2026-07-12) — Mapear `CAMPO-modelo` | `CAMPO_MODELO` em `catalogo_campos.py`: chave `modelo_produto`, pergunta específica de relógio (cartográfico/eletrônico × cartão/barras/biometria/facial), `ordem=10`. Adicionado campo `destino` a `CampoDef` (`DESTINO_ITEM_ATENDIMENTO_PRODUTO_ID`) para deixar explícito que este campo resolve para `ItemAtendimento.produto_id`, não `AtendimentoInfo` — a resolução/validação (`escalar_humano` se sem correspondência) fica pra Fase F (F2), aqui é só a declaração | B1 |
+| **B4** | ✅ Concluído (2026-07-12) — Mapear `CAMPO-faixa-funcionarios` | `CAMPO_FAIXA_FUNCIONARIOS` em `catalogo_campos.py`: chave `faixa_funcionarios`, `ordem=30`, `aplicavel` consulta `software_controle_ponto` no snapshot de valores (não pendência se ainda não respondido; aplicável só se `="nenhum"`, case/espaço-insensível) | B1, B2 |
+| **B5** | ✅ Concluído (2026-07-12) — `MensagemId.PEDIR_MODELO`, `PEDIR_SOFTWARE_PONTO`, `PEDIR_FAIXA_FUNCIONARIOS` | Adicionados em `respostas/catalogo.py` (IDs 24-26, textos específicos de relógio de ponto — não reutilizam templates genéricos) | B1 |
+
+**Fase B concluída.** Testes: `tests/test_catalogo_campos.py` (11 casos) + `tests/test_respostas_catalogo.py` (3 casos), todos passando.
 
 **Nota:** `campos/CAMPO-quantidade.md` (também criado pela Kika) é de **controle de acesso/catraca** — fora desta fatia. Quando entrarmos em catraca (próxima fatia, §9), mapeia para a coluna real `ItemAtendimento.quantidade`, não para `AtendimentoInfo`.
 
@@ -314,3 +316,5 @@ Ordem sugerida. Cada passo deve ser testável isoladamente no painel.
 | 1.3 | 2026-07-10 | Beto + Claude | Passo A0 implementado e concluído: migration `2026071001` renomeia `itens_negociacao`→`itens_atendimento` (tabela, PK, FKs, índices, sequence); `models.py`, comentários de `processador.py`, fallback do frontend e texto do REQ-004.4 corrigidos. Descoberto durante a implementação um drift de DDL manual fora do Alembic mais extenso (constraints com typo, tabelas fantasmas `negociacoes`/`negociacao_infos`, sequences não renomeadas), causa raiz em `Database._criar_tabelas()` — **resolvido na mesma data**: `create_all()` removido de `database.py`, migration `2026071002` limpa o drift. Risco #8 fechado. |
 | 1.4 | 2026-07-11 | Beto + Claude | Discussão de arquitetura sobre `AtendimentoInfo` (EAV) antes da Fase A1: decidido manter o padrão chave-valor (encaixa bem em atributos esparsos/condicionais por produto, evita migration a cada `CAMPO-xxx` novo). Registrada limitação conhecida (FK só para `atendimento_id`, sem `item_atendimento_id`) e o plano de evolução para quando a fatia de múltiplos produtos chegar — adicionado como item 5 em §9. Detalhe completo em `docs/dicionario_termos.md`. |
 | 1.5 | 2026-07-12 | Beto + Claude | Fase A concluída: **A1** enum `FaseAtendimento` em `models.py`; **A2** migration `2026071101` adiciona coluna `fase` em `atendimentos` (ENUM + índice + backfill); **A3** `services/atendimentos.py` cria atendimentos novos já com `fase=ESCLARECENDO`, testado ponta a ponta via API real; **A4** decisão registrada como DEC-006 em `decisoes_requisitos.md`. Achado adicional durante o A2: PKs de `atendimentos`/`atendimento_infos` ainda com nome antigo (`negociacoes_pkey`/`negociacao_infos_pkey`) — corrigido em migration `2026071102` (mesma categoria de drift do A0, sem typo desta vez). |
+| 1.6 | 2026-07-12 | Beto + Claude | Início da Fase B: **B1** criado `backend/services/conversacao/catalogo_campos.py` (novo pacote, `CampoDef` + `campos_do_produto()`, desacoplado de ORM); **B2** `CAMPO-software-ponto` mapeado (`CAMPO_SOFTWARE_PONTO`). Testes em `tests/test_catalogo_campos.py` (5 casos). |
+| 1.7 | 2026-07-12 | Beto + Claude | Fase B concluída: **B3** `CAMPO_MODELO` mapeado (chave `modelo_produto`, `ordem=10`), com novo campo `CampoDef.destino` explicitando que resolve para `ItemAtendimento.produto_id` (não `AtendimentoInfo`) — resolução/escalonamento fica pra F2; **B4** `CAMPO_FAIXA_FUNCIONARIOS` mapeado (chave `faixa_funcionarios`, `ordem=30`), `aplicavel` consulta `software_controle_ponto` no snapshot (dependência de aplicabilidade); **B5** `MensagemId.PEDIR_MODELO`/`PEDIR_SOFTWARE_PONTO`/`PEDIR_FAIXA_FUNCIONARIOS` (IDs 24-26) em `respostas/catalogo.py`. Testes: 11 casos em `test_catalogo_campos.py` + 3 em `test_respostas_catalogo.py` (novo), todos passando. |

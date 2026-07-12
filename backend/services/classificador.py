@@ -187,6 +187,8 @@ _REGEX_NOME = re.compile(
 _REGEX_DATA_ISOLADA = re.compile(r"\b\d{1,2}[/\-.]\d{1,2}[/\-.]\d{4}\b")
 
 # Palavras que não devem ser confundidas com nome próprio quando o regex capturar.
+# Não aplicada em _limpar_nome (ver docstring) — mantida caso sirva para outra
+# validação futura (ex.: rejeitar entidades antes de chegar ao regex de nome).
 _STOPWORDS_NOME = {
     "e",
     "o",
@@ -248,11 +250,18 @@ def _extrair_nome_sem_gatilho(texto: str, cpfs: List[str], cnpjs: List[str]) -> 
 
 
 def _limpar_nome(bruto: str) -> Optional[str]:
-    """Normaliza e valida um nome extraído pelo regex."""
+    """Normaliza e capitaliza um nome extraído pelo regex.
+
+    Não filtra por `_STOPWORDS_NOME` aqui: nomes reais têm conectores como
+    "da"/"de"/"do" (ex.: "João da Silva"), que colidem com a mesma lista
+    usada para rejeitar falsos positivos tipo "a empresa Inforrel". Essa
+    rejeição já é garantida pelo próprio `_REGEX_NOME` (exige 2+ letras por
+    palavra capturada, então "a" isolado nunca entra na captura).
+    """
     if not bruto:
         return None
     partes = [p.strip(".,;:!?") for p in bruto.split()]
-    partes = [p for p in partes if p and p.lower() not in _STOPWORDS_NOME]
+    partes = [p for p in partes if p]
     if not partes:
         return None
     # Capitaliza cada parte ("beto figueiredo" -> "Beto Figueiredo").

@@ -41,6 +41,9 @@ class MensagemId(IntEnum):
     PRODUTO_SEM_CONTEXTO = 21
     ORCAMENTO_APROVADO = 22
     ORCAMENTO_REPROVADO = 23
+    PEDIR_MODELO = 24
+    PEDIR_SOFTWARE_PONTO = 25
+    PEDIR_FAIXA_FUNCIONARIOS = 26
 
 
 @dataclass(frozen=True)
@@ -214,6 +217,24 @@ CATALOGO: dict[int, MensagemTemplate] = {
             "Tudo bem, agradeço o retorno.\n"
             "Se mudar de ideia ou precisar de algo mais, estou à disposição."
         ),
+    ),
+    MensagemId.PEDIR_MODELO: MensagemTemplate(
+        id=MensagemId.PEDIR_MODELO,
+        codigo="PEDIR_MODELO",
+        mensagem=(
+            "O relógio seria cartográfico ou eletrônico? Se eletrônico: cartão de "
+            "proximidade, cartão de barras, biometria ou reconhecimento facial?"
+        ),
+    ),
+    MensagemId.PEDIR_SOFTWARE_PONTO: MensagemTemplate(
+        id=MensagemId.PEDIR_SOFTWARE_PONTO,
+        codigo="PEDIR_SOFTWARE_PONTO",
+        mensagem="Qual software de ponto vocês usam hoje? (ex.: Domínio, Alterdata, TOTVS, ou nenhum)",
+    ),
+    MensagemId.PEDIR_FAIXA_FUNCIONARIOS: MensagemTemplate(
+        id=MensagemId.PEDIR_FAIXA_FUNCIONARIOS,
+        codigo="PEDIR_FAIXA_FUNCIONARIOS",
+        mensagem="Quantos funcionários vão usar o relógio de ponto?",
     ),
 }
 
