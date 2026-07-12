@@ -9,7 +9,7 @@ from __future__ import annotations
 import logging
 from typing import Optional
 
-from models import Atendimento, Contato, Empresa, Pessoa, StatusAtendimento, TipoDocumento
+from models import Atendimento, Contato, Empresa, FaseAtendimento, Pessoa, StatusAtendimento, TipoDocumento
 from sqlalchemy import func, text
 from sqlalchemy.orm import Session
 
@@ -136,6 +136,7 @@ def obter_ou_criar_atendimento(
         pessoa_id=pessoa.id if pessoa else None,
         tipo_documento=tipo_doc,
         status=StatusAtendimento.ATIVO,
+        fase=FaseAtendimento.ESCLARECENDO,
         titulo=_titulo_novo_atendimento(empresa=empresa, pessoa=pessoa),
         numero_atendimento_cliente=numero,
     )
@@ -171,6 +172,7 @@ def obter_ou_criar_atendimento_pf_pendente(
         contato_id=contato.id,
         tipo_documento=TipoDocumento.CPF,
         status=StatusAtendimento.ATIVO,
+        fase=FaseAtendimento.ESCLARECENDO,
         titulo=_titulo_novo_atendimento(pf_pendente=True),
         numero_atendimento_cliente=numero,
     )

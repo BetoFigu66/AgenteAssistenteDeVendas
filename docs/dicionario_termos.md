@@ -61,7 +61,23 @@ Campo `Produto.categoria: Optional[str]` (`backend/models.py:587`, será `Modelo
 ### Orçamento / ItemOrcamento / ItemAtendimento
 - **Orçamento** (`backend/models.py:513`) — proposta formal enviada ao cliente, com `StatusOrcamento` (em_elaboracao → pendente_aprovacao → enviado_cliente → aprovado/reprovado/expirado).
 - **ItemOrcamento** (`models.py:716`) — linha de um orçamento já fechado, com `Modelo` (hoje `Produto`) definido e preço.
-- **ItemAtendimento** (`models.py:746`, tabela `itens_negociacao` — ver nota de renomeação pendente acima) — intenção de compra ainda em qualificação: começa só com a categoria (`tipo_produto_id`) e evolui para um `Modelo` real (`produto_id`) quando o cliente escolhe.
+- **ItemAtendimento** (`models.py:746`, tabela `itens_atendimento` desde o A0) — intenção de compra ainda em qualificação: começa só com a categoria (`tipo_produto_id`) e evolui para um `Modelo` real (`produto_id`) quando o cliente escolhe.
+
+### AtendimentoInfo — padrão chave-valor (EAV) para atributos dinâmicos
+
+**Discussão de arquitetura em 2026-07-11**, antes de iniciar o passo A1.
+
+**O que é:** `backend/models.py:792` (tabela `atendimento_infos`) — modelo **EAV** (Entity-Attribute-Value): `chave` (string) + `valor` (texto livre) + `pendente` (bool) + `origem` (user/inferido/sistema/atendente), com FK só para `atendimento_id` e unique constraint em `(atendimento_id, chave)`. É o destino de todo `registrar_informacao` do catálogo de conversação — cada `CAMPO-xxx` (`CAMPO-software-ponto`, `CAMPO-faixa-funcionarios` etc.) vira uma linha aqui, identificada pela chave técnica (ver mapeamento campo-catálogo ↔ chave técnica na entrada "Campo" acima).
+
+**Decisão (2026-07-11): manter — não remover.** É o mecanismo certo para atributos esparsos e condicionais por produto/cliente (ex.: software de controle de ponto só existe para relógio de ponto; `faixa_funcionarios` só existe se não há software). A alternativa (uma coluna fixa por atributo em `Atendimento`) exigiria uma migration a cada `CAMPO-xxx` novo que a Kika criar no catálogo — quebraria exatamente a velocidade de iteração que o catálogo de conversação foi desenhado para dar a ela. Uma alternativa de JSONB solto em `Atendimento` foi considerada e descartada: perderia o `pendente`/`origem` por atributo (teria que aninhar isso dentro do JSON) sem ganhar nada que o modelo atual não resolva.
+
+**⚠️ Limitação conhecida, registrada para o futuro:** hoje `AtendimentoInfo` só referencia `atendimento_id` — não existe FK para `ItemAtendimento`. A unique constraint em `(atendimento_id, chave)` significa **um valor por chave por atendimento**. Isso é suficiente enquanto o MVP for "um produto por atendimento" (escopo atual), mas alguns atributos (ex.: `software_controle_ponto`) são conceitualmente atributos **do item** (daquele produto específico), não do atendimento como um todo. Quando a fatia de **múltiplos produtos no mesmo atendimento** for implementada (§9 do plano de MVP), essa constraint colidiria se dois itens diferentes do mesmo atendimento precisarem de valores diferentes para a mesma chave (ex.: dois relógios de ponto de modelos diferentes, cada um com seu próprio software).
+
+**Plano futuro (não implementar agora):** quando essa fatia chegar, adicionar uma coluna `item_atendimento_id` **opcional** (nullable) em `AtendimentoInfo`, com FK para `ItemAtendimento`:
+- Info realmente do atendimento como um todo (ex.: contato para envio do orçamento, endereço de entrega) continua com `item_atendimento_id = NULL`.
+- Info específica de um produto (ex.: software de controle de ponto daquele relógio específico) passa a referenciar o item.
+- A unique constraint precisaria virar `(atendimento_id, item_atendimento_id, chave)` (com `item_atendimento_id` podendo ser NULL nos casos atendimento-scoped — cuidado: `UNIQUE` em Postgres trata múltiplos `NULL` como distintos entre si, então isso funciona sem gambiarra adicional).
+- Este ponto está relacionado ao gap já registrado logo acima ("Produto / Modelo / Tipo de Produto" — `tipo_produto` sem FK): ambos apontam para a mesma direção arquitetural — dados de qualificação deveriam, quando fizer sentido, se ancorar no `ItemAtendimento` (o produto concreto sendo negociado), não só soltos no atendimento.
 
 ---
 

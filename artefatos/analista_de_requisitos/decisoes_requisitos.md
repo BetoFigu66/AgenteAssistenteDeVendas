@@ -143,9 +143,35 @@ IDs `DEC-XXX` são estáveis e não reciclados. Decisões revisadas ou descartad
 
 ---
 
+## DEC-006 — Coluna `fase` complementa `status`, não substitui REQ-016
+
+- **Data**: 2026-07-12
+- **REQs afetados**: REQ-016.4 (não altera), catálogo de conversação (`FASE-xxx.md`)
+- **Status**: vigente
+
+**Contexto**: o plano de MVP Continuidade (`docs/plano_implementacao_mvp_continuidade_2026-07.md`, passos A1/A2) introduziu a coluna `Atendimento.fase` (enum `esclarecendo`/`finalizando`/`em_orcamentacao`) para representar o estágio da jornada conversacional guiada descrita no catálogo de conversação (`artefatos/analista_de_requisitos/catalogo_conversacao/`). Havia dúvida se isso duplicava ou substituía o `status` (`ativo`/`encerrado`) já definido em REQ-016.4 — a prova de que **não** são a mesma coisa: `FASE-encerrado-por-inatividade.md` já documentava uma fase cujo nome sugere encerramento, mas cuja `situação` permanece `ativo` (o catálogo já tratava os dois eixos como independentes desde 2026-07-03/04, antes mesmo da coluna existir no schema).
+
+**Decisão**: `fase` e `status` são eixos **ortogonais** e **ambos persistidos**:
+- `status` (REQ-016) — se o atendimento está aberto para interação (`ativo`) ou fechado (`encerrado`); grosso, estável, poucos valores; usado hoje para consultas de "atendimentos ativos" (`/api/atendimentos/ativas`, matriz de continuação do REQ-016.7).
+- `fase` (catálogo de conversação) — em que ponto do fluxo guiado o atendimento está enquanto ativo; mais granular, cresce conforme novas fases/produtos entram no catálogo.
+
+Nenhuma fase implementada até aqui (MVP: `esclarecendo`, `finalizando`, `em_orcamentacao`) é terminal — as fases terminais do catálogo (`FASE-encerrado`, `FASE-encerrado-por-inatividade`) permanecem fora do enum até serem implementadas (fora do escopo desta fatia).
+
+**Alternativas descartadas**:
+- **Substituir `status` por `fase`** (deixar `status` implícito a partir da fase) — descartada: exigiria manter em código uma lista de "quais fases contam como `ativo`", frágil a cada fase nova adicionada, e quebraria toda a lógica já existente de REQ-016 que consulta `status` diretamente.
+- **Derivar `fase` de `status` + outra coisa sem coluna própria** — descartada: `fase` precisa ser consultável e indexável de forma simples (UI, `campos_pendentes()`), e não há como derivá-la de `status` (um único `status=ativo` cobre 3+ fases diferentes).
+
+**Consequências**:
+- `backend/models.py::Atendimento` tem agora `status` (REQ-016) e `fase` (MVP Continuidade) como colunas independentes, cada uma com seu próprio enum e índice.
+- Documentado em detalhe em `docs/dicionario_termos.md` (entradas "Fase (do atendimento)" e "Situação (do atendimento)").
+- Futuras fases terminais do catálogo, quando implementadas, não devem tentar unificar com `motivo_encerramento`/`status` — continuam como valores adicionais do enum `FaseAtendimento`.
+
+---
+
 ## Histórico de revisões deste documento
 
 | Data | Alteração | Autor |
 |------|-----------|-------|
 | 07/06/2026 | Criação do documento. Registradas DEC-001 (fallback condicional REQ-003), DEC-002 (zona media sem fallback), DEC-003 (causa raiz do bug "Quais produtos a Inforrel vende?"), DEC-004 (estilo enxuto dos REQs). | Kika |
 | 06/07/2026 | DEC-005 (efeito diferenciado de conversão vs. perdido no atendimento). | Cascade |
+| 12/07/2026 | DEC-006 (coluna `fase` complementa `status`, não substitui REQ-016 — passo A4 do MVP Continuidade). | Claude |
