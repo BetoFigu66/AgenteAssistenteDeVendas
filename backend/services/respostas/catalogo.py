@@ -47,6 +47,7 @@ class MensagemId(IntEnum):
     INICIAR_FINALIZANDO = 27
     RETOMAR_PERGUNTA_PENDENTE = 28
     RESUMO_FINALIZANDO = 29
+    ORCAMENTO_ENCAMINHADO = 30
 
 
 @dataclass(frozen=True)
@@ -257,6 +258,11 @@ CATALOGO: dict[int, MensagemTemplate] = {
             "Posso encaminhar para nosso time preparar o orçamento?"
         ),
         transformers=("montar_resumo_finalizando",),
+    ),
+    MensagemId.ORCAMENTO_ENCAMINHADO: MensagemTemplate(
+        id=MensagemId.ORCAMENTO_ENCAMINHADO,
+        codigo="ORCAMENTO_ENCAMINHADO",
+        mensagem="Recebi suas informações. Nossa equipe vai preparar o orçamento e retorna em breve.",
     ),
 }
 

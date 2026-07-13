@@ -108,6 +108,12 @@ _MODELO_MAX_TENTATIVAS = 2
 _SOFTWARE_NENHUM_REGEX = re.compile(r"\b(n[aã]o|nenhum)\b", re.IGNORECASE)
 _NUMERO_SOLTO_REGEX = re.compile(r"\b(\d{1,5})\b")
 
+# Fase G (G1): marca que o resumo (F4) já foi apresentado — um CONFIRMAR só conclui o
+# handoff se for reply a um resumo que o cliente de fato viu; sem isso, a primeira
+# mensagem "solta" a chegar depois de tudo capturado (ex.: um "ok" de preenchimento) seria
+# tratada como confirmação de um resumo que nunca foi mostrado.
+_RESUMO_APRESENTADO_CHAVE = "resumo_finalizando_apresentado"
+
 
 @dataclass
 class ResultadoProcessamento:
@@ -770,8 +776,9 @@ class ProcessadorMensagem:
         `tipo_leitor_mencionado` independe da intenção classificada, então roda mesmo se a
         mensagem também parecer uma dúvida; (b) se for dúvida (categoria 3), responde via
         Q&A/RAG e retoma a pergunta pendente (F3); (c) senão, tenta uma captura solta para
-        a pergunta pendente atual (F1); (d) recalcula o que falta e pergunta, ou fecha com
-        o resumo (F4).
+        a pergunta pendente atual (F1); (d) recalcula o que falta e pergunta, fecha com o
+        resumo (F4), ou — se o resumo já tinha sido apresentado e o cliente confirma —
+        conclui o handoff para o time humano (Fase G).
         """
         pendentes_antes = campos_pendentes(atendimento)
         tentou_modelo = bool(
@@ -793,13 +800,43 @@ class ProcessadorMensagem:
 
         pendentes = campos_pendentes(atendimento)
         if not pendentes:
-            return await self._gerar_resumo_finalizando(atendimento, dlog=dlog)
+            tipo_produto_conhecido = bool(self._info_atendimento(db, atendimento.id, "tipos_produto"))
+            if not tipo_produto_conhecido:
+                # Ainda não sabemos o tipo de produto (não é "tudo capturado" — não dá pra
+                # saber o que pedir sem isso) — reapresenta a pergunta inicial.
+                if dlog:
+                    dlog.log("finalizando", "tipo de produto ainda não identificado → PEDIR_TIPO_PRODUTO")
+                return await self._gerador.gerar(MensagemId.PEDIR_TIPO_PRODUTO)
+            resumo_ja_apresentado = bool(self._info_atendimento(db, atendimento.id, _RESUMO_APRESENTADO_CHAVE))
+            if resumo_ja_apresentado and resultado_class.intencao == Intencao.CONFIRMAR:
+                return await self._concluir_finalizando(db, atendimento, dlog=dlog)
+            return await self._gerar_resumo_finalizando(db, atendimento, dlog=dlog)
 
         campo = pendentes[0]
         mensagem_id = _MENSAGEM_ID_POR_CAMPO.get(campo.chave, MensagemId.PEDIR_TIPO_PRODUTO)
         if dlog:
             dlog.log("finalizando", f"próxima pergunta pendente: {campo.chave} ({mensagem_id.name})")
         return await self._gerador.gerar(mensagem_id)
+
+    async def _concluir_finalizando(
+        self,
+        db: Session,
+        atendimento: Atendimento,
+        dlog: Optional[DebugLogger] = None,
+    ) -> RespostaGerada:
+        """G1-G3: cliente confirmou o resumo (F4) — transita para `EM_ORCAMENTACAO` e faz o
+        handoff para o time humano montar o orçamento de verdade (REQ-004 /
+        FASE-criando-orcamento). `modo_operacao = HUMANO` suprime respostas automáticas
+        daqui em diante (mesmo mecanismo já usado pelo escalonamento do F2)."""
+        atendimento.fase = FaseAtendimento.EM_ORCAMENTACAO
+        atendimento.modo_operacao = ModoOperacao.HUMANO
+        db.commit()
+        if dlog:
+            dlog.log(
+                "fase",
+                f"Finalizando → Em orçamentação (atendimento id={atendimento.id}) — handoff humano",
+            )
+        return await self._gerador.gerar(MensagemId.ORCAMENTO_ENCAMINHADO)
 
     async def _tentar_resolver_modelo(
         self,
@@ -954,10 +991,15 @@ class ProcessadorMensagem:
 
     async def _gerar_resumo_finalizando(
         self,
+        db: Session,
         atendimento: Atendimento,
         dlog: Optional[DebugLogger] = None,
     ) -> RespostaGerada:
-        """F4: nada mais pendente — apresenta resumo do que foi coletado e pede confirmação."""
+        """F4: nada mais pendente — apresenta resumo do que foi coletado e pede confirmação.
+
+        Marca `_RESUMO_APRESENTADO_CHAVE` (G1) — um `CONFIRMAR` só conclui o handoff se for
+        resposta a um resumo que o cliente de fato viu numa mensagem anterior.
+        """
         valores = {info.chave: info.valor for info in atendimento.informacoes}
         item_resolvido = next((item for item in atendimento.itens if item.produto_id is not None), None)
         ctx = {
@@ -965,6 +1007,7 @@ class ProcessadorMensagem:
             "software": valores.get(CAMPO_SOFTWARE_PONTO.chave),
             "faixa_funcionarios": valores.get(CAMPO_FAIXA_FUNCIONARIOS.chave),
         }
+        self._salvar_info_atendimento(db, atendimento.id, _RESUMO_APRESENTADO_CHAVE, "true")
         if dlog:
             dlog.log("finalizando", f"tudo capturado → resumo (modelo={ctx['modelo']})")
         return await self._gerador.gerar(MensagemId.RESUMO_FINALIZANDO, ctx)
@@ -1353,10 +1396,12 @@ class ProcessadorMensagem:
             registros.append(("nome_contato", entidades.nomes[0]))
         if entidades.emails:
             registros.append(("email_contato", entidades.emails[0]))
-        # Fase F: uma vez em Finalizando, o tipo de produto já está decidido — uma dúvida
+        # Fase F: uma vez identificado, o tipo de produto fica travado — uma dúvida
         # tangencial mencionando outro produto (ex.: "vocês têm catraca também?") não pode
-        # reescrever `tipos_produto` e quebrar `campos_pendentes()` no meio da coleta.
-        if entidades.tipos_produto and atendimento.fase != FaseAtendimento.FINALIZANDO:
+        # reescrever `tipos_produto` e quebrar `campos_pendentes()` no meio da coleta. Só
+        # grava na primeira vez (o valor ainda pode chegar depois de já estar em
+        # Finalizando, ex.: resposta ao fallback PEDIR_TIPO_PRODUTO).
+        if entidades.tipos_produto and not self._info_atendimento(db, atendimento.id, "tipos_produto"):
             registros.append(("tipos_produto", ",".join(entidades.tipos_produto)))
         if entidades.quantidades:
             registros.append(("quantidades", ",".join(str(q) for q in entidades.quantidades)))
