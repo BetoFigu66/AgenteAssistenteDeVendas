@@ -44,6 +44,7 @@ class MensagemId(IntEnum):
     PEDIR_MODELO = 24
     PEDIR_SOFTWARE_PONTO = 25
     PEDIR_FAIXA_FUNCIONARIOS = 26
+    INICIAR_FINALIZANDO = 27
 
 
 @dataclass(frozen=True)
@@ -235,6 +236,11 @@ CATALOGO: dict[int, MensagemTemplate] = {
         id=MensagemId.PEDIR_FAIXA_FUNCIONARIOS,
         codigo="PEDIR_FAIXA_FUNCIONARIOS",
         mensagem="Quantos funcionários vão usar o relógio de ponto?",
+    ),
+    MensagemId.INICIAR_FINALIZANDO: MensagemTemplate(
+        id=MensagemId.INICIAR_FINALIZANDO,
+        codigo="INICIAR_FINALIZANDO",
+        mensagem="Ótimo! Vou precisar de algumas informações para montar o orçamento.",
     ),
 }
 

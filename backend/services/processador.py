@@ -19,12 +19,13 @@ from typing import Optional
 
 from config import settings
 from models import (
-    Contato,
-    Empresa,
-    Mensagem,
-    ModoOperacao,
     Atendimento,
     AtendimentoInfo,
+    Contato,
+    Empresa,
+    FaseAtendimento,
+    Mensagem,
+    ModoOperacao,
     OrigemClassificacao,
     OrigemInfo,
     OrigemMensagem,
@@ -34,11 +35,14 @@ from models import (
     TipoDocumento,
 )
 from sqlalchemy.orm import Session
+from utils.datetime_utils import utc_now
 
 from services import atendimentos as atendimentos_svc
 from services.classificador import Intencao, ResultadoClassificacao, classificar
 from services.cnpj import ConsultaCnpjError, obter_ou_criar_empresa
 from services.cnpj.receitaws import validar_cnpj
+from services.conversacao.campos_pendentes import campos_pendentes
+from services.conversacao.catalogo_campos import CAMPO_FAIXA_FUNCIONARIOS, CAMPO_MODELO, CAMPO_SOFTWARE_PONTO
 from services.cpf.persistencia import obter_ou_criar_pessoa
 from services.cpf.validacao import mascarar_cpf, parse_data_nascimento, validar_cpf
 from services.debug_log import DebugLogger
@@ -54,7 +58,6 @@ from services.identificador import (
 from services.llm import LLMProvider
 from services.rag import DocumentoRecuperado, ParRecuperado, QAService, RetrievalService
 from services.respostas import GeradorRespostas, MensagemId, RespostaGerada
-from utils.datetime_utils import utc_now
 
 logger = logging.getLogger(__name__)
 
@@ -78,6 +81,15 @@ _INTENCOES_QUALIFICACAO = frozenset(
         Intencao.PERGUNTAR_PRAZO,
     }
 )
+
+# Fase E: mapeia a chave técnica de cada CampoDef (catalogo_campos.py) para o template de
+# pergunta correspondente (respostas/catalogo.py) — os dois catálogos são propositalmente
+# desacoplados (um não conhece o outro), essa é a ponte entre eles.
+_MENSAGEM_ID_POR_CAMPO = {
+    CAMPO_MODELO.chave: MensagemId.PEDIR_MODELO,
+    CAMPO_SOFTWARE_PONTO.chave: MensagemId.PEDIR_SOFTWARE_PONTO,
+    CAMPO_FAIXA_FUNCIONARIOS.chave: MensagemId.PEDIR_FAIXA_FUNCIONARIOS,
+}
 
 
 @dataclass
@@ -186,6 +198,9 @@ class ProcessadorMensagem:
             (f" cnpjs={_ent.cnpjs}" if _ent.cnpjs else "")
             + (f" produtos={_ent.tipos_produto}" if _ent.tipos_produto else "")
             + (f" qtd={_ent.quantidades}" if _ent.quantidades else "")
+            + (f" software={_ent.software_ponto}" if _ent.software_ponto else "")
+            + (f" tipo_leitor={_ent.tipo_leitor_mencionado}" if _ent.tipo_leitor_mencionado else "")
+            + (f" faixa_func={_ent.faixa_funcionarios}" if _ent.faixa_funcionarios is not None else "")
         )
         dlog.log(
             "intent",
@@ -316,6 +331,9 @@ class ProcessadorMensagem:
             "tipos_produto": resultado_class.entidades.tipos_produto,
             "quantidades": resultado_class.entidades.quantidades,
             "emails": resultado_class.entidades.emails,
+            "software_ponto": resultado_class.entidades.software_ponto,
+            "tipo_leitor_mencionado": resultado_class.entidades.tipo_leitor_mencionado,
+            "faixa_funcionarios": resultado_class.entidades.faixa_funcionarios,
         }
 
         # Somatrio de tokens (classificação + personalização da resposta)
@@ -435,21 +453,29 @@ class ProcessadorMensagem:
                 "tem_documento": tem_documento,
             }
 
+            atendimento_novo = None
             if intencao in _INTENCOES_QUALIFICACAO:
-                await self._garantir_contato_e_atendimento_qualificacao(
+                atendimento_novo = await self._garantir_contato_e_atendimento_qualificacao(
                     db, telefone, None, resultado_class, dlog=dlog
                 )
             elif nome_novo:
                 criar_contato_sem_empresa(db, telefone, nome=nome_novo)
 
+            # D1 (REQ-002.1B): categoria 3 (dúvida sobre produto/preço/fora de contexto) é
+            # respondida via Q&A/RAG imediatamente — não espera CNPJ/CPF nem intenção de orçamento.
+            if intencao.value in _INTENCOES_RAG:
+                if dlog:
+                    dlog.log("rota", f"NOVO + categoria 3 ({intencao.value}) → Q&A/RAG sem pedir documento")
+                return await self._responder_categoria3(intencao, conteudo, dlog=dlog)
+
             if intencao == Intencao.PEDIR_ORCAMENTO:
                 if dlog:
-                    dlog.log("rota", "NOVO + PEDIR_ORCAMENTO → composta")
+                    dlog.log("rota", "NOVO + PEDIR_ORCAMENTO → composta (Finalizando)")
                 ctx_novo["modo"] = "orcamento"
-                return await self._gerador.gerar_composta([
-                    (MensagemId.SAUDACAO_NOVO_CONTATO, ctx_novo),
-                    (MensagemId.PEDIR_TIPO_PRODUTO, None),
-                ])
+                partes_finalizando = await self._iniciar_ou_continuar_finalizando(db, atendimento_novo, dlog=dlog)
+                return await self._gerador.gerar_composta(
+                    [(MensagemId.SAUDACAO_NOVO_CONTATO, ctx_novo), *partes_finalizando]
+                )
 
             if dlog:
                 dlog.log("rota", "NOVO → SAUDACAO_NOVO_CONTATO")
@@ -477,6 +503,8 @@ class ProcessadorMensagem:
                     if dlog:
                         dlog.log("rota", f"PF identificada pessoa_id={neg.pessoa_id} intencao={intencao.value}")
                     return await self._gerar_resposta_por_intencao(
+                        db=db,
+                        atendimento=neg,
                         intencao=intencao,
                         contato=contato,
                         empresa=None,
@@ -493,6 +521,8 @@ class ProcessadorMensagem:
                     if dlog:
                         dlog.log("rota", f"SEM_EMPRESA + qualificação → atendimento id={neg.id}")
                     return await self._gerar_resposta_por_intencao(
+                        db=db,
+                        atendimento=neg,
                         intencao=intencao,
                         contato=contato,
                         empresa=None,
@@ -500,6 +530,12 @@ class ProcessadorMensagem:
                         conteudo_cliente=conteudo,
                         dlog=dlog,
                     )
+                # D1 (REQ-002.1B): categoria 3 responde via Q&A/RAG mesmo sem CNPJ ainda
+                # (ex.: FORA_CONTEXTO, que não entra em _INTENCOES_QUALIFICACAO acima).
+                if intencao.value in _INTENCOES_RAG:
+                    if dlog:
+                        dlog.log("rota", f"SEM_EMPRESA + categoria 3 ({intencao.value}) → Q&A/RAG sem pedir CNPJ")
+                    return await self._responder_categoria3(intencao, conteudo, dlog=dlog)
             if dlog:
                 dlog.log("rota", "SEM_EMPRESA → PERGUNTAR_CNPJ")
             nome_contato = contato.nome if contato else None
@@ -525,6 +561,8 @@ class ProcessadorMensagem:
 
         # Roteia por intenção
         return await self._gerar_resposta_por_intencao(
+            db=db,
+            atendimento=atendimento,
             intencao=intencao,
             contato=contato,
             empresa=empresa,
@@ -535,6 +573,8 @@ class ProcessadorMensagem:
 
     async def _gerar_resposta_por_intencao(
         self,
+        db: Session,
+        atendimento: Atendimento,
         intencao: Intencao,
         contato: Contato,
         empresa: Optional[Empresa],
@@ -562,41 +602,21 @@ class ProcessadorMensagem:
                 mensagem_cliente=conteudo_cliente,
             )
 
-        if intencao == Intencao.PERGUNTAR_PRECO:
-            # Plano v1: para perguntas de preco a resposta e sempre o template
-            # padrao de encaminhamento. Ainda assim, rodamos a RAG para
-            # registrar trechos relacionados em auditoria.
-            trechos_preco = await self._buscar_trechos_rag(conteudo_cliente, dlog=dlog)
-            resposta = await self._gerador.gerar(
-                MensagemId.PRECO_NAO_NEGOCIADO,
-                personalizar=True,
-                mensagem_cliente=conteudo_cliente,
-            )
-            _anexar_trechos_para_auditoria(resposta, trechos_preco)
-            return resposta
+        if intencao in (Intencao.PERGUNTAR_PRECO, Intencao.PERGUNTAR_PRODUTO, Intencao.FORA_CONTEXTO):
+            return await self._responder_categoria3(intencao, conteudo_cliente, dlog=dlog)
 
         if intencao == Intencao.PEDIR_ORCAMENTO:
-            return await self._gerador.gerar(MensagemId.PEDIR_TIPO_PRODUTO)
-
-        if intencao == Intencao.PERGUNTAR_PRODUTO:
-            return await self._responder_com_rag(
-                conteudo_cliente=conteudo_cliente,
-                template_fallback=MensagemId.PRODUTO_SEM_CONTEXTO,
-                dlog=dlog,
-            )
+            partes = await self._iniciar_ou_continuar_finalizando(db, atendimento, dlog=dlog)
+            if len(partes) == 1:
+                mensagem_id, ctx = partes[0]
+                return await self._gerador.gerar(mensagem_id, ctx)
+            return await self._gerador.gerar_composta(partes)
 
         if intencao == Intencao.APROVAR_ORCAMENTO:
             return await self._gerador.gerar(MensagemId.ORCAMENTO_APROVADO)
 
         if intencao == Intencao.REPROVAR_ORCAMENTO:
             return await self._gerador.gerar(MensagemId.ORCAMENTO_REPROVADO)
-
-        if intencao == Intencao.FORA_CONTEXTO:
-            return await self._responder_com_rag(
-                conteudo_cliente=conteudo_cliente,
-                template_fallback=MensagemId.FORA_CONTEXTO,
-                dlog=dlog,
-            )
 
         # Fallback: tenta QA/RAG antes de NAO_ENTENDI
         par = await self._buscar_resposta_qa(conteudo_cliente, dlog=dlog)
@@ -622,6 +642,84 @@ class ProcessadorMensagem:
             personalizar=True,
             mensagem_cliente=conteudo_cliente,
         )
+
+    async def _responder_categoria3(
+        self,
+        intencao: Intencao,
+        conteudo_cliente: str,
+        dlog: Optional[DebugLogger] = None,
+    ) -> RespostaGerada:
+        """Responde intenção de categoria 3 (REQ-002.1) — dúvida sobre produto/preço/fora de
+        contexto — via Q&A/RAG.
+
+        Compartilhado entre clientes já identificados (`_gerar_resposta_por_intencao`) e o
+        roteamento pré-identificação do D1/REQ-002.1B (`_decidir_resposta`) — mesmo
+        comportamento, não importa se o CNPJ/CPF já foi informado.
+        """
+        if intencao == Intencao.PERGUNTAR_PRECO:
+            # Plano v1: para perguntas de preco a resposta e sempre o template
+            # padrao de encaminhamento. Ainda assim, rodamos a RAG para
+            # registrar trechos relacionados em auditoria.
+            trechos_preco = await self._buscar_trechos_rag(conteudo_cliente, dlog=dlog)
+            resposta = await self._gerador.gerar(
+                MensagemId.PRECO_NAO_NEGOCIADO,
+                personalizar=True,
+                mensagem_cliente=conteudo_cliente,
+            )
+            _anexar_trechos_para_auditoria(resposta, trechos_preco)
+            return resposta
+
+        if intencao == Intencao.PERGUNTAR_PRODUTO:
+            return await self._responder_com_rag(
+                conteudo_cliente=conteudo_cliente,
+                template_fallback=MensagemId.PRODUTO_SEM_CONTEXTO,
+                dlog=dlog,
+            )
+
+        # FORA_CONTEXTO
+        return await self._responder_com_rag(
+            conteudo_cliente=conteudo_cliente,
+            template_fallback=MensagemId.FORA_CONTEXTO,
+            dlog=dlog,
+        )
+
+    # ------------------------------------------------------------------
+    # Transição Esclarecendo → Finalizando (Fase E)
+    # ------------------------------------------------------------------
+
+    async def _iniciar_ou_continuar_finalizando(
+        self,
+        db: Session,
+        atendimento: Atendimento,
+        dlog: Optional[DebugLogger] = None,
+    ) -> list[tuple[MensagemId, Optional[dict]]]:
+        """E1 + E3: transita `fase` para Finalizando (se ainda não estiver lá) e decide a
+        próxima pergunta. Retorna as partes prontas para `gerar`/`gerar_composta`.
+
+        A mensagem que disparou `PEDIR_ORCAMENTO` já foi processada por
+        `_atualizar_infos_atendimento` antes desta chamada (D2/D3/D4) — então, se ela também
+        trouxe uma resposta (ex.: "quero orçamento, já uso o Domínio"), `campos_pendentes()`
+        já reflete isso e não repete a pergunta correspondente (`nao_perguntar_de_novo`, C3).
+        """
+        if atendimento.fase != FaseAtendimento.FINALIZANDO:
+            atendimento.fase = FaseAtendimento.FINALIZANDO
+            db.commit()
+            if dlog:
+                dlog.log("fase", f"Esclarecendo → Finalizando (atendimento id={atendimento.id})")
+
+        pendentes = campos_pendentes(atendimento)
+        if not pendentes:
+            # Tipo de produto ainda não identificado (mais comum), ou — caso raro nesta
+            # fatia — tudo já capturado; Fase F (F4) vai substituir isto por um resumo real.
+            if dlog:
+                dlog.log("finalizando", "sem campos pendentes ainda → PEDIR_TIPO_PRODUTO")
+            return [(MensagemId.PEDIR_TIPO_PRODUTO, None)]
+
+        campo = pendentes[0]
+        mensagem_id = _MENSAGEM_ID_POR_CAMPO.get(campo.chave, MensagemId.PEDIR_TIPO_PRODUTO)
+        if dlog:
+            dlog.log("finalizando", f"próxima pergunta: {campo.chave} ({mensagem_id.name})")
+        return [(MensagemId.INICIAR_FINALIZANDO, None), (mensagem_id, None)]
 
     # ------------------------------------------------------------------
     # RAG helpers
@@ -1011,6 +1109,16 @@ class ProcessadorMensagem:
             registros.append(("tipos_produto", ",".join(entidades.tipos_produto)))
         if entidades.quantidades:
             registros.append(("quantidades", ",".join(str(q) for q in entidades.quantidades)))
+        # D3: software de controle de ponto mencionado espontaneamente em Esclarecendo.
+        if entidades.software_ponto:
+            registros.append((CAMPO_SOFTWARE_PONTO.chave, entidades.software_ponto))
+        # D4: tecnologia de leitor mencionada espontaneamente — sinal cru; a Fase F resolve
+        # para uma linha real do catálogo (Modelo), não grava direto em modelo_produto.
+        if entidades.tipo_leitor_mencionado:
+            registros.append(("tipo_leitor_mencionado", entidades.tipo_leitor_mencionado))
+        # D4: faixa de funcionários mencionada espontaneamente.
+        if entidades.faixa_funcionarios is not None:
+            registros.append((CAMPO_FAIXA_FUNCIONARIOS.chave, str(entidades.faixa_funcionarios)))
 
         for chave, valor in registros:
             info = db.query(AtendimentoInfo).filter_by(atendimento_id=atendimento.id, chave=chave).first()

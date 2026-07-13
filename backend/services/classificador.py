@@ -5,7 +5,8 @@ Estratégia:
 1. Tenta classificar via regras/regex (rápido, determinístico)
 2. Se regras não tiverem confiança, usa LLM
 
-Também extrai entidades: CNPJ, CPF, data de nascimento, nome, quantidades, tipos de produto.
+Também extrai entidades: CNPJ, CPF, data de nascimento, nome, quantidades, tipos de produto,
+software de controle de ponto, tipo de leitor mencionado e faixa de funcionários (MVP Continuidade).
 """
 
 import logging
@@ -61,6 +62,10 @@ class EntidadesExtraidas:
     tipos_produto: List[str] = field(default_factory=list)  # ex: "catraca", "relogio_ponto"
     quantidades: List[int] = field(default_factory=list)
     emails: List[str] = field(default_factory=list)
+    # MVP Continuidade (Fase D — extração passiva em Esclarecendo):
+    software_ponto: Optional[str] = None  # nome normalizado, ex.: "Domínio" (CAMPO-software-ponto)
+    tipo_leitor_mencionado: Optional[str] = None  # ex.: "biometria"/"facial"/"cartao"/"cartografico"/"eletronico"
+    faixa_funcionarios: Optional[int] = None  # nº de funcionários mencionado (CAMPO-faixa-funcionarios)
 
 
 @dataclass
@@ -279,6 +284,45 @@ _TIPOS_PRODUTO_PALAVRAS = {
     "rep": "relogio_ponto",
 }
 
+# D3 (MVP Continuidade): softwares de controle de ponto conhecidos — pré-preenche
+# CAMPO-software-ponto quando o cliente já cita o nome espontaneamente em Esclarecendo.
+_SOFTWARES_PONTO_CONHECIDOS = {
+    "dominio": "Domínio",
+    "domínio": "Domínio",
+    "alterdata": "Alterdata",
+    "totvs": "TOTVS",
+    "senior sistemas": "Senior",
+    "senior": "Senior",
+    "sênior": "Senior",
+    "secullum": "Secullum",
+    "ahgora": "Ahgora",
+    "rh bravo": "RH Bravo",
+}
+
+# D4 (MVP Continuidade): tecnologia de leitura mencionada espontaneamente (CAMPO-modelo).
+# É um sinal cru para a Fase F resolver depois em uma linha real do catálogo (Modelo) —
+# não grava direto em ItemAtendimento.produto_id (ver CampoDef.destino em catalogo_campos.py).
+_TIPO_LEITOR_PALAVRAS = {
+    "biometrico": "biometria",
+    "biométrico": "biometria",
+    "biometria": "biometria",
+    "reconhecimento facial": "facial",
+    "facial": "facial",
+    "cartografico": "cartografico",
+    "cartográfico": "cartografico",
+    "eletronico": "eletronico",
+    "eletrônico": "eletronico",
+    "cartao": "cartao",
+    "cartão": "cartao",
+}
+
+# D4: "80 funcionários" / "uns 50 colaboradores" — distinto de _REGEX_QUANTIDADE
+# (que é sobre unidades de equipamento, não pessoas).
+_REGEX_FUNCIONARIOS = re.compile(
+    r"\b(\d{1,5})\s*(?:funcion[áa]rios?|colaboradores?|pessoas?|empregados?)\b",
+    re.IGNORECASE,
+)
+
 
 def extrair_entidades(texto: str) -> EntidadesExtraidas:
     """Extrai CNPJs, CPFs, datas de nascimento, emails, quantidades e tipos de produto via regex."""
@@ -301,6 +345,22 @@ def extrair_entidades(texto: str) -> EntidadesExtraidas:
         if palavra in texto_lower and tipo not in tipos_produto:
             tipos_produto.append(tipo)
 
+    # D3: software de controle de ponto mencionado espontaneamente.
+    software_ponto = next(
+        (nome for palavra, nome in _SOFTWARES_PONTO_CONHECIDOS.items() if palavra in texto_lower),
+        None,
+    )
+
+    # D4: tecnologia de leitura mencionada espontaneamente (sinal cru para a Fase F resolver).
+    tipo_leitor_mencionado = next(
+        (tipo for palavra, tipo in _TIPO_LEITOR_PALAVRAS.items() if palavra in texto_lower),
+        None,
+    )
+
+    # D4: faixa de funcionários mencionada espontaneamente.
+    _match_funcionarios = _REGEX_FUNCIONARIOS.search(texto)
+    faixa_funcionarios = int(_match_funcionarios.group(1)) if _match_funcionarios else None
+
     # Extração de nomes via gatilhos ("meu nome é X", "me chamo X", ...)
     nomes: List[str] = []
     for match in _REGEX_NOME.finditer(texto):
@@ -322,6 +382,9 @@ def extrair_entidades(texto: str) -> EntidadesExtraidas:
         emails=emails,
         quantidades=quantidades,
         tipos_produto=tipos_produto,
+        software_ponto=software_ponto,
+        tipo_leitor_mencionado=tipo_leitor_mencionado,
+        faixa_funcionarios=faixa_funcionarios,
     )
 
 
@@ -508,6 +571,15 @@ async def classificar(
         tipos_produto=list({*entidades_regra.tipos_produto, *entidades_llm.tipos_produto}),
         quantidades=entidades_regra.quantidades or entidades_llm.quantidades,
         emails=list({*entidades_regra.emails, *entidades_llm.emails}),
+        # A LLM ainda não é solicitada a extrair estas 3 (MVP Continuidade, Fase D) —
+        # só a regra as popula por enquanto, então usar sempre a da regra.
+        software_ponto=entidades_regra.software_ponto or entidades_llm.software_ponto,
+        tipo_leitor_mencionado=entidades_regra.tipo_leitor_mencionado or entidades_llm.tipo_leitor_mencionado,
+        faixa_funcionarios=(
+            entidades_regra.faixa_funcionarios
+            if entidades_regra.faixa_funcionarios is not None
+            else entidades_llm.faixa_funcionarios
+        ),
     )
 
     logger.debug(f"[Classificador] Usando LLM: {intencao_llm.value} (confiança={confianca_llm},"
