@@ -86,8 +86,22 @@ def montar_perguntar_cnpj(ctx: ContextoMensagem) -> ContextoMensagem:
     return ctx
 
 
+def montar_resumo_finalizando(ctx: ContextoMensagem) -> ContextoMensagem:
+    """Monta a lista de itens do resumo (Fase F — F4) a partir do que foi capturado."""
+    linhas: list[str] = []
+    if ctx.get("modelo"):
+        linhas.append(f"- Modelo: {ctx['modelo']}")
+    if ctx.get("software"):
+        linhas.append(f"- Software de ponto: {ctx['software']}")
+    if ctx.get("faixa_funcionarios"):
+        linhas.append(f"- Funcionários: {ctx['faixa_funcionarios']}")
+    ctx["itens_resumo"] = "\n".join(linhas)
+    return ctx
+
+
 TRANSFORMERS: dict[str, TransformerFn] = {
     "montar_saudacao_novo": montar_saudacao_novo,
     "montar_pedido_identificacao": montar_pedido_identificacao,
     "montar_perguntar_cnpj": montar_perguntar_cnpj,
+    "montar_resumo_finalizando": montar_resumo_finalizando,
 }

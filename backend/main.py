@@ -5,7 +5,6 @@ Assistente de Vendas via WhatsApp com IA - Backend FastAPI
 import logging
 import traceback
 from contextlib import asynccontextmanager
-from utils.datetime_utils import serialize_utc_datetime, utc_now
 from typing import Optional
 
 import uvicorn
@@ -16,12 +15,12 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, PlainTextResponse
 from models import (
+    Atendimento,
     CategoriaReport,
     Contato,
     Empresa,
     Mensagem,
     ModoOperacao,
-    Atendimento,
     OrigemMensagem,
     Parametro,
     ProcessamentoMensagem,
@@ -33,11 +32,13 @@ from models import (
 )
 from pydantic import BaseModel
 from routers.pares_qa import router as pares_qa_router
-from services.identificador import identificar_por_telefone, normalizar_telefone
 from services.dev_limpeza_telefone import apagar_dados_telefone
+from services.identificador import identificar_por_telefone, normalizar_telefone
 from services.llm import get_llm_provider
 from services.processador import ProcessadorMensagem
 from sqlalchemy import func
+from utils.datetime_utils import serialize_utc_datetime, utc_now
+
 
 def _configurar_logging() -> None:
     level = getattr(logging, settings.LOG_LEVEL.upper(), logging.WARNING)

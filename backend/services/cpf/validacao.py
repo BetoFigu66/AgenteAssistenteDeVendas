@@ -6,7 +6,7 @@ a validação é local (formato + dígitos verificadores).
 """
 
 import re
-from datetime import date, datetime
+from datetime import date
 from typing import Optional
 
 _REGEX_CPF_FORMATADO = re.compile(r"\b\d{3}\.?\d{3}\.?\d{3}-?\d{2}\b")

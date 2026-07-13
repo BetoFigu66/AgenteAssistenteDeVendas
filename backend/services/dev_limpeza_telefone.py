@@ -22,9 +22,10 @@ from models import (
     ProcessamentoMensagem,
     ReportProblema,
 )
-from services.identificador import normalizar_telefone
 from sqlalchemy import or_
 from sqlalchemy.orm import Session
+
+from services.identificador import normalizar_telefone
 
 
 def _coletar_contatos(db: Session, telefone: str) -> list[Contato]:

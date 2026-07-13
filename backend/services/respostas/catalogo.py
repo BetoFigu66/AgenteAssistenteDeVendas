@@ -45,6 +45,8 @@ class MensagemId(IntEnum):
     PEDIR_SOFTWARE_PONTO = 25
     PEDIR_FAIXA_FUNCIONARIOS = 26
     INICIAR_FINALIZANDO = 27
+    RETOMAR_PERGUNTA_PENDENTE = 28
+    RESUMO_FINALIZANDO = 29
 
 
 @dataclass(frozen=True)
@@ -241,6 +243,20 @@ CATALOGO: dict[int, MensagemTemplate] = {
         id=MensagemId.INICIAR_FINALIZANDO,
         codigo="INICIAR_FINALIZANDO",
         mensagem="Ótimo! Vou precisar de algumas informações para montar o orçamento.",
+    ),
+    MensagemId.RETOMAR_PERGUNTA_PENDENTE: MensagemTemplate(
+        id=MensagemId.RETOMAR_PERGUNTA_PENDENTE,
+        codigo="RETOMAR_PERGUNTA_PENDENTE",
+        mensagem="Voltando ao orçamento: {pergunta}",
+    ),
+    MensagemId.RESUMO_FINALIZANDO: MensagemTemplate(
+        id=MensagemId.RESUMO_FINALIZANDO,
+        codigo="RESUMO_FINALIZANDO",
+        mensagem=(
+            "Show! Aqui está o resumo do que entendi:\n{itens_resumo}\n\n"
+            "Posso encaminhar para nosso time preparar o orçamento?"
+        ),
+        transformers=("montar_resumo_finalizando",),
     ),
 }
 

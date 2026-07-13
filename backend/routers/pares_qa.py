@@ -15,13 +15,13 @@ from __future__ import annotations
 
 import hashlib
 import logging
-from utils.datetime_utils import utc_now
 from typing import Optional
 
 from database import Database
 from fastapi import APIRouter, HTTPException
 from models import ParQA
 from pydantic import BaseModel
+from utils.datetime_utils import utc_now
 
 logger = logging.getLogger(__name__)
 

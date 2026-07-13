@@ -200,8 +200,9 @@ def test_transicao_e_idempotente_segunda_mensagem_ja_finalizando(db_session, pro
                 resultado_class=resultado_2,
             )
         )
-        # Sem greeting desta vez (não é mais NOVO); modelo já resolvido → pergunta software.
-        assert resposta_2.template_usado == "INICIAR_FINALIZANDO+PEDIR_SOFTWARE_PONTO"
+        # Fase F: já em Finalizando, a coleta ativa (F1) responde direto — sem repetir o
+        # INICIAR_FINALIZANDO a cada turno; modelo já resolvido → pergunta software.
+        assert resposta_2.template_usado == "PEDIR_SOFTWARE_PONTO"
     finally:
         _limpar(db_session, telefone)
 

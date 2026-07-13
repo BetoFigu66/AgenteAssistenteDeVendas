@@ -76,7 +76,9 @@ def _carregar_inventario_folder(projeto_root: Path) -> list[dict[str, Any]]:
 
 
 def _preview_arquivo(projeto_root: Path, caminho_relativo: str, max_chars: int = 600) -> Optional[str]:
-    path = projeto_root / caminho_relativo.replace("/", "\\") if "\\" in str(projeto_root) else projeto_root / caminho_relativo
+    path = projeto_root / caminho_relativo.replace("/", "\\") \
+        if "\\" in str(projeto_root) \
+        else projeto_root / caminho_relativo
     if not path.is_file():
         return None
     try:

@@ -22,11 +22,12 @@ from models import (
     ProcessamentoMensagem,
     ReportProblema,
 )
+from sqlalchemy.orm import Session
+
 from services.classificador import ResultadoClassificacao, classificar, extrair_entidades
 from services.curador.documentos_fonte import sugerir_documentos_fonte
 from services.llm import get_llm_provider
 from services.parametro_service import ParametroService
-from sqlalchemy.orm import Session
 
 logger = logging.getLogger(__name__)
 

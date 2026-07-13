@@ -12,6 +12,7 @@ Fluxo:
 """
 
 import logging
+import re
 import time
 from dataclasses import dataclass
 from datetime import date, datetime
@@ -24,6 +25,7 @@ from models import (
     Contato,
     Empresa,
     FaseAtendimento,
+    ItemAtendimento,
     Mensagem,
     ModoOperacao,
     OrigemClassificacao,
@@ -31,8 +33,10 @@ from models import (
     OrigemMensagem,
     Pessoa,
     ProcessamentoMensagem,
+    Produto,
     StatusAtendimento,
     TipoDocumento,
+    TipoProduto,
 )
 from sqlalchemy.orm import Session
 from utils.datetime_utils import utc_now
@@ -90,6 +94,19 @@ _MENSAGEM_ID_POR_CAMPO = {
     CAMPO_SOFTWARE_PONTO.chave: MensagemId.PEDIR_SOFTWARE_PONTO,
     CAMPO_FAIXA_FUNCIONARIOS.chave: MensagemId.PEDIR_FAIXA_FUNCIONARIOS,
 }
+
+# Fase F (F2): chave de AtendimentoInfo que conta tentativas sem correspondência de
+# modelo_produto; após _MODELO_MAX_TENTATIVAS, escala para atendimento humano em vez de
+# continuar perguntando (REQ-002.21, CAMPO-modelo — nunca aceita texto livre como modelo).
+_MODELO_TENTATIVAS_CHAVE = "modelo_tentativas_falhas"
+_MODELO_MAX_TENTATIVAS = 2
+
+# Fase F (F1): captura "solta" para a pergunta pendente atual quando os extratores por
+# palavra-gatilho (D3/D4) não reconheceram nada — ex.: "80" sozinho, ou um nome de
+# software fora de `_SOFTWARES_PONTO_CONHECIDOS`. Só entra em jogo quando a intenção
+# classificada é DESCONHECIDO (nenhuma regra bateu) — ver `_capturar_resposta_direta_pendente`.
+_SOFTWARE_NENHUM_REGEX = re.compile(r"\b(n[aã]o|nenhum)\b", re.IGNORECASE)
+_NUMERO_SOLTO_REGEX = re.compile(r"\b(\d{1,5})\b")
 
 
 @dataclass
@@ -495,6 +512,11 @@ class ProcessadorMensagem:
             contato = identificacao.contato
             if contato:
                 neg = self._atendimento_ativo(db, contato)
+                if neg and neg.fase == FaseAtendimento.FINALIZANDO:
+                    await self._atualizar_infos_atendimento(db, neg, resultado_class)
+                    if dlog:
+                        dlog.log("rota", f"SEM_EMPRESA + Finalizando → coleta ativa (atendimento id={neg.id})")
+                    return await self._processar_finalizando(db, neg, conteudo, resultado_class, dlog=dlog)
                 if neg and neg.pessoa_id and neg.pessoa:
                     if entidades.nomes and not contato.nome:
                         contato.nome = entidades.nomes[0]
@@ -558,6 +580,11 @@ class ProcessadorMensagem:
 
         # Salva informações coletadas
         await self._atualizar_infos_atendimento(db, atendimento, resultado_class)
+
+        if atendimento.fase == FaseAtendimento.FINALIZANDO:
+            if dlog:
+                dlog.log("rota", f"identificado + Finalizando → coleta ativa (atendimento id={atendimento.id})")
+            return await self._processar_finalizando(db, atendimento, conteudo, resultado_class, dlog=dlog)
 
         # Roteia por intenção
         return await self._gerar_resposta_por_intencao(
@@ -720,6 +747,227 @@ class ProcessadorMensagem:
         if dlog:
             dlog.log("finalizando", f"próxima pergunta: {campo.chave} ({mensagem_id.name})")
         return [(MensagemId.INICIAR_FINALIZANDO, None), (mensagem_id, None)]
+
+    # ------------------------------------------------------------------
+    # Coleta ativa em Finalizando (Fase F)
+    # ------------------------------------------------------------------
+
+    async def _processar_finalizando(
+        self,
+        db: Session,
+        atendimento: Atendimento,
+        conteudo: str,
+        resultado_class: ResultadoClassificacao,
+        dlog: Optional[DebugLogger] = None,
+    ) -> RespostaGerada:
+        """F1: loop de coleta ativa — roda a cada mensagem em Finalizando, testando contra
+        todas as perguntas pendentes (não só "a próxima"), em vez de rotear só pela
+        intenção classificada.
+
+        `_atualizar_infos_atendimento` (D2/D3/D4) já rodou antes desta chamada e capturou o
+        que os extratores por palavra-gatilho reconheceram. A partir daqui: (a) tenta
+        resolver `modelo_produto` contra o catálogo real (F2) — a extração de
+        `tipo_leitor_mencionado` independe da intenção classificada, então roda mesmo se a
+        mensagem também parecer uma dúvida; (b) se for dúvida (categoria 3), responde via
+        Q&A/RAG e retoma a pergunta pendente (F3); (c) senão, tenta uma captura solta para
+        a pergunta pendente atual (F1); (d) recalcula o que falta e pergunta, ou fecha com
+        o resumo (F4).
+        """
+        pendentes_antes = campos_pendentes(atendimento)
+        tentou_modelo = bool(
+            pendentes_antes
+            and pendentes_antes[0].chave == CAMPO_MODELO.chave
+            and resultado_class.entidades.tipo_leitor_mencionado
+        )
+
+        await self._tentar_resolver_modelo(db, atendimento, resultado_class, dlog=dlog)
+        if atendimento.modo_operacao == ModoOperacao.HUMANO:
+            # F2: acabou de escalar por falta de correspondência de modelo — não continua.
+            return await self._gerador.gerar(MensagemId.ESCALADO_HUMANO)
+
+        if resultado_class.intencao.value in _INTENCOES_RAG:
+            return await self._retomar_apos_duvida(db, atendimento, conteudo, resultado_class, dlog=dlog)
+
+        if not tentou_modelo:
+            self._capturar_resposta_direta_pendente(db, atendimento, conteudo, resultado_class, dlog=dlog)
+
+        pendentes = campos_pendentes(atendimento)
+        if not pendentes:
+            return await self._gerar_resumo_finalizando(atendimento, dlog=dlog)
+
+        campo = pendentes[0]
+        mensagem_id = _MENSAGEM_ID_POR_CAMPO.get(campo.chave, MensagemId.PEDIR_TIPO_PRODUTO)
+        if dlog:
+            dlog.log("finalizando", f"próxima pergunta pendente: {campo.chave} ({mensagem_id.name})")
+        return await self._gerador.gerar(mensagem_id)
+
+    async def _tentar_resolver_modelo(
+        self,
+        db: Session,
+        atendimento: Atendimento,
+        resultado_class: ResultadoClassificacao,
+        dlog: Optional[DebugLogger] = None,
+    ) -> None:
+        """F2: resolve `modelo_produto` para uma linha real de `Produto`, ou escala para
+        atendimento humano após `_MODELO_MAX_TENTATIVAS` sem correspondência — nunca aceita
+        o texto do cliente como modelo (REQ-002.21, CAMPO-modelo).
+
+        `Produto`/`TipoProduto` ainda não têm dados semeados neste ambiente — a busca
+        abaixo é a correta para quando houver catálogo real, mas hoje sempre cai no
+        caminho "sem correspondência" e conta como tentativa.
+        """
+        pendentes = campos_pendentes(atendimento)
+        if not pendentes or pendentes[0].chave != CAMPO_MODELO.chave:
+            return
+
+        tipo_leitor = resultado_class.entidades.tipo_leitor_mencionado
+        if not tipo_leitor:
+            return  # mensagem não tentou responder o modelo — não conta tentativa
+
+        candidato = (
+            db.query(Produto)
+            .join(TipoProduto, Produto.tipo_produto_id == TipoProduto.id)
+            .filter(
+                TipoProduto.descricao.ilike("%ponto%"),
+                Produto.descricao.ilike(f"%{tipo_leitor}%"),
+                Produto.ativo.is_(True),
+            )
+            .first()
+        )
+        if candidato:
+            item = self._item_atendimento_atual(db, atendimento, candidato.tipo_produto_id)
+            item.produto_id = candidato.id
+            db.commit()
+            self._remover_info_atendimento(db, atendimento.id, _MODELO_TENTATIVAS_CHAVE)
+            if dlog:
+                dlog.log("finalizando", f"modelo resolvido: produto_id={candidato.id} ({candidato.descricao})")
+            return
+
+        tentativas = int(self._info_atendimento(db, atendimento.id, _MODELO_TENTATIVAS_CHAVE) or 0) + 1
+        self._salvar_info_atendimento(db, atendimento.id, _MODELO_TENTATIVAS_CHAVE, str(tentativas))
+        if dlog:
+            dlog.log(
+                "finalizando",
+                f"modelo sem correspondência (tipo_leitor={tipo_leitor}) tentativa={tentativas}",
+            )
+
+        if tentativas >= _MODELO_MAX_TENTATIVAS:
+            atendimento.modo_operacao = ModoOperacao.HUMANO
+            db.commit()
+            if dlog:
+                dlog.log(
+                    "finalizando",
+                    f"modelo sem correspondência após {tentativas} tentativas → escalar_humano",
+                )
+
+    def _item_atendimento_atual(
+        self,
+        db: Session,
+        atendimento: Atendimento,
+        tipo_produto_id: int,
+    ) -> ItemAtendimento:
+        """MVP: um único item por atendimento (só relógio de ponto) — get-or-create."""
+        item = next(iter(atendimento.itens), None)
+        if item is None:
+            item = ItemAtendimento(atendimento_id=atendimento.id, tipo_produto_id=tipo_produto_id, quantidade=1)
+            db.add(item)
+            db.flush()
+        return item
+
+    def _capturar_resposta_direta_pendente(
+        self,
+        db: Session,
+        atendimento: Atendimento,
+        conteudo: str,
+        resultado_class: ResultadoClassificacao,
+        dlog: Optional[DebugLogger] = None,
+    ) -> None:
+        """F1: cobre respostas soltas que os extratores por palavra-gatilho (D3/D4) não
+        reconhecem sozinhos — ex.: "80" sozinho para faixa de funcionários, ou um nome de
+        software fora de `_SOFTWARES_PONTO_CONHECIDOS` (aceito livremente, ao contrário de
+        modelo — CAMPO-software-ponto não exige catálogo). Só atua sobre a pergunta
+        pendente atual (a que acabamos de fazer), e só quando a mensagem não bateu em
+        nenhuma regra de intenção conhecida (DESCONHECIDO) — uma intenção reconhecida (ex.:
+        "quero orçamento" repetido) não deve ser sequestrada como se fosse resposta.
+        """
+        if resultado_class.intencao != Intencao.DESCONHECIDO:
+            return
+
+        pendentes = campos_pendentes(atendimento)
+        if not pendentes:
+            return
+        campo = pendentes[0]
+
+        if campo.chave == CAMPO_FAIXA_FUNCIONARIOS.chave:
+            match = _NUMERO_SOLTO_REGEX.search(conteudo)
+            if match:
+                self._salvar_info_atendimento(db, atendimento.id, campo.chave, match.group(1))
+                if dlog:
+                    dlog.log("finalizando", f"faixa_funcionarios capturado (resposta solta): {match.group(1)}")
+
+        elif campo.chave == CAMPO_SOFTWARE_PONTO.chave:
+            texto = conteudo.strip()
+            if not texto:
+                return
+            valor = "nenhum" if _SOFTWARE_NENHUM_REGEX.search(texto) else texto
+            self._salvar_info_atendimento(db, atendimento.id, campo.chave, valor)
+            if dlog:
+                dlog.log("finalizando", f"software_controle_ponto capturado (resposta livre): {valor}")
+
+    async def _retomar_apos_duvida(
+        self,
+        db: Session,
+        atendimento: Atendimento,
+        conteudo: str,
+        resultado_class: ResultadoClassificacao,
+        dlog: Optional[DebugLogger] = None,
+    ) -> RespostaGerada:
+        """F3: se a mensagem em Finalizando for uma dúvida (categoria 3), responde via
+        Q&A/RAG e reapresenta a última pergunta pendente — sem perder o progresso da
+        coleta (a fase continua Finalizando)."""
+        resposta_duvida = await self._responder_categoria3(resultado_class.intencao, conteudo, dlog=dlog)
+
+        pendentes = campos_pendentes(atendimento)
+        if not pendentes:
+            if dlog:
+                dlog.log("finalizando", "dúvida em Finalizando, sem pendências → só responde a dúvida")
+            return resposta_duvida
+
+        campo = pendentes[0]
+        mensagem_id = _MENSAGEM_ID_POR_CAMPO.get(campo.chave, MensagemId.PEDIR_TIPO_PRODUTO)
+        resposta_pergunta = await self._gerador.gerar(mensagem_id)
+        resposta_retomada = await self._gerador.gerar(
+            MensagemId.RETOMAR_PERGUNTA_PENDENTE, {"pergunta": resposta_pergunta.texto}
+        )
+        if dlog:
+            dlog.log("finalizando", f"dúvida ({resultado_class.intencao.value}) → retoma {campo.chave}")
+        return RespostaGerada(
+            texto=f"{resposta_duvida.texto}\n\n{resposta_retomada.texto}",
+            template_usado=f"{resposta_duvida.template_usado}+{resposta_retomada.template_usado}",
+            personalizado_via_llm=resposta_duvida.personalizado_via_llm,
+            llm_tokens_input=resposta_duvida.llm_tokens_input,
+            llm_tokens_output=resposta_duvida.llm_tokens_output,
+            rag_utilizada=resposta_duvida.rag_utilizada,
+            trechos_rag=resposta_duvida.trechos_rag,
+            rag_score_maximo=resposta_duvida.rag_score_maximo,
+        )
+
+    async def _gerar_resumo_finalizando(
+        self,
+        atendimento: Atendimento,
+        dlog: Optional[DebugLogger] = None,
+    ) -> RespostaGerada:
+        """F4: nada mais pendente — apresenta resumo do que foi coletado e pede confirmação."""
+        valores = {info.chave: info.valor for info in atendimento.informacoes}
+        item_resolvido = next((item for item in atendimento.itens if item.produto_id is not None), None)
+        ctx = {
+            "modelo": item_resolvido.produto.descricao if item_resolvido and item_resolvido.produto else None,
+            "software": valores.get(CAMPO_SOFTWARE_PONTO.chave),
+            "faixa_funcionarios": valores.get(CAMPO_FAIXA_FUNCIONARIOS.chave),
+        }
+        if dlog:
+            dlog.log("finalizando", f"tudo capturado → resumo (modelo={ctx['modelo']})")
+        return await self._gerador.gerar(MensagemId.RESUMO_FINALIZANDO, ctx)
 
     # ------------------------------------------------------------------
     # RAG helpers
@@ -1105,7 +1353,10 @@ class ProcessadorMensagem:
             registros.append(("nome_contato", entidades.nomes[0]))
         if entidades.emails:
             registros.append(("email_contato", entidades.emails[0]))
-        if entidades.tipos_produto:
+        # Fase F: uma vez em Finalizando, o tipo de produto já está decidido — uma dúvida
+        # tangencial mencionando outro produto (ex.: "vocês têm catraca também?") não pode
+        # reescrever `tipos_produto` e quebrar `campos_pendentes()` no meio da coleta.
+        if entidades.tipos_produto and atendimento.fase != FaseAtendimento.FINALIZANDO:
             registros.append(("tipos_produto", ",".join(entidades.tipos_produto)))
         if entidades.quantidades:
             registros.append(("quantidades", ",".join(str(q) for q in entidades.quantidades)))

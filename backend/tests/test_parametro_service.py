@@ -3,7 +3,6 @@
 from unittest.mock import MagicMock
 
 import pytest
-
 from services.parametro_service import ParametroService, validar_valor_parametro
 
 
