@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { api } from '../services/api'
 import { formatDatetimeBRT } from '../utils/datetime'
-import { rotuloAtendimento, numeroAtendimentoExibicao } from '../utils/atendimento'
+import { rotuloAtendimento, numeroAtendimentoExibicao, rotuloFase, classesFase } from '../utils/atendimento'
 
 function Campo({ label, valor }) {
   if (valor === null || valor === undefined || valor === '') return null
@@ -11,6 +11,25 @@ function Campo({ label, valor }) {
       <span className="text-sm text-gray-800">{String(valor)}</span>
     </div>
   )
+}
+
+// Rótulos amigáveis para as chaves técnicas mais comuns de AtendimentoInfo (H2) —
+// chaves sem entrada aqui caem no fallback (a própria chave técnica).
+const LABELS_INFO = {
+  nome_contato: 'Nome',
+  email_contato: 'E-mail',
+  tipos_produto: 'Tipo de produto',
+  quantidades: 'Quantidades',
+  modelo_produto: 'Modelo',
+  software_controle_ponto: 'Software de ponto',
+  tipo_leitor_mencionado: 'Tipo de leitor mencionado',
+  faixa_funcionarios: 'Faixa de funcionários',
+  resumo_finalizando_apresentado: 'Resumo apresentado',
+  modelo_tentativas_falhas: 'Tentativas de modelo sem sucesso',
+}
+
+function rotuloInfo(chave) {
+  return LABELS_INFO[chave] || chave
 }
 
 function AtendimentoDetalhes({ atendimentoId }) {
@@ -48,6 +67,16 @@ function AtendimentoDetalhes({ atendimentoId }) {
         <Campo label="ID interno" valor={atendimento.id} />
         <Campo label="Nº cliente" valor={numeroAtendimentoExibicao(atendimento)} />
         <Campo label="Status" valor={atendimento.status} />
+        {atendimento.fase && (
+          <div className="flex flex-col">
+            <span className="text-xs text-gray-500 uppercase tracking-wide">Fase</span>
+            <span
+              className={`w-fit px-2 py-0.5 text-xs rounded-full font-semibold ${classesFase(atendimento.fase)}`}
+            >
+              {rotuloFase(atendimento.fase)}
+            </span>
+          </div>
+        )}
         <Campo label="Título" valor={atendimento.titulo} />
         <Campo label="Valor Estimado" valor={atendimento.valor_estimado} />
         <Campo label="Criado em" valor={formatDatetimeBRT(atendimento.created_at)} />
@@ -104,10 +133,18 @@ function AtendimentoDetalhes({ atendimentoId }) {
             <tbody>
               {atendimento.informacoes.map((info) => (
                 <tr key={info.id} className="border-b last:border-0">
-                  <td className="py-1 pr-2 font-mono text-xs">{info.chave}</td>
+                  <td className="py-1 pr-2">{rotuloInfo(info.chave)}</td>
                   <td className="py-1 pr-2">{info.valor || '—'}</td>
                   <td className="py-1 pr-2">{info.origem || '—'}</td>
-                  <td className="py-1">{info.pendente ? 'sim' : 'não'}</td>
+                  <td className="py-1">
+                    <span
+                      className={`px-1.5 py-0.5 text-xs rounded ${
+                        info.pendente ? 'bg-yellow-200 text-yellow-800' : 'bg-green-200 text-green-800'
+                      }`}
+                    >
+                      {info.pendente ? 'Pendente' : 'Capturado'}
+                    </span>
+                  </td>
                 </tr>
               ))}
             </tbody>

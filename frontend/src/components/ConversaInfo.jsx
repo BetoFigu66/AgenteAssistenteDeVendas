@@ -4,7 +4,7 @@ import DetalheModal from './DetalheModal'
 import EmpresaDetalhes from './EmpresaDetalhes'
 import AtendimentoDetalhes from './AtendimentoDetalhes'
 
-import { numeroAtendimentoExibicao, rotuloAtendimento } from '../utils/atendimento'
+import { numeroAtendimentoExibicao, rotuloAtendimento, rotuloFase, classesFase } from '../utils/atendimento'
 
 function ConversaInfo({ dados }) {
   const [modal, setModal] = useState(null) // 'empresa' | 'atendimento' | null
@@ -59,6 +59,11 @@ function ConversaInfo({ dados }) {
             </button>
           ) : (
             <span className="text-gray-500 italic">Atendimento não identificado</span>
+          )}
+          {atendimento?.fase && (
+            <span className={`px-2 py-0.5 text-xs rounded-full font-medium ${classesFase(atendimento.fase)}`}>
+              {rotuloFase(atendimento.fase)}
+            </span>
           )}
         </div>
       </div>

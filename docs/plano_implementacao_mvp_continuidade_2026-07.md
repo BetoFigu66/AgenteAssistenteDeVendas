@@ -1,9 +1,9 @@
 # Plano de Implementação — MVP Continuidade (jul/2026)
 
-**Versão:** 2.2  
+**Versão:** 2.3  
 **Data:** 2026-07-06 (atualizado 2026-07-13)  
 **Autor:** Beto + Cascade + Claude  
-**Status:** Provisório — aguardando validação da Kika  
+**Status:** Implementado (Fases A-H concluídas) — verificação visual no navegador e validação da Kika (§8, itens 6 e 7) ainda pendentes  
 **Origem:** `docs/brainstorming_continuidade_2026-07.md` (cenário 1 — Laboratório OO)  
 **Escopo deste plano:** **um produto, uma jornada** — dúvida → orçamento → coleta mínima
 
@@ -243,10 +243,17 @@ Ordem sugerida. Cada passo deve ser testável isoladamente no painel.
 
 | # | Entrega | Detalhe | Depende de |
 |---|---------|---------|------------|
-| **H1** | Exibir `fase` na UI da conversa | REQ-010 — detalhe do atendimento | A2 |
-| **H2** | Exibir campos capturados / pendentes | Lista `AtendimentoInfo` com status visual | C1 |
-| **H3** | Roteiro de teste manual | Criar `artefatos/qa/roteiros_teste/RT-0XX-mvp-relogio-ponto.md` com jornada §3 | — |
-| **H4** | Testes automatizados backend | `pytest` para `campos_pendentes()` e transição de fase (sem LLM real) | C1, E1 |
+| **H1** | ✅ Concluído (2026-07-13) — Exibir `fase` na UI da conversa | `Atendimento.to_dict()` (bug: coluna existia desde A2 mas nunca era serializada) + endpoints `/api/atendimentos/ativas` e `/api/conversa/{telefone}` passaram a incluir `fase`; badge colorido (`rotuloFase`/`classesFase` em `utils/atendimento.js`) em 3 pontos da UI: `ConversaInfo` (faixa do chat), lista e detalhe de `AcompanhamentoPage`, e `AtendimentoDetalhes` (modal) | A2 |
+| **H2** | ✅ Concluído (2026-07-13) — Exibir campos capturados / pendentes | Tabela "Informações coletadas" (`AtendimentoDetalhes.jsx`) ganhou rótulos amigáveis por chave (`LABELS_INFO`) e pill de status visual (verde "Capturado" / amarelo "Pendente") no lugar do texto `sim`/`não` | C1 |
+| **H3** | ✅ Concluído (2026-07-13) — Roteiro de teste manual | `artefatos/qa/roteiros_teste/RT-012-jornada-mvp-relogio-ponto.md` — jornada completa §3 + variantes (composta, dúvida mid-coleta) + os dois caminhos do modelo (catálogo semeado vs. escalonamento, já que `produtos`/`tipos_produto` estão vazios neste ambiente) + conferência visual do H1/H2 | — |
+| **H4** | ✅ Concluído — Testes automatizados backend | Já satisfeito como subproduto das Fases B-G, sem trabalho adicional necessário: `test_catalogo_campos.py` + `test_campos_pendentes.py` (21 casos, `campos_pendentes()`/aplicabilidade), `test_processador_transicao_finalizando.py` (5 casos, esclarecendo→finalizando) + `test_processador_finalizando_handoff.py` (5 casos, finalizando→em_orcamentacao) — cobrem as 3 fases do ciclo de vida sem depender de LLM real (injetam `ResultadoClassificacao` pronto) | C1, E1 |
+
+**Achados durante a implementação:**
+- **Bug corrigido:** `Atendimento.to_dict()` nunca serializava `fase` — a coluna existe desde a Fase A (2026-07-12), mas ninguém tinha notado que o dicionário usado pelas 3 rotas de API relevantes (`/api/atendimentos/{id}`, `/api/atendimentos/ativas`, `/api/conversa/{telefone}`) simplesmente não a incluía. Sem esse fix, H1 não teria dado onde exibir. Coberto por `test_atendimento_to_dict.py` (novo).
+- **Observação (não é bug, limitação de ambiente):** como `produtos`/`tipos_produto` seguem sem dados semeados (mesma observação já registrada nas Fases F/G), o roteiro de QA (H3) documenta os dois caminhos possíveis para a resolução de modelo — feliz (catálogo semeado manualmente) e o caminho real de hoje (escalonamento após 2 tentativas) — em vez de assumir só o cenário ideal do §3.
+- **Não verificado em navegador real:** as mudanças de frontend foram verificadas via `npm run build` (compila sem erros) e via `curl` direto contra as APIs (confirmando que `fase` chega corretamente nos 3 endpoints, com dados reais do ambiente). Não há ferramenta de automação de navegador disponível nesta sessão, e o container de frontend em execução (`agenteassistentedevendas-frontend-1`) serve um bundle estático via nginx, aparentemente exposto publicamente via túnel Cloudflare (`app.auxvendas.com`) — não reconstruí/reiniciei esse container para não afetar um serviço possivelmente ao vivo. **Recomendo verificar visualmente no navegador (`npm run dev` local, ou rebuild do container) antes de considerar H1/H2 prontos para uso real.**
+
+**Suíte completa: 102/102.**
 
 ---
 
@@ -271,12 +278,12 @@ Ordem sugerida. Cada passo deve ser testável isoladamente no painel.
 
 ## 7. Critérios de pronto (Definition of Done)
 
-- [ ] Jornada §3 executável no painel admin, turno a turno
-- [x] `fase` visível e correta após cada turno (backend — via API/DB; UI do painel é a Fase H)
-- [ ] Campos pendentes / capturados visíveis no painel (Fase H)
+- [ ] Jornada §3 executável no painel admin, turno a turno (backend pronto — verificação visual no navegador ainda pendente, ver achados da Fase H)
+- [x] `fase` visível e correta após cada turno (backend + UI — 3 pontos do painel)
+- [x] Campos pendentes / capturados visíveis no painel (tabela com status visual)
 - [x] Software **não** perguntado se já informado em Esclarecendo
 - [x] Dúvida no meio de Finalizando não perde contexto da pergunta pendente (F3)
-- [x] Testes unitários do motor de campos passando (101/101)
+- [x] Testes unitários do motor de campos passando (102/102)
 - [x] Migration Alembic aplicada (`alembic upgrade head`)
 - [x] Nenhum DDL fora do Alembic (D02 implementador)
 
@@ -345,3 +352,4 @@ Ordem sugerida. Cada passo deve ser testável isoladamente no painel.
 | 2.0 | 2026-07-13 | Beto + Claude | Fase E concluída: **E1** `atendimento.fase` agora muda de verdade para `finalizando` ao detectar `PEDIR_ORCAMENTO` (idempotente); **E2** novo template `INICIAR_FINALIZANDO`; **E3** a mesma mensagem que dispara a transição já é refletida em `campos_pendentes()` (D2/D3/D4 rodam antes), com nova tabela `_MENSAGEM_ID_POR_CAMPO` ligando o catálogo declarativo (Fase B) aos templates de pergunta (B5). `_gerar_resposta_por_intencao` ganhou `db`/`atendimento` como parâmetros. Testado ponta a ponta via API real (telefone novo → orçamento → já entra em Finalizando com a pergunta certa; mensagem composta com software captura no mesmo turno) e via `tests/test_processador_transicao_finalizando.py` (5 casos). Suíte completa: 88/88. |
 | 2.1 | 2026-07-13 | Beto + Claude | Fase F concluída (última fase de lógica de conversação antes do handoff G/painel H): **F1** novo `_processar_finalizando()` intercepta toda mensagem em Finalizando (rotear só por intenção não bastava — respostas que citam tecnologia, ex.: "biométrico", batem em regra de dúvida); **F2** `_tentar_resolver_modelo()` busca `Produto` real via `tipo_leitor_mencionado`, sem correspondência após 2 tentativas escala `modo_operacao = HUMANO` (primeiro escalonamento automático do sistema — até então só existia troca manual via API); **F3** `_retomar_apos_duvida()` responde dúvida + reapresenta pendência (`RETOMAR_PERGUNTA_PENDENTE`); **F4** `_gerar_resumo_finalizando()` + `RESUMO_FINALIZANDO`. Dois bugs pegos e corrigidos durante smoke test manual (não pelos testes determinísticos, que não cobriam esses cenários específicos): captura solta sequestrando intenções já reconhecidas como se fossem resposta (restringida a `DESCONHECIDO`), e dúvida sobre outro produto reescrevendo `tipos_produto` e esvaziando `campos_pendentes()` (travado: só grava enquanto `fase != FINALIZANDO`). `Produto`/`TipoProduto` seguem sem dados semeados neste ambiente — na prática, toda resolução de modelo escala pra humano após a 2ª tentativa (esperado, documentado, não é bug). Testado ponta a ponta via API real (2 fluxos completos) e via `tests/test_processador_finalizando_coleta_ativa.py` (8 casos). Suíte completa: 96/96. |
 | 2.2 | 2026-07-13 | Beto + Claude | Fase G concluída — fecha a lógica de conversação do MVP (só resta H, painel/QA): **G1** `_concluir_finalizando()` transita `fase` para `em_orcamentacao` quando o cliente confirma o resumo (F4); **G2** reaproveita `modo_operacao = HUMANO` (mesmo mecanismo do escalonamento do F2) pra suprimir resposta automática dali em diante; **G3** novo `MensagemId.ORCAMENTO_ENCAMINHADO`. Bug pego em smoke test manual (não pelos testes determinísticos, que evitavam sem querer o cenário): um "ok"/"sim" solto pode vir classificado `CONFIRMAR` mesmo sendo a *primeira* mensagem depois de tudo capturado — nesse caso o cliente nunca viu o resumo, então não é confirmação dele; corrigido exigindo que o resumo já tenha sido apresentado (nova chave `resumo_finalizando_apresentado` em `AtendimentoInfo`) antes de aceitar um `CONFIRMAR` como handoff. Aproveitado pra corrigir também um efeito colateral do guard de `tipos_produto` da Fase F: ele bloqueava a gravação legítima do tipo de produto quando informado só depois de já estar em Finalizando (ex.: resposta ao fallback `PEDIR_TIPO_PRODUTO`) — trocado de "só grava se `fase != FINALIZANDO`" para "só grava se ainda não houver valor". Testado ponta a ponta via API real (fluxo completo: resumo → confirmação → handoff, com verificação de que a primeira mensagem "solta" não conclui sozinha) e via `tests/test_processador_finalizando_handoff.py` (5 casos). Suíte completa: 101/101. |
+| 2.3 | 2026-07-13 | Beto + Claude | **Fase H concluída — plano de MVP Continuidade fechado (Fases A-H, todas ✅).** **H1** `fase` passou a ser serializada em `Atendimento.to_dict()` (bug: existia desde a Fase A mas nunca era exposta pela API) e exibida como badge colorido em 3 pontos do painel (`ConversaInfo`, `AcompanhamentoPage`, `AtendimentoDetalhes`), via novo par `rotuloFase`/`classesFase` em `utils/atendimento.js`; **H2** tabela "Informações coletadas" ganhou rótulos amigáveis e pill de status (verde/amarelo) no lugar de `sim`/`não`; **H3** roteiro `RT-012-jornada-mvp-relogio-ponto.md` (jornada completa + variantes + os dois caminhos de resolução de modelo, dado que o catálogo segue sem seed); **H4** já estava satisfeito como subproduto das Fases B-G (36 testes cobrindo `campos_pendentes()` e as 3 transições de fase). Frontend verificado via `npm run build` (sem erros) e via API real (`curl` confirmando `fase` nos 3 endpoints) — não verificado em navegador (sem ferramenta de automação disponível nesta sessão) nem reconstruído o container de frontend em execução, que parece exposto publicamente via túnel Cloudflare; recomendo verificação visual antes de dar por definitivamente pronto. Suíte completa: 102/102. |

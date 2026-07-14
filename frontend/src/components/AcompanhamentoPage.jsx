@@ -4,7 +4,7 @@ import { api } from '../services/api'
 import DetalheModal from './DetalheModal'
 import ProcessamentoDetalhes from './ProcessamentoDetalhes'
 import { formatDatetimeBRT } from '../utils/datetime'
-import { numeroAtendimentoExibicao, rotuloAtendimento } from '../utils/atendimento'
+import { numeroAtendimentoExibicao, rotuloAtendimento, rotuloFase, classesFase } from '../utils/atendimento'
 
 function AcompanhamentoPage() {
   const [atendimentos, setAtendimentos] = useState([])
@@ -388,6 +388,13 @@ function AcompanhamentoPage() {
                           >
                             {atendimento.modo_operacao === 'humano' ? 'HUMANO' : 'AGENTE'}
                           </span>
+                          {atendimento.fase && (
+                            <span
+                              className={`px-2 py-0.5 text-xs rounded-full font-medium ${classesFase(atendimento.fase)}`}
+                            >
+                              {rotuloFase(atendimento.fase)}
+                            </span>
+                          )}
                         </div>
                         <div className="text-sm text-gray-600">
                           {atendimento.nome_contato || 'Sem nome'} • {atendimento.telefone}
@@ -429,6 +436,13 @@ function AcompanhamentoPage() {
                       <span className="px-2 py-0.5 text-xs rounded-full bg-inforrel-primary/10 text-inforrel-primary font-semibold">
                         {rotuloAtendimento(atendimentoSelecionado)}
                       </span>
+                      {atendimentoSelecionado.fase && (
+                        <span
+                          className={`px-2 py-0.5 text-xs rounded-full font-medium ${classesFase(atendimentoSelecionado.fase)}`}
+                        >
+                          {rotuloFase(atendimentoSelecionado.fase)}
+                        </span>
+                      )}
                     </div>
                     <h3 className="font-medium text-gray-900">
                       {tituloListaAtendimento(atendimentoSelecionado)}

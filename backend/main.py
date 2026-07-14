@@ -337,6 +337,7 @@ async def obter_dados_conversa(telefone: str):
                 "titulo": atendimento.titulo,
                 "status": atendimento.status.value if atendimento.status else None,
                 "modo_operacao": (atendimento.modo_operacao.value if atendimento.modo_operacao else None),
+                "fase": atendimento.fase.value if atendimento.fase else None,
             }
             if atendimento
             else None,
@@ -364,7 +365,7 @@ async def listar_atendimentos_ativos():
     Lista atendimentos ativos ordenados pela quantidade de mensagens pendentes
     de aprovação (maior primeiro).
 
-    Retorna: id, status, modo_operacao, telefone, nome_contato, empresa_nome,
+    Retorna: id, status, modo_operacao, fase, telefone, nome_contato, empresa_nome,
     mensagens_pendentes.
     """
     with db.get_session() as session:
@@ -402,6 +403,7 @@ async def listar_atendimentos_ativos():
                     "numero_atendimento_cliente": atendimento.numero_atendimento_cliente,
                     "status": atendimento.status.value if atendimento.status else None,
                     "modo_operacao": (atendimento.modo_operacao.value if atendimento.modo_operacao else None),
+                    "fase": atendimento.fase.value if atendimento.fase else None,
                     "titulo": atendimento.titulo,
                     "telefone": contato.telefone,
                     "nome_contato": contato.nome,

@@ -539,6 +539,7 @@ class Atendimento(Base):
             "status": self.status.value if self.status else None,
             "motivo_encerramento": self.motivo_encerramento,
             "modo_operacao": self.modo_operacao.value if self.modo_operacao else None,
+            "fase": self.fase.value if self.fase else None,
             "valor_estimado": str(self.valor_estimado) if self.valor_estimado else None,
             "created_at": serialize_utc_datetime(self.created_at),
             "updated_at": serialize_utc_datetime(self.updated_at),
