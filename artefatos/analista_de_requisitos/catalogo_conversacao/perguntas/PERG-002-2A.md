@@ -9,8 +9,8 @@
 
 ## Contexto
 
-- **Fase(s):** FASE-esclarecendo (início da qualificação)
-- **Disparo:** Sistema detectou intenção de orçamento (REQ-002.1 categoria 1) mas não conseguiu inferir automaticamente se o cliente é Pessoa Física ou Pessoa Jurídica a partir da mensagem
+- **Fase(s):** FASE-esclarecendo (tentativa inicial) / FASE-finalizando (obrigatória se não respondida em Esclarecendo)
+- **Disparo:** Sistema não conseguiu inferir automaticamente se o cliente é Pessoa Física ou Pessoa Jurídica a partir da mensagem inicial. Em FASE-esclarecendo, a pergunta é feita **uma única vez no início da conversa** — se o cliente não responder, o sistema **não insiste** e segue a conversa normalmente. Caso não tenha sido respondida até a entrada em FASE-finalizando, ela se torna **obrigatória** como campo pendente da coleta.
 - **REQ espelho:** REQ-002.2A
 
 ---
