@@ -45,7 +45,7 @@ def _modelo_relogio_ponto_teste(db_session, tipo_produto: TipoProduto) -> Produt
 
 def _resultado(intencao: Intencao, **entidades_kwargs) -> ResultadoClassificacao:
     return ResultadoClassificacao(
-        intencao=intencao,
+        intencoes=[intencao],
         confianca=0.9,
         confianca_nivel=NivelConfianca.ALTA,
         entidades=EntidadesExtraidas(**entidades_kwargs),

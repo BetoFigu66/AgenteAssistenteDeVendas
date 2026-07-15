@@ -35,7 +35,6 @@ from models import (
     ProcessamentoMensagem,
     Produto,
     StatusAtendimento,
-    TipoDocumento,
     TipoProduto,
 )
 from sqlalchemy.orm import Session
@@ -45,8 +44,13 @@ from services import atendimentos as atendimentos_svc
 from services.classificador import Intencao, ResultadoClassificacao, classificar
 from services.cnpj import ConsultaCnpjError, obter_ou_criar_empresa
 from services.cnpj.receitaws import validar_cnpj
+from services.conversacao.acoes import ContextoAcao
 from services.conversacao.campos_pendentes import campos_pendentes
 from services.conversacao.catalogo_campos import CAMPO_FAIXA_FUNCIONARIOS, CAMPO_MODELO, CAMPO_SOFTWARE_PONTO
+from services.conversacao.motor import resolver_e_executar
+from services.conversacao.regras_esclarecendo import REGISTRO_ESCLARECENDO
+from services.conversacao.regras_finalizando import REGISTRO_FINALIZANDO
+from services.conversacao.regras_globais import REGRAS_GLOBAIS
 from services.cpf.persistencia import obter_ou_criar_pessoa
 from services.cpf.validacao import mascarar_cpf, parse_data_nascimento, validar_cpf
 from services.debug_log import DebugLogger
@@ -76,15 +80,14 @@ _INTENCOES_RAG = frozenset(
     }
 )
 
-# Intenções comerciais que disparam contato + atendimento anônimos (REQ-002.1B, REQ-016.6).
-_INTENCOES_QUALIFICACAO = frozenset(
-    {
-        Intencao.PEDIR_ORCAMENTO,
-        Intencao.PERGUNTAR_PRECO,
-        Intencao.PERGUNTAR_PRODUTO,
-        Intencao.PERGUNTAR_PRAZO,
-    }
-)
+# Motor Intenção×Fase→Ações: registro de Regras por Fase efetiva do atendimento.
+# `EM_ORCAMENTACAO` não precisa de entrada — `modo_operacao` já vira HUMANO junto com a
+# transição (`_concluir_finalizando`), e o nível acima (`processar()`) já suprime a
+# geração de resposta nesse modo antes de `_decidir_resposta` ser chamado.
+REGISTRO_POR_FASE = {
+    FaseAtendimento.ESCLARECENDO: REGISTRO_ESCLARECENDO,
+    FaseAtendimento.FINALIZANDO: REGISTRO_FINALIZANDO,
+}
 
 # Fase E: mapeia a chave técnica de cada CampoDef (catalogo_campos.py) para o template de
 # pergunta correspondente (respostas/catalogo.py) — os dois catálogos são propositalmente
@@ -213,8 +216,8 @@ class ProcessadorMensagem:
         # 3. Classifica intenção e extrai entidades
         resultado_class = await classificar(conteudo, llm=self._llm)
         logger.info(
-            f"[Processador] Intenção: {resultado_class.intencao.value} (confiança={resultado_class.confianca:.2f},"
-            f" via {resultado_class.origem})"
+            f"[Processador] Intenção: {resultado_class.intencao_principal.value}"
+            f" (confiança={resultado_class.confianca:.2f}, via {resultado_class.origem})"
         )
         _ent = resultado_class.entidades
         _ent_str = (
@@ -227,7 +230,7 @@ class ProcessadorMensagem:
         )
         dlog.log(
             "intent",
-            f"intencao={resultado_class.intencao.value} confianca={resultado_class.confianca:.2f}"
+            f"intencao={resultado_class.intencao_principal.value} confianca={resultado_class.confianca:.2f}"
             f" via={resultado_class.origem}{_ent_str}",
         )
 
@@ -286,6 +289,7 @@ class ProcessadorMensagem:
             resposta=resposta,
             duracao_ms=duracao_ms,
             erro=erro_processamento,
+            fase_pre_decisao=atendimento_inicial.fase if atendimento_inicial else None,
         )
 
         dlog.log("processamento_id", f"id={processamento.id} duracao={duracao_ms}ms")
@@ -320,7 +324,7 @@ class ProcessadorMensagem:
             contato_id=contato.id if contato else None,
             atendimento_id=atendimento.id if atendimento else None,
             processamento_id=processamento.id,
-            intencao=resultado_class.intencao.value,
+            intencao=resultado_class.intencao_principal.value,
             origem_classificacao=resultado_class.origem,
         )
 
@@ -339,6 +343,7 @@ class ProcessadorMensagem:
         resposta: RespostaGerada,
         duracao_ms: int,
         erro: Optional[str] = None,
+        fase_pre_decisao: Optional[FaseAtendimento] = None,
     ) -> ProcessamentoMensagem:
         """Persiste um registro auditvel do que o cérebro decidiu."""
         try:
@@ -367,7 +372,8 @@ class ProcessadorMensagem:
         if score_maximo is not None:
             score_maximo = round(float(score_maximo), 4)
         proc = ProcessamentoMensagem(
-            intencao=resultado_class.intencao.value,
+            intencao=resultado_class.intencao_principal.value,
+            intencoes=[i.value for i in resultado_class.intencoes],
             confianca=round(resultado_class.confianca, 2),
             confianca_nivel=resultado_class.confianca_nivel.value,
             origem_classificacao=origem_enum,
@@ -376,6 +382,7 @@ class ProcessadorMensagem:
             contato_id_identificado=contato_atual.id if contato_atual else None,
             empresa_id_identificada=empresa_atual.id if empresa_atual else None,
             atendimento_id_ativa=atendimento_atual.id if atendimento_atual else None,
+            fase_atendimento=fase_pre_decisao.value if fase_pre_decisao else None,
             template_usado=resposta.template_usado,
             personalizado_via_llm=resposta.personalizado_via_llm,
             llm_provider=(self._llm.nome if self._llm else None),
@@ -408,104 +415,29 @@ class ProcessadorMensagem:
         resultado_class,
         dlog: Optional[DebugLogger] = None,
     ) -> RespostaGerada:
-        """Decide o que responder com base na identificação e intenção."""
-        intencao = resultado_class.intencao
-        entidades = resultado_class.entidades
+        """Decide o que responder com base na identificação e intenção.
 
-        # Regra: Escalar humano sempre tem prioridade
-        if intencao == Intencao.ESCALAR_HUMANO:
-            if dlog:
-                dlog.log("rota", "ESCALAR_HUMANO → ESCALADO_HUMANO")
-            return await self._gerador.gerar(MensagemId.ESCALADO_HUMANO)
-
-        # Regra: Reclamação também escala
-        if intencao == Intencao.RECLAMAR:
-            if dlog:
-                dlog.log("rota", "RECLAMAR → RECLAMACAO_ESCALADA")
-            return await self._gerador.gerar(MensagemId.RECLAMACAO_ESCALADA)
-
-        # Se o cliente forneceu CNPJ, processa fluxo PJ
-        if entidades.cnpjs:
-            if dlog:
-                dlog.log("rota", f"cnpj_fornecido={entidades.cnpjs[0]}")
-            return await self._processar_cnpj_fornecido(
-                db,
-                telefone,
-                entidades.cnpjs[0],
-                nome_informado=entidades.nomes[0] if entidades.nomes else None,
-            )
-
-        # Se o cliente forneceu CPF, processa fluxo PF
-        if entidades.cpfs:
-            if dlog:
-                dlog.log("rota", f"cpf_fornecido={mascarar_cpf(entidades.cpfs[0])}")
-            data_nasc = self._parse_data_entidade(entidades, conteudo)
-            return await self._processar_cpf_fornecido(
-                db,
-                telefone,
-                entidades.cpfs[0],
-                nome_informado=entidades.nomes[0] if entidades.nomes else None,
-                data_nascimento=data_nasc,
-            )
-
-        # Data de nascimento sem CPF na mesma mensagem (continuação do fluxo PF)
-        data_nasc_avulsa = self._parse_data_entidade(entidades, conteudo)
-        if data_nasc_avulsa:
-            contato_pendente = identificacao.contato
-            if contato_pendente:
-                neg_pendente = self._atendimento_ativo(db, contato_pendente)
-                if neg_pendente and neg_pendente.tipo_documento == TipoDocumento.CPF and not neg_pendente.pessoa_id:
-                    cpf_pendente = self._info_atendimento(db, neg_pendente.id, "cpf_pendente")
-                    if cpf_pendente:
-                        if dlog:
-                            dlog.log("rota", f"data_nasc_complemento cpf={mascarar_cpf(cpf_pendente)}")
-                        return await self._processar_cpf_fornecido(
-                            db,
-                            telefone,
-                            cpf_pendente,
-                            nome_informado=contato_pendente.nome,
-                            data_nascimento=data_nasc_avulsa,
-                        )
-
-        # Telefone novo ou sem empresa -> pedir identificação
-        if identificacao.status == StatusIdentificacao.NOVO:
-            nome_novo = entidades.nomes[0] if entidades.nomes else None
-            tem_documento = bool(entidades.cnpjs or entidades.cpfs)
-            ctx_novo = {
-                "nome": nome_novo,
-                "tem_documento": tem_documento,
-            }
-
-            atendimento_novo = None
-            if intencao in _INTENCOES_QUALIFICACAO:
-                atendimento_novo = await self._garantir_contato_e_atendimento_qualificacao(
-                    db, telefone, None, resultado_class, dlog=dlog
-                )
-            elif nome_novo:
-                criar_contato_sem_empresa(db, telefone, nome=nome_novo)
-
-            # D1 (REQ-002.1B): categoria 3 (dúvida sobre produto/preço/fora de contexto) é
-            # respondida via Q&A/RAG imediatamente — não espera CNPJ/CPF nem intenção de orçamento.
-            if intencao.value in _INTENCOES_RAG:
-                if dlog:
-                    dlog.log("rota", f"NOVO + categoria 3 ({intencao.value}) → Q&A/RAG sem pedir documento")
-                return await self._responder_categoria3(intencao, conteudo, dlog=dlog)
-
-            if intencao == Intencao.PEDIR_ORCAMENTO:
-                if dlog:
-                    dlog.log("rota", "NOVO + PEDIR_ORCAMENTO → composta (Finalizando)")
-                ctx_novo["modo"] = "orcamento"
-                partes_finalizando = await self._iniciar_ou_continuar_finalizando(db, atendimento_novo, dlog=dlog)
-                return await self._gerador.gerar_composta(
-                    [(MensagemId.SAUDACAO_NOVO_CONTATO, ctx_novo), *partes_finalizando]
-                )
-
-            if dlog:
-                dlog.log("rota", "NOVO → SAUDACAO_NOVO_CONTATO")
-            ctx_novo["modo"] = "identificacao"
-            return await self._gerador.gerar(MensagemId.SAUDACAO_NOVO_CONTATO, ctx_novo)
-
+        Motor Intenção×Fase→Ações (`services/conversacao/motor.py`): toda intenção que
+        bater na mensagem é considerada (não só a de maior prioridade — era essa a raiz
+        do bug em que uma saudação "engolia" uma pergunta de produto na mesma mensagem).
+        `MULTIPLO` (status de identificação, não é Intenção nem Fase) continua como caso
+        especial fora do motor.
+        """
         if identificacao.status == StatusIdentificacao.MULTIPLO:
+            # Regras globais (ex.: cliente manda o CNPJ certo já aqui) ainda se aplicam —
+            # só não há Fase/atendimento único pra desambiguar antes disso resolver.
+            ctx = ContextoAcao(
+                db=db,
+                telefone=telefone,
+                conteudo=conteudo,
+                identificacao=identificacao,
+                resultado_class=resultado_class,
+                processador=self,
+                dlog=dlog,
+            )
+            resposta = await resolver_e_executar(ctx, REGRAS_GLOBAIS, {})
+            if resposta is not None:
+                return resposta
             if dlog:
                 dlog.log("rota", "MULTIPLO → MULTIPLAS_EMPRESAS")
             nomes_empresas = ", ".join(e.nome for e in identificacao.empresas[:5])
@@ -514,144 +446,47 @@ class ProcessadorMensagem:
                 contexto={"empresas": nomes_empresas},
             )
 
-        if identificacao.status == StatusIdentificacao.SEM_EMPRESA:
-            contato = identificacao.contato
-            if contato:
-                neg = self._atendimento_ativo(db, contato)
-                if neg and neg.fase == FaseAtendimento.FINALIZANDO:
-                    await self._atualizar_infos_atendimento(db, neg, resultado_class)
-                    if dlog:
-                        dlog.log("rota", f"SEM_EMPRESA + Finalizando → coleta ativa (atendimento id={neg.id})")
-                    return await self._processar_finalizando(db, neg, conteudo, resultado_class, dlog=dlog)
-                if neg and neg.pessoa_id and neg.pessoa:
-                    if entidades.nomes and not contato.nome:
-                        contato.nome = entidades.nomes[0]
-                        db.commit()
-                    await self._atualizar_infos_atendimento(db, neg, resultado_class)
-                    if dlog:
-                        dlog.log("rota", f"PF identificada pessoa_id={neg.pessoa_id} intencao={intencao.value}")
-                    return await self._gerar_resposta_por_intencao(
-                        db=db,
-                        atendimento=neg,
-                        intencao=intencao,
-                        contato=contato,
-                        empresa=None,
-                        pessoa=neg.pessoa,
-                        conteudo_cliente=conteudo,
-                        dlog=dlog,
-                    )
-                if intencao in _INTENCOES_QUALIFICACAO:
-                    if entidades.nomes and not contato.nome:
-                        contato.nome = entidades.nomes[0]
-                        db.commit()
-                    neg = self._obter_ou_criar_atendimento(db, contato)
-                    await self._atualizar_infos_atendimento(db, neg, resultado_class)
-                    if dlog:
-                        dlog.log("rota", f"SEM_EMPRESA + qualificação → atendimento id={neg.id}")
-                    return await self._gerar_resposta_por_intencao(
-                        db=db,
-                        atendimento=neg,
-                        intencao=intencao,
-                        contato=contato,
-                        empresa=None,
-                        pessoa=None,
-                        conteudo_cliente=conteudo,
-                        dlog=dlog,
-                    )
-                # D1 (REQ-002.1B): categoria 3 responde via Q&A/RAG mesmo sem CNPJ ainda
-                # (ex.: FORA_CONTEXTO, que não entra em _INTENCOES_QUALIFICACAO acima).
-                if intencao.value in _INTENCOES_RAG:
-                    if dlog:
-                        dlog.log("rota", f"SEM_EMPRESA + categoria 3 ({intencao.value}) → Q&A/RAG sem pedir CNPJ")
-                    return await self._responder_categoria3(intencao, conteudo, dlog=dlog)
-            if dlog:
-                dlog.log("rota", "SEM_EMPRESA → PERGUNTAR_CNPJ")
-            nome_contato = contato.nome if contato else None
-            return await self._gerador.gerar(
-                MensagemId.PERGUNTAR_CNPJ,
-                contexto={"nome": nome_contato},
-            )
-
-        # A partir daqui: contato identificado com empresa
         contato = identificacao.contato
         empresa = identificacao.empresa
+        pessoa = None
+        atendimento = None
 
-        # Atualiza nome se cliente informou
-        if entidades.nomes and contato and not contato.nome:
-            contato.nome = entidades.nomes[0]
-            db.commit()
+        if contato:
+            if empresa:
+                # Identificado com empresa: atendimento sempre garantido, como já era.
+                atendimento = self._obter_ou_criar_atendimento(db, contato, empresa)
+            else:
+                atendimento = self._atendimento_ativo(db, contato)
+                if atendimento and atendimento.pessoa_id and atendimento.pessoa:
+                    pessoa = atendimento.pessoa
+            if atendimento:
+                await self._atualizar_infos_atendimento(db, atendimento, resultado_class)
 
-        # Carrega/cria atendimento ativo
-        atendimento = self._obter_ou_criar_atendimento(db, contato, empresa)
-
-        # Salva informações coletadas
-        await self._atualizar_infos_atendimento(db, atendimento, resultado_class)
-
-        if atendimento.fase == FaseAtendimento.FINALIZANDO:
-            if dlog:
-                dlog.log("rota", f"identificado + Finalizando → coleta ativa (atendimento id={atendimento.id})")
-            return await self._processar_finalizando(db, atendimento, conteudo, resultado_class, dlog=dlog)
-
-        # Roteia por intenção
-        return await self._gerar_resposta_por_intencao(
+        ctx = ContextoAcao(
             db=db,
-            atendimento=atendimento,
-            intencao=intencao,
+            telefone=telefone,
+            conteudo=conteudo,
+            identificacao=identificacao,
+            resultado_class=resultado_class,
+            processador=self,
             contato=contato,
             empresa=empresa,
-            pessoa=None,
-            conteudo_cliente=conteudo,
+            pessoa=pessoa,
+            atendimento=atendimento,
             dlog=dlog,
         )
+        resposta = await resolver_e_executar(ctx, REGRAS_GLOBAIS, REGISTRO_POR_FASE)
+        if resposta is not None:
+            return resposta
+        return await self._fallback_qa_ou_nao_entendi(conteudo, dlog=dlog)
 
-    async def _gerar_resposta_por_intencao(
+    async def _fallback_qa_ou_nao_entendi(
         self,
-        db: Session,
-        atendimento: Atendimento,
-        intencao: Intencao,
-        contato: Contato,
-        empresa: Optional[Empresa],
         conteudo_cliente: str,
-        pessoa: Optional[Pessoa] = None,
         dlog: Optional[DebugLogger] = None,
     ) -> RespostaGerada:
-        """Gera resposta baseado na intenção (com contato já identificado)."""
-        nome = contato.nome or (pessoa.nome if pessoa else "") or ""
-        if dlog:
-            if empresa:
-                dlog.log("rota", f"identificado empresa='{empresa.nome[:30]}' intencao={intencao.value}")
-            elif pessoa:
-                dlog.log("rota", f"identificado PF pessoa_id={pessoa.id} intencao={intencao.value}")
-
-        if intencao == Intencao.SAUDACAO:
-            if nome:
-                return await self._gerador.gerar(MensagemId.SAUDACAO_COM_NOME, {"nome": nome})
-            return await self._gerador.gerar(MensagemId.PERGUNTAR_NOME)
-
-        if intencao == Intencao.PERGUNTAR_PRAZO:
-            return await self._gerador.gerar(
-                MensagemId.PRAZO_NAO_PROMETIDO,
-                personalizar=True,
-                mensagem_cliente=conteudo_cliente,
-            )
-
-        if intencao in (Intencao.PERGUNTAR_PRECO, Intencao.PERGUNTAR_PRODUTO, Intencao.FORA_CONTEXTO):
-            return await self._responder_categoria3(intencao, conteudo_cliente, dlog=dlog)
-
-        if intencao == Intencao.PEDIR_ORCAMENTO:
-            partes = await self._iniciar_ou_continuar_finalizando(db, atendimento, dlog=dlog)
-            if len(partes) == 1:
-                mensagem_id, ctx = partes[0]
-                return await self._gerador.gerar(mensagem_id, ctx)
-            return await self._gerador.gerar_composta(partes)
-
-        if intencao == Intencao.APROVAR_ORCAMENTO:
-            return await self._gerador.gerar(MensagemId.ORCAMENTO_APROVADO)
-
-        if intencao == Intencao.REPROVAR_ORCAMENTO:
-            return await self._gerador.gerar(MensagemId.ORCAMENTO_REPROVADO)
-
-        # Fallback: tenta QA/RAG antes de NAO_ENTENDI
+        """Último recurso quando nenhuma Ação do motor (Intenção×Fase→Ações) produziu
+        fragmento: tenta QA antes de NAO_ENTENDI."""
         par = await self._buscar_resposta_qa(conteudo_cliente, dlog=dlog)
         if par is not None:
             if dlog:
@@ -669,7 +504,7 @@ class ProcessadorMensagem:
             )
 
         if dlog:
-            dlog.log("rota", f"intencao={intencao.value} não mapeada → NAO_ENTENDI")
+            dlog.log("rota", "nada respondeu → NAO_ENTENDI")
         return await self._gerador.gerar(
             MensagemId.NAO_ENTENDI,
             personalizar=True,
@@ -685,9 +520,10 @@ class ProcessadorMensagem:
         """Responde intenção de categoria 3 (REQ-002.1) — dúvida sobre produto/preço/fora de
         contexto — via Q&A/RAG.
 
-        Compartilhado entre clientes já identificados (`_gerar_resposta_por_intencao`) e o
-        roteamento pré-identificação do D1/REQ-002.1B (`_decidir_resposta`) — mesmo
-        comportamento, não importa se o CNPJ/CPF já foi informado.
+        Reaproveitado pelas Regras de categoria 3 da fase Esclarecendo
+        (`regras_esclarecendo.py`) e pela retomada de dúvida em Finalizando (F3,
+        `_retomar_apos_duvida`) — mesmo comportamento, não importa se o CNPJ/CPF já foi
+        informado.
         """
         if intencao == Intencao.PERGUNTAR_PRECO:
             # Plano v1: para perguntas de preco a resposta e sempre o template
@@ -792,7 +628,7 @@ class ProcessadorMensagem:
             # F2: acabou de escalar por falta de correspondência de modelo — não continua.
             return await self._gerador.gerar(MensagemId.ESCALADO_HUMANO)
 
-        if resultado_class.intencao.value in _INTENCOES_RAG:
+        if resultado_class.intencao_principal.value in _INTENCOES_RAG:
             return await self._retomar_apos_duvida(db, atendimento, conteudo, resultado_class, dlog=dlog)
 
         if not tentou_modelo:
@@ -807,9 +643,10 @@ class ProcessadorMensagem:
                 if dlog:
                     dlog.log("finalizando", "tipo de produto ainda não identificado → PEDIR_TIPO_PRODUTO")
                 return await self._gerador.gerar(MensagemId.PEDIR_TIPO_PRODUTO)
-            resumo_ja_apresentado = bool(self._info_atendimento(db, atendimento.id, _RESUMO_APRESENTADO_CHAVE))
-            if resumo_ja_apresentado and resultado_class.intencao == Intencao.CONFIRMAR:
-                return await self._concluir_finalizando(db, atendimento, dlog=dlog)
+            # G1-G3 (confirmação do resumo → handoff) é tratado antes de chegar aqui, como
+            # Regra exclusiva própria da fase Finalizando (ver regras_finalizando.py) —
+            # se chegamos até este ponto, é porque não era o caso (resumo ainda não
+            # apresentado, ou já concluído antes).
             return await self._gerar_resumo_finalizando(db, atendimento, dlog=dlog)
 
         campo = pendentes[0]
@@ -927,7 +764,7 @@ class ProcessadorMensagem:
         nenhuma regra de intenção conhecida (DESCONHECIDO) — uma intenção reconhecida (ex.:
         "quero orçamento" repetido) não deve ser sequestrada como se fosse resposta.
         """
-        if resultado_class.intencao != Intencao.DESCONHECIDO:
+        if resultado_class.intencao_principal != Intencao.DESCONHECIDO:
             return
 
         pendentes = campos_pendentes(atendimento)
@@ -962,7 +799,7 @@ class ProcessadorMensagem:
         """F3: se a mensagem em Finalizando for uma dúvida (categoria 3), responde via
         Q&A/RAG e reapresenta a última pergunta pendente — sem perder o progresso da
         coleta (a fase continua Finalizando)."""
-        resposta_duvida = await self._responder_categoria3(resultado_class.intencao, conteudo, dlog=dlog)
+        resposta_duvida = await self._responder_categoria3(resultado_class.intencao_principal, conteudo, dlog=dlog)
 
         pendentes = campos_pendentes(atendimento)
         if not pendentes:
@@ -977,7 +814,7 @@ class ProcessadorMensagem:
             MensagemId.RETOMAR_PERGUNTA_PENDENTE, {"pergunta": resposta_pergunta.texto}
         )
         if dlog:
-            dlog.log("finalizando", f"dúvida ({resultado_class.intencao.value}) → retoma {campo.chave}")
+            dlog.log("finalizando", f"dúvida ({resultado_class.intencao_principal.value}) → retoma {campo.chave}")
         return RespostaGerada(
             texto=f"{resposta_duvida.texto}\n\n{resposta_retomada.texto}",
             template_usado=f"{resposta_duvida.template_usado}+{resposta_retomada.template_usado}",

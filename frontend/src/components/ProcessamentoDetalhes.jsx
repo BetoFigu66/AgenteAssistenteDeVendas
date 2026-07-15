@@ -11,6 +11,7 @@ import {
   labelStatus,
   labelSeveridade,
 } from '../constants/reports'
+import { rotuloFase, classesFase } from '../utils/atendimento'
 
 function Campo({ label, valor, mono }) {
   if (valor === null || valor === undefined || valor === '') return null
@@ -285,6 +286,16 @@ function ProcessamentoDetalhes({ processamentoId }) {
       <Secao titulo="Identificação no momento">
         <div className="grid grid-cols-2 gap-3">
           <Campo label="Status" valor={proc.status_identificacao} />
+          {proc.fase_atendimento && (
+            <div className="flex flex-col">
+              <span className="text-xs text-gray-500 uppercase tracking-wide">Fase do atendimento</span>
+              <span
+                className={`w-fit px-2 py-0.5 text-xs rounded-full font-semibold ${classesFase(proc.fase_atendimento)}`}
+              >
+                {rotuloFase(proc.fase_atendimento)}
+              </span>
+            </div>
+          )}
           <Campo label="Contato ID" valor={proc.contato_id_identificado} />
           <Campo label="Empresa ID" valor={proc.empresa_id_identificada} />
           <Campo label="Atendimento ativo" valor={proc.atendimento_id_ativa} />
