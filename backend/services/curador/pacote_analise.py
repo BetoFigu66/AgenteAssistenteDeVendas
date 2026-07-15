@@ -171,7 +171,8 @@ def _carregar_atendimento_contexto(session: Session, atendimento_id: Optional[in
 
 def _serializar_classificacao(resultado: ResultadoClassificacao) -> dict:
     return {
-        "intencao": resultado.intencao.value,
+        "intencao": resultado.intencao_principal.value,
+        "intencoes": [i.value for i in resultado.intencoes],
         "confianca": resultado.confianca,
         "confianca_nivel": resultado.confianca_nivel.value,
         "origem": resultado.origem,
@@ -299,12 +300,17 @@ def _hipoteses_automaticas(
         })
 
     if proc and proc.intencao and classificacao_nova.get("intencao"):
-        if proc.intencao != classificacao_nova["intencao"]:
+        # `intencoes` (lista completa) só existe em processamentos feitos após o motor
+        # Intenção×Fase→Ações — processamentos mais antigos caem no fallback de
+        # comparar só a intenção principal, único dado que tinham.
+        intencoes_originais = set(proc.intencoes or [proc.intencao])
+        intencoes_novas = set(classificacao_nova.get("intencoes") or [classificacao_nova["intencao"]])
+        if intencoes_originais != intencoes_novas:
             hipoteses.append({
                 "tipo": "classificacao_divergente",
                 "detalhe": (
-                    f"No processamento original: {proc.intencao}; "
-                    f"na reclassificação atual: {classificacao_nova['intencao']}"
+                    f"No processamento original: {sorted(intencoes_originais)}; "
+                    f"na reclassificação atual: {sorted(intencoes_novas)}"
                 ),
             })
 

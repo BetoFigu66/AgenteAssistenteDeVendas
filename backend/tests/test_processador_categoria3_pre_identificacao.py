@@ -22,7 +22,7 @@ from services.processador import ProcessadorMensagem
 
 def _resultado(intencao: Intencao, **entidades_kwargs) -> ResultadoClassificacao:
     return ResultadoClassificacao(
-        intencao=intencao,
+        intencoes=[intencao],
         confianca=0.9,
         confianca_nivel=NivelConfianca.ALTA,
         entidades=EntidadesExtraidas(**entidades_kwargs),

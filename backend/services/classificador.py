@@ -37,6 +37,7 @@ class Intencao(str, Enum):
     FORNECER_CNPJ = "fornecer_cnpj"
     FORNECER_CPF = "fornecer_cpf"
     FORNECER_NOME = "fornecer_nome"
+    FORNECER_DATA_NASCIMENTO = "fornecer_data_nascimento"
     CONFIRMAR = "confirmar"
     NEGAR = "negar"
     PEDIR_ORCAMENTO = "pedir_orcamento"
@@ -70,9 +71,14 @@ class EntidadesExtraidas:
 
 @dataclass
 class ResultadoClassificacao:
-    """Resultado da classificação de uma mensagem."""
+    """Resultado da classificação de uma mensagem.
 
-    intencao: Intencao
+    `intencoes` substitui o antigo campo único `intencao` (motor de roteamento
+    Intenção×Fase→Ações) — nunca vazia (mínimo `[DESCONHECIDO]`), coleta TODAS as
+    intenções que bateram na mensagem, não só a de maior prioridade.
+    """
+
+    intencoes: List[Intencao]
     confianca: float  # 0.0 a 1.0
     confianca_nivel: NivelConfianca
     entidades: EntidadesExtraidas
@@ -81,6 +87,13 @@ class ResultadoClassificacao:
     llm_latencia_ms: Optional[int] = None
     llm_tokens_input: Optional[int] = None
     llm_tokens_output: Optional[int] = None
+
+    @property
+    def intencao_principal(self) -> Intencao:
+        """A intenção de maior prioridade — só para auditoria/exibição simples
+        (ex.: coluna `ProcessamentoMensagem.intencao`). O roteamento de verdade usa
+        `intencoes` (todas), nunca este atalho."""
+        return self.intencoes[0] if self.intencoes else Intencao.DESCONHECIDO
 
 
 def _calcular_nivel_confianca(confianca: float) -> NivelConfianca:
@@ -388,29 +401,61 @@ def extrair_entidades(texto: str) -> EntidadesExtraidas:
     )
 
 
-def classificar_por_regras(texto: str) -> tuple[Intencao, float]:
+def classificar_por_regras(texto: str) -> list[tuple[Intencao, float]]:
     """
     Classifica a intenção usando regras/regex.
 
+    Coleta TODAS as regras que baterem (não só a primeira) — motor de roteamento
+    Intenção×Fase→Ações precisa saber de toda intenção presente na mensagem, não só a
+    de maior prioridade (ex.: "Bom dia, quero orçamento" não pode perder a intenção de
+    orçamento só porque a saudação bateu primeiro).
+
     Returns:
-        Tupla (Intencao, confianca). Se não achou, retorna (DESCONHECIDO, 0.0).
+        Lista de (Intencao, confianca). Se nada bateu, retorna [(DESCONHECIDO, 0.0)].
     """
     if not texto or not texto.strip():
-        return Intencao.DESCONHECIDO, 0.0
+        return [(Intencao.DESCONHECIDO, 0.0)]
+
+    matches: list[tuple[Intencao, float]] = []
 
     # Documento fiscal: CNPJ tem prioridade sobre CPF
     if _REGEX_CNPJ.search(texto):
-        return Intencao.FORNECER_CNPJ, 0.9
-
-    cpfs = extrair_cpfs(texto)
-    if cpfs:
-        return Intencao.FORNECER_CPF, 0.9
+        matches.append((Intencao.FORNECER_CNPJ, 0.9))
+    else:
+        cpfs = extrair_cpfs(texto)
+        if cpfs:
+            matches.append((Intencao.FORNECER_CPF, 0.9))
 
     for intencao, padrao in _REGRAS_INTENCAO:
         if padrao.search(texto):
-            return intencao, 0.75
+            matches.append((intencao, 0.75))
 
-    return Intencao.DESCONHECIDO, 0.0
+    return matches or [(Intencao.DESCONHECIDO, 0.0)]
+
+
+def _finalizar_intencoes(
+    matches: list[tuple[Intencao, float]],
+    entidades: EntidadesExtraidas,
+) -> List[Intencao]:
+    """Ordena os matches por confiança (desc), deduplica, e acrescenta as intenções
+    derivadas de entidades (nome, data de nascimento) — sempre visíveis para o motor de
+    Ações, independente do caminho (regra ou LLM) que classificou a intenção principal.
+    """
+    ordenados = sorted(matches, key=lambda par: par[1], reverse=True)
+    intencoes: List[Intencao] = []
+    for intencao, _ in ordenados:
+        if intencao not in intencoes:
+            intencoes.append(intencao)
+
+    if entidades.nomes and Intencao.FORNECER_NOME not in intencoes:
+        intencoes.append(Intencao.FORNECER_NOME)
+    if entidades.datas_nascimento and Intencao.FORNECER_DATA_NASCIMENTO not in intencoes:
+        intencoes.append(Intencao.FORNECER_DATA_NASCIMENTO)
+
+    if len(intencoes) > 1 and Intencao.DESCONHECIDO in intencoes:
+        intencoes.remove(Intencao.DESCONHECIDO)
+
+    return intencoes or [Intencao.DESCONHECIDO]
 
 
 # =============================================================================
@@ -532,13 +577,15 @@ async def classificar(
         ResultadoClassificacao com intenção, confiança, entidades e origem.
     """
     entidades_regra = extrair_entidades(texto)
-    intencao_regra, confianca_regra = classificar_por_regras(texto)
+    matches_regra = classificar_por_regras(texto)
+    confianca_regra = max(c for _, c in matches_regra)
 
     # Se regras têm alta confiança, usa direto
     if confianca_regra >= LIMITE_CONFIANCA_REGRAS:
-        logger.debug(f"[Classificador] Usando regra: {intencao_regra.value} (confiança={confianca_regra})")
+        intencoes = _finalizar_intencoes(matches_regra, entidades_regra)
+        logger.debug(f"[Classificador] Usando regra: {[i.value for i in intencoes]} (confiança={confianca_regra})")
         return ResultadoClassificacao(
-            intencao=intencao_regra,
+            intencoes=intencoes,
             confianca=confianca_regra,
             confianca_nivel=_calcular_nivel_confianca(confianca_regra),
             entidades=entidades_regra,
@@ -547,8 +594,9 @@ async def classificar(
 
     # Caso contrário, tenta LLM
     if llm is None:
+        intencoes = _finalizar_intencoes(matches_regra, entidades_regra)
         return ResultadoClassificacao(
-            intencao=intencao_regra,
+            intencoes=intencoes,
             confianca=confianca_regra,
             confianca_nivel=_calcular_nivel_confianca(confianca_regra),
             entidades=entidades_regra,
@@ -582,11 +630,12 @@ async def classificar(
         ),
     )
 
-    logger.debug(f"[Classificador] Usando LLM: {intencao_llm.value} (confiança={confianca_llm},"
+    intencoes = _finalizar_intencoes([(intencao_llm, confianca_llm)], entidades_final)
+    logger.debug(f"[Classificador] Usando LLM: {[i.value for i in intencoes]} (confiança={confianca_llm},"
         " latência={latencia_ms}ms)")
 
     return ResultadoClassificacao(
-        intencao=intencao_llm,
+        intencoes=intencoes,
         confianca=confianca_llm,
         confianca_nivel=_calcular_nivel_confianca(confianca_llm),
         entidades=entidades_final,

@@ -894,6 +894,10 @@ class ProcessamentoMensagem(Base):
 
     # --- Classificação ---
     intencao: Mapped[Optional[str]] = mapped_column(String(50), nullable=True, index=True)
+    """Intenção principal (maior prioridade) — só para auditoria/exibição simples. O
+    roteamento de verdade usa `intencoes` (motor Intenção×Fase→Ações)."""
+    intencoes: Mapped[Optional[list]] = mapped_column(JSON, nullable=True)
+    """Lista completa e ordenada de todas as intenções que bateram nesta mensagem."""
     confianca: Mapped[Optional[Decimal]] = mapped_column(Numeric(3, 2), nullable=True)
     confianca_nivel: Mapped[Optional[str]] = mapped_column(String(10), nullable=True)
     origem_classificacao: Mapped[Optional[OrigemClassificacao]] = mapped_column(
@@ -906,6 +910,10 @@ class ProcessamentoMensagem(Base):
     contato_id_identificado: Mapped[Optional[int]] = mapped_column(ForeignKey("contatos.id"), nullable=True)
     empresa_id_identificada: Mapped[Optional[int]] = mapped_column(ForeignKey("empresas.id"), nullable=True)
     atendimento_id_ativa: Mapped[Optional[int]] = mapped_column(ForeignKey("atendimentos.id"), nullable=True)
+    fase_atendimento: Mapped[Optional[str]] = mapped_column(String(20), nullable=True)
+    """Fase do atendimento (esclarecendo/finalizando/em_orcamentacao) no momento em que esta
+    mensagem foi processada — não confundir com a fase *atual* do atendimento (que pode já
+    ter mudado desde então). Usado para debug ("Raciocínio do cérebro" no painel)."""
 
     # --- Decisão de resposta ---
     template_usado: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
@@ -946,6 +954,7 @@ class ProcessamentoMensagem(Base):
         return {
             "id": self.id,
             "intencao": self.intencao,
+            "intencoes": self.intencoes,
             "confianca": float(self.confianca) if self.confianca is not None else None,
             "origem_classificacao": (self.origem_classificacao.value if self.origem_classificacao else None),
             "entidades": self.entidades,
@@ -953,6 +962,7 @@ class ProcessamentoMensagem(Base):
             "contato_id_identificado": self.contato_id_identificado,
             "empresa_id_identificada": self.empresa_id_identificada,
             "atendimento_id_ativa": self.atendimento_id_ativa,
+            "fase_atendimento": self.fase_atendimento,
             "template_usado": self.template_usado,
             "personalizado_via_llm": self.personalizado_via_llm,
             "llm_provider": self.llm_provider,
