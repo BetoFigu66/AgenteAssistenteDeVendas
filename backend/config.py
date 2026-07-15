@@ -14,7 +14,7 @@ class Settings(BaseSettings):
     TWILIO_WHATSAPP_NUMBER: Optional[str] = None
 
     # Database
-    DATABASE_URL: str = "postgresql://inforrel:inforrel_dev@localhost:5433/assistente_vendas"
+    DATABASE_URL: str = "postgresql+psycopg://inforrel:inforrel_dev@192.168.0.34:5433/assistente_vendas"
 
     # API
     API_HOST: str = "0.0.0.0"

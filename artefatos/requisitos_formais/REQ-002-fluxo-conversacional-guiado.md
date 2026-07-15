@@ -1,7 +1,7 @@
 # REQ-002: Fluxo Conversacional Guiado
 
-**Versão**: 1.33  
-**Data**: 2026-07-14  
+**Versão**: 1.34  
+**Data**: 2026-07-15  
 **Autor**: Kika (Analista de Requisitos)  
 **Status**: Em Elaboração  
 **Prioridade**: Alta  
@@ -197,7 +197,7 @@ O sistema deve conduzir conversas de forma estruturada, porém **adaptativa**, c
   - **Relógio de ponto**: cartográfico ou eletrônico, este último com tecnologia (cartão de proximidade, cartão de barras, biometria, reconhecimento facial)
   - **Câmeras / CFTV, Roteadores, Softwares, Cancelas, Assistência técnica**: modelo/especificação conforme catálogo Inforrel
 
-  Quando o modelo não estiver claro, o sistema deve perguntar diretamente, oferecendo a lista de opções válidas para o tipo de produto correspondente. Dado registrado no catálogo de conversação como `CAMPO-modelo`.
+  Quando o modelo não estiver claro, o sistema deve perguntar diretamente, oferecendo a lista de opções válidas para o tipo de produto correspondente. Se o modelo informado pelo cliente **não existir no catálogo**, o sistema deve informar que não reconheceu esse modelo e reapresentar as opções válidas — **nunca** armazenar texto livre como modelo. Após 2 tentativas sem correspondência, escalar para atendimento humano (REQ-002.21). Dado registrado no catálogo de conversação como `CAMPO-modelo`.
 
 - [ ] **REQ-002.3C — Coletar informações adicionais para orçamento**: O sistema deve coletar os dados complementares que não pertencem nem ao tipo/modelo nem ao endereço de entrega:
   - **Nome do solicitante** — **obrigatório para PF** (substitui a função identificadora da razão social, que existe apenas para PJ); **recomendado para PJ** quando informado pelo cliente (útil para tratamento personalizado, mas não bloqueia a qualificação se ausente)
@@ -515,6 +515,7 @@ Cliente: "Facial."
 | 06/07/2026 | 1.31 | REQ-002.2A: adicionada referência ao template do catálogo de conversação `PERG-002-2A` na pergunta de ambiguidade PF/PJ. | Cascade |
 | 06/07/2026 | 1.32 | REQ-002.3, REQ-002.3B, REQ-002.3C, REQ-002.3D: adicionadas referências explícitas aos campos do catálogo de conversação (`CAMPO-modelo`, `CAMPO-faixa-funcionarios`, `CAMPO-quantidade`, `CAMPO-software-ponto`, `CAMPO-contato`, `CAMPO-endereco`). | Cascade |
 | 14/07/2026 | 1.33 | REQ-002.1C reescrito: (1) transição Esclarecendo→Finalizando **imediata** pela intenção (cat. 1), sem exigir modelo/quantidade antes; (2) retorno Finalizando→Esclarecendo quando cliente faz dúvida (cat. 3) durante coleta; (3) retorno automático Esclarecendo→Finalizando quando dúvida cessa. Adicionados papéis conceituais das fases (reativa vs. ativa). Alinha REQ formal com implementação MVP (plano §3/E1/F3) e visão do Beto. Decisão Kika. | Cascade |
+| 15/07/2026 | 1.34 | REQ-002.3B: adicionada regra explícita — modelo não reconhecido no catálogo **nunca** é armazenado como texto livre; sistema informa que não reconheceu e reapresenta opções; após 2 tentativas escala para humano. | Cascade |
 
 ---
 

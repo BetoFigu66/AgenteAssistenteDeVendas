@@ -1,6 +1,6 @@
 # Índice do Catálogo de Conversação
 
-**Atualizado em:** 2026-07-06
+**Atualizado em:** 2026-07-15
 
 ---
 
@@ -23,7 +23,7 @@
 | PERG-016-009 | Continuidade após pausa | Retorno fora da janela | [perguntas/PERG-016-009.md](perguntas/PERG-016-009.md) | REQ-016.9 (v0.2) |
 | PERG-016-010 | Fechamento do atendimento | Fim de ciclo natural | [perguntas/PERG-016-010.md](perguntas/PERG-016-010.md) | REQ-016.10 (v0.2) |
 | PERG-002-022 | Reengajamento por abandono | Inatividade 24h em qualificação | [perguntas/PERG-002-022.md](perguntas/PERG-002-022.md) | REQ-002.22 (v0.2) |
-| PERG-esclarecendo-confirmar-interesse | Confirmar interesses anteriores | Após "Continuar" na PERG-016-009 | [perguntas/PERG-esclarecendo-confirmar-interesse.md](perguntas/PERG-esclarecendo-confirmar-interesse.md) | REQ-016.9 (v2.5) |
+| PERG-016-009B | Confirmação de interesses anteriores após reengajamento | Após "Continuar" na PERG-016-009 | [perguntas/PERG-016-009B.md](perguntas/PERG-016-009B.md) | REQ-016.9 (v0.1) |
 | PERG-002-2A | Identificação PF ou PJ | Ambiguidade em Esclarecendo | [perguntas/PERG-002-2A.md](perguntas/PERG-002-2A.md) | REQ-002.2A (v0.1) |
 
 ---

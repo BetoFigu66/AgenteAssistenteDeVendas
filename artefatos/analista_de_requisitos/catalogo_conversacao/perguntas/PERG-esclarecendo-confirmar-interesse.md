@@ -1,9 +1,11 @@
 # PERG-esclarecendo-confirmar-interesse
 
+> ⚠️ **SUPERSEDED** — Este arquivo foi substituído por **[PERG-016-009B.md](PERG-016-009B.md)** (v0.1, 2026-07-15), que segue o padrão de nomenclatura do catálogo e está referenciado no REQ-016.9. Manter este arquivo apenas como histórico.
+
 **Título:** Confirmar interesses do atendimento anterior  
 **Tipo:** Decisão  
 **Versão:** 0.2  
-**Status:** Rascunho
+**Status:** Superseded → ver PERG-016-009B
 
 ---
 

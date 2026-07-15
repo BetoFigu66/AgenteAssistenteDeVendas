@@ -48,6 +48,7 @@ class MensagemId(IntEnum):
     RETOMAR_PERGUNTA_PENDENTE = 28
     RESUMO_FINALIZANDO = 29
     ORCAMENTO_ENCAMINHADO = 30
+    MODELO_NAO_RECONHECIDO = 31
 
 
 @dataclass(frozen=True)
@@ -263,6 +264,15 @@ CATALOGO: dict[int, MensagemTemplate] = {
         id=MensagemId.ORCAMENTO_ENCAMINHADO,
         codigo="ORCAMENTO_ENCAMINHADO",
         mensagem="Recebi suas informações. Nossa equipe vai preparar o orçamento e retorna em breve.",
+    ),
+    MensagemId.MODELO_NAO_RECONHECIDO: MensagemTemplate(
+        id=MensagemId.MODELO_NAO_RECONHECIDO,
+        codigo="MODELO_NAO_RECONHECIDO",
+        mensagem=(
+            "Não encontrei esse modelo no nosso catálogo. "
+            "O relógio seria cartográfico ou eletrônico? Se eletrônico: cartão de "
+            "proximidade, cartão de barras, biometria ou reconhecimento facial?"
+        ),
     ),
 }
 

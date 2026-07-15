@@ -43,7 +43,7 @@ _(Variantes por tipo de produto — o sistema oferece lista de opções válidas
 | Já informado em Esclarecendo | `nao_perguntar_de_novo` |
 | Cliente não sabe qual modelo | Sistema oferece opções enumeradas por tipo de produto |
 | Cliente faz pergunta sobre produto no meio da coleta | `consultar_base` + `retomar_qualificacao` (REQ-002.17) |
-| Modelo não existe no catálogo | Registrar texto do cliente; sinalizar ao vendedor para validação manual |
+| Modelo não existe no catálogo | **Não armazenar** texto livre; informar ao cliente que o modelo não foi reconhecido e reapresentar opções válidas por tipo de produto. Após 2 tentativas sem correspondência → escalar para atendimento humano (`escalar_humano`) |
 
 ---
 

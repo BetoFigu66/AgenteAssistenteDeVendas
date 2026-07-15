@@ -623,10 +623,14 @@ class ProcessadorMensagem:
             and resultado_class.entidades.tipo_leitor_mencionado
         )
 
-        await self._tentar_resolver_modelo(db, atendimento, resultado_class, dlog=dlog)
+        modelo_nao_reconhecido = await self._tentar_resolver_modelo(db, atendimento, resultado_class, dlog=dlog)
         if atendimento.modo_operacao == ModoOperacao.HUMANO:
             # F2: acabou de escalar por falta de correspondência de modelo — não continua.
             return await self._gerador.gerar(MensagemId.ESCALADO_HUMANO)
+
+        if modelo_nao_reconhecido:
+            # F2: modelo não existe no catálogo (1ª tentativa) — informar e reapresentar opções.
+            return await self._gerador.gerar(MensagemId.MODELO_NAO_RECONHECIDO)
 
         if resultado_class.intencao_principal.value in _INTENCOES_RAG:
             return await self._retomar_apos_duvida(db, atendimento, conteudo, resultado_class, dlog=dlog)
@@ -681,22 +685,22 @@ class ProcessadorMensagem:
         atendimento: Atendimento,
         resultado_class: ResultadoClassificacao,
         dlog: Optional[DebugLogger] = None,
-    ) -> None:
+    ) -> bool:
         """F2: resolve `modelo_produto` para uma linha real de `Produto`, ou escala para
         atendimento humano após `_MODELO_MAX_TENTATIVAS` sem correspondência — nunca aceita
-        o texto do cliente como modelo (REQ-002.21, CAMPO-modelo).
+        o texto do cliente como modelo (REQ-002.3B, CAMPO-modelo).
 
-        `Produto`/`TipoProduto` ainda não têm dados semeados neste ambiente — a busca
-        abaixo é a correta para quando houver catálogo real, mas hoje sempre cai no
-        caminho "sem correspondência" e conta como tentativa.
+        Retorna `True` se houve tentativa sem correspondência (mas sem escalar) — o
+        chamador deve usar `MODELO_NAO_RECONHECIDO` em vez de `PEDIR_MODELO`.
+        Retorna `False` em todos os outros casos (resolvido, não tentou, ou escalou).
         """
         pendentes = campos_pendentes(atendimento)
         if not pendentes or pendentes[0].chave != CAMPO_MODELO.chave:
-            return
+            return False
 
         tipo_leitor = resultado_class.entidades.tipo_leitor_mencionado
         if not tipo_leitor:
-            return  # mensagem não tentou responder o modelo — não conta tentativa
+            return False  # mensagem não tentou responder o modelo — não conta tentativa
 
         candidato = (
             db.query(Produto)
@@ -715,7 +719,7 @@ class ProcessadorMensagem:
             self._remover_info_atendimento(db, atendimento.id, _MODELO_TENTATIVAS_CHAVE)
             if dlog:
                 dlog.log("finalizando", f"modelo resolvido: produto_id={candidato.id} ({candidato.descricao})")
-            return
+            return False
 
         tentativas = int(self._info_atendimento(db, atendimento.id, _MODELO_TENTATIVAS_CHAVE) or 0) + 1
         self._salvar_info_atendimento(db, atendimento.id, _MODELO_TENTATIVAS_CHAVE, str(tentativas))
@@ -733,6 +737,9 @@ class ProcessadorMensagem:
                     "finalizando",
                     f"modelo sem correspondência após {tentativas} tentativas → escalar_humano",
                 )
+            return False
+
+        return True
 
     def _item_atendimento_atual(
         self,
