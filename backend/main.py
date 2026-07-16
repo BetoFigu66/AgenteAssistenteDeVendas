@@ -21,6 +21,7 @@ from models import (
     Empresa,
     Mensagem,
     ModoOperacao,
+    MotivoEncerramento,
     OrigemMensagem,
     Parametro,
     ProcessamentoMensagem,
@@ -32,6 +33,7 @@ from models import (
 )
 from pydantic import BaseModel
 from routers.pares_qa import router as pares_qa_router
+from services import atendimentos as atendimentos_svc
 from services.dev_limpeza_telefone import apagar_dados_telefone
 from services.identificador import identificar_por_telefone, normalizar_telefone
 from services.llm import get_llm_provider
@@ -473,6 +475,58 @@ async def alterar_modo_operacao(atendimento_id: int, payload: AlterarModoRequest
         session.flush()
         session.refresh(atendimento)
         logger.info(f"[ModoOperacao] Atendimento {atendimento.id} alterado para modo={novo_modo.value}")
+        return atendimento.to_dict()
+
+
+class EncerrarAtendimentoRequest(BaseModel):
+    ator: Optional[str] = None  # identificador de quem encerrou — sem autenticação real ainda (Fase 11)
+
+
+@app.post("/api/atendimentos/{atendimento_id}/encerrar")
+async def encerrar_atendimento_manual(atendimento_id: int, payload: EncerrarAtendimentoRequest):
+    """Encerramento manual pelo vendedor (REQ-016.4/016.8, motivo=manual_vendedor)."""
+    with db.get_session() as session:
+        atendimento = session.query(Atendimento).filter_by(id=atendimento_id).first()
+        if not atendimento:
+            raise HTTPException(status_code=404, detail="Atendimento não encontrado")
+        if atendimento.status == StatusAtendimento.ENCERRADO:
+            raise HTTPException(status_code=400, detail="Atendimento já está encerrado")
+
+        ator = (payload.ator or "vendedor").strip() or "vendedor"
+        atendimentos_svc.encerrar_atendimento(
+            session, atendimento, motivo=MotivoEncerramento.MANUAL_VENDEDOR, ator=ator
+        )
+        session.refresh(atendimento)
+        logger.info(f"[Atendimentos] Atendimento {atendimento.id} encerrado manualmente por {ator}")
+        return atendimento.to_dict()
+
+
+class ReabrirAtendimentoRequest(BaseModel):
+    ator: Optional[str] = None
+    justificativa: Optional[str] = None
+
+
+@app.post("/api/atendimentos/{atendimento_id}/reabrir")
+async def reabrir_atendimento_manual(atendimento_id: int, payload: ReabrirAtendimentoRequest):
+    """Reabertura manual pelo vendedor (REQ-016.8) — bloqueada quando o atendimento foi
+    encerrado por conversão de orçamento (`concluido_conversao`), pois a compra já foi
+    concluída (REQ-016.7)."""
+    with db.get_session() as session:
+        atendimento = session.query(Atendimento).filter_by(id=atendimento_id).first()
+        if not atendimento:
+            raise HTTPException(status_code=404, detail="Atendimento não encontrado")
+        if atendimento.status == StatusAtendimento.ATIVO:
+            raise HTTPException(status_code=400, detail="Atendimento já está ativo")
+        if atendimento.motivo_encerramento == MotivoEncerramento.CONCLUIDO_CONVERSAO.value:
+            raise HTTPException(
+                status_code=409,
+                detail="Atendimento concluído por conversão de orçamento não pode ser reaberto",
+            )
+
+        ator = (payload.ator or "vendedor").strip() or "vendedor"
+        atendimentos_svc.reabrir_atendimento(session, atendimento, ator=ator, justificativa=payload.justificativa)
+        session.refresh(atendimento)
+        logger.info(f"[Atendimentos] Atendimento {atendimento.id} reaberto manualmente por {ator}")
         return atendimento.to_dict()
 
 

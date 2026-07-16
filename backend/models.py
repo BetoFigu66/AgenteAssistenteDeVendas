@@ -91,6 +91,23 @@ class StatusAtendimento(str, enum.Enum):
     ENCERRADO = "encerrado"
 
 
+class MotivoEncerramento(str, enum.Enum):
+    """Motivo de encerramento de um atendimento (REQ-016.4).
+
+    Valores legados de dados anteriores à formalização deste enum
+    (`inatividade`, `ganha_legado`, `perdida_legado` — ver migração
+    `2026061502_estados_atendimento_ativo_encerrado.py`) continuam aceitos pelo check
+    constraint do banco para não quebrar histórico, mas não fazem mais parte do
+    vocabulário ativo do código — não gerar novos registros com esses valores.
+    """
+
+    CONCLUIDO_PELO_CLIENTE = "concluido_pelo_cliente"
+    CONCLUIDO_CONVERSAO = "concluido_conversao"
+    ABANDONO = "abandono"
+    DESISTENCIA = "desistencia"
+    MANUAL_VENDEDOR = "manual_vendedor"
+
+
 class StatusOrcamento(str, enum.Enum):
     """Status do orçamento."""
 
@@ -487,6 +504,13 @@ class Atendimento(Base):
         nullable=False,
     )
     motivo_encerramento: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
+    # Auditoria mínima das transições (REQ-016.5) — simplificada até a tabela de eventos
+    # da Fase 5 (REQ-005) existir; ver docs/plano_implementacao_requisitos_formais_2026-07.md.
+    encerrado_em: Mapped[Optional[datetime]] = mapped_column(UTCDateTime, nullable=True)
+    encerrado_por: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
+    reaberto_em: Mapped[Optional[datetime]] = mapped_column(UTCDateTime, nullable=True)
+    reaberto_por: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
+    reabertura_justificativa: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     modo_operacao: Mapped[ModoOperacao] = mapped_column(
         Enum(ModoOperacao, values_callable=lambda x: [e.value for e in x], name="modooperacao"),
         default=ModoOperacao.AGENTE,
@@ -538,6 +562,11 @@ class Atendimento(Base):
             "descricao": self.descricao,
             "status": self.status.value if self.status else None,
             "motivo_encerramento": self.motivo_encerramento,
+            "encerrado_em": serialize_utc_datetime(self.encerrado_em),
+            "encerrado_por": self.encerrado_por,
+            "reaberto_em": serialize_utc_datetime(self.reaberto_em),
+            "reaberto_por": self.reaberto_por,
+            "reabertura_justificativa": self.reabertura_justificativa,
             "modo_operacao": self.modo_operacao.value if self.modo_operacao else None,
             "fase": self.fase.value if self.fase else None,
             "valor_estimado": str(self.valor_estimado) if self.valor_estimado else None,

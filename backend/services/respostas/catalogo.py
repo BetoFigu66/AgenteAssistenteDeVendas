@@ -49,6 +49,10 @@ class MensagemId(IntEnum):
     RESUMO_FINALIZANDO = 29
     ORCAMENTO_ENCAMINHADO = 30
     MODELO_NAO_RECONHECIDO = 31
+    PERGUNTA_CONTINUACAO_ATENDIMENTO = 32
+    CONFIRMAR_INTERESSE_ANTERIOR = 33
+    PERGUNTA_FECHAMENTO_ATENDIMENTO = 34
+    DESPEDIDA_ATENDIMENTO_ENCERRADO = 35
 
 
 @dataclass(frozen=True)
@@ -273,6 +277,34 @@ CATALOGO: dict[int, MensagemTemplate] = {
             "O relógio seria cartográfico ou eletrônico? Se eletrônico: cartão de "
             "proximidade, cartão de barras, biometria ou reconhecimento facial?"
         ),
+    ),
+    MensagemId.PERGUNTA_CONTINUACAO_ATENDIMENTO: MensagemTemplate(
+        id=MensagemId.PERGUNTA_CONTINUACAO_ATENDIMENTO,
+        codigo="PERGUNTA_CONTINUACAO_ATENDIMENTO",
+        mensagem=(
+            "Oi! Vi que você já conversou conosco antes sobre {resumo_curto}. "
+            "Quer continuar de onde paramos ou é um pedido novo?\n\n"
+            "1) Continuar\n"
+            "2) Novo pedido"
+        ),
+    ),
+    MensagemId.CONFIRMAR_INTERESSE_ANTERIOR: MensagemTemplate(
+        id=MensagemId.CONFIRMAR_INTERESSE_ANTERIOR,
+        codigo="CONFIRMAR_INTERESSE_ANTERIOR",
+        mensagem=(
+            "Da última vez você se interessou por {produtos_anteriores}. "
+            "Ainda quer continuar com isso ou mudou de ideia?"
+        ),
+    ),
+    MensagemId.PERGUNTA_FECHAMENTO_ATENDIMENTO: MensagemTemplate(
+        id=MensagemId.PERGUNTA_FECHAMENTO_ATENDIMENTO,
+        codigo="PERGUNTA_FECHAMENTO_ATENDIMENTO",
+        mensagem="Posso te ajudar em mais alguma coisa?",
+    ),
+    MensagemId.DESPEDIDA_ATENDIMENTO_ENCERRADO: MensagemTemplate(
+        id=MensagemId.DESPEDIDA_ATENDIMENTO_ENCERRADO,
+        codigo="DESPEDIDA_ATENDIMENTO_ENCERRADO",
+        mensagem="Tudo bem! Qualquer coisa é só chamar por aqui. Até mais! 👋",
     ),
 }
 

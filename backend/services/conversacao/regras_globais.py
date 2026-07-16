@@ -1,9 +1,10 @@
 """
 Regras globais do motor de roteamento (`services/conversacao/motor.py`) — avaliadas
 independente da Fase efetiva do atendimento: ESCALAR_HUMANO, RECLAMAR, FORNECER_CNPJ,
-FORNECER_CPF, FORNECER_DATA_NASCIMENTO (continuação do fluxo PF pendente) e FORNECER_NOME
-(efeito colateral silencioso). São wrappers finos em cima dos helpers já existentes e
-testados em `ProcessadorMensagem` — nenhuma lógica de negócio nova aqui.
+FORNECER_CPF, FORNECER_DATA_NASCIMENTO (continuação do fluxo PF pendente), FORNECER_NOME
+(efeito colateral silencioso) e a resposta à pergunta de fechamento do atendimento
+(REQ-016.10, `regras_encerramento.py`). São wrappers finos em cima dos helpers já
+existentes e testados em `ProcessadorMensagem` — nenhuma lógica de negócio nova aqui.
 """
 
 from __future__ import annotations
@@ -16,6 +17,7 @@ from services.respostas import MensagemId
 
 from .acoes import Acao, ContextoAcao, GrupoAcoes
 from .motor import RegraIntencao
+from .regras_encerramento import REGISTRO_ENCERRAMENTO
 
 
 async def _executar_escalar_humano(ctx: ContextoAcao):
@@ -145,4 +147,4 @@ REGRAS_GLOBAIS: list[RegraIntencao] = [
         builder=lambda ctx: GrupoAcoes(pre=[Acao("fornecer_nome", _executar_fornecer_nome)]),
         nome="fornecer_nome",
     ),
-]
+] + REGISTRO_ENCERRAMENTO
