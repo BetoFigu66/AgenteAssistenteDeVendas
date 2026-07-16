@@ -9,7 +9,7 @@ import logging
 from decimal import Decimal
 from typing import Optional, TypeVar, Union
 
-from models import Parametro
+from models import ModoExecucao, Parametro
 from sqlalchemy.orm import Session
 from utils.datetime_utils import utc_now
 
@@ -17,6 +17,17 @@ logger = logging.getLogger(__name__)
 
 JANELA_CONTINUACAO_ATENDIMENTO_HORAS = "janela_continuacao_atendimento_horas"
 DEFAULT_JANELA_CONTINUACAO_ATENDIMENTO_HORAS = 24
+
+# REQ-011: modo de execução vigente (simulacao/conversa_controlada/execucao_normal).
+# Default = execucao_normal — decisão explícita: preserva o comportamento atual de fato
+# (envio automático) até alguém trocar conscientemente pelo painel/API, em vez de mudar
+# o comportamento observável do sistema silenciosamente neste deploy.
+MODO_EXECUCAO = "modo_execucao"
+DEFAULT_MODO_EXECUCAO = ModoExecucao.EXECUCAO_NORMAL.value
+
+# REQ-011.13: limiar de alerta visual de SLA para mensagens pendentes de aprovação.
+SLA_APROVACAO_MINUTOS = "sla_aprovacao_minutos"
+DEFAULT_SLA_APROVACAO_MINUTOS = 10
 
 # Validação na escrita (REQ-014 §5.1)
 _PARAM_FLOAT_0_1 = frozenset({
@@ -31,7 +42,11 @@ _PARAM_INT_MIN_1 = frozenset({
     JANELA_CONTINUACAO_ATENDIMENTO_HORAS,
     "desambiguador_max_opcoes",
     "desambiguador_timeout_min",
+    SLA_APROVACAO_MINUTOS,
 })
+_PARAM_ENUM: dict[str, frozenset[str]] = {
+    MODO_EXECUCAO: frozenset(m.value for m in ModoExecucao),
+}
 
 T = TypeVar("T", int, float, bool, str)
 
@@ -132,6 +147,27 @@ class ParametroService:
             or DEFAULT_JANELA_CONTINUACAO_ATENDIMENTO_HORAS
         )
 
+    def modo_execucao(self) -> ModoExecucao:
+        """Modo de execução vigente (REQ-011.1). Valor inválido no banco (ex.: alterado
+        manualmente fora da validação) cai para o default em vez de levantar exceção —
+        este é lido a cada mensagem processada, não pode quebrar o atendimento."""
+        valor = self.get_str(MODO_EXECUCAO, DEFAULT_MODO_EXECUCAO) or DEFAULT_MODO_EXECUCAO
+        try:
+            return ModoExecucao(valor)
+        except ValueError:
+            logger.warning(
+                "[Parametro] '%s' valor='%s' não é um ModoExecucao válido; usando default=%s",
+                MODO_EXECUCAO, valor, DEFAULT_MODO_EXECUCAO,
+            )
+            return ModoExecucao(DEFAULT_MODO_EXECUCAO)
+
+    def sla_aprovacao_minutos(self) -> int:
+        """Limiar de alerta visual de SLA de aprovação (REQ-011.13, default 10min)."""
+        return (
+            self.get_int(SLA_APROVACAO_MINUTOS, DEFAULT_SLA_APROVACAO_MINUTOS)
+            or DEFAULT_SLA_APROVACAO_MINUTOS
+        )
+
     def limiares_zona_cinza(self) -> dict[str, float]:
         """
         Retorna os 4 limiares de zona cinza usados pelo QAService.
@@ -166,6 +202,9 @@ def validar_valor_parametro(nome: str, valor: str) -> str:
         n = int(v)
         if n < 1:
             raise ValueError(f"'{nome}' deve ser inteiro >= 1")
+    elif nome in _PARAM_ENUM:
+        if v not in _PARAM_ENUM[nome]:
+            raise ValueError(f"'{nome}' deve ser um de {sorted(_PARAM_ENUM[nome])}")
     return v
 
 

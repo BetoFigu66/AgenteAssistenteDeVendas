@@ -282,11 +282,11 @@ export const api = {
   },
 
   // Aprovação de mensagens
-  async aprovarMensagem(mensagemId, aprovadorId) {
+  async aprovarMensagem(mensagemId, aprovadorId, feedback) {
     const response = await fetch(`${API_URL}/api/mensagens/${mensagemId}/aprovar`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ aprovador_id: aprovadorId }),
+      body: JSON.stringify({ aprovador_id: aprovadorId, feedback: feedback || null }),
     })
     if (!response.ok) {
       const detail = await response.json().catch(() => null)
@@ -403,6 +403,35 @@ export const api = {
       if (!response.ok) {
         const detail = await response.json().catch(() => null)
         throw new ApiError(detail?.detail || 'Erro ao atualizar config RAG', response.status, 'server')
+      }
+      return response.json()
+    } catch (error) {
+      if (error instanceof ApiError) throw error
+      throw new ApiError('Backend não está respondendo', 0, 'network')
+    }
+  },
+
+  async getConfigExecucao() {
+    try {
+      const response = await fetch(`${API_URL}/api/config/execucao`)
+      if (!response.ok) throw new ApiError('Erro ao buscar modo de execução', response.status, 'server')
+      return response.json()
+    } catch (error) {
+      if (error instanceof ApiError) throw error
+      throw new ApiError('Backend não está respondendo', 0, 'network')
+    }
+  },
+
+  async patchConfigExecucao(modoExecucao, ator) {
+    try {
+      const response = await fetch(`${API_URL}/api/config/execucao`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ modo_execucao: modoExecucao, ator }),
+      })
+      if (!response.ok) {
+        const detail = await response.json().catch(() => null)
+        throw new ApiError(detail?.detail || 'Erro ao alterar modo de execução', response.status, 'server')
       }
       return response.json()
     } catch (error) {

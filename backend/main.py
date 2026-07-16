@@ -19,7 +19,9 @@ from models import (
     CategoriaReport,
     Contato,
     Empresa,
+    HistoricoModoExecucao,
     Mensagem,
+    ModoExecucao,
     ModoOperacao,
     MotivoEncerramento,
     OrigemMensagem,
@@ -37,6 +39,7 @@ from services import atendimentos as atendimentos_svc
 from services.dev_limpeza_telefone import apagar_dados_telefone
 from services.identificador import identificar_por_telefone, normalizar_telefone
 from services.llm import get_llm_provider
+from services.parametro_service import MODO_EXECUCAO, ParametroService
 from services.processador import ProcessadorMensagem
 from sqlalchemy import func
 from utils.datetime_utils import serialize_utc_datetime, utc_now
@@ -608,6 +611,7 @@ class UserRequest(BaseModel):
 
 class AprovarMensagemRequest(BaseModel):
     aprovador_id: int
+    feedback: Optional[str] = None  # REQ-011.6: nota opcional ("correta, mas...")
 
 
 @app.get("/api/users")
@@ -648,6 +652,8 @@ async def listar_mensagens_pendentes():
         return {
             "total": len(mensagens),
             "mensagens": [m.to_dict() for m in mensagens],
+            # REQ-011.13: limiar de SLA para o painel destacar pendências antigas.
+            "sla_aprovacao_minutos": ParametroService(session).sla_aprovacao_minutos(),
         }
 
 
@@ -697,6 +703,9 @@ async def aprovar_mensagem(mensagem_id: int, payload: AprovarMensagemRequest):
 
         mensagem.aprovador_id = aprovador.id
         mensagem.timestamp_aprovacao = utc_now()
+        if payload.feedback is not None:
+            feedback = payload.feedback.strip()
+            mensagem.feedback_aprovacao = feedback or None
         session.flush()
         session.refresh(mensagem)
         return mensagem.to_dict()
@@ -1205,6 +1214,62 @@ async def get_config_atendimento():
         return {
             "janela_continuacao_atendimento_horas": svc.janela_continuacao_atendimento_horas(),
         }
+
+
+# ============================================================================
+# Modo de execução (runtime) — REQ-011
+# ============================================================================
+
+
+class ModoExecucaoUpdate(BaseModel):
+    modo_execucao: str
+    ator: Optional[str] = None
+
+
+@app.get("/api/config/execucao")
+async def get_config_execucao():
+    """Modo de execução vigente (REQ-011.1) + histórico recente de trocas (REQ-011.3)."""
+    with db.get_session() as session:
+        svc = ParametroService(session)
+        historico = (
+            session.query(HistoricoModoExecucao)
+            .order_by(HistoricoModoExecucao.timestamp.desc())
+            .limit(20)
+            .all()
+        )
+        return {
+            "modo_execucao": svc.modo_execucao().value,
+            "sla_aprovacao_minutos": svc.sla_aprovacao_minutos(),
+            "historico": [h.to_dict() for h in historico],
+        }
+
+
+@app.patch("/api/config/execucao")
+async def patch_config_execucao(body: ModoExecucaoUpdate):
+    """Troca o modo de execução vigente, registrando auditoria (REQ-011.3)."""
+    try:
+        novo_modo = ModoExecucao(body.modo_execucao)
+    except ValueError:
+        valores = [m.value for m in ModoExecucao]
+        raise HTTPException(
+            status_code=422,
+            detail=f"modo_execucao inválido: '{body.modo_execucao}'. Aceitos: {valores}",
+        )
+
+    with db.get_session() as session:
+        svc = ParametroService(session)
+        modo_anterior = svc.modo_execucao()
+        if modo_anterior == novo_modo:
+            return {"modo_execucao": novo_modo.value, "alterado": False}
+
+        svc.set(MODO_EXECUCAO, novo_modo.value, descricao="Modo de execução vigente (REQ-011)")
+        ator = (body.ator or "vendedor").strip() or "vendedor"
+        session.add(
+            HistoricoModoExecucao(modo_anterior=modo_anterior.value, modo_novo=novo_modo.value, ator=ator)
+        )
+        session.commit()
+        logger.info(f"[ModoExecucao] {modo_anterior.value} → {novo_modo.value} (ator={ator})")
+        return {"modo_execucao": novo_modo.value, "alterado": True}
 
 
 @app.patch("/api/config/atendimento")

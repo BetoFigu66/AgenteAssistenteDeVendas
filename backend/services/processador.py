@@ -28,6 +28,7 @@ from models import (
     ItemAtendimento,
     Mensagem,
     Modelo,
+    ModoExecucao,
     ModoOperacao,
     MotivoEncerramento,
     OrigemClassificacao,
@@ -37,6 +38,7 @@ from models import (
     ProcessamentoMensagem,
     Produto,
     StatusAtendimento,
+    User,
 )
 from sqlalchemy.orm import Session
 from utils.datetime_utils import utc_now
@@ -135,6 +137,10 @@ _REGEX_MANTEM_INTERESSE = re.compile(
     r"\b(sim|isso\s+mesmo|continua|quero\s+isso|mant[eé]m|pode\s+seguir|confirmo)\b",
     re.IGNORECASE,
 )
+
+# REQ-011.16: nome do `User` sentinela usado para marcar mensagens auto-enviadas em
+# `execucao_normal` como já decididas (ver `_obter_user_sistema`).
+_USER_SISTEMA_NOME = "Sistema (execução automática)"
 
 
 def _dentro_da_janela(momento: Optional[datetime], horas: int) -> bool:
@@ -271,6 +277,14 @@ class ProcessadorMensagem:
                 "não gerando resposta automática.")
         dlog.log("modo", "HUMANO → resposta suprimida" if modo_humano else "AGENTE")
 
+        # 4b. Modo de execução vigente (REQ-011) — independente do modo_operacao acima
+        # (REQ-011.14: HUMANO sempre suprime, em qualquer modo de execução). Determina
+        # se a resposta gerada pode sair automaticamente ou precisa ficar pendente de
+        # aprovação no painel antes de qualquer envio real.
+        modo_execucao = ParametroService(db).modo_execucao()
+        requer_aprovacao = modo_execucao in (ModoExecucao.SIMULACAO, ModoExecucao.CONVERSA_CONTROLADA)
+        dlog.log("modo_execucao", modo_execucao.value)
+
         # 5. Roteia conforme estado de identificação + intenção (só no modo AGENTE)
         if modo_humano:
             resposta = RespostaGerada(texto="", template_usado=None)
@@ -331,8 +345,12 @@ class ProcessadorMensagem:
 
         # 9. Persiste resposta do sistema APENAS quando modo=AGENTE.
         # No modo HUMANO, o operador enviará a resposta manualmente pela UI.
-        # Mensagem nasce pendente de aprovação: aprovador_id e timestamp_aprovacao
-        # ficam NULL até alguém aprovar via POST /api/mensagens/{id}/aprovar.
+        # Mensagem nasce pendente de aprovação (aprovador_id/timestamp_aprovacao NULL)
+        # em simulacao/conversa_controlada — REQ-011.5/011.10. Em execucao_normal, sem
+        # etapa de aprovação humana (REQ-011.16), é marcada como decidida automaticamente
+        # pelo próprio sistema, para não poluir a fila de pendências do painel com
+        # mensagens que já foram entregues (permite feedback retroativo — REQ-011.17 —
+        # sem confundir com "aguardando decisão").
         if not modo_humano:
             msg_out = Mensagem(
                 telefone=telefone_norm,
@@ -343,11 +361,27 @@ class ProcessadorMensagem:
                 aprovador_id=None,
                 timestamp_aprovacao=None,
             )
+            if resposta.texto and not requer_aprovacao:
+                sistema_user = self._obter_user_sistema(db)
+                msg_out.aprovador_id = sistema_user.id
+                msg_out.timestamp_aprovacao = utc_now()
             db.add(msg_out)
         db.commit()
 
+        # REQ-011.5/011.10: em simulacao/conversa_controlada, a resposta gerada fica
+        # pendente no painel — não sai automaticamente pelo canal (webhook Twilio ou
+        # simulador `/api/mensagem`). `msg_out` acima já preserva o texto completo para
+        # quem for aprovar depois; só o valor devolvido ao chamador é suprimido aqui.
+        resposta_entrega_imediata = resposta.texto
+        if not modo_humano and requer_aprovacao and resposta.texto:
+            resposta_entrega_imediata = ""
+            dlog.log(
+                "aprovacao",
+                f"modo={modo_execucao.value} → resposta pendente, não entregue automaticamente",
+            )
+
         return ResultadoProcessamento(
-            resposta=resposta.texto,
+            resposta=resposta_entrega_imediata,
             contato_id=contato.id if contato else None,
             atendimento_id=atendimento.id if atendimento else None,
             processamento_id=processamento.id,
@@ -1389,6 +1423,17 @@ class ProcessadorMensagem:
     def _remover_info_atendimento(self, db: Session, atendimento_id: int, chave: str) -> None:
         db.query(AtendimentoInfo).filter_by(atendimento_id=atendimento_id, chave=chave).delete()
         db.commit()
+
+    def _obter_user_sistema(self, db: Session) -> User:
+        """`User` sentinela usado para marcar mensagens auto-aprovadas em
+        `execucao_normal` (REQ-011.16) como decididas — sem isso, `aprovador_id=None`
+        faria toda mensagem já entregue aparecer como pendente na fila de aprovação."""
+        user = db.query(User).filter_by(nome=_USER_SISTEMA_NOME).first()
+        if user is None:
+            user = User(nome=_USER_SISTEMA_NOME)
+            db.add(user)
+            db.flush()
+        return user
 
     def _registrar_resultado_credito(self, db: Session, atendimento: Atendimento, resultado) -> None:
         """Registra resultado agregado da consulta de crédito no atendimento (REQ-015)."""

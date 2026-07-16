@@ -29,6 +29,8 @@ function AcompanhamentoPage() {
   const [justificativaReprovacao, setJustificativaReprovacao] = useState('')
   const [enviandoReprovacao, setEnviandoReprovacao] = useState(false)
 
+  const [slaAprovacaoMinutos, setSlaAprovacaoMinutos] = useState(10)
+
   const [perguntaQA, setPerguntaQA] = useState('')
   const [contextoQA, setContextoQA] = useState('')
   const [respostaQA, setRespostaQA] = useState('')
@@ -39,6 +41,7 @@ function AcompanhamentoPage() {
   useEffect(() => {
     carregarAtendimentos()
     carregarUsers()
+    carregarConfigExecucao()
   }, [])
 
   useEffect(() => {
@@ -95,6 +98,15 @@ function AcompanhamentoPage() {
       }
     } catch (error) {
       console.error('Erro ao carregar usuários:', error)
+    }
+  }
+
+  const carregarConfigExecucao = async () => {
+    try {
+      const data = await api.getConfigExecucao()
+      setSlaAprovacaoMinutos(data.sla_aprovacao_minutos || 10)
+    } catch (error) {
+      console.error('Erro ao carregar config de execução:', error)
     }
   }
 
@@ -188,8 +200,13 @@ function AcompanhamentoPage() {
       alert('Selecione um usuário para aprovar a mensagem')
       return
     }
+    // REQ-011.6: feedback opcional na aprovação — "correto, mas..." (Cancelar/vazio pula).
+    const feedback = window.prompt(
+      'Feedback opcional sobre esta resposta (deixe em branco para pular):',
+      ''
+    )
     try {
-      await api.aprovarMensagem(mensagemId, userSelecionado)
+      await api.aprovarMensagem(mensagemId, userSelecionado, feedback || null)
       if (atendimentoSelecionado) {
         carregarMensagensAtendimento(atendimentoSelecionado.telefone)
       }
@@ -543,9 +560,23 @@ function AcompanhamentoPage() {
                           {msg.origem === 'system' && (
                             <>
                               {msg.pendente_aprovacao ? (
-                                <span className="px-1.5 py-0.5 bg-yellow-200 text-yellow-800 text-xs rounded">
-                                  Pendente
-                                </span>
+                                <>
+                                  <span className="px-1.5 py-0.5 bg-yellow-200 text-yellow-800 text-xs rounded">
+                                    Pendente
+                                  </span>
+                                  {msg.segundos_pendente != null && (
+                                    <span
+                                      className={`px-1.5 py-0.5 text-xs rounded ${
+                                        msg.segundos_pendente >= slaAprovacaoMinutos * 60
+                                          ? 'bg-red-200 text-red-800 font-medium'
+                                          : 'bg-gray-100 text-gray-500'
+                                      }`}
+                                      title={`SLA de aprovação: ${slaAprovacaoMinutos} min`}
+                                    >
+                                      há {Math.max(1, Math.floor(msg.segundos_pendente / 60))} min
+                                    </span>
+                                  )}
+                                </>
                               ) : (
                                 <span className="px-1.5 py-0.5 bg-green-200 text-green-800 text-xs rounded">
                                   Aprovada
