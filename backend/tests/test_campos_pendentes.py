@@ -2,7 +2,7 @@
 
 Usa stubs leves (sem tocar o banco) em vez de instâncias reais de
 `Atendimento`/`AtendimentoInfo`/`ItemAtendimento` — as funções testadas só
-acessam `.informacoes` (chave/valor) e `.itens` (produto_id) por duck typing.
+acessam `.informacoes` (chave/valor) e `.itens` (modelo_id) por duck typing.
 """
 
 from dataclasses import dataclass, field
@@ -28,7 +28,7 @@ class _InfoStub:
 
 @dataclass
 class _ItemStub:
-    produto_id: Optional[int] = None
+    modelo_id: Optional[int] = None
 
 
 @dataclass
@@ -37,11 +37,11 @@ class _AtendimentoStub:
     itens: list = field(default_factory=list)
 
 
-def _atendimento(*, tipo_produto=None, infos=None, produto_id=None):
+def _atendimento(*, tipo_produto=None, infos=None, modelo_id=None):
     informacoes = list(infos or [])
     if tipo_produto is not None:
         informacoes.append(_InfoStub(chave="tipos_produto", valor=tipo_produto))
-    itens = [_ItemStub(produto_id=produto_id)] if produto_id is not None else []
+    itens = [_ItemStub(modelo_id=modelo_id)] if modelo_id is not None else []
     return _AtendimentoStub(informacoes=informacoes, itens=itens)
 
 
@@ -63,7 +63,7 @@ def test_proxima_pergunta_e_modelo_primeiro_na_ordem():
 
 
 def test_modelo_ja_resolvido_nao_e_mais_pendente():
-    atendimento = _atendimento(tipo_produto="relogio_ponto", produto_id=42)
+    atendimento = _atendimento(tipo_produto="relogio_ponto", modelo_id=42)
     pendentes = campos_pendentes(atendimento)
     assert CAMPO_MODELO not in pendentes
     assert CAMPO_SOFTWARE_PONTO in pendentes
@@ -91,7 +91,7 @@ def test_software_com_valor_real_nao_libera_faixa_funcionarios():
 def test_todos_os_campos_capturados_nenhuma_pendencia():
     atendimento = _atendimento(
         tipo_produto="relogio_ponto",
-        produto_id=42,
+        modelo_id=42,
         infos=[
             _InfoStub(chave="software_controle_ponto", valor="nenhum"),
             _InfoStub(chave="faixa_funcionarios", valor="80"),
@@ -103,7 +103,7 @@ def test_todos_os_campos_capturados_nenhuma_pendencia():
 
 def test_nao_perguntar_de_novo_modelo_usa_item_atendimento():
     sem_modelo = _atendimento(tipo_produto="relogio_ponto")
-    com_modelo = _atendimento(tipo_produto="relogio_ponto", produto_id=7)
+    com_modelo = _atendimento(tipo_produto="relogio_ponto", modelo_id=7)
     assert nao_perguntar_de_novo(CAMPO_MODELO, sem_modelo) is False
     assert nao_perguntar_de_novo(CAMPO_MODELO, com_modelo) is True
 

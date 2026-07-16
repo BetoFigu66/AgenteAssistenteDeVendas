@@ -5,7 +5,7 @@ from services.conversacao.catalogo_campos import (
     CAMPO_MODELO,
     CAMPO_SOFTWARE_PONTO,
     DESTINO_ATENDIMENTO_INFO,
-    DESTINO_ITEM_ATENDIMENTO_PRODUTO_ID,
+    DESTINO_ITEM_ATENDIMENTO_MODELO_ID,
     campos_do_produto,
 )
 
@@ -33,9 +33,9 @@ def test_chave_e_id_catalogo_do_software_ponto():
     assert CAMPO_SOFTWARE_PONTO.id_catalogo == "CAMPO-software-ponto"
 
 
-def test_modelo_resolve_para_item_atendimento_produto_id():
+def test_modelo_resolve_para_item_atendimento_modelo_id():
     assert CAMPO_MODELO.chave == "modelo_produto"
-    assert CAMPO_MODELO.destino == DESTINO_ITEM_ATENDIMENTO_PRODUTO_ID
+    assert CAMPO_MODELO.destino == DESTINO_ITEM_ATENDIMENTO_MODELO_ID
 
 
 def test_software_e_faixa_funcionarios_vao_para_atendimento_info():

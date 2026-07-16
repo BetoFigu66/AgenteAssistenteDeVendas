@@ -9,7 +9,7 @@ import asyncio
 
 import pytest
 from database import Database
-from models import Contato, FaseAtendimento, ItemAtendimento, ModoOperacao, Produto, TipoProduto
+from models import Contato, FaseAtendimento, ItemAtendimento, Modelo, ModoOperacao, Produto
 from services.classificador import EntidadesExtraidas, Intencao, NivelConfianca, ResultadoClassificacao
 from services.dev_limpeza_telefone import apagar_dados_telefone
 from services.identificador import ResultadoIdentificacao, StatusIdentificacao
@@ -67,16 +67,16 @@ def _iniciar_finalizando_com_software(db_session, processador, telefone, softwar
 
 def _resolver_modelo_manual(db_session, atendimento):
     """Simula uma resolução de modelo bem-sucedida (F2 feliz) sem depender de dados reais
-    no catálogo — cria o TipoProduto/Produto de teste e vincula via ItemAtendimento."""
-    tipo = db_session.query(TipoProduto).filter_by(descricao="Relógio de Ponto (teste F)").first()
-    if tipo is None:
-        tipo = TipoProduto(descricao="Relógio de Ponto (teste F)", ativo=True)
-        db_session.add(tipo)
+    no catálogo — cria o Produto/Modelo de teste e vincula via ItemAtendimento."""
+    produto = db_session.query(Produto).filter_by(descricao="Relógio de Ponto (teste F)").first()
+    if produto is None:
+        produto = Produto(descricao="Relógio de Ponto (teste F)", ativo=True)
+        db_session.add(produto)
         db_session.commit()
-    modelo = db_session.query(Produto).filter_by(codigo="TESTE-REP-F001").first()
+    modelo = db_session.query(Modelo).filter_by(codigo="TESTE-REP-F001").first()
     if modelo is None:
-        modelo = Produto(
-            tipo_produto_id=tipo.id,
+        modelo = Modelo(
+            produto_id=produto.id,
             codigo="TESTE-REP-F001",
             descricao="Modelo de teste (Fase F)",
             preco_tabela=0,
@@ -85,7 +85,7 @@ def _resolver_modelo_manual(db_session, atendimento):
         db_session.add(modelo)
         db_session.commit()
     item = ItemAtendimento(
-        atendimento_id=atendimento.id, tipo_produto_id=tipo.id, produto_id=modelo.id, quantidade=1
+        atendimento_id=atendimento.id, produto_id=produto.id, modelo_id=modelo.id, quantidade=1
     )
     db_session.add(item)
     db_session.commit()

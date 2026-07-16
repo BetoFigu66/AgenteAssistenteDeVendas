@@ -14,7 +14,7 @@ from typing import Optional
 from models import Atendimento
 
 from .catalogo_campos import (
-    DESTINO_ITEM_ATENDIMENTO_PRODUTO_ID,
+    DESTINO_ITEM_ATENDIMENTO_MODELO_ID,
     CampoDef,
     Valores,
     campos_do_produto,
@@ -22,7 +22,7 @@ from .catalogo_campos import (
 
 # Chave de AtendimentoInfo onde o tipo de produto de interesse é registrado
 # hoje (backend/services/processador.py::_atualizar_infos_atendimento).
-# Ainda não migrado para ItemAtendimento.tipo_produto_id (ver risco/decisão #1
+# Ainda não migrado para ItemAtendimento.produto_id (ver risco/decisão #1
 # em §8 do plano de MVP) — isolado aqui para trocar depois sem afetar o resto
 # do módulo. MVP: só relógio de ponto, então o primeiro valor da lista basta.
 _CHAVE_TIPOS_PRODUTO = "tipos_produto"
@@ -43,12 +43,12 @@ def _valores_capturados(atendimento: Atendimento) -> Valores:
 
 
 def _modelo_ja_resolvido(atendimento: Atendimento) -> bool:
-    """True se algum `ItemAtendimento` do atendimento já tem `produto_id` (modelo) resolvido.
+    """True se algum `ItemAtendimento` do atendimento já tem `modelo_id` (modelo) resolvido.
 
     `modelo_produto` não passa por `AtendimentoInfo` — resolve direto para uma
     linha real do catálogo (ver `CampoDef.destino`).
     """
-    return any(item.produto_id is not None for item in atendimento.itens)
+    return any(item.modelo_id is not None for item in atendimento.itens)
 
 
 def nao_perguntar_de_novo(campo: CampoDef, atendimento: Atendimento) -> bool:
@@ -57,7 +57,7 @@ def nao_perguntar_de_novo(campo: CampoDef, atendimento: Atendimento) -> bool:
     Nome espelha o efeito `nao_perguntar_de_novo` do catálogo de conversação
     (`catalogo_conversacao/README.md`).
     """
-    if campo.destino == DESTINO_ITEM_ATENDIMENTO_PRODUTO_ID:
+    if campo.destino == DESTINO_ITEM_ATENDIMENTO_MODELO_ID:
         return _modelo_ja_resolvido(atendimento)
     return bool(_valores_capturados(atendimento).get(campo.chave))
 

@@ -91,6 +91,23 @@ class StatusAtendimento(str, enum.Enum):
     ENCERRADO = "encerrado"
 
 
+class MotivoEncerramento(str, enum.Enum):
+    """Motivo de encerramento de um atendimento (REQ-016.4).
+
+    Valores legados de dados anteriores à formalização deste enum
+    (`inatividade`, `ganha_legado`, `perdida_legado` — ver migração
+    `2026061502_estados_atendimento_ativo_encerrado.py`) continuam aceitos pelo check
+    constraint do banco para não quebrar histórico, mas não fazem mais parte do
+    vocabulário ativo do código — não gerar novos registros com esses valores.
+    """
+
+    CONCLUIDO_PELO_CLIENTE = "concluido_pelo_cliente"
+    CONCLUIDO_CONVERSAO = "concluido_conversao"
+    ABANDONO = "abandono"
+    DESISTENCIA = "desistencia"
+    MANUAL_VENDEDOR = "manual_vendedor"
+
+
 class StatusOrcamento(str, enum.Enum):
     """Status do orçamento."""
 
@@ -112,6 +129,28 @@ class ModoOperacao(str, enum.Enum):
 
     AGENTE = "agente"
     HUMANO = "humano"
+
+
+class ModoExecucao(str, enum.Enum):
+    """Modo de execução vigente do sistema (REQ-011).
+
+    Eixo ortogonal a `ModoOperacao` (agente/humano é POR ATENDIMENTO): este é uma
+    configuração GLOBAL do sistema, lida/persistida via `Parametro`/`ParametroService`
+    (`services/parametro_service.py::ParametroService.modo_execucao`), não uma coluna de
+    tabela — REQ-011.1 pede persistência sem exigir schema novo.
+
+    - SIMULACAO: sem integração com WhatsApp; toda mensagem gerada pela IA fica
+      pendente de aprovação no painel.
+    - CONVERSA_CONTROLADA: mensagens do cliente chegam pelo WhatsApp normalmente, mas
+      respostas da IA ficam pendentes até aprovação humana antes do envio efetivo.
+    - EXECUCAO_NORMAL: operação plena — respostas da IA são enviadas automaticamente,
+      sem aprovação manual (REQ-004.10/REQ-011.14 — modo `HUMANO` por atendimento
+      continua suprimindo geração automática independente deste modo).
+    """
+
+    SIMULACAO = "simulacao"
+    CONVERSA_CONTROLADA = "conversa_controlada"
+    EXECUCAO_NORMAL = "execucao_normal"
 
 
 class FaseAtendimento(str, enum.Enum):
@@ -153,9 +192,13 @@ class Mensagem(Base):
         ForeignKey("processamentos_mensagem.id"), nullable=True, index=True
     )
 
-    # Aprovação de mensagens geradas pelo agente (REQ-aprovação)
+    # Aprovação de mensagens geradas pelo agente (REQ-011)
     aprovador_id: Mapped[Optional[int]] = mapped_column(ForeignKey("users.id"), nullable=True, index=True)
     timestamp_aprovacao: Mapped[Optional[datetime]] = mapped_column(UTCDateTime, nullable=True)
+    # REQ-011.6: feedback textual opcional ao aprovar (mensagem correta, mas com nota).
+    # Reprovação já tem seu próprio texto livre em `ReportProblema.descricao` — aqui é
+    # só o caso positivo, que não gera report.
+    feedback_aprovacao: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
 
     # Relacionamentos
     contato: Mapped[Optional["Contato"]] = relationship(back_populates="mensagens")
@@ -182,6 +225,14 @@ class Mensagem(Base):
         origem_val = self.origem.value if isinstance(self.origem, OrigemMensagem) else self.origem
         return origem_val == OrigemMensagem.SYSTEM.value and self.aprovador_id is None
 
+    @property
+    def segundos_pendente(self) -> Optional[int]:
+        """REQ-011.13: há quanto tempo esta mensagem está pendente (SLA visual). `None`
+        quando não está pendente."""
+        if not self.pendente_aprovacao:
+            return None
+        return int((utc_now() - self.timestamp).total_seconds())
+
     def to_dict(self) -> dict:
         """Converte o modelo para dicionário."""
         return {
@@ -196,6 +247,8 @@ class Mensagem(Base):
             "aprovador_id": self.aprovador_id,
             "timestamp_aprovacao": serialize_utc_datetime(self.timestamp_aprovacao),
             "pendente_aprovacao": self.pendente_aprovacao,
+            "feedback_aprovacao": self.feedback_aprovacao,
+            "segundos_pendente": self.segundos_pendente,
         }
 
 
@@ -487,6 +540,13 @@ class Atendimento(Base):
         nullable=False,
     )
     motivo_encerramento: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
+    # Auditoria mínima das transições (REQ-016.5) — simplificada até a tabela de eventos
+    # da Fase 5 (REQ-005) existir; ver docs/plano_implementacao_requisitos_formais_2026-07.md.
+    encerrado_em: Mapped[Optional[datetime]] = mapped_column(UTCDateTime, nullable=True)
+    encerrado_por: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
+    reaberto_em: Mapped[Optional[datetime]] = mapped_column(UTCDateTime, nullable=True)
+    reaberto_por: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
+    reabertura_justificativa: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     modo_operacao: Mapped[ModoOperacao] = mapped_column(
         Enum(ModoOperacao, values_callable=lambda x: [e.value for e in x], name="modooperacao"),
         default=ModoOperacao.AGENTE,
@@ -538,6 +598,11 @@ class Atendimento(Base):
             "descricao": self.descricao,
             "status": self.status.value if self.status else None,
             "motivo_encerramento": self.motivo_encerramento,
+            "encerrado_em": serialize_utc_datetime(self.encerrado_em),
+            "encerrado_por": self.encerrado_por,
+            "reaberto_em": serialize_utc_datetime(self.reaberto_em),
+            "reaberto_por": self.reaberto_por,
+            "reabertura_justificativa": self.reabertura_justificativa,
             "modo_operacao": self.modo_operacao.value if self.modo_operacao else None,
             "fase": self.fase.value if self.fase else None,
             "valor_estimado": str(self.valor_estimado) if self.valor_estimado else None,
@@ -587,13 +652,14 @@ class Orcamento(Base):
         }
 
 
-class TipoProduto(Base):
+class Produto(Base):
     """
-    Tipo/categoria de produto (ex: Catraca, Relógio de Ponto).
-    Usado para classificar produtos e itens de negociação antes da escolha do modelo.
+    Categoria genérica de produto (ex: Catraca, Relógio de Ponto).
+    Usado para classificar modelos e itens de atendimento antes da escolha do modelo
+    específico. (Renomeado de `TipoProduto` — decisão 2026-07-09, ver docs/dicionario_termos.md.)
     """
 
-    __tablename__ = "tipos_produto"
+    __tablename__ = "produtos"
 
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
     descricao: Mapped[str] = mapped_column(String(100), nullable=False, unique=True)
@@ -601,23 +667,25 @@ class TipoProduto(Base):
     created_at: Mapped[datetime] = mapped_column(UTCDateTime, default=utc_now, nullable=False)
 
     # Relacionamentos
-    produtos: Mapped[List["Produto"]] = relationship(back_populates="tipo_produto")
-    itens_atendimento: Mapped[List["ItemAtendimento"]] = relationship(back_populates="tipo_produto")
+    modelos: Mapped[List["Modelo"]] = relationship(back_populates="produto")
+    itens_atendimento: Mapped[List["ItemAtendimento"]] = relationship(back_populates="produto")
 
     def to_dict(self) -> dict:
         """Converte o modelo para dicionário."""
         return {"id": self.id, "descricao": self.descricao, "ativo": self.ativo}
 
 
-class Produto(Base):
+class Modelo(Base):
     """
-    Catálogo de produtos para orçamentos.
+    Catálogo de modelos específicos e precificáveis para orçamentos (SKU), FK obrigatória
+    para a categoria (`Produto`). (Renomeado de `Produto` — decisão 2026-07-09, ver
+    docs/dicionario_termos.md.)
     """
 
-    __tablename__ = "produtos"
+    __tablename__ = "modelos"
 
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
-    tipo_produto_id: Mapped[int] = mapped_column(ForeignKey("tipos_produto.id"), nullable=False, index=True)
+    produto_id: Mapped[int] = mapped_column(ForeignKey("produtos.id"), nullable=False, index=True)
     codigo: Mapped[Optional[str]] = mapped_column(String(50), nullable=True, unique=True)
     descricao: Mapped[str] = mapped_column(String(300), nullable=False)
     preco_tabela: Mapped[Decimal] = mapped_column(Numeric(15, 2), nullable=False)
@@ -630,15 +698,15 @@ class Produto(Base):
     )
 
     # Relacionamentos
-    tipo_produto: Mapped["TipoProduto"] = relationship(back_populates="produtos")
-    itens_orcamento: Mapped[List["ItemOrcamento"]] = relationship(back_populates="produto")
-    itens_atendimento: Mapped[List["ItemAtendimento"]] = relationship(back_populates="produto")
+    produto: Mapped["Produto"] = relationship(back_populates="modelos")
+    itens_orcamento: Mapped[List["ItemOrcamento"]] = relationship(back_populates="modelo")
+    itens_atendimento: Mapped[List["ItemAtendimento"]] = relationship(back_populates="modelo")
 
     def to_dict(self) -> dict:
         """Converte o modelo para dicionário."""
         return {
             "id": self.id,
-            "tipo_produto_id": self.tipo_produto_id,
+            "produto_id": self.produto_id,
             "codigo": self.codigo,
             "descricao": self.descricao,
             "preco_tabela": str(self.preco_tabela),
@@ -760,21 +828,21 @@ class ItemOrcamento(Base):
 
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
     orcamento_id: Mapped[int] = mapped_column(ForeignKey("orcamentos.id"), nullable=False, index=True)
-    produto_id: Mapped[int] = mapped_column(ForeignKey("produtos.id"), nullable=False, index=True)
+    modelo_id: Mapped[int] = mapped_column(ForeignKey("modelos.id"), nullable=False, index=True)
     quantidade: Mapped[Decimal] = mapped_column(Numeric(10, 3), nullable=False, default=1)
     preco_unitario: Mapped[Decimal] = mapped_column(Numeric(15, 2), nullable=False)
     desconto_percentual: Mapped[Optional[Decimal]] = mapped_column(Numeric(5, 2), nullable=True, default=0)
 
     # Relacionamentos
     orcamento: Mapped["Orcamento"] = relationship(back_populates="itens")
-    produto: Mapped["Produto"] = relationship(back_populates="itens_orcamento")
+    modelo: Mapped["Modelo"] = relationship(back_populates="itens_orcamento")
 
     def to_dict(self) -> dict:
         """Converte o modelo para dicionário."""
         return {
             "id": self.id,
             "orcamento_id": self.orcamento_id,
-            "produto_id": self.produto_id,
+            "modelo_id": self.modelo_id,
             "quantidade": str(self.quantidade),
             "preco_unitario": str(self.preco_unitario),
             "desconto_percentual": str(self.desconto_percentual) if self.desconto_percentual else None,
@@ -784,16 +852,16 @@ class ItemOrcamento(Base):
 class ItemAtendimento(Base):
     """
     Item de um atendimento (pré-orçamento).
-    Começa apenas com tipo_produto e quantidade.
-    O produto específico é definido quando o modelo for escolhido.
+    Começa apenas com produto (categoria) e quantidade.
+    O modelo específico é definido quando o modelo for escolhido.
     """
 
     __tablename__ = "itens_atendimento"
 
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
     atendimento_id: Mapped[int] = mapped_column(ForeignKey("atendimentos.id"), nullable=False, index=True)
-    tipo_produto_id: Mapped[int] = mapped_column(ForeignKey("tipos_produto.id"), nullable=False, index=True)
-    produto_id: Mapped[Optional[int]] = mapped_column(ForeignKey("produtos.id"), nullable=True, index=True)
+    produto_id: Mapped[int] = mapped_column(ForeignKey("produtos.id"), nullable=False, index=True)
+    modelo_id: Mapped[Optional[int]] = mapped_column(ForeignKey("modelos.id"), nullable=True, index=True)
     quantidade: Mapped[Decimal] = mapped_column(Numeric(10, 3), nullable=False, default=1)
     observacoes: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(UTCDateTime, default=utc_now, nullable=False)
@@ -803,16 +871,16 @@ class ItemAtendimento(Base):
 
     # Relacionamentos
     atendimento: Mapped["Atendimento"] = relationship(back_populates="itens")
-    tipo_produto: Mapped["TipoProduto"] = relationship(back_populates="itens_atendimento")
-    produto: Mapped[Optional["Produto"]] = relationship(back_populates="itens_atendimento")
+    produto: Mapped["Produto"] = relationship(back_populates="itens_atendimento")
+    modelo: Mapped[Optional["Modelo"]] = relationship(back_populates="itens_atendimento")
 
     def to_dict(self) -> dict:
         """Converte o modelo para dicionário."""
         return {
             "id": self.id,
             "atendimento_id": self.atendimento_id,
-            "tipo_produto_id": self.tipo_produto_id,
             "produto_id": self.produto_id,
+            "modelo_id": self.modelo_id,
             "quantidade": str(self.quantidade),
             "observacoes": self.observacoes,
         }
@@ -1122,4 +1190,31 @@ class Parametro(Base):
             "valor": self.valor,
             "descricao": self.descricao,
             "updated_at": serialize_utc_datetime(self.updated_at),
+        }
+
+
+class HistoricoModoExecucao(Base):
+    """Log de mudanças do modo de execução vigente (REQ-011.3/REQ-011.19).
+
+    Tabela dedicada e simplificada — assim como a auditoria mínima de
+    encerrar/reabrir Atendimento (REQ-016 Fase 1), fica para a Fase 5 (REQ-005)
+    consolidar isto na tabela de eventos auditáveis genérica quando ela existir; ver
+    docs/plano_implementacao_requisitos_formais_2026-07.md.
+    """
+
+    __tablename__ = "historico_modo_execucao"
+
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    modo_anterior: Mapped[Optional[str]] = mapped_column(String(30), nullable=True)
+    modo_novo: Mapped[str] = mapped_column(String(30), nullable=False)
+    ator: Mapped[str] = mapped_column(String(50), nullable=False)
+    timestamp: Mapped[datetime] = mapped_column(UTCDateTime, default=utc_now, nullable=False)
+
+    def to_dict(self) -> dict:
+        return {
+            "id": self.id,
+            "modo_anterior": self.modo_anterior,
+            "modo_novo": self.modo_novo,
+            "ator": self.ator,
+            "timestamp": serialize_utc_datetime(self.timestamp),
         }

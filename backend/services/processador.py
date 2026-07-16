@@ -15,7 +15,7 @@ import logging
 import re
 import time
 from dataclasses import dataclass
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 from typing import Optional
 
 from config import settings
@@ -27,7 +27,10 @@ from models import (
     FaseAtendimento,
     ItemAtendimento,
     Mensagem,
+    Modelo,
+    ModoExecucao,
     ModoOperacao,
+    MotivoEncerramento,
     OrigemClassificacao,
     OrigemInfo,
     OrigemMensagem,
@@ -35,7 +38,7 @@ from models import (
     ProcessamentoMensagem,
     Produto,
     StatusAtendimento,
-    TipoProduto,
+    User,
 )
 from sqlalchemy.orm import Session
 from utils.datetime_utils import utc_now
@@ -64,6 +67,7 @@ from services.identificador import (
     vincular_empresa_ao_contato,
 )
 from services.llm import LLMProvider
+from services.parametro_service import ParametroService
 from services.rag import DocumentoRecuperado, ParRecuperado, QAService, RetrievalService
 from services.respostas import GeradorRespostas, MensagemId, RespostaGerada
 
@@ -116,6 +120,35 @@ _NUMERO_SOLTO_REGEX = re.compile(r"\b(\d{1,5})\b")
 # mensagem "solta" a chegar depois de tudo capturado (ex.: um "ok" de preenchimento) seria
 # tratada como confirmação de um resumo que nunca foi mostrado.
 _RESUMO_APRESENTADO_CHAVE = "resumo_finalizando_apresentado"
+
+# REQ-016.7/016.9: continuação de atendimento encerrado. Chaves de `AtendimentoInfo`
+# gravadas no atendimento ENCERRADO (não no novo) enquanto se aguarda a resposta do
+# cliente às perguntas PERG-016-009/009B.
+_CONTINUACAO_PENDENTE_CHAVE = "continuacao_atendimento_pendente"
+_CONFIRMAR_INTERESSE_PENDENTE_CHAVE = "confirmar_interesse_pendente"
+
+_REGEX_CONTINUAR_ATENDIMENTO = re.compile(r"\b(1|continuar|continua|de\s+onde\s+paramos)\b", re.IGNORECASE)
+_REGEX_NOVO_PEDIDO = re.compile(r"\b(2|novo|outro|outra\s+coisa|pedido\s+novo)\b", re.IGNORECASE)
+_REGEX_MUDOU_DE_IDEIA = re.compile(
+    r"\b(mudei|mudou\s+de\s+ideia|outra\s+coisa|outro\s+produto|n[aã]o\s+[eé]\s+mais\s+isso)\b",
+    re.IGNORECASE,
+)
+_REGEX_MANTEM_INTERESSE = re.compile(
+    r"\b(sim|isso\s+mesmo|continua|quero\s+isso|mant[eé]m|pode\s+seguir|confirmo)\b",
+    re.IGNORECASE,
+)
+
+# REQ-011.16: nome do `User` sentinela usado para marcar mensagens auto-enviadas em
+# `execucao_normal` como já decididas (ver `_obter_user_sistema`).
+_USER_SISTEMA_NOME = "Sistema (execução automática)"
+
+
+def _dentro_da_janela(momento: Optional[datetime], horas: int) -> bool:
+    """REQ-016.7: `momento` ausente é tratado como fora da janela (mais conservador —
+    presume novo pedido em vez de reabrir silenciosamente algo sem histórico de tempo)."""
+    if momento is None:
+        return False
+    return (utc_now() - momento) <= timedelta(hours=horas)
 
 
 @dataclass
@@ -244,6 +277,14 @@ class ProcessadorMensagem:
                 "não gerando resposta automática.")
         dlog.log("modo", "HUMANO → resposta suprimida" if modo_humano else "AGENTE")
 
+        # 4b. Modo de execução vigente (REQ-011) — independente do modo_operacao acima
+        # (REQ-011.14: HUMANO sempre suprime, em qualquer modo de execução). Determina
+        # se a resposta gerada pode sair automaticamente ou precisa ficar pendente de
+        # aprovação no painel antes de qualquer envio real.
+        modo_execucao = ParametroService(db).modo_execucao()
+        requer_aprovacao = modo_execucao in (ModoExecucao.SIMULACAO, ModoExecucao.CONVERSA_CONTROLADA)
+        dlog.log("modo_execucao", modo_execucao.value)
+
         # 5. Roteia conforme estado de identificação + intenção (só no modo AGENTE)
         if modo_humano:
             resposta = RespostaGerada(texto="", template_usado=None)
@@ -304,8 +345,12 @@ class ProcessadorMensagem:
 
         # 9. Persiste resposta do sistema APENAS quando modo=AGENTE.
         # No modo HUMANO, o operador enviará a resposta manualmente pela UI.
-        # Mensagem nasce pendente de aprovação: aprovador_id e timestamp_aprovacao
-        # ficam NULL até alguém aprovar via POST /api/mensagens/{id}/aprovar.
+        # Mensagem nasce pendente de aprovação (aprovador_id/timestamp_aprovacao NULL)
+        # em simulacao/conversa_controlada — REQ-011.5/011.10. Em execucao_normal, sem
+        # etapa de aprovação humana (REQ-011.16), é marcada como decidida automaticamente
+        # pelo próprio sistema, para não poluir a fila de pendências do painel com
+        # mensagens que já foram entregues (permite feedback retroativo — REQ-011.17 —
+        # sem confundir com "aguardando decisão").
         if not modo_humano:
             msg_out = Mensagem(
                 telefone=telefone_norm,
@@ -316,11 +361,27 @@ class ProcessadorMensagem:
                 aprovador_id=None,
                 timestamp_aprovacao=None,
             )
+            if resposta.texto and not requer_aprovacao:
+                sistema_user = self._obter_user_sistema(db)
+                msg_out.aprovador_id = sistema_user.id
+                msg_out.timestamp_aprovacao = utc_now()
             db.add(msg_out)
         db.commit()
 
+        # REQ-011.5/011.10: em simulacao/conversa_controlada, a resposta gerada fica
+        # pendente no painel — não sai automaticamente pelo canal (webhook Twilio ou
+        # simulador `/api/mensagem`). `msg_out` acima já preserva o texto completo para
+        # quem for aprovar depois; só o valor devolvido ao chamador é suprimido aqui.
+        resposta_entrega_imediata = resposta.texto
+        if not modo_humano and requer_aprovacao and resposta.texto:
+            resposta_entrega_imediata = ""
+            dlog.log(
+                "aprovacao",
+                f"modo={modo_execucao.value} → resposta pendente, não entregue automaticamente",
+            )
+
         return ResultadoProcessamento(
-            resposta=resposta.texto,
+            resposta=resposta_entrega_imediata,
             contato_id=contato.id if contato else None,
             atendimento_id=atendimento.id if atendimento else None,
             processamento_id=processamento.id,
@@ -423,6 +484,13 @@ class ProcessadorMensagem:
         `MULTIPLO` (status de identificação, não é Intenção nem Fase) continua como caso
         especial fora do motor.
         """
+        if identificacao.status != StatusIdentificacao.MULTIPLO:
+            resposta_continuacao = await self._resolver_continuacao_atendimento(
+                db, identificacao.contato, conteudo, dlog=dlog
+            )
+            if resposta_continuacao is not None:
+                return resposta_continuacao
+
         if identificacao.status == StatusIdentificacao.MULTIPLO:
             # Regras globais (ex.: cliente manda o CNPJ certo já aqui) ainda se aplicam —
             # só não há Fase/atendimento único pra desambiguar antes disso resolver.
@@ -510,6 +578,167 @@ class ProcessadorMensagem:
             personalizar=True,
             mensagem_cliente=conteudo_cliente,
         )
+
+    # ------------------------------------------------------------------
+    # Continuação de atendimento encerrado (REQ-016.7/016.9)
+    # ------------------------------------------------------------------
+
+    async def _resolver_continuacao_atendimento(
+        self,
+        db: Session,
+        contato: Optional[Contato],
+        conteudo: str,
+        dlog: Optional[DebugLogger] = None,
+    ) -> Optional[RespostaGerada]:
+        """Decide se esta mensagem deve ser tratada como resposta a uma pergunta de
+        continuação (PERG-016-009/009B) pendente, ou se deve disparar a pergunta agora
+        porque o atendimento mais recente do contato está `encerrado` (exceto
+        `concluido_conversao`, que nunca pergunta — REQ-016.7). Retorna `None` quando não
+        há nada a decidir aqui — o chamador segue o fluxo normal (que já cria um
+        atendimento novo corretamente quando não há nenhum ativo)."""
+        if not contato:
+            return None
+
+        ultimo = atendimentos_svc.atendimento_mais_recente(db, contato)
+        if not ultimo:
+            return None
+
+        if ultimo.status == StatusAtendimento.ATIVO:
+            # A confirmação de interesses (009B) roda com o atendimento já reaberto
+            # (ATIVO) — a pergunta de continuação em si só existe enquanto ele está
+            # `encerrado` (removida antes de reabrir, ver `_processar_resposta_continuacao`).
+            if self._info_atendimento(db, ultimo.id, _CONFIRMAR_INTERESSE_PENDENTE_CHAVE) == "aguardando":
+                return await self._processar_confirmacao_interesse(db, ultimo, conteudo, dlog=dlog)
+            return None
+
+        if ultimo.motivo_encerramento == MotivoEncerramento.CONCLUIDO_CONVERSAO.value:
+            return None
+
+        if self._info_atendimento(db, ultimo.id, _CONTINUACAO_PENDENTE_CHAVE) == "aguardando":
+            return await self._processar_resposta_continuacao(db, ultimo, conteudo, dlog=dlog)
+
+        self._salvar_info_atendimento(db, ultimo.id, _CONTINUACAO_PENDENTE_CHAVE, "aguardando")
+        if dlog:
+            dlog.log(
+                "continuacao",
+                f"atendimento {ultimo.id} encerrado (motivo={ultimo.motivo_encerramento}) → pergunta continuação",
+            )
+        resumo = self._resumo_curto_atendimento(db, ultimo)
+        return await self._gerador.gerar(MensagemId.PERGUNTA_CONTINUACAO_ATENDIMENTO, {"resumo_curto": resumo})
+
+    async def _processar_resposta_continuacao(
+        self,
+        db: Session,
+        atendimento_encerrado: Atendimento,
+        conteudo: str,
+        dlog: Optional[DebugLogger] = None,
+    ) -> Optional[RespostaGerada]:
+        """Interpreta a resposta à PERG-016-009. Ambígua (nem 'continuar' nem 'novo'
+        reconhecidos) aplica o default sugerido pela janela de continuação (REQ-016.7:
+        dentro da janela presume continuação, fora presume novo pedido) — a política de
+        retry formal (REQ-002.21) fica para a Fase 10."""
+        self._remover_info_atendimento(db, atendimento_encerrado.id, _CONTINUACAO_PENDENTE_CHAVE)
+        decisao = self._interpretar_resposta_continuacao(db, atendimento_encerrado, conteudo)
+
+        if decisao == "novo":
+            if dlog:
+                dlog.log("continuacao", "cliente escolheu pedido novo")
+            return None  # sem atendimento ativo → fluxo normal cria um atendimento novo
+
+        atendimentos_svc.reabrir_atendimento(
+            db,
+            atendimento_encerrado,
+            ator="cliente",
+            justificativa="Cliente escolheu continuar em resposta à PERG-016-009",
+        )
+        if dlog:
+            dlog.log("continuacao", f"atendimento {atendimento_encerrado.id} reaberto pelo cliente")
+
+        interesses = self._resumo_produtos_anteriores(db, atendimento_encerrado)
+        if not interesses:
+            return None  # sem interesses anteriores registrados → segue fluxo normal
+
+        self._salvar_info_atendimento(
+            db, atendimento_encerrado.id, _CONFIRMAR_INTERESSE_PENDENTE_CHAVE, "aguardando"
+        )
+        return await self._gerador.gerar(
+            MensagemId.CONFIRMAR_INTERESSE_ANTERIOR, {"produtos_anteriores": interesses}
+        )
+
+    async def _processar_confirmacao_interesse(
+        self,
+        db: Session,
+        atendimento: Atendimento,
+        conteudo: str,
+        dlog: Optional[DebugLogger] = None,
+    ) -> Optional[RespostaGerada]:
+        """Interpreta a resposta à PERG-016-009B. 'Mudou de ideia' limpa os interesses
+        capturados e volta para Esclarecendo do zero; qualquer outra coisa (inclusive
+        ambígua) mantém o que já foi capturado — default menos destrutivo."""
+        self._remover_info_atendimento(db, atendimento.id, _CONFIRMAR_INTERESSE_PENDENTE_CHAVE)
+
+        if _REGEX_MUDOU_DE_IDEIA.search(conteudo) and not _REGEX_MANTEM_INTERESSE.search(conteudo):
+            self._reiniciar_qualificacao(db, atendimento)
+            if dlog:
+                dlog.log("continuacao", f"atendimento {atendimento.id} — cliente mudou de ideia, reinicia qualificação")
+        elif dlog:
+            dlog.log("continuacao", f"atendimento {atendimento.id} — mantém interesses anteriores")
+
+        return None  # segue fluxo normal (Esclarecendo do zero, ou fase em que já estava)
+
+    def _interpretar_resposta_continuacao(
+        self,
+        db: Session,
+        atendimento_encerrado: Atendimento,
+        conteudo: str,
+    ) -> str:
+        """Retorna 'continuar' ou 'novo' — nunca ambíguo (ver docstring de
+        `_processar_resposta_continuacao` sobre o default aplicado)."""
+        continuar = bool(_REGEX_CONTINUAR_ATENDIMENTO.search(conteudo))
+        novo = bool(_REGEX_NOVO_PEDIDO.search(conteudo))
+        if continuar and not novo:
+            return "continuar"
+        if novo and not continuar:
+            return "novo"
+
+        janela_horas = ParametroService(db).janela_continuacao_atendimento_horas()
+        dentro_da_janela = _dentro_da_janela(atendimento_encerrado.ultima_mensagem_at, janela_horas)
+        return "continuar" if dentro_da_janela else "novo"
+
+    def _reiniciar_qualificacao(self, db: Session, atendimento: Atendimento) -> None:
+        """PERG-016-009B ('mudou de ideia'): limpa interesses de produto capturados e
+        volta para Esclarecendo. Dados de identificação (CNPJ/CPF/contato) são
+        preservados — só o interesse comercial é reiniciado."""
+        chaves = (
+            "tipos_produto",
+            "quantidades",
+            CAMPO_SOFTWARE_PONTO.chave,
+            "tipo_leitor_mencionado",
+            CAMPO_FAIXA_FUNCIONARIOS.chave,
+        )
+        for chave in chaves:
+            self._remover_info_atendimento(db, atendimento.id, chave)
+        for item in list(atendimento.itens):
+            db.delete(item)
+        atendimento.fase = FaseAtendimento.ESCLARECENDO
+        db.commit()
+
+    def _resumo_curto_atendimento(self, db: Session, atendimento: Atendimento) -> str:
+        """`{resumo_curto}` da PERG-016-009 — texto genérico se não houver dado suficiente
+        (REQ-016.9), sumarização semântica via LLM é evolução futura."""
+        tipos = self._info_atendimento(db, atendimento.id, "tipos_produto")
+        if not tipos:
+            return "seu atendimento anterior"
+        primeiro = tipos.split(",")[0].strip().replace("_", " ")
+        return primeiro or "seu atendimento anterior"
+
+    def _resumo_produtos_anteriores(self, db: Session, atendimento: Atendimento) -> Optional[str]:
+        """`{produtos_anteriores}` da PERG-016-009B — `None` quando não há nada capturado
+        (pula a confirmação de interesses, vai direto para Esclarecendo)."""
+        tipos = self._info_atendimento(db, atendimento.id, "tipos_produto")
+        if not tipos:
+            return None
+        return ", ".join(t.strip().replace("_", " ") for t in tipos.split(",") if t.strip())
 
     async def _responder_categoria3(
         self,
@@ -685,8 +914,8 @@ class ProcessadorMensagem:
         atendimento: Atendimento,
         resultado_class: ResultadoClassificacao,
         dlog: Optional[DebugLogger] = None,
-    ) -> bool:
-        """F2: resolve `modelo_produto` para uma linha real de `Produto`, ou escala para
+    ) -> None:
+        """F2: resolve `modelo_produto` para uma linha real de `Modelo`, ou escala para
         atendimento humano após `_MODELO_MAX_TENTATIVAS` sem correspondência — nunca aceita
         o texto do cliente como modelo (REQ-002.3B, CAMPO-modelo).
 
@@ -703,18 +932,18 @@ class ProcessadorMensagem:
             return False  # mensagem não tentou responder o modelo — não conta tentativa
 
         candidato = (
-            db.query(Produto)
-            .join(TipoProduto, Produto.tipo_produto_id == TipoProduto.id)
+            db.query(Modelo)
+            .join(Produto, Modelo.produto_id == Produto.id)
             .filter(
-                TipoProduto.descricao.ilike("%ponto%"),
-                Produto.descricao.ilike(f"%{tipo_leitor}%"),
-                Produto.ativo.is_(True),
+                Produto.descricao.ilike("%ponto%"),
+                Modelo.descricao.ilike(f"%{tipo_leitor}%"),
+                Modelo.ativo.is_(True),
             )
             .first()
         )
         if candidato:
-            item = self._item_atendimento_atual(db, atendimento, candidato.tipo_produto_id)
-            item.produto_id = candidato.id
+            item = self._item_atendimento_atual(db, atendimento, candidato.produto_id)
+            item.modelo_id = candidato.id
             db.commit()
             self._remover_info_atendimento(db, atendimento.id, _MODELO_TENTATIVAS_CHAVE)
             if dlog:
@@ -745,12 +974,12 @@ class ProcessadorMensagem:
         self,
         db: Session,
         atendimento: Atendimento,
-        tipo_produto_id: int,
+        produto_id: int,
     ) -> ItemAtendimento:
         """MVP: um único item por atendimento (só relógio de ponto) — get-or-create."""
         item = next(iter(atendimento.itens), None)
         if item is None:
-            item = ItemAtendimento(atendimento_id=atendimento.id, tipo_produto_id=tipo_produto_id, quantidade=1)
+            item = ItemAtendimento(atendimento_id=atendimento.id, produto_id=produto_id, quantidade=1)
             db.add(item)
             db.flush()
         return item
@@ -845,9 +1074,9 @@ class ProcessadorMensagem:
         resposta a um resumo que o cliente de fato viu numa mensagem anterior.
         """
         valores = {info.chave: info.valor for info in atendimento.informacoes}
-        item_resolvido = next((item for item in atendimento.itens if item.produto_id is not None), None)
+        item_resolvido = next((item for item in atendimento.itens if item.modelo_id is not None), None)
         ctx = {
-            "modelo": item_resolvido.produto.descricao if item_resolvido and item_resolvido.produto else None,
+            "modelo": item_resolvido.modelo.descricao if item_resolvido and item_resolvido.modelo else None,
             "software": valores.get(CAMPO_SOFTWARE_PONTO.chave),
             "faixa_funcionarios": valores.get(CAMPO_FAIXA_FUNCIONARIOS.chave),
         }
@@ -1194,6 +1423,17 @@ class ProcessadorMensagem:
     def _remover_info_atendimento(self, db: Session, atendimento_id: int, chave: str) -> None:
         db.query(AtendimentoInfo).filter_by(atendimento_id=atendimento_id, chave=chave).delete()
         db.commit()
+
+    def _obter_user_sistema(self, db: Session) -> User:
+        """`User` sentinela usado para marcar mensagens auto-aprovadas em
+        `execucao_normal` (REQ-011.16) como decididas — sem isso, `aprovador_id=None`
+        faria toda mensagem já entregue aparecer como pendente na fila de aprovação."""
+        user = db.query(User).filter_by(nome=_USER_SISTEMA_NOME).first()
+        if user is None:
+            user = User(nome=_USER_SISTEMA_NOME)
+            db.add(user)
+            db.flush()
+        return user
 
     def _registrar_resultado_credito(self, db: Session, atendimento: Atendimento, resultado) -> None:
         """Registra resultado agregado da consulta de crédito no atendimento (REQ-015)."""

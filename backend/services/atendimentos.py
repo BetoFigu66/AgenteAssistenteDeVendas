@@ -9,9 +9,19 @@ from __future__ import annotations
 import logging
 from typing import Optional
 
-from models import Atendimento, Contato, Empresa, FaseAtendimento, Pessoa, StatusAtendimento, TipoDocumento
+from models import (
+    Atendimento,
+    Contato,
+    Empresa,
+    FaseAtendimento,
+    MotivoEncerramento,
+    Pessoa,
+    StatusAtendimento,
+    TipoDocumento,
+)
 from sqlalchemy import func, text
 from sqlalchemy.orm import Session
+from utils.datetime_utils import utc_now
 
 logger = logging.getLogger(__name__)
 
@@ -24,6 +34,100 @@ def atendimento_ativo(db: Session, contato: Contato) -> Optional[Atendimento]:
         .filter(Atendimento.status == StatusAtendimento.ATIVO)
         .order_by(Atendimento.created_at.desc())
         .first()
+    )
+
+
+def atendimento_mais_recente(db: Session, contato: Contato) -> Optional[Atendimento]:
+    """Atendimento mais recente do contato, independente de status (REQ-016.7).
+
+    Usado para decidir a matriz de continuação: `atendimento_ativo` sozinho não basta
+    porque um atendimento `encerrado` recente ainda pode disparar a pergunta de
+    continuação (REQ-016.9) em vez de criar um atendimento novo silenciosamente.
+    """
+    return (
+        db.query(Atendimento)
+        .filter(Atendimento.contato_id == contato.id)
+        .order_by(Atendimento.created_at.desc())
+        .first()
+    )
+
+
+def encerrar_atendimento(
+    db: Session,
+    atendimento: Atendimento,
+    *,
+    motivo: MotivoEncerramento,
+    ator: str,
+) -> Atendimento:
+    """Transição `ativo` → `encerrado` (REQ-016.4/016.5).
+
+    `ator` identifica quem/o que decidiu (ex.: "cliente", "vendedor:Rita",
+    "sistema:abandono") — auditoria simplificada até a tabela de eventos da Fase 5
+    (REQ-005) existir, conforme decisão registrada no plano de implementação.
+    """
+    if atendimento.status == StatusAtendimento.ENCERRADO:
+        raise ValueError(f"Atendimento {atendimento.id} já está encerrado")
+    atendimento.status = StatusAtendimento.ENCERRADO
+    atendimento.motivo_encerramento = motivo.value
+    atendimento.encerrado_em = utc_now()
+    atendimento.encerrado_por = ator
+    db.commit()
+    db.refresh(atendimento)
+    logger.info(
+        "[Atendimentos] Atendimento id=%s encerrado motivo=%s ator=%s",
+        atendimento.id,
+        motivo.value,
+        ator,
+    )
+    return atendimento
+
+
+def reabrir_atendimento(
+    db: Session,
+    atendimento: Atendimento,
+    *,
+    ator: str,
+    justificativa: Optional[str] = None,
+) -> Atendimento:
+    """Transição `encerrado` → `ativo` (REQ-016.8).
+
+    Bloqueada quando `motivo_encerramento = concluido_conversao`: a compra já foi
+    concluída, não admite reabertura (REQ-016.7/016.8) — qualquer novo contato deve
+    virar atendimento novo.
+    """
+    if atendimento.status == StatusAtendimento.ATIVO:
+        raise ValueError(f"Atendimento {atendimento.id} já está ativo")
+    if atendimento.motivo_encerramento == MotivoEncerramento.CONCLUIDO_CONVERSAO.value:
+        raise ValueError(
+            f"Atendimento {atendimento.id} concluído por conversão de orçamento não pode ser reaberto"
+        )
+    atendimento.status = StatusAtendimento.ATIVO
+    atendimento.motivo_encerramento = None
+    atendimento.reaberto_em = utc_now()
+    atendimento.reaberto_por = ator
+    atendimento.reabertura_justificativa = justificativa
+    db.commit()
+    db.refresh(atendimento)
+    logger.info(
+        "[Atendimentos] Atendimento id=%s reaberto ator=%s",
+        atendimento.id,
+        ator,
+    )
+    return atendimento
+
+
+def encerrar_por_conversao(db: Session, atendimento_id: int) -> Atendimento:
+    """REQ-016.12: encerramento automático quando um orçamento é marcado `convertido`.
+
+    Isolado numa função própria — sem acoplar este módulo ao schema de `Orcamento` —
+    para a Fase 14 (REQ-006) apenas chamar diretamente quando o CRUD de orçamento
+    existir (contorno explícito registrado no plano de implementação da Fase 1).
+    """
+    atendimento = db.query(Atendimento).filter_by(id=atendimento_id).first()
+    if atendimento is None:
+        raise ValueError(f"Atendimento {atendimento_id} não encontrado")
+    return encerrar_atendimento(
+        db, atendimento, motivo=MotivoEncerramento.CONCLUIDO_CONVERSAO, ator="sistema:orcamento_convertido"
     )
 
 

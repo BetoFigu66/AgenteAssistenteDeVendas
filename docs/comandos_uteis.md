@@ -1095,7 +1095,7 @@ winget install --id Cloudflare.cloudflared
 
 # Atualizar (PowerShell como Administrador; parar o serviço antes)
 Stop-Service Cloudflared
-winget upgrade --id Cloudflare.cloudflared --accept-package-agreements
+winget upgrade --id Cloudflare.cloudflared --accept-package-agree ments
 Start-Service Cloudflared
 cloudflared --version
 # Se Stop-Service travar: taskkill /F /IM cloudflared.exe && Start-Service Cloudflared

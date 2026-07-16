@@ -9,7 +9,7 @@ import asyncio
 
 import pytest
 from database import Database
-from models import Contato, FaseAtendimento, ItemAtendimento, ModoOperacao, Produto, TipoProduto
+from models import Contato, FaseAtendimento, ItemAtendimento, Modelo, ModoOperacao, Produto
 from services.classificador import EntidadesExtraidas, Intencao, NivelConfianca, ResultadoClassificacao
 from services.dev_limpeza_telefone import apagar_dados_telefone
 from services.identificador import ResultadoIdentificacao, StatusIdentificacao
@@ -61,21 +61,21 @@ def _atendimento_pronto_para_resumo(db_session, processador, telefone):
     contato = db_session.query(Contato).filter_by(telefone=telefone).first()
     atendimento = contato.atendimentos[0]
 
-    tipo = db_session.query(TipoProduto).filter_by(descricao="Relógio de Ponto (teste G)").first()
-    if tipo is None:
-        tipo = TipoProduto(descricao="Relógio de Ponto (teste G)", ativo=True)
-        db_session.add(tipo)
+    produto = db_session.query(Produto).filter_by(descricao="Relógio de Ponto (teste G)").first()
+    if produto is None:
+        produto = Produto(descricao="Relógio de Ponto (teste G)", ativo=True)
+        db_session.add(produto)
         db_session.commit()
-    modelo = db_session.query(Produto).filter_by(codigo="TESTE-REP-G001").first()
+    modelo = db_session.query(Modelo).filter_by(codigo="TESTE-REP-G001").first()
     if modelo is None:
-        modelo = Produto(
-            tipo_produto_id=tipo.id, codigo="TESTE-REP-G001", descricao="Modelo de teste (Fase G)",
+        modelo = Modelo(
+            produto_id=produto.id, codigo="TESTE-REP-G001", descricao="Modelo de teste (Fase G)",
             preco_tabela=0, ativo=True,
         )
         db_session.add(modelo)
         db_session.commit()
     db_session.add(
-        ItemAtendimento(atendimento_id=atendimento.id, tipo_produto_id=tipo.id, produto_id=modelo.id, quantidade=1)
+        ItemAtendimento(atendimento_id=atendimento.id, produto_id=produto.id, modelo_id=modelo.id, quantidade=1)
     )
     db_session.commit()
     return contato, atendimento

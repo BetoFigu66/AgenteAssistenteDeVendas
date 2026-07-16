@@ -26,8 +26,15 @@ from services.respostas import MensagemId
 
 from .acoes import Acao, ContextoAcao, GrupoAcoes
 from .motor import RegraIntencao
+from .regras_encerramento import CHAVE_FECHAMENTO_PENDENTE
 
 _CHAVE_DOC_PENDENTE = "documento_fiscal_pendente"
+
+# REQ-016.10: intenções de "dúvida pura" (categoria 3) — dispara a pergunta de fechamento
+# só quando NENHUMA outra intenção de qualificação (ex.: PEDIR_ORCAMENTO) bateu junto na
+# mesma mensagem, senão uma pergunta composta ("quero orçamento, mas antes...") geraria um
+# "posso ajudar em mais alguma coisa" indevido colado numa qualificação que acabou de abrir.
+_INTENCOES_DUVIDA_PURA = frozenset({Intencao.PERGUNTAR_PRECO, Intencao.PERGUNTAR_PRODUTO, Intencao.FORA_CONTEXTO})
 
 
 async def _garantir_atendimento_dispatch(ctx: ContextoAcao):
@@ -174,6 +181,36 @@ async def _executar_acao_padrao_esclarecendo(ctx: ContextoAcao):
     return (MensagemId.PERGUNTAR_CNPJ, {"nome": nome_contato})
 
 
+async def _executar_disparar_fechamento(ctx: ContextoAcao):
+    """REQ-016.10: dispara "Posso te ajudar em mais alguma coisa?" logo após uma dúvida
+    pura ser respondida (nenhuma qualificação em aberto) — não insiste se já está
+    aguardando resposta a essa mesma pergunta."""
+    atendimento = ctx.atendimento
+    if not atendimento or atendimento.fase != FaseAtendimento.ESCLARECENDO:
+        return None
+    if not ctx.fragmentos_ate_agora:
+        return None  # nenhuma dúvida foi respondida ainda nesta mensagem
+
+    p = ctx.processador
+    if p._info_atendimento(ctx.db, atendimento.id, CHAVE_FECHAMENTO_PENDENTE) == "aguardando":
+        return None  # já perguntado, aguardando resposta — não insiste de novo
+
+    p._salvar_info_atendimento(ctx.db, atendimento.id, CHAVE_FECHAMENTO_PENDENTE, "aguardando")
+    if ctx.dlog:
+        ctx.dlog.log(
+            "esclarecendo",
+            f"dúvida respondida sem qualificação aberta → pergunta de fechamento (atendimento {atendimento.id})",
+        )
+    return (MensagemId.PERGUNTA_FECHAMENTO_ATENDIMENTO, None)
+
+
+def _builder_disparar_fechamento(ctx: ContextoAcao) -> GrupoAcoes:
+    intencoes = set(ctx.resultado_class.intencoes)
+    if not (intencoes & _INTENCOES_DUVIDA_PURA) or Intencao.PEDIR_ORCAMENTO in intencoes:
+        return GrupoAcoes()
+    return GrupoAcoes(pos=[Acao("disparar_fechamento_apos_duvida", _executar_disparar_fechamento)])
+
+
 REGISTRO_ESCLARECENDO: list[RegraIntencao] = [
     RegraIntencao(
         intencao=Intencao.PEDIR_ORCAMENTO,
@@ -198,6 +235,12 @@ REGISTRO_ESCLARECENDO: list[RegraIntencao] = [
         fase=FaseAtendimento.ESCLARECENDO,
         builder=_builder_categoria3(Intencao.FORA_CONTEXTO),
         nome="categoria3_fora_contexto",
+    ),
+    RegraIntencao(
+        intencao=None,
+        fase=FaseAtendimento.ESCLARECENDO,
+        builder=_builder_disparar_fechamento,
+        nome="disparar_fechamento_apos_duvida",
     ),
     RegraIntencao(
         intencao=Intencao.PERGUNTAR_PRAZO,

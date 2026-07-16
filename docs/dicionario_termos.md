@@ -39,29 +39,31 @@ Pessoa que troca mensagens pelo WhatsApp (telefone único), podendo estar vincul
 - "PJ" = Empresa; "PF" = Pessoa (`TipoDocumento` enum, `models.py:375`).
 - **Assimetria de modelagem a lembrar:** `Contato.empresa_id` existe (PJ liga direto no Contato); não existe `Contato.pessoa_id` — a ligação PF é feita via `Atendimento.pessoa_id` (`models.py:440`).
 
-### Produto / Modelo / Tipo de Produto — ⚠️ em processo de renomeação (decisão tomada em 2026-07-09, implementação pendente)
+### Produto / Modelo / Tipo de Produto — ✅ renomeação implementada em 2026-07-16 (decisão tomada em 2026-07-09)
 
-Hierarquia de granularidade combinada nesta data:
+Hierarquia de granularidade, nomenclatura atual do código:
 
-| Termo (novo, alvo) | Termo atual no código (a ser renomeado) | Definição |
+| Termo (atual no código) | Termo antigo (antes da renomeação) | Definição |
 |---|---|---|
-| **Produto** | `TipoProduto` / tabela `tipos_produto` | Categoria genérica do catálogo (ex.: "Catraca", "Relógio de Ponto"). |
-| **Modelo** | `Produto` / tabela `produtos` | Item específico e precificável do catálogo (código, descrição, preço), FK obrigatória para a categoria (Produto). |
-| **tipo_leitor** | *(novo — não existe ainda)* | Atributo do catálogo (inclinação registrada no brainstorming: atributo do `Modelo`, não preferência solta do cliente) que descreve a tecnologia de leitura (biométrico/facial/cartão). Substitui o enum solto `modelo ∈ {biométrico, facial, cartão}` citado no plano de MVP, que colidia em nome com a entidade `Modelo`. |
+| **`Produto`** / tabela `produtos` | `TipoProduto` / tabela `tipos_produto` | Categoria genérica do catálogo (ex.: "Catraca", "Relógio de Ponto"). |
+| **`Modelo`** / tabela `modelos` | `Produto` / tabela `produtos` | Item específico e precificável do catálogo (código, descrição, preço), FK obrigatória para a categoria (`Produto`, coluna `produto_id`). |
+| **tipo_leitor** | *(novo — não existe ainda)* | Atributo do catálogo (inclinação registrada no brainstorming: atributo do `Modelo`, não preferência solta do cliente) que descreve a tecnologia de leitura (biométrico/facial/cartão). Substitui o enum solto `modelo ∈ {biométrico, facial, cartão}` citado no plano de MVP, que colidia em nome com a entidade `Modelo`. Continua não implementado — só o rename das duas entidades foi feito. |
+
+Migration: `backend/alembic/versions/2026071602_renomeia_produto_tipoproduto_para_modelo_produto.py`. `ItemAtendimento` tinha as duas colunas lado a lado (`tipo_produto_id`/`produto_id`) e ambas trocaram de papel: hoje `ItemAtendimento.produto_id` é a categoria e `ItemAtendimento.modelo_id` é o SKU resolvido (antes era o inverso, com `tipo_produto_id`/`produto_id`). `ItemOrcamento.produto_id` também virou `ItemOrcamento.modelo_id`.
 
 **Regra combinada 2026-07-09:** o motor de coleta nunca grava texto livre para modelo/produto — sempre resolve para uma FK real; texto é só para exibição/descrição ao cliente.
 
 **⚠️ Ponto pendente de análise (anotado por pedido do Beto, retomar depois):** hoje `EntidadesExtraidas.tipos_produto` (`backend/services/classificador.py:61`) é uma lista de **strings livres** extraídas por regex/LLM (ex. `"catraca"`, `"relogio_ponto"`), gravada solta em `AtendimentoInfo` (`backend/services/processador.py:1010-1011`) — **sem FK** para a tabela de categoria. Ou seja, mesmo depois da renomeação, essa extração passiva continuará desacoplada do catálogo real até ser tratada. O próprio plano de MVP já reconhece esse gap (decisão #1, §8: "Onde gravar `tipo_produto`: `AtendimentoInfo` vs `ItemAtendimento`").
 
-**Modelo conceitual concorrente a observar:** o brainstorming de continuidade (`docs/brainstorming_continuidade_2026-07.md:219-220`) já desenha uma classe `TipoProduto` com `atributos_obrigatorios: list[AtributoDef]` — mesmo nome usado hoje no banco, mas com propósito diferente (catálogo de regras de atributos obrigatórios por categoria, não uma linha simples de lookup). Ao aplicar a renomeação, reavaliar se esse conceito do brainstorming vira parte do novo `Produto` (categoria) ou de outra entidade.
+**Modelo conceitual concorrente a observar:** o brainstorming de continuidade (`docs/brainstorming_continuidade_2026-07.md:219-220`) já desenhava uma classe `TipoProduto` com `atributos_obrigatorios: list[AtributoDef]` — mesmo nome que era usado no banco antes da renomeação, mas com propósito diferente (catálogo de regras de atributos obrigatórios por categoria, não uma linha simples de lookup). Ainda não reavaliado se esse conceito do brainstorming vira parte do `Produto` (categoria) atual ou de outra entidade.
 
 ### Categoria (de produto)
-Campo `Produto.categoria: Optional[str]` (`backend/models.py:587`, será `Modelo.categoria` após a renomeação) — string livre e opcional, usada sobretudo em metadados de chunks RAG. É **um** dos cinco sentidos de "categoria" no projeto — ver seção B para a lista completa e a convenção de nomenclatura.
+Campo `Modelo.categoria: Optional[str]` (`backend/models.py`, era `Produto.categoria` antes da renomeação) — string livre e opcional, usada sobretudo em metadados de chunks RAG. É **um** dos cinco sentidos de "categoria" no projeto — ver seção B para a lista completa e a convenção de nomenclatura.
 
 ### Orçamento / ItemOrcamento / ItemAtendimento
 - **Orçamento** (`backend/models.py:513`) — proposta formal enviada ao cliente, com `StatusOrcamento` (em_elaboracao → pendente_aprovacao → enviado_cliente → aprovado/reprovado/expirado).
-- **ItemOrcamento** (`models.py:716`) — linha de um orçamento já fechado, com `Modelo` (hoje `Produto`) definido e preço.
-- **ItemAtendimento** (`models.py:746`, tabela `itens_atendimento` desde o A0) — intenção de compra ainda em qualificação: começa só com a categoria (`tipo_produto_id`) e evolui para um `Modelo` real (`produto_id`) quando o cliente escolhe.
+- **ItemOrcamento** (`models.py`) — linha de um orçamento já fechado, com `Modelo` (`modelo_id`) definido e preço.
+- **ItemAtendimento** (`models.py`, tabela `itens_atendimento` desde o A0) — intenção de compra ainda em qualificação: começa só com a categoria (`produto_id`) e evolui para um `Modelo` real (`modelo_id`) quando o cliente escolhe.
 
 ### AtendimentoInfo — padrão chave-valor (EAV) para atributos dinâmicos
 
@@ -161,7 +163,7 @@ Confiança do **classificador de intenção** (`NivelConfianca`: alta/media/baix
 
 ## Pendências deste dicionário
 
-- [ ] Fechar a análise do ponto "tipo_produto sem FK" (seção A) — retomar quando o Beto sinalizar.
-- [ ] Atualizar todas as entradas de "Produto"/"Modelo"/"TipoProduto" quando a renomeação (plano MVP, passo A0/A1 em diante) for implementada — hoje este documento já usa a nomenclatura **alvo**, mas o código ainda usa a nomenclatura **atual** (ver tabela na seção A).
+- [ ] Fechar a análise do ponto "tipo_produto sem FK" (seção A) — retomar quando o Beto sinalizar. Continua em aberto mesmo após a renomeação de 2026-07-16: `EntidadesExtraidas.tipos_produto` continua sendo strings livres sem FK, é um assunto separado.
+- [x] Atualizar todas as entradas de "Produto"/"Modelo"/"TipoProduto" — renomeação implementada em 2026-07-16 (migration `2026071602`).
 - [ ] Decidir e registrar aqui o desenho final de "categoria de roteamento" quando o padrão Estado/Pergunta for formalizado.
 - [ ] Validar com a Kika os termos formais do REQ-002 (§4.4) vs. os termos operacionais do catálogo de conversação (ex.: "pergunta de qualificação" vs. "pergunta de coleta").
