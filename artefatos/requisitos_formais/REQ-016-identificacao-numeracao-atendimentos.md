@@ -132,10 +132,11 @@ A tabela `negociacoes` (criada em sprints anteriores) é **renomeada** para `ate
   > 2) Novo pedido"
 
   Comportamento:
-  - Resposta `1` / `continuar` / `continua` / `sim` (com tolerância semântica via classificador REQ-002.1) → reusa o atendimento anterior, transitando `encerrado` → `ativo` se necessário (registra como reabertura por decisão do cliente, REQ-016.5). Em seguida, o sistema **confirma os interesses anteriores** antes de retomar o fluxo (template `PERG-esclarecendo-confirmar-interesse`):
+  - Resposta `1` / `continuar` / `continua` / `sim` (com tolerância semântica via classificador REQ-002.1) → reusa o atendimento anterior, transitando `encerrado` → `ativo` se necessário (registra como reabertura por decisão do cliente, REQ-016.5). Em seguida, o sistema **confirma os interesses anteriores** usando o template do catálogo de conversação `PERG-016-009B`:
     > "Da última vez você se interessou por **{produtos_anteriores}**. Ainda quer continuar com isso ou mudou de ideia?"
     - Se o cliente confirma → retoma a fase Esclarecendo (ou a fase onde parou) com os dados preservados.
     - Se o cliente diz que mudou de ideia → permanece no mesmo atendimento mas reinicia a qualificação (limpa interesses anteriores, volta a Esclarecendo do zero).
+    - Se o atendimento anterior não tiver interesses registrados → pula esta confirmação e vai direto para FASE-esclarecendo.
   - Resposta `2` / `novo` / `outro` → cria novo atendimento conforme REQ-016.6.
   - Resposta ambígua → aplica REQ-002.21 (até 2 esclarecimentos; após esgotar, criar novo atendimento por padrão).
   - O `{resumo_curto}` é gerado a partir dos dados do último atendimento (tipo de produto, modelo, status do último orçamento). Se não houver dados suficientes, usar texto genérico ("seu atendimento anterior"). O `{produtos_anteriores}` lista os tipos/modelos de interesse capturados no atendimento anterior.

@@ -1,7 +1,7 @@
 # REQ-010: Painel Administrativo (POC)
 
-**Versão**: 1.2  
-**Data**: 2026-06-01  
+**Versão**: 1.4  
+**Data**: 2026-07-14  
 **Autor**: Kika (Analista de Requisitos)  
 **Status**: Em Elaboração  
 **Prioridade**: Média  
@@ -84,6 +84,18 @@ Este requisito **formaliza** a interface administrativa que hoje é assumida imp
 
   **Comportamento ao trocar de tipo durante a conversa** (REQ-002.10): quando a mudança de tipo for confirmada e um novo documento fiscal coletado, o cabeçalho deve refletir o novo identificador. Conversas históricas mantêm o identificador vigente à época.
 
+- [ ] **REQ-010.7B — Exibição da fase e campos pendentes no topo da conversa**: Quando uma conversa for exibida em detalhe, o topo da tela (junto ao cabeçalho REQ-010.7A) deve mostrar:
+
+  1. **Fase atual do atendimento** — badge visual indicando em qual fase o atendimento se encontra (`Esclarecendo`, `Finalizando`, `Em orçamentação`, etc.), conforme REQ-002.1C.
+  2. **Campos pendentes para orçamento** — lista dos campos ainda não capturados (`campos_pendentes()`), exibidos como indicadores visuais (ex.: pills com status pendente/capturado). Inclui campos como `CAMPO-modelo`, `CAMPO-software-ponto`, `CAMPO-faixa-funcionarios`, `CAMPO-quantidade`, `CAMPO-endereco`, `CAMPO-contato`, tipo de cliente PF/PJ, etc.
+  3. **Campos já capturados** — exibidos com status "capturado" e o valor resumido, para que o vendedor tenha visão rápida do progresso da coleta sem precisar ler toda a conversa.
+
+  **Regras**:
+  - A informação é **somente leitura** (o vendedor não edita campos por aqui no POC).
+  - Os campos exibidos variam conforme o tipo de produto identificado (REQ-002.3A) — só aparecem campos aplicáveis ao produto do atendimento.
+  - Quando todos os campos estiverem capturados, exibir indicador de "coleta completa" (ex.: ✓ Pronto para orçamento).
+  - Quando o atendimento estiver em `em_orcamentacao` ou encerrado, os campos aparecem todos como capturados (histórico).
+
 - [ ] **REQ-010.8 — Tela de escalonamentos**: Lista de conversas escaladas para humano (REQ-004), com indicação de pendência e link para a conversa
 
 ### 4.3 Ações Administrativas
@@ -106,7 +118,7 @@ Este requisito **formaliza** a interface administrativa que hoje é assumida imp
 
 | REQ | Como o painel atende |
 |-----|----------------------|
-| **REQ-002** | Exibe dados coletados na qualificação dentro do detalhe do orçamento e da conversa; o tipo de cliente (REQ-002.2A) e o nome do solicitante (REQ-002.3C) alimentam o cabeçalho do chat (REQ-010.7A) |
+| **REQ-002** | Exibe dados coletados na qualificação dentro do detalhe do orçamento e da conversa; o tipo de cliente (REQ-002.2A) e o nome do solicitante (REQ-002.3C) alimentam o cabeçalho do chat (REQ-010.7A); fase atual e campos pendentes/capturados exibidos no topo da conversa (REQ-010.7B, conforme REQ-002.1C e REQ-002.3) |
 | **REQ-001 / REQ-015** | Nome fantasia / razão social (REQ-001.3) e nome do solicitante PF (REQ-015 + REQ-002.3C) são os identificadores exibidos no cabeçalho da tela de conversa (REQ-010.7A); CPF sempre mascarado conforme REQ-015.13 |
 | **REQ-016** | Número sequencial do atendimento (`numero_atendimento_cliente`) é exibido no cabeçalho do chat (REQ-010.7A), na lista de orçamentos (REQ-010.5) e no detalhe do orçamento (REQ-010.6) — conforme REQ-016.14. Painel permite navegação a partir do atendimento para suas conversas e orçamentos (REQ-016.15), e ações de encerrar/reabrir atendimento manualmente (REQ-016.8) |
 | **REQ-004** | Tela de escalonamentos (REQ-010.8) dá visibilidade de conversas que precisam de atenção humana |
@@ -175,6 +187,7 @@ Este requisito **formaliza** a interface administrativa que hoje é assumida imp
 | 01/06/2026 | 1.1 | Criação do REQ-010.7A (identificação do cliente no cabeçalho da tela de conversa): PJ exibe nome fantasia / razão social (REQ-001.3); PF exibe nome do solicitante (REQ-002.3C), com CPF sempre mascarado (REQ-015.13); subtítulo com telefone, badge PF/PJ e badge de restrição financeira (REQ-015.7); tratamento de mudança de tipo durante a conversa (REQ-002.10). Tabela de integração com requisitos atualizada para incluir REQ-001 e REQ-015. | Kika |
 | 01/06/2026 | 1.2 | REQ-010.7A: inclusão do indicador `Negociação #N` no subtítulo do cabeçalho (REQ-016.12); exemplos consolidados PF/PJ com badges. Tabela de integração ampliada para incluir REQ-016 (numeração e navegação por negociação). | Kika |
 | 09/06/2026 | 1.3 | Renomeação Negociação → Atendimento em todas as referências de UI: cabeçalho (`Atendimento #N`), exemplos PF/PJ, tabela de integração com REQ-016 v2.0. Painel passa a expor ações de encerrar/reabrir atendimento (REQ-016.8) decorrentes do novo ciclo de vida `ativo`/`encerrado`. | Beto |
+| 14/07/2026 | 1.4 | Criação do REQ-010.7B (exibição da fase atual e campos pendentes/capturados no topo da tela de conversa). Tabela de integração com REQ-002 atualizada. | Cascade |
 
 ---
 

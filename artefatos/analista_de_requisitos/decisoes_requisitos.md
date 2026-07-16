@@ -168,6 +168,35 @@ Nenhuma fase implementada até aqui (MVP: `esclarecendo`, `finalizando`, `em_orc
 
 ---
 
+## DEC-007 — Transição de fases: imediata pela intenção + ping-pong Finalizando⇄Esclarecendo para dúvidas
+
+- **Data**: 2026-07-14
+- **REQs afetados**: REQ-002.1C (v1.33), FASE-esclarecendo.md, FASE-finalizando.md
+- **Status**: vigente
+
+**Contexto**: existiam duas opções concorrentes para a regra de transição Esclarecendo→Finalizando (documentadas em `artefatos/analista_de_requisitos/TransicaoEscalrecendoFinalizandoClaude.md`):
+- Opção 1 (REQ-002.1C v1.28): exigir modelo/quantidade confirmados antes de transitar.
+- Opção 2 (plano MVP v2.3, implementação Fases E/F): transição imediata pela intenção (cat. 1).
+
+Adicionalmente, o Beto propôs que dúvidas durante a coleta devem causar **transição real de fase** (Finalizando→Esclarecendo), não apenas resposta inline. Rationale: manter a separação conceitual limpa — Esclarecendo é sempre reativo (responde dúvidas), Finalizando é sempre ativo (cobra campos).
+
+**Decisão**: adotada a Opção 2 + retorno bidirecional:
+1. **Esclarecendo → Finalizando**: imediata ao detectar intenção de orçamento (cat. 1), sem gate de campos.
+2. **Finalizando → Esclarecendo**: quando o cliente faz dúvida (cat. 3) durante a coleta.
+3. **Esclarecendo → Finalizando (retorno)**: automático quando a próxima mensagem do cliente não é dúvida (cat. 3).
+
+**Alternativas descartadas**:
+- **Gate por dados mínimos (Opção 1)**: exigiria manter duas listas de campos por produto (pré-requisitos vs. Finalizando); escala mal com múltiplos produtos; quebra separação conceitual das fases.
+- **Dúvida respondida inline sem trocar de fase (F3 original do MVP)**: funciona tecnicamente, mas mistura responsabilidades — Finalizando faz coleta E responde dúvidas, perdendo rastreabilidade e clareza semântica.
+
+**Consequências**:
+- A implementação atual (F3 — resposta inline) precisará ser ajustada para fazer `atendimento.fase = ESCLARECENDO` antes de responder e retornar depois.
+- `campos_pendentes()` e campos já capturados **não são afetados** pela troca de fase — dados permanecem em `AtendimentoInfo`/`ItemAtendimento`.
+- Auditoria/logs ganham visibilidade de quando o cliente está em dúvida vs. em coleta.
+- A regra de retorno automático é: "próxima mensagem não é cat. 3 → volta para Finalizando".
+
+---
+
 ## Histórico de revisões deste documento
 
 | Data | Alteração | Autor |
@@ -175,3 +204,4 @@ Nenhuma fase implementada até aqui (MVP: `esclarecendo`, `finalizando`, `em_orc
 | 07/06/2026 | Criação do documento. Registradas DEC-001 (fallback condicional REQ-003), DEC-002 (zona media sem fallback), DEC-003 (causa raiz do bug "Quais produtos a Inforrel vende?"), DEC-004 (estilo enxuto dos REQs). | Kika |
 | 06/07/2026 | DEC-005 (efeito diferenciado de conversão vs. perdido no atendimento). | Cascade |
 | 12/07/2026 | DEC-006 (coluna `fase` complementa `status`, não substitui REQ-016 — passo A4 do MVP Continuidade). | Claude |
+| 14/07/2026 | DEC-007 (transição de fases: imediata pela intenção + ping-pong Finalizando⇄Esclarecendo para dúvidas). | Cascade |

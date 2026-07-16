@@ -1,7 +1,7 @@
 # REQ-002: Fluxo Conversacional Guiado
 
-**Versão**: 1.32  
-**Data**: 2026-07-06  
+**Versão**: 1.34  
+**Data**: 2026-07-15  
 **Autor**: Kika (Analista de Requisitos)  
 **Status**: Em Elaboração  
 **Prioridade**: Alta  
@@ -85,7 +85,10 @@ O sistema deve conduzir conversas de forma estruturada, porém **adaptativa**, c
 
   **Caso 3 — Mensagem composta: resposta + outra pergunta**
 
-  Quando houver mensagem composta (com resposta a uma pergunta anterior e uma outra pergunta embutida), o sistema **DEVE** tratar também a pergunta embutida em paralelo ao roteamento principal, classificando-a segundo o REQ-002.1 e roteando-a para a categoria adequada (REQ-003 para perguntas sobre produto/serviço/empresa; REQ-004 para pedido de atendimento humano ou situação crítica; etc.). A resposta entregue ao cliente combina a ação da categoria principal com o resultado do tratamento da pergunta embutida.
+  Quando a mensagem do cliente contiver **duas partes** — uma resposta a uma pergunta anterior e uma nova pergunta embutida — o sistema **DEVE** processar ambas na mesma resposta:
+  1. **Parte 1 (resposta)**: capturar o dado respondido e atualizar o campo correspondente (cat. 2).
+  2. **Parte 2 (pergunta embutida)**: classificar a pergunta segundo o REQ-002.1 e roteá-la para a categoria adequada (REQ-003 para perguntas sobre produto/serviço/empresa; REQ-004 para pedido de atendimento humano ou situação crítica; etc.).
+  3. **Resposta ao cliente**: combinar as duas ações numa única resposta — confirmação do dado capturado + resposta à pergunta embutida.
 
   Exemplo: o sistema acabou de perguntar `"quantas catracas você precisa?"` e o cliente responde `"5, mas vocês têm modelo com biometria facial?"` — o sistema captura `quantidade=5` (cat. 2) e também responde sobre biometria facial via REQ-003.
 
@@ -117,12 +120,37 @@ O sistema deve conduzir conversas de forma estruturada, porém **adaptativa**, c
 
 - [ ] **REQ-002.1C — Roteamento entre fases do catálogo de conversação**: O sistema deve implementar as fases e perguntas descritas no `catalogo_conversacao` (FASE-esclarecendo, FASE-finalizando, FASE-criando-orcamento, FASE-encerrado-por-inatividade, FASE-encerrado) como estados operacionais do atendimento.
 
-  **Transição de Esclarecendo para Finalizando**:
-  - O sistema só deve transitar de FASE-esclarecendo para FASE-finalizando quando:
+  **Papéis conceituais das fases**:
+  - **FASE-esclarecendo** — fase **reativa**: o sistema responde dúvidas do cliente sobre produtos/serviços (Q&A/RAG) e acumula passivamente dados informados espontaneamente.
+  - **FASE-finalizando** — fase **ativa**: o sistema cobra os campos pendentes para elaboração do orçamento (`CAMPO-modelo`, `CAMPO-software-ponto`, `CAMPO-faixa-funcionarios`, `CAMPO-quantidade`, `CAMPO-endereco`, `CAMPO-contato`, etc.). O cliente deve apenas responder às perguntas.
+
+  **Transição Esclarecendo → Finalizando** (por intenção + produto):
+  - O sistema deve transitar de FASE-esclarecendo para FASE-finalizando quando **todas** as condições forem satisfeitas:
     1. O cliente manifestar intenção explícita de orçamento/compra (categoria 1 do REQ-002.1); **E**
-    2. O sistema já tiver confirmado ou extraído os dados mínimos: tipo de produto, modelo/especificação e quantidade/faixa de pessoas (quando aplicável).
-  - Se faltar algum dos dados mínimos, o sistema permanece em FASE-esclarecendo e faz as perguntas necessárias (REQ-002.3A, REQ-002.3B, REQ-002.3C) antes de transitar.
-  - Se a mensagem inicial já contiver todos os dados mínimos para orçamento, o sistema pode iniciar diretamente em FASE-finalizando (sem passar por FASE-esclarecendo).
+    2. O tipo de produto estiver identificado (REQ-002.3A — ex.: "relógio de ponto", "catraca"); **E**
+    3. A mensagem **não** contiver também uma dúvida (categoria 3 do REQ-002.1).
+  - **Não** é necessário que modelo, quantidade, software ou outros campos já estejam confirmados — apenas intenção + tipo de produto + ausência de dúvida.
+  - Se o cliente manifestar intenção de orçamento mas o tipo de produto ainda não for conhecido, o sistema permanece em FASE-esclarecendo e pergunta o tipo de produto (REQ-002.3A). Ao obter a resposta (sem dúvida pendente), transita para Finalizando.
+  - **Mensagem composta com intenção + dúvida** (Caso 3 do REQ-002.1A): quando a mensagem contiver intenção de orçamento **e** uma dúvida sobre qualquer produto (mesmo diferente do solicitado), o sistema:
+    1. Registra a intenção e o tipo de produto identificado (captura passiva).
+    2. **Permanece em FASE-esclarecendo** e responde à dúvida via Q&A/RAG.
+    3. Só transita para Finalizando quando a dúvida for resolvida (próxima mensagem sem cat. 3).
+    - Exemplo: "Quero orçamento de catraca, mas vocês vendem câmeras IP?" → sistema registra interesse em catraca, responde sobre câmeras, permanece em Esclarecendo. Na próxima mensagem, se não houver dúvida, transita para Finalizando (catraca).
+  - Ao transitar, o sistema envia uma mensagem de transição (ex.: "Ótimo! Vou precisar de algumas informações para montar o orçamento.") e inicia a coleta do primeiro campo pendente (`campos_pendentes()`, ordenado por prioridade).
+  - Se a mensagem que disparou a transição já contiver dados de campos (ex.: "quero orçamento de relógio de ponto, já uso o Domínio"), esses dados são capturados na mesma resposta — o sistema só pergunta o que ainda faltar.
+  - Se a mensagem inicial já contiver todos os dados mínimos para orçamento e não contiver dúvida, o sistema pode iniciar diretamente em FASE-finalizando (sem passar por FASE-esclarecendo).
+
+  **Retorno Finalizando → Esclarecendo** (por dúvida):
+  - Se, durante a coleta em FASE-finalizando, o cliente fizer uma **pergunta/dúvida** (classificada como categoria 3 do REQ-002.1) — sobre qualquer assunto, seja o produto em coleta ou outro produto — o sistema deve transitar de volta para FASE-esclarecendo para responder à dúvida.
+  - O progresso da coleta é preservado — campos já capturados permanecem inalterados.
+  - Exemplos:
+    - Dúvida sobre o produto em coleta: sistema pergunta modelo → cliente responde "qual a diferença do biométrico pro facial?" → transita para Esclarecendo.
+    - Dúvida sobre outro produto: sistema pergunta modelo da catraca → cliente responde "vocês fazem manutenção de relógio também?" → transita para Esclarecendo.
+
+  **Retorno Esclarecendo → Finalizando** (dúvida resolvida):
+  - Após responder a dúvida em Esclarecendo, se a próxima mensagem do cliente **não** for classificada como nova dúvida (categoria 3), o sistema transita automaticamente de volta para FASE-finalizando e retoma a coleta a partir do campo pendente.
+  - Se a próxima mensagem for outra dúvida (categoria 3), o sistema permanece em Esclarecendo e responde normalmente — só retorna a Finalizando quando as dúvidas cessarem.
+  - Ao retornar, o sistema reapresenta a pergunta do campo pendente (ex.: "Voltando ao orçamento: qual modelo você prefere?").
 
   **Referências ao catálogo**:
   - FASE-esclarecendo: `artefatos/analista_de_requisitos/catalogo_conversacao/fases/FASE-esclarecendo.md`
@@ -169,7 +197,7 @@ O sistema deve conduzir conversas de forma estruturada, porém **adaptativa**, c
   - **Relógio de ponto**: cartográfico ou eletrônico, este último com tecnologia (cartão de proximidade, cartão de barras, biometria, reconhecimento facial)
   - **Câmeras / CFTV, Roteadores, Softwares, Cancelas, Assistência técnica**: modelo/especificação conforme catálogo Inforrel
 
-  Quando o modelo não estiver claro, o sistema deve perguntar diretamente, oferecendo a lista de opções válidas para o tipo de produto correspondente. Dado registrado no catálogo de conversação como `CAMPO-modelo`.
+  Quando o modelo não estiver claro, o sistema deve perguntar diretamente, oferecendo a lista de opções válidas para o tipo de produto correspondente. Se o modelo informado pelo cliente **não existir no catálogo**, o sistema deve informar que não reconheceu esse modelo e reapresentar as opções válidas — **nunca** armazenar texto livre como modelo. Após 2 tentativas sem correspondência, escalar para atendimento humano (REQ-002.21). Dado registrado no catálogo de conversação como `CAMPO-modelo`.
 
 - [ ] **REQ-002.3C — Coletar informações adicionais para orçamento**: O sistema deve coletar os dados complementares que não pertencem nem ao tipo/modelo nem ao endereço de entrega:
   - **Nome do solicitante** — **obrigatório para PF** (substitui a função identificadora da razão social, que existe apenas para PJ); **recomendado para PJ** quando informado pelo cliente (útil para tratamento personalizado, mas não bloqueia a qualificação se ausente)
@@ -486,6 +514,8 @@ Cliente: "Facial."
 | 04/07/2026 | 1.30 | REQ-002.22 ajustado: tempos de inatividade, reengajamento e abandono total passam a ser parametrizáveis via REQ-014.2D (`abandono_inatividade_horas`, `abandono_total_horas`, `abandono_reengajamento_max_mensagens`). | Cascade |
 | 06/07/2026 | 1.31 | REQ-002.2A: adicionada referência ao template do catálogo de conversação `PERG-002-2A` na pergunta de ambiguidade PF/PJ. | Cascade |
 | 06/07/2026 | 1.32 | REQ-002.3, REQ-002.3B, REQ-002.3C, REQ-002.3D: adicionadas referências explícitas aos campos do catálogo de conversação (`CAMPO-modelo`, `CAMPO-faixa-funcionarios`, `CAMPO-quantidade`, `CAMPO-software-ponto`, `CAMPO-contato`, `CAMPO-endereco`). | Cascade |
+| 14/07/2026 | 1.33 | REQ-002.1C reescrito: (1) transição Esclarecendo→Finalizando **imediata** pela intenção (cat. 1), sem exigir modelo/quantidade antes; (2) retorno Finalizando→Esclarecendo quando cliente faz dúvida (cat. 3) durante coleta; (3) retorno automático Esclarecendo→Finalizando quando dúvida cessa. Adicionados papéis conceituais das fases (reativa vs. ativa). Alinha REQ formal com implementação MVP (plano §3/E1/F3) e visão do Beto. Decisão Kika. | Cascade |
+| 15/07/2026 | 1.34 | REQ-002.3B: adicionada regra explícita — modelo não reconhecido no catálogo **nunca** é armazenado como texto livre; sistema informa que não reconheceu e reapresenta opções; após 2 tentativas escala para humano. | Cascade |
 
 ---
 

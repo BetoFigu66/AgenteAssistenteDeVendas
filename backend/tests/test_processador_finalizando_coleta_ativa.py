@@ -244,8 +244,8 @@ def test_f2_modelo_escala_para_humano_apos_tentativas_sem_correspondencia(db_ses
         db_session.refresh(atendimento)
         assert atendimento.modo_operacao == ModoOperacao.HUMANO
         assert resposta_2.template_usado == "ESCALADO_HUMANO"
-        # resposta_1 não deveria ter escalado ainda (1ª tentativa)
-        assert resposta_1.template_usado != "ESCALADO_HUMANO"
+        # resposta_1: 1ª tentativa sem correspondência → informa que não reconheceu
+        assert resposta_1.template_usado == "MODELO_NAO_RECONHECIDO"
     finally:
         _limpar(db_session, telefone)
 

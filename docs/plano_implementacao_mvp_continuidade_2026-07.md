@@ -1,9 +1,9 @@
 # Plano de Implementação — MVP Continuidade (jul/2026)
 
-**Versão:** 2.3  
-**Data:** 2026-07-06 (atualizado 2026-07-13)  
+**Versão:** 2.4  
+**Data:** 2026-07-06 (atualizado 2026-07-15)  
 **Autor:** Beto + Cascade + Claude  
-**Status:** Implementado (Fases A-H concluídas) — verificação visual no navegador e validação da Kika (§8, itens 6 e 7) ainda pendentes  
+**Status:** Implementado (Fases A-H concluídas) — verificação visual no navegador ainda pendente; alinhamento de REQs com a Kika (§8 item 7) concluído  
 **Origem:** `docs/brainstorming_continuidade_2026-07.md` (cenário 1 — Laboratório OO)  
 **Escopo deste plano:** **um produto, uma jornada** — dúvida → orçamento → coleta mínima
 
@@ -126,7 +126,7 @@ Demonstra que a `Pergunta` de um campo pode reconhecer sua resposta **na mesma m
   catalogo_campos.py   ◄── espelha CAMPO-xxx do catálogo analista
 ```
 
-Nota: o desenho de classes (`EstadoAtendimento`, `Pergunta`, `Ação`) ainda está em discussão fora deste documento — ver `docs/dicionario_termos.md` e o histórico da conversa de brainstorming. Este diagrama descreve o comportamento esperado, não a API final das classes.
+Nota: o desenho de classes evoluiu para o motor `Intenção×Fase→Ações` (`services/conversacao/motor.py`): `RegraIntencao` liga uma `Intencao` (ou `None` = wildcard) a uma `FaseAtendimento` (ou `None` = regra global) e a um builder de `GrupoAcoes`. O antigo padrão `EstadoAtendimento`/`Pergunta` discutido no brainstorming foi substituído por este modelo. Ver `docs/dicionario_termos.md` para detalhes.
 
 ### Eixo `status` × `fase` (brainstorming §5.2)
 
@@ -272,7 +272,7 @@ Ordem sugerida. Cada passo deve ser testável isoladamente no painel.
 
 **Não bloquear o MVP em:** T-04 (CNPJ), T-07 (validações avançadas), T-10 (inatividade), T-11 (WhatsApp).
 
-**Pendência de alinhamento formal:** `REQ-002.1C` (Kika, v1.28, 04/07/2026) descreve a transição Esclarecendo→Finalizando como condicionada a modelo+quantidade **já confirmados** ainda em Esclarecendo. Este plano decidiu (2026-07-09) o oposto: transição imediata pela intenção (categoria 1), com todos os campos obrigatórios cobrados dentro de Finalizando. Precisa virar um ajuste em REQ-002.1C na próxima rodada com a Kika — não é só nomenclatura, é comportamento.
+~~**Pendência de alinhamento formal (RESOLVIDA 2026-07-14):**~~ `REQ-002.1C` foi reescrito na v1.33 (14/07/2026) para refletir a transição imediata pela intenção + tipo de produto, sem exigir modelo/quantidade antes. Decisão registrada como DEC-007 em `decisoes_requisitos.md`. Também formalizada a transição bidirecional Finalizando⇄Esclarecendo para dúvidas (cat. 3) e o tratamento de mensagem composta (intenção + dúvida).
 
 ---
 
@@ -298,8 +298,8 @@ Ordem sugerida. Cada passo deve ser testável isoladamente no painel.
 | 3 | ~~Criar ficha `CAMPO-modelo-produto` no catálogo analista~~ | — | **Feito** — Kika já criou `CAMPO-modelo.md` e `CAMPO-faixa-funcionarios.md` (06/07/2026), ver §2 |
 | 4 | Cliente pede orçamento sem nunca ter mencionado produto | Perguntar tipo / assumir relógio | Perguntar tipo (fora do MVP estrito) ou restringir testes a quem já mencionou relógio |
 | 5 | PF vs PJ nesta fatia | Ignorar documento fiscal | **Ignorar** — alinhado ao escopo mínimo; PJ completo entra na próxima fatia |
-| 6 | Modelo sem correspondência no catálogo | Texto livre + sinalizar vendedor (texto atual de `CAMPO-modelo.md`) vs. escalar para modo atendente | **Escalar para modo atendente** (`escalar_humano`/`ModoOperacao.HUMANO`) — decisão 2026-07-09; requer atualizar REQ-002.3B/`CAMPO-modelo.md` com a Kika, hoje eles preveem texto livre |
-| 7 | Gatilho de transição Esclarecendo→Finalizando | Exigir modelo+quantidade confirmados antes (REQ-002.1C atual) vs. transitar já na intenção e coletar tudo em Finalizando | **Transitar já na intenção** — decisão 2026-07-09; requer atualizar REQ-002.1C com a Kika (ver §6) |
+| 6 | Modelo sem correspondência no catálogo | Texto livre + sinalizar vendedor (texto atual de `CAMPO-modelo.md`) vs. escalar para modo atendente | **Escalar para modo atendente** (`escalar_humano`/`ModoOperacao.HUMANO`) — decisão 2026-07-09, **implementado** (F2). Pendência restante: atualizar REQ-002.3B/`CAMPO-modelo.md` com a Kika (ainda preveem texto livre) |
+| 7 | ~~Gatilho de transição Esclarecendo→Finalizando~~ | — | **Resolvido (2026-07-14)** — REQ-002.1C reescrito (v1.33): transição imediata pela intenção + tipo de produto, sem gate de campos. DEC-007 registrada. Também formalizada transição bidirecional Finalizando⇄Esclarecendo para dúvidas |
 | 8 | ~~Drift de DDL manual fora do Alembic no banco local~~ | — | **Resolvido (2026-07-10)** — `Database._criar_tabelas()`/`create_all()` removido de `backend/database.py` (Alembic é a única fonte de DDL agora); migration `2026071002_limpeza_drift_ddl_manual.py` removeu as tabelas fantasmas `negociacoes`/`negociacao_infos` (0 linhas), renomeou as sequences esquecidas e corrigiu as 7 constraints com typo (`atendimentao`/`atendimentoes`). Verificado: `alembic upgrade head` limpo, `pytest` (41 passed, 1 falha pré-existente não relacionada), backend sobe e serve dados reais (`/health`, `/api/atendimentos/ativas`) |
 
 ---
@@ -308,7 +308,7 @@ Ordem sugerida. Cada passo deve ser testável isoladamente no painel.
 
 1. **+ CNPJ** — Finalizando para PJ (CAMPO-cnpj + REQ-001)
 2. **+ Catraca** — novo produto + `CAMPO-software-acesso` (criar ficha)
-3. **+ Inatividade** — FASE-encerrado-por-inatividade + PERG-016-009
+3. **+ Inatividade** — FASE-encerrado-por-inatividade + PERG-016-009 + PERG-016-009B (confirmação de interesses anteriores, criada 2026-07-15)
 4. **+ Endereço e contato** — campos REQ-002.3D/C restantes
 5. **+ Múltiplos produtos no mesmo atendimento** — pré-requisito de schema (discussão 2026-07-11, ver `docs/dicionario_termos.md`): `AtendimentoInfo` precisa ganhar `item_atendimento_id` opcional (FK para `ItemAtendimento`) para separar info do atendimento como um todo de info específica de um produto (ex.: software de ponto por item); unique constraint vira `(atendimento_id, item_atendimento_id, chave)`
 6. **WhatsApp** — T-11 quando painel estiver maduro
@@ -353,3 +353,4 @@ Ordem sugerida. Cada passo deve ser testável isoladamente no painel.
 | 2.1 | 2026-07-13 | Beto + Claude | Fase F concluída (última fase de lógica de conversação antes do handoff G/painel H): **F1** novo `_processar_finalizando()` intercepta toda mensagem em Finalizando (rotear só por intenção não bastava — respostas que citam tecnologia, ex.: "biométrico", batem em regra de dúvida); **F2** `_tentar_resolver_modelo()` busca `Produto` real via `tipo_leitor_mencionado`, sem correspondência após 2 tentativas escala `modo_operacao = HUMANO` (primeiro escalonamento automático do sistema — até então só existia troca manual via API); **F3** `_retomar_apos_duvida()` responde dúvida + reapresenta pendência (`RETOMAR_PERGUNTA_PENDENTE`); **F4** `_gerar_resumo_finalizando()` + `RESUMO_FINALIZANDO`. Dois bugs pegos e corrigidos durante smoke test manual (não pelos testes determinísticos, que não cobriam esses cenários específicos): captura solta sequestrando intenções já reconhecidas como se fossem resposta (restringida a `DESCONHECIDO`), e dúvida sobre outro produto reescrevendo `tipos_produto` e esvaziando `campos_pendentes()` (travado: só grava enquanto `fase != FINALIZANDO`). `Produto`/`TipoProduto` seguem sem dados semeados neste ambiente — na prática, toda resolução de modelo escala pra humano após a 2ª tentativa (esperado, documentado, não é bug). Testado ponta a ponta via API real (2 fluxos completos) e via `tests/test_processador_finalizando_coleta_ativa.py` (8 casos). Suíte completa: 96/96. |
 | 2.2 | 2026-07-13 | Beto + Claude | Fase G concluída — fecha a lógica de conversação do MVP (só resta H, painel/QA): **G1** `_concluir_finalizando()` transita `fase` para `em_orcamentacao` quando o cliente confirma o resumo (F4); **G2** reaproveita `modo_operacao = HUMANO` (mesmo mecanismo do escalonamento do F2) pra suprimir resposta automática dali em diante; **G3** novo `MensagemId.ORCAMENTO_ENCAMINHADO`. Bug pego em smoke test manual (não pelos testes determinísticos, que evitavam sem querer o cenário): um "ok"/"sim" solto pode vir classificado `CONFIRMAR` mesmo sendo a *primeira* mensagem depois de tudo capturado — nesse caso o cliente nunca viu o resumo, então não é confirmação dele; corrigido exigindo que o resumo já tenha sido apresentado (nova chave `resumo_finalizando_apresentado` em `AtendimentoInfo`) antes de aceitar um `CONFIRMAR` como handoff. Aproveitado pra corrigir também um efeito colateral do guard de `tipos_produto` da Fase F: ele bloqueava a gravação legítima do tipo de produto quando informado só depois de já estar em Finalizando (ex.: resposta ao fallback `PEDIR_TIPO_PRODUTO`) — trocado de "só grava se `fase != FINALIZANDO`" para "só grava se ainda não houver valor". Testado ponta a ponta via API real (fluxo completo: resumo → confirmação → handoff, com verificação de que a primeira mensagem "solta" não conclui sozinha) e via `tests/test_processador_finalizando_handoff.py` (5 casos). Suíte completa: 101/101. |
 | 2.3 | 2026-07-13 | Beto + Claude | **Fase H concluída — plano de MVP Continuidade fechado (Fases A-H, todas ✅).** **H1** `fase` passou a ser serializada em `Atendimento.to_dict()` (bug: existia desde a Fase A mas nunca era exposta pela API) e exibida como badge colorido em 3 pontos do painel (`ConversaInfo`, `AcompanhamentoPage`, `AtendimentoDetalhes`), via novo par `rotuloFase`/`classesFase` em `utils/atendimento.js`; **H2** tabela "Informações coletadas" ganhou rótulos amigáveis e pill de status (verde/amarelo) no lugar de `sim`/`não`; **H3** roteiro `RT-012-jornada-mvp-relogio-ponto.md` (jornada completa + variantes + os dois caminhos de resolução de modelo, dado que o catálogo segue sem seed); **H4** já estava satisfeito como subproduto das Fases B-G (36 testes cobrindo `campos_pendentes()` e as 3 transições de fase). Frontend verificado via `npm run build` (sem erros) e via API real (`curl` confirmando `fase` nos 3 endpoints) — não verificado em navegador (sem ferramenta de automação disponível nesta sessão) nem reconstruído o container de frontend em execução, que parece exposto publicamente via túnel Cloudflare; recomendo verificação visual antes de dar por definitivamente pronto. Suíte completa: 102/102. |
+| 2.4 | 2026-07-15 | Cascade + Kika | Revisão pós-MVP: (1) pendência de alinhamento REQ-002.1C **resolvida** — v1.33 reflete transição imediata + bidirecional Finalizando⇄Esclarecendo + mensagem composta (DEC-007); (2) §8 itens 6 e 7 atualizados (6: implementado F2, pendência só documental; 7: fechado); (3) nota de arquitetura §4 atualizada (motor `Intenção×Fase→Ações` em `motor.py` substituiu o padrão Estado/Pergunta); (4) §9 item 3 atualizado com PERG-016-009B (confirmação de interesses anteriores após reengajamento, criada na mesma data). |

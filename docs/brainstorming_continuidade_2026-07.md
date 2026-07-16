@@ -183,19 +183,24 @@ Dois extremos imaginados:
 
 ### 5.1 Mapeamento: modelo Beto ↔ REQs ↔ código
 
-| Conceito [Beto] | REQ existente | Código hoje | Gap principal |
-|-----------------|---------------|-------------|---------------|
-| 5 fases conversacionais | REQ-002 + REQ-016 | `StatusAtendimento`: só `ativo`/`encerrado` | Falta campo `fase` ou máquina de estados rica |
-| Esclarecendo + atributos | REQ-002.3, REQ-002.14/14A/15, REQ-002.17 | `AtendimentoInfo`, `ItemAtendimento` existem | Sem catálogo de atributos por produto; sem extração proativa |
-| CNPJ flexível em Esclarecendo | REQ-002.17, REQ-002.1B | CNPJ por intenção, sem distinção de fase | Falta `fase` para governar obrigatoriedade |
-| Encerrado por Inatividade | REQ-002.22, REQ-016.7 | Não implementado | Timer + transição automática |
-| Pergunta de continuação | **REQ-016.9** (quase idêntica ao exemplo do Beto!) | Não implementado | Template + respostas + ações |
-| Finalizando | REQ-002.3–002.17 | `_INTENCOES_QUALIFICACAO` parcial | Motor de perguntas/campos incompleto |
-| Criando Orçamento | REQ-004, REQ-006 | `ModoOperacao.HUMANO` existe | Sem transição automática por fase |
-| Encerrado | REQ-016.4 | Enum existe; lógica parcial | Motivos e transições incompletos |
-| Pergunta→Resposta→Ação | REQ-002.21 | Templates + classificador | Sem modelo de domínio explícito |
+> **Atualizado em 2026-07-15** com o status real de cada item após o MVP Continuidade.
 
-**[Cascade]** — insight central: o exemplo de reengajamento do Beto **já está especificado** no REQ-016.9 (redigido pela Kika). A divergência não é de requisito — é de **implementação** e de **granularidade de estados** (REQ-016 colapsa tudo em `ativo`; Beto propõe sub-fases).
+| Conceito [Beto] | REQ existente | Código hoje | Status |
+|-----------------|---------------|-------------|--------|
+| 5 fases conversacionais | REQ-002.1C + REQ-016 (DEC-006) | ✅ `FaseAtendimento` enum (`esclarecendo`, `finalizando`, `em_orcamentacao`) + coluna `fase` em `Atendimento`, ortogonal a `status`. Fases terminais (`encerrado`, `encerrado_por_inatividade`) ainda só no catálogo. | **Parcial** — 3 de 5 fases implementadas |
+| Esclarecendo + atributos | REQ-002.3, REQ-002.14/14A/15, REQ-002.17, REQ-002.1C | ✅ `regras_esclarecendo.py` com motor Intenção×Fase→Ações. Catálogo declarativo de campos (`catalogo_campos.py`: `CAMPO-modelo`, `CAMPO-software-ponto`, `CAMPO-faixa-funcionarios`). Captura passiva de dados em Esclarecendo. | **Feito** (MVP relógio de ponto) |
+| CNPJ flexível em Esclarecendo | REQ-002.1B, REQ-002.17 | ✅ CNPJ pedido uma vez em Esclarecendo, sem insistência; obrigatório só em Finalizando. `regras_esclarecendo._executar_acao_padrao_esclarecendo` governa isso via `fase`. | **Feito** |
+| Encerrado por Inatividade | REQ-002.22, REQ-016.7 | ❌ Não implementado. Timer + transição automática + PERG-002-022 pendentes. | **Pendente** |
+| Pergunta de continuação | REQ-016.9, PERG-016-009, PERG-016-009B | ❌ Não implementado. REQ formalizado, fichas PERG criadas (continuidade + confirmação de interesses), mas sem código. | **Pendente** |
+| Finalizando | REQ-002.3–002.17, REQ-002.1C | ✅ `regras_finalizando.py` + `processador._processar_finalizando()` com loop F1-F4 (captura solta, resolução de modelo, dúvida com retomada, resumo). `campos_pendentes()` funcional. Transição Esclarecendo→Finalizando por `PEDIR_ORCAMENTO`. | **Feito** (MVP relógio de ponto) |
+| Criando Orçamento | REQ-004, REQ-006 | ✅ Transição Finalizando→Em Orçamentação (`_concluir_finalizando` → handoff G1-G3). `ModoOperacao.HUMANO` ativado. Fase `em_orcamentacao` gravada. | **Feito** |
+| Encerrado | REQ-016.4 | ⚠️ `StatusAtendimento.ENCERRADO` + `motivo_encerramento` existem no modelo. Motivos (`abandono`, `concluido_conversao`, `manual_vendedor`, `concluido_pelo_cliente`, `desistencia`) documentados no REQ. Lógica de transição parcial (sem timer automático de abandono). | **Parcial** — modelo ok, automação pendente |
+| Pergunta→Resposta→Ação (motor) | REQ-002.21 | ✅ Motor `resolver_e_executar()` em `services/conversacao/motor.py` com `RegraIntencao` (intencao × fase → builder → ações). Registros por fase (`REGISTRO_ESCLARECENDO`, `REGISTRO_FINALIZANDO`, regras globais). Classificador com multi-intenção. | **Feito** |
+
+**[Cascade — 2026-07-15]** — Resumo da evolução desde o brainstorming:
+
+- **Resolvidos**: o gap principal (campo `fase` / máquina de estados) foi implementado. O motor Intenção×Fase→Ações substituiu o dispatch por `StatusIdentificacao`. O catálogo declarativo de campos (`CampoDef`) governa `campos_pendentes()`. As transições Esclarecendo↔Finalizando→Em Orçamentação funcionam end-to-end para relógio de ponto.
+- **Pendentes**: (1) timer de inatividade + FASE-encerrado-por-inatividade (REQ-002.22); (2) pergunta de continuação após pausa (REQ-016.9 / PERG-016-009 / PERG-016-009B); (3) pergunta de fechamento (REQ-016.10 / PERG-016-010); (4) campos para outros produtos além de relógio de ponto (catraca, CFTV, etc.); (5) transição bidirecional Finalizando⇄Esclarecendo por dúvida (DEC-007 — REQ formalizado, implementação F3 atual responde inline sem trocar fase).
 
 ### 5.2 Proposta de modelagem técnica [Cascade]
 
