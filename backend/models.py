@@ -587,13 +587,14 @@ class Orcamento(Base):
         }
 
 
-class TipoProduto(Base):
+class Produto(Base):
     """
-    Tipo/categoria de produto (ex: Catraca, Relógio de Ponto).
-    Usado para classificar produtos e itens de negociação antes da escolha do modelo.
+    Categoria genérica de produto (ex: Catraca, Relógio de Ponto).
+    Usado para classificar modelos e itens de atendimento antes da escolha do modelo
+    específico. (Renomeado de `TipoProduto` — decisão 2026-07-09, ver docs/dicionario_termos.md.)
     """
 
-    __tablename__ = "tipos_produto"
+    __tablename__ = "produtos"
 
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
     descricao: Mapped[str] = mapped_column(String(100), nullable=False, unique=True)
@@ -601,23 +602,25 @@ class TipoProduto(Base):
     created_at: Mapped[datetime] = mapped_column(UTCDateTime, default=utc_now, nullable=False)
 
     # Relacionamentos
-    produtos: Mapped[List["Produto"]] = relationship(back_populates="tipo_produto")
-    itens_atendimento: Mapped[List["ItemAtendimento"]] = relationship(back_populates="tipo_produto")
+    modelos: Mapped[List["Modelo"]] = relationship(back_populates="produto")
+    itens_atendimento: Mapped[List["ItemAtendimento"]] = relationship(back_populates="produto")
 
     def to_dict(self) -> dict:
         """Converte o modelo para dicionário."""
         return {"id": self.id, "descricao": self.descricao, "ativo": self.ativo}
 
 
-class Produto(Base):
+class Modelo(Base):
     """
-    Catálogo de produtos para orçamentos.
+    Catálogo de modelos específicos e precificáveis para orçamentos (SKU), FK obrigatória
+    para a categoria (`Produto`). (Renomeado de `Produto` — decisão 2026-07-09, ver
+    docs/dicionario_termos.md.)
     """
 
-    __tablename__ = "produtos"
+    __tablename__ = "modelos"
 
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
-    tipo_produto_id: Mapped[int] = mapped_column(ForeignKey("tipos_produto.id"), nullable=False, index=True)
+    produto_id: Mapped[int] = mapped_column(ForeignKey("produtos.id"), nullable=False, index=True)
     codigo: Mapped[Optional[str]] = mapped_column(String(50), nullable=True, unique=True)
     descricao: Mapped[str] = mapped_column(String(300), nullable=False)
     preco_tabela: Mapped[Decimal] = mapped_column(Numeric(15, 2), nullable=False)
@@ -630,15 +633,15 @@ class Produto(Base):
     )
 
     # Relacionamentos
-    tipo_produto: Mapped["TipoProduto"] = relationship(back_populates="produtos")
-    itens_orcamento: Mapped[List["ItemOrcamento"]] = relationship(back_populates="produto")
-    itens_atendimento: Mapped[List["ItemAtendimento"]] = relationship(back_populates="produto")
+    produto: Mapped["Produto"] = relationship(back_populates="modelos")
+    itens_orcamento: Mapped[List["ItemOrcamento"]] = relationship(back_populates="modelo")
+    itens_atendimento: Mapped[List["ItemAtendimento"]] = relationship(back_populates="modelo")
 
     def to_dict(self) -> dict:
         """Converte o modelo para dicionário."""
         return {
             "id": self.id,
-            "tipo_produto_id": self.tipo_produto_id,
+            "produto_id": self.produto_id,
             "codigo": self.codigo,
             "descricao": self.descricao,
             "preco_tabela": str(self.preco_tabela),
@@ -760,21 +763,21 @@ class ItemOrcamento(Base):
 
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
     orcamento_id: Mapped[int] = mapped_column(ForeignKey("orcamentos.id"), nullable=False, index=True)
-    produto_id: Mapped[int] = mapped_column(ForeignKey("produtos.id"), nullable=False, index=True)
+    modelo_id: Mapped[int] = mapped_column(ForeignKey("modelos.id"), nullable=False, index=True)
     quantidade: Mapped[Decimal] = mapped_column(Numeric(10, 3), nullable=False, default=1)
     preco_unitario: Mapped[Decimal] = mapped_column(Numeric(15, 2), nullable=False)
     desconto_percentual: Mapped[Optional[Decimal]] = mapped_column(Numeric(5, 2), nullable=True, default=0)
 
     # Relacionamentos
     orcamento: Mapped["Orcamento"] = relationship(back_populates="itens")
-    produto: Mapped["Produto"] = relationship(back_populates="itens_orcamento")
+    modelo: Mapped["Modelo"] = relationship(back_populates="itens_orcamento")
 
     def to_dict(self) -> dict:
         """Converte o modelo para dicionário."""
         return {
             "id": self.id,
             "orcamento_id": self.orcamento_id,
-            "produto_id": self.produto_id,
+            "modelo_id": self.modelo_id,
             "quantidade": str(self.quantidade),
             "preco_unitario": str(self.preco_unitario),
             "desconto_percentual": str(self.desconto_percentual) if self.desconto_percentual else None,
@@ -784,16 +787,16 @@ class ItemOrcamento(Base):
 class ItemAtendimento(Base):
     """
     Item de um atendimento (pré-orçamento).
-    Começa apenas com tipo_produto e quantidade.
-    O produto específico é definido quando o modelo for escolhido.
+    Começa apenas com produto (categoria) e quantidade.
+    O modelo específico é definido quando o modelo for escolhido.
     """
 
     __tablename__ = "itens_atendimento"
 
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
     atendimento_id: Mapped[int] = mapped_column(ForeignKey("atendimentos.id"), nullable=False, index=True)
-    tipo_produto_id: Mapped[int] = mapped_column(ForeignKey("tipos_produto.id"), nullable=False, index=True)
-    produto_id: Mapped[Optional[int]] = mapped_column(ForeignKey("produtos.id"), nullable=True, index=True)
+    produto_id: Mapped[int] = mapped_column(ForeignKey("produtos.id"), nullable=False, index=True)
+    modelo_id: Mapped[Optional[int]] = mapped_column(ForeignKey("modelos.id"), nullable=True, index=True)
     quantidade: Mapped[Decimal] = mapped_column(Numeric(10, 3), nullable=False, default=1)
     observacoes: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(UTCDateTime, default=utc_now, nullable=False)
@@ -803,16 +806,16 @@ class ItemAtendimento(Base):
 
     # Relacionamentos
     atendimento: Mapped["Atendimento"] = relationship(back_populates="itens")
-    tipo_produto: Mapped["TipoProduto"] = relationship(back_populates="itens_atendimento")
-    produto: Mapped[Optional["Produto"]] = relationship(back_populates="itens_atendimento")
+    produto: Mapped["Produto"] = relationship(back_populates="itens_atendimento")
+    modelo: Mapped[Optional["Modelo"]] = relationship(back_populates="itens_atendimento")
 
     def to_dict(self) -> dict:
         """Converte o modelo para dicionário."""
         return {
             "id": self.id,
             "atendimento_id": self.atendimento_id,
-            "tipo_produto_id": self.tipo_produto_id,
             "produto_id": self.produto_id,
+            "modelo_id": self.modelo_id,
             "quantidade": str(self.quantidade),
             "observacoes": self.observacoes,
         }

@@ -109,8 +109,8 @@ function AtendimentoDetalhes({ atendimentoId }) {
           <ul className="space-y-1 text-sm">
             {atendimento.itens.map((item) => (
               <li key={item.id} className="text-gray-800">
-                Tipo #{item.tipo_produto_id} - Qtd: {item.quantidade}
-                {item.produto_id && <span> (Produto #{item.produto_id})</span>}
+                Produto #{item.produto_id} - Qtd: {item.quantidade}
+                {item.modelo_id && <span> (Modelo #{item.modelo_id})</span>}
                 {item.observacoes && <span className="text-gray-500"> — {item.observacoes}</span>}
               </li>
             ))}

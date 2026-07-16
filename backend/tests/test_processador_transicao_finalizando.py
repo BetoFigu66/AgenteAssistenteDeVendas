@@ -10,7 +10,7 @@ import asyncio
 
 import pytest
 from database import Database
-from models import Contato, FaseAtendimento, ItemAtendimento, Produto, TipoProduto
+from models import Contato, FaseAtendimento, ItemAtendimento, Modelo, Produto
 from services.classificador import EntidadesExtraidas, Intencao, NivelConfianca, ResultadoClassificacao
 from services.dev_limpeza_telefone import apagar_dados_telefone
 from services.identificador import ResultadoIdentificacao, StatusIdentificacao
@@ -18,21 +18,21 @@ from services.processador import ProcessadorMensagem
 from services.respostas import MensagemId
 
 
-def _tipo_produto_relogio_ponto(db_session) -> TipoProduto:
+def _produto_relogio_ponto(db_session) -> Produto:
     """Get-or-create — tabela de catálogo ainda está vazia neste ambiente (Fase F futura)."""
-    tipo = db_session.query(TipoProduto).filter_by(descricao="Relógio de Ponto (teste)").first()
-    if tipo is None:
-        tipo = TipoProduto(descricao="Relógio de Ponto (teste)", ativo=True)
-        db_session.add(tipo)
+    produto = db_session.query(Produto).filter_by(descricao="Relógio de Ponto (teste)").first()
+    if produto is None:
+        produto = Produto(descricao="Relógio de Ponto (teste)", ativo=True)
+        db_session.add(produto)
         db_session.commit()
-    return tipo
+    return produto
 
 
-def _modelo_relogio_ponto_teste(db_session, tipo_produto: TipoProduto) -> Produto:
-    modelo = db_session.query(Produto).filter_by(codigo="TESTE-REP-001").first()
+def _modelo_relogio_ponto_teste(db_session, produto: Produto) -> Modelo:
+    modelo = db_session.query(Modelo).filter_by(codigo="TESTE-REP-001").first()
     if modelo is None:
-        modelo = Produto(
-            tipo_produto_id=tipo_produto.id,
+        modelo = Modelo(
+            produto_id=produto.id,
             codigo="TESTE-REP-001",
             descricao="Modelo de teste (Fase E)",
             preco_tabela=0,
@@ -176,12 +176,12 @@ def test_transicao_e_idempotente_segunda_mensagem_ja_finalizando(db_session, pro
         assert atendimento.fase == FaseAtendimento.FINALIZANDO
 
         # Simula que o modelo já foi resolvido (Fase F faria isso) para variar a próxima pergunta.
-        tipo_produto = _tipo_produto_relogio_ponto(db_session)
-        modelo = _modelo_relogio_ponto_teste(db_session, tipo_produto)
+        produto = _produto_relogio_ponto(db_session)
+        modelo = _modelo_relogio_ponto_teste(db_session, produto)
         item = ItemAtendimento(
             atendimento_id=atendimento.id,
-            tipo_produto_id=tipo_produto.id,
-            produto_id=modelo.id,
+            produto_id=produto.id,
+            modelo_id=modelo.id,
             quantidade=1,
         )
         db_session.add(item)

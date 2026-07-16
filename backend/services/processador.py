@@ -27,6 +27,7 @@ from models import (
     FaseAtendimento,
     ItemAtendimento,
     Mensagem,
+    Modelo,
     ModoOperacao,
     OrigemClassificacao,
     OrigemInfo,
@@ -35,7 +36,6 @@ from models import (
     ProcessamentoMensagem,
     Produto,
     StatusAtendimento,
-    TipoProduto,
 )
 from sqlalchemy.orm import Session
 from utils.datetime_utils import utc_now
@@ -682,13 +682,13 @@ class ProcessadorMensagem:
         resultado_class: ResultadoClassificacao,
         dlog: Optional[DebugLogger] = None,
     ) -> None:
-        """F2: resolve `modelo_produto` para uma linha real de `Produto`, ou escala para
+        """F2: resolve `modelo_produto` para uma linha real de `Modelo`, ou escala para
         atendimento humano após `_MODELO_MAX_TENTATIVAS` sem correspondência — nunca aceita
         o texto do cliente como modelo (REQ-002.21, CAMPO-modelo).
 
-        `Produto`/`TipoProduto` ainda não têm dados semeados neste ambiente — a busca
-        abaixo é a correta para quando houver catálogo real, mas hoje sempre cai no
-        caminho "sem correspondência" e conta como tentativa.
+        `Modelo`/`Produto` ainda não têm dados semeados neste ambiente — a busca abaixo é
+        a correta para quando houver catálogo real, mas hoje sempre cai no caminho "sem
+        correspondência" e conta como tentativa.
         """
         pendentes = campos_pendentes(atendimento)
         if not pendentes or pendentes[0].chave != CAMPO_MODELO.chave:
@@ -699,22 +699,22 @@ class ProcessadorMensagem:
             return  # mensagem não tentou responder o modelo — não conta tentativa
 
         candidato = (
-            db.query(Produto)
-            .join(TipoProduto, Produto.tipo_produto_id == TipoProduto.id)
+            db.query(Modelo)
+            .join(Produto, Modelo.produto_id == Produto.id)
             .filter(
-                TipoProduto.descricao.ilike("%ponto%"),
-                Produto.descricao.ilike(f"%{tipo_leitor}%"),
-                Produto.ativo.is_(True),
+                Produto.descricao.ilike("%ponto%"),
+                Modelo.descricao.ilike(f"%{tipo_leitor}%"),
+                Modelo.ativo.is_(True),
             )
             .first()
         )
         if candidato:
-            item = self._item_atendimento_atual(db, atendimento, candidato.tipo_produto_id)
-            item.produto_id = candidato.id
+            item = self._item_atendimento_atual(db, atendimento, candidato.produto_id)
+            item.modelo_id = candidato.id
             db.commit()
             self._remover_info_atendimento(db, atendimento.id, _MODELO_TENTATIVAS_CHAVE)
             if dlog:
-                dlog.log("finalizando", f"modelo resolvido: produto_id={candidato.id} ({candidato.descricao})")
+                dlog.log("finalizando", f"modelo resolvido: modelo_id={candidato.id} ({candidato.descricao})")
             return
 
         tentativas = int(self._info_atendimento(db, atendimento.id, _MODELO_TENTATIVAS_CHAVE) or 0) + 1
@@ -738,12 +738,12 @@ class ProcessadorMensagem:
         self,
         db: Session,
         atendimento: Atendimento,
-        tipo_produto_id: int,
+        produto_id: int,
     ) -> ItemAtendimento:
         """MVP: um único item por atendimento (só relógio de ponto) — get-or-create."""
         item = next(iter(atendimento.itens), None)
         if item is None:
-            item = ItemAtendimento(atendimento_id=atendimento.id, tipo_produto_id=tipo_produto_id, quantidade=1)
+            item = ItemAtendimento(atendimento_id=atendimento.id, produto_id=produto_id, quantidade=1)
             db.add(item)
             db.flush()
         return item
@@ -838,9 +838,9 @@ class ProcessadorMensagem:
         resposta a um resumo que o cliente de fato viu numa mensagem anterior.
         """
         valores = {info.chave: info.valor for info in atendimento.informacoes}
-        item_resolvido = next((item for item in atendimento.itens if item.produto_id is not None), None)
+        item_resolvido = next((item for item in atendimento.itens if item.modelo_id is not None), None)
         ctx = {
-            "modelo": item_resolvido.produto.descricao if item_resolvido and item_resolvido.produto else None,
+            "modelo": item_resolvido.modelo.descricao if item_resolvido and item_resolvido.modelo else None,
             "software": valores.get(CAMPO_SOFTWARE_PONTO.chave),
             "faixa_funcionarios": valores.get(CAMPO_FAIXA_FUNCIONARIOS.chave),
         }

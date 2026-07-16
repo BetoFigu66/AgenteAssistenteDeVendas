@@ -20,7 +20,7 @@ Valores = Mapping[str, str]
 
 # Destinos possíveis de `CampoDef.destino` — onde a Fase C deve gravar o valor capturado.
 DESTINO_ATENDIMENTO_INFO = "atendimento_info"
-DESTINO_ITEM_ATENDIMENTO_PRODUTO_ID = "item_atendimento.produto_id"
+DESTINO_ITEM_ATENDIMENTO_MODELO_ID = "item_atendimento.modelo_id"
 
 
 def _sempre_aplicavel(tipo_produto: str, valores: Valores) -> bool:
@@ -41,10 +41,10 @@ class CampoDef:
     """Onde o valor capturado deve ser persistido (Fase C):
 
     - `DESTINO_ATENDIMENTO_INFO` (padrão) — grava em `AtendimentoInfo` (chave-valor).
-    - `DESTINO_ITEM_ATENDIMENTO_PRODUTO_ID` — o valor precisa resolver para uma linha
-      real do catálogo (`Modelo`) e gravar em `ItemAtendimento.produto_id`, nunca texto
-      livre. Ver risco/decisão #1 em §8 do plano de MVP: `tipo_produto` já vai para
-      `ItemAtendimento`; o modelo específico segue a mesma lógica.
+    - `DESTINO_ITEM_ATENDIMENTO_MODELO_ID` — o valor precisa resolver para uma linha
+      real do catálogo (`Modelo`) e gravar em `ItemAtendimento.modelo_id`, nunca texto
+      livre. Ver risco/decisão #1 em §8 do plano de MVP: `produto` (categoria) já vai
+      para `ItemAtendimento`; o modelo específico segue a mesma lógica.
     """
 
     def se_aplica(self, tipo_produto: str, valores: Valores) -> bool:
@@ -60,7 +60,7 @@ class CampoDef:
 # ---------------------------------------------------------------------------
 #
 # A resposta do cliente deve sempre resolver para uma linha real do catálogo
-# (`Modelo`, pós-renomeação produto→modelo) — nunca texto livre. Sem
+# (`Modelo`) — nunca texto livre. Sem
 # correspondência reconhecível após 1-2 tentativas de esclarecimento
 # (REQ-002.21), o sistema escala para modo atendente (`escalar_humano`) em vez
 # de gravar o texto do cliente. Essa resolução/validação é implementada na
@@ -75,7 +75,7 @@ CAMPO_MODELO = CampoDef(
         "proximidade, cartão de barras, biometria ou reconhecimento facial?"
     ),
     ordem=10,
-    destino=DESTINO_ITEM_ATENDIMENTO_PRODUTO_ID,
+    destino=DESTINO_ITEM_ATENDIMENTO_MODELO_ID,
 )
 
 
