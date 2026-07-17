@@ -8,10 +8,58 @@ class ApiError extends Error {
   }
 }
 
+// REQ-010 (Fase 4): toda chamada precisa levar o cookie de sessão — necessário
+// em produção, onde frontend/backend são origens diferentes (em dev o proxy
+// do Vite já é same-origin, então isso não muda nada ali).
+function apiFetch(url, options = {}) {
+  return fetch(url, { credentials: 'include', ...options })
+}
+
 export const api = {
+  // Autenticação
+  async login(login, senha) {
+    const response = await apiFetch(`${API_URL}/api/auth/login`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ login, senha }),
+    })
+    if (!response.ok) {
+      const detail = await response.json().catch(() => null)
+      throw new ApiError(detail?.detail || 'Login ou senha inválidos', response.status, 'server')
+    }
+    return response.json()
+  },
+
+  async logout() {
+    const response = await apiFetch(`${API_URL}/api/auth/logout`, { method: 'POST' })
+    if (!response.ok) throw new ApiError('Erro ao sair', response.status, 'server')
+    return response.json()
+  },
+
+  async obterUsuarioAtual() {
+    const response = await apiFetch(`${API_URL}/api/auth/me`)
+    if (!response.ok) {
+      throw new ApiError('Não autenticado', response.status, 'auth')
+    }
+    return response.json()
+  },
+
+  async definirSenha(userId, senha, login) {
+    const response = await apiFetch(`${API_URL}/api/users/${userId}/senha`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ senha, login }),
+    })
+    if (!response.ok) {
+      const detail = await response.json().catch(() => null)
+      throw new ApiError(detail?.detail || 'Erro ao definir senha', response.status, 'server')
+    }
+    return response.json()
+  },
+
   async listarTelefones() {
     try {
-      const response = await fetch(`${API_URL}/api/telefones`)
+      const response = await apiFetch(`${API_URL}/api/telefones`)
       if (!response.ok) {
         throw new ApiError('Erro ao listar telefones', response.status, 'server')
       }
@@ -22,9 +70,15 @@ export const api = {
     }
   },
 
-  async obterHistorico(telefone) {
+  async obterHistorico(telefone, { limit, offset } = {}) {
     try {
-      const response = await fetch(`${API_URL}/api/historico/${encodeURIComponent(telefone)}`)
+      const params = new URLSearchParams()
+      if (limit !== undefined) params.append('limit', limit)
+      if (offset !== undefined) params.append('offset', offset)
+      const qs = params.toString()
+      const response = await apiFetch(
+        `${API_URL}/api/historico/${encodeURIComponent(telefone)}${qs ? `?${qs}` : ''}`,
+      )
       if (!response.ok) {
         if (response.status === 500) {
           throw new ApiError('Erro interno do servidor (500)', 500, 'server')
@@ -40,7 +94,7 @@ export const api = {
 
   async enviarMensagem(telefone, mensagem) {
     try {
-      const response = await fetch(`${API_URL}/api/mensagem`, {
+      const response = await apiFetch(`${API_URL}/api/mensagem`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -62,7 +116,7 @@ export const api = {
 
   async obterDadosConversa(telefone) {
     try {
-      const response = await fetch(`${API_URL}/api/conversa/${encodeURIComponent(telefone)}`)
+      const response = await apiFetch(`${API_URL}/api/conversa/${encodeURIComponent(telefone)}`)
       if (!response.ok) {
         throw new ApiError('Erro ao obter dados da conversa', response.status, 'server')
       }
@@ -75,7 +129,7 @@ export const api = {
 
   async obterEmpresa(empresaId) {
     try {
-      const response = await fetch(`${API_URL}/api/empresas/${empresaId}`)
+      const response = await apiFetch(`${API_URL}/api/empresas/${empresaId}`)
       if (!response.ok) {
         throw new ApiError('Erro ao obter empresa', response.status, 'server')
       }
@@ -88,7 +142,7 @@ export const api = {
 
   async obterAtendimento(atendimentoId) {
     try {
-      const response = await fetch(`${API_URL}/api/atendimentos/${atendimentoId}`)
+      const response = await apiFetch(`${API_URL}/api/atendimentos/${atendimentoId}`)
       if (!response.ok) {
         throw new ApiError('Erro ao obter atendimento', response.status, 'server')
       }
@@ -99,9 +153,22 @@ export const api = {
     }
   },
 
+  async obterCamposPendentes(atendimentoId) {
+    try {
+      const response = await apiFetch(`${API_URL}/api/atendimentos/${atendimentoId}/campos-pendentes`)
+      if (!response.ok) {
+        throw new ApiError('Erro ao obter campos pendentes', response.status, 'server')
+      }
+      return response.json()
+    } catch (error) {
+      if (error instanceof ApiError) throw error
+      throw new ApiError('Backend não está respondendo', 0, 'network')
+    }
+  },
+
   async obterProcessamento(processamentoId) {
     try {
-      const response = await fetch(`${API_URL}/api/processamentos/${processamentoId}`)
+      const response = await apiFetch(`${API_URL}/api/processamentos/${processamentoId}`)
       if (!response.ok) {
         throw new ApiError('Erro ao obter processamento', response.status, 'server')
       }
@@ -114,7 +181,7 @@ export const api = {
 
   async criarReportProblema(processamentoId, payload = {}) {
     try {
-      const response = await fetch(
+      const response = await apiFetch(
         `${API_URL}/api/processamentos/${processamentoId}/reports`,
         {
           method: 'POST',
@@ -143,7 +210,7 @@ export const api = {
       if (v !== undefined && v !== null && v !== '') params.append(k, v)
     })
     const qs = params.toString()
-    const response = await fetch(`${API_URL}/api/reports${qs ? `?${qs}` : ''}`)
+    const response = await apiFetch(`${API_URL}/api/reports${qs ? `?${qs}` : ''}`)
     if (!response.ok) throw new ApiError('Erro ao listar reports', response.status, 'server')
     return response.json()
   },
@@ -154,13 +221,13 @@ export const api = {
       if (v !== undefined && v !== null && v !== '') params.append(k, v)
     })
     const qs = params.toString()
-    const response = await fetch(`${API_URL}/api/reports/stats${qs ? `?${qs}` : ''}`)
+    const response = await apiFetch(`${API_URL}/api/reports/stats${qs ? `?${qs}` : ''}`)
     if (!response.ok) throw new ApiError('Erro ao obter estatísticas', response.status, 'server')
     return response.json()
   },
 
   async obterContextoReport(reportId, { antes = 3, depois = 3 } = {}) {
-    const response = await fetch(
+    const response = await apiFetch(
       `${API_URL}/api/reports/${reportId}/contexto?antes=${antes}&depois=${depois}`,
     )
     if (!response.ok) throw new ApiError('Erro ao obter contexto', response.status, 'server')
@@ -174,7 +241,7 @@ export const api = {
         antes: String(antes),
         depois: String(depois),
       })
-      const response = await fetch(
+      const response = await apiFetch(
         `${API_URL}/api/reports/${reportId}/pacote-analise?${params}`,
       )
       if (!response.ok) {
@@ -205,7 +272,7 @@ export const api = {
   },
 
   async atualizarReport(reportId, payload) {
-    const response = await fetch(`${API_URL}/api/reports/${reportId}`, {
+    const response = await apiFetch(`${API_URL}/api/reports/${reportId}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload),
@@ -219,7 +286,7 @@ export const api = {
 
   async healthCheck() {
     try {
-      const response = await fetch(`${API_URL}/health`)
+      const response = await apiFetch(`${API_URL}/health`)
       if (!response.ok) throw new ApiError('API não disponível', response.status, 'server')
       return response.json()
     } catch (error) {
@@ -230,16 +297,16 @@ export const api = {
 
   // Users
   async listarUsers() {
-    const response = await fetch(`${API_URL}/api/users`)
+    const response = await apiFetch(`${API_URL}/api/users`)
     if (!response.ok) throw new ApiError('Erro ao listar usuários', response.status, 'server')
     return response.json()
   },
 
-  async criarUser(nome) {
-    const response = await fetch(`${API_URL}/api/users`, {
+  async criarUser(nome, login, senha) {
+    const response = await apiFetch(`${API_URL}/api/users`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ nome }),
+      body: JSON.stringify({ nome, login, senha }),
     })
     if (!response.ok) {
       const detail = await response.json().catch(() => null)
@@ -248,15 +315,20 @@ export const api = {
     return response.json()
   },
 
-  // Atendimentos ativos
-  async listarAtendimentosAtivos() {
-    const response = await fetch(`${API_URL}/api/atendimentos/ativas`)
+  // Atendimentos
+  async listarAtendimentos({ status, q, page = 1, limit = 50 } = {}) {
+    const params = new URLSearchParams()
+    if (status) params.append('status', status)
+    if (q) params.append('q', q)
+    params.append('page', page)
+    params.append('limit', limit)
+    const response = await apiFetch(`${API_URL}/api/atendimentos/ativas?${params}`)
     if (!response.ok) throw new ApiError('Erro ao listar atendimentos', response.status, 'server')
     return response.json()
   },
 
   async alterarModoOperacao(atendimentoId, modoOperacao) {
-    const response = await fetch(`${API_URL}/api/atendimentos/${atendimentoId}/modo-operacao`, {
+    const response = await apiFetch(`${API_URL}/api/atendimentos/${atendimentoId}/modo-operacao`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ modo_operacao: modoOperacao }),
@@ -268,11 +340,11 @@ export const api = {
     return response.json()
   },
 
-  async enviarMensagemManual(atendimentoId, conteudo, aprovadorId = null) {
-    const response = await fetch(`${API_URL}/api/atendimentos/${atendimentoId}/mensagens-manuais`, {
+  async enviarMensagemManual(atendimentoId, conteudo) {
+    const response = await apiFetch(`${API_URL}/api/atendimentos/${atendimentoId}/mensagens-manuais`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ conteudo, aprovador_id: aprovadorId }),
+      body: JSON.stringify({ conteudo }),
     })
     if (!response.ok) {
       const detail = await response.json().catch(() => null)
@@ -281,12 +353,12 @@ export const api = {
     return response.json()
   },
 
-  // Aprovação de mensagens
-  async aprovarMensagem(mensagemId, aprovadorId, feedback) {
-    const response = await fetch(`${API_URL}/api/mensagens/${mensagemId}/aprovar`, {
+  // Aprovação de mensagens (autor vem da sessão — REQ-010, Fase 4)
+  async aprovarMensagem(mensagemId, feedback) {
+    const response = await apiFetch(`${API_URL}/api/mensagens/${mensagemId}/aprovar`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ aprovador_id: aprovadorId, feedback: feedback || null }),
+      body: JSON.stringify({ feedback: feedback || null }),
     })
     if (!response.ok) {
       const detail = await response.json().catch(() => null)
@@ -295,11 +367,11 @@ export const api = {
     return response.json()
   },
 
-  async reprovarMensagem(mensagemId, justificativa, reprovadorId) {
-    const response = await fetch(`${API_URL}/api/mensagens/${mensagemId}/reprovar`, {
+  async reprovarMensagem(mensagemId, justificativa) {
+    const response = await apiFetch(`${API_URL}/api/mensagens/${mensagemId}/reprovar`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ justificativa, reprovador_id: reprovadorId }),
+      body: JSON.stringify({ justificativa }),
     })
     if (!response.ok) {
       const detail = await response.json().catch(() => null)
@@ -309,7 +381,7 @@ export const api = {
   },
 
   async listarMensagensPendentes() {
-    const response = await fetch(`${API_URL}/api/mensagens/pendentes`)
+    const response = await apiFetch(`${API_URL}/api/mensagens/pendentes`)
     if (!response.ok) throw new ApiError('Erro ao listar mensagens pendentes', response.status, 'server')
     return response.json()
   },
@@ -322,7 +394,7 @@ export const api = {
     if (aprovado !== undefined && aprovado !== null) params.append('aprovado', aprovado)
     params.append('page', page)
     params.append('limit', limit)
-    const response = await fetch(`${API_URL}/api/pares-qa?${params}`)
+    const response = await apiFetch(`${API_URL}/api/pares-qa?${params}`)
     if (!response.ok) throw new ApiError('Erro ao listar pares Q&A', response.status, 'server')
     return response.json()
   },
@@ -330,13 +402,13 @@ export const api = {
   async listarPendentesAprovacaoQA(contexto) {
     const params = new URLSearchParams()
     if (contexto) params.append('contexto', contexto)
-    const response = await fetch(`${API_URL}/api/pares-qa/pendentes-aprovacao?${params}`)
+    const response = await apiFetch(`${API_URL}/api/pares-qa/pendentes-aprovacao?${params}`)
     if (!response.ok) throw new ApiError('Erro ao listar pendentes Q&A', response.status, 'server')
     return response.json()
   },
 
   async criarParQA(dados) {
-    const response = await fetch(`${API_URL}/api/pares-qa`, {
+    const response = await apiFetch(`${API_URL}/api/pares-qa`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(dados),
@@ -349,7 +421,7 @@ export const api = {
   },
 
   async atualizarParQA(id, dados) {
-    const response = await fetch(`${API_URL}/api/pares-qa/${id}`, {
+    const response = await apiFetch(`${API_URL}/api/pares-qa/${id}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(dados),
@@ -362,7 +434,7 @@ export const api = {
   },
 
   async aprovarParQA(id) {
-    const response = await fetch(`${API_URL}/api/pares-qa/${id}/aprovar`, {
+    const response = await apiFetch(`${API_URL}/api/pares-qa/${id}/aprovar`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
     })
@@ -374,7 +446,7 @@ export const api = {
   },
 
   async desativarParQA(id) {
-    const response = await fetch(`${API_URL}/api/pares-qa/${id}`, { method: 'DELETE' })
+    const response = await apiFetch(`${API_URL}/api/pares-qa/${id}`, { method: 'DELETE' })
     if (!response.ok) {
       const detail = await response.json().catch(() => null)
       throw new ApiError(detail?.detail || 'Erro ao desativar par Q&A', response.status, 'server')
@@ -384,7 +456,7 @@ export const api = {
 
   async getConfigRag() {
     try {
-      const response = await fetch(`${API_URL}/api/config/rag`)
+      const response = await apiFetch(`${API_URL}/api/config/rag`)
       if (!response.ok) throw new ApiError('Erro ao buscar config RAG', response.status, 'server')
       return response.json()
     } catch (error) {
@@ -395,7 +467,7 @@ export const api = {
 
   async patchConfigRag(dados) {
     try {
-      const response = await fetch(`${API_URL}/api/config/rag`, {
+      const response = await apiFetch(`${API_URL}/api/config/rag`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(dados),
@@ -413,7 +485,7 @@ export const api = {
 
   async getConfigExecucao() {
     try {
-      const response = await fetch(`${API_URL}/api/config/execucao`)
+      const response = await apiFetch(`${API_URL}/api/config/execucao`)
       if (!response.ok) throw new ApiError('Erro ao buscar modo de execução', response.status, 'server')
       return response.json()
     } catch (error) {
@@ -422,12 +494,12 @@ export const api = {
     }
   },
 
-  async patchConfigExecucao(modoExecucao, ator) {
+  async patchConfigExecucao(modoExecucao) {
     try {
-      const response = await fetch(`${API_URL}/api/config/execucao`, {
+      const response = await apiFetch(`${API_URL}/api/config/execucao`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ modo_execucao: modoExecucao, ator }),
+        body: JSON.stringify({ modo_execucao: modoExecucao }),
       })
       if (!response.ok) {
         const detail = await response.json().catch(() => null)
@@ -441,13 +513,13 @@ export const api = {
   },
 
   async listarParametros() {
-    const response = await fetch(`${API_URL}/api/parametros`)
+    const response = await apiFetch(`${API_URL}/api/parametros`)
     if (!response.ok) throw new ApiError('Erro ao listar parâmetros', response.status, 'server')
     return response.json()
   },
 
   async atualizarParametro(nome, valor) {
-    const response = await fetch(`${API_URL}/api/parametros/${encodeURIComponent(nome)}`, {
+    const response = await apiFetch(`${API_URL}/api/parametros/${encodeURIComponent(nome)}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ valor }),

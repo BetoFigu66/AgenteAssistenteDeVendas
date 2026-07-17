@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
-import { Phone, Mail } from 'lucide-react'
+import { Phone, Mail, LogOut, User } from 'lucide-react'
 import { api } from '../services/api'
+import { useAuth } from '../context/AuthContext'
 
 const ROTULO_MODO = {
   simulacao: 'Simulação',
@@ -38,7 +39,7 @@ function ModoExecucaoBadge() {
     if (novoModo === modo) return
     setAlterando(true)
     try {
-      await api.patchConfigExecucao(novoModo, 'vendedor')
+      await api.patchConfigExecucao(novoModo)
       setModo(novoModo)
       setErro(null)
     } catch (error) {
@@ -75,6 +76,24 @@ function ModoExecucaoBadge() {
   )
 }
 
+function UsuarioLogado() {
+  const { usuario, logout } = useAuth()
+  if (!usuario) return null
+  return (
+    <div className="flex items-center gap-2">
+      <User size={14} />
+      <span>{usuario.nome}</span>
+      <button
+        onClick={logout}
+        title="Sair"
+        className="flex items-center gap-1 hover:text-inforrel-accent transition"
+      >
+        <LogOut size={14} />
+      </button>
+    </div>
+  )
+}
+
 function Header() {
   return (
     <>
@@ -85,9 +104,12 @@ function Header() {
             <Phone size={14} />
             <span>(19) 3772-5050</span>
           </div>
-          <div className="flex items-center gap-2">
-            <Mail size={14} />
-            <span>contato@inforrel.com.br</span>
+          <div className="flex items-center gap-4">
+            <div className="flex items-center gap-2">
+              <Mail size={14} />
+              <span>contato@inforrel.com.br</span>
+            </div>
+            <UsuarioLogado />
           </div>
         </div>
       </div>

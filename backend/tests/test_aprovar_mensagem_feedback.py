@@ -2,17 +2,8 @@
 
 import pytest
 from database import Database
-from fastapi.testclient import TestClient
-from models import Mensagem, OrigemMensagem, User
+from models import Mensagem, OrigemMensagem
 from services.dev_limpeza_telefone import apagar_dados_telefone
-
-
-@pytest.fixture
-def client():
-    import main
-
-    with TestClient(main.app) as c:
-        yield c
 
 
 @pytest.fixture
@@ -36,25 +27,14 @@ def _criar_mensagem_pendente(db_session, telefone) -> int:
     return msg.id
 
 
-def _obter_ou_criar_user(db_session, nome: str) -> int:
-    user = db_session.query(User).filter_by(nome=nome).first()
-    if user is None:
-        user = User(nome=nome)
-        db_session.add(user)
-        db_session.commit()
-        db_session.refresh(user)
-    return user.id
-
-
 def test_aprovar_com_feedback_persiste_texto(client, db_session):
     telefone = "5511999988101"
     try:
         mensagem_id = _criar_mensagem_pendente(db_session, telefone)
-        user_id = _obter_ou_criar_user(db_session, "Testador Fase2")
 
         r = client.post(
             f"/api/mensagens/{mensagem_id}/aprovar",
-            json={"aprovador_id": user_id, "feedback": "Correto, mas poderia ser mais direto"},
+            json={"feedback": "Correto, mas poderia ser mais direto"},
         )
         assert r.status_code == 200
         body = r.json()
@@ -68,9 +48,8 @@ def test_aprovar_sem_feedback_fica_none(client, db_session):
     telefone = "5511999988102"
     try:
         mensagem_id = _criar_mensagem_pendente(db_session, telefone)
-        user_id = _obter_ou_criar_user(db_session, "Testador Fase2")
 
-        r = client.post(f"/api/mensagens/{mensagem_id}/aprovar", json={"aprovador_id": user_id})
+        r = client.post(f"/api/mensagens/{mensagem_id}/aprovar", json={})
         assert r.status_code == 200
         assert r.json()["feedback_aprovacao"] is None
     finally:

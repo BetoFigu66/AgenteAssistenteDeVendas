@@ -8,9 +8,29 @@ import ReportsPage from './components/ReportsPage'
 import AcompanhamentoPage from './components/AcompanhamentoPage'
 import QABasePage from './components/QABasePage'
 import ParametrosPage from './components/ParametrosPage'
+import LoginPage from './components/LoginPage'
+import { AuthProvider, useAuth } from './context/AuthContext'
 import { api } from './services/api'
 
 function App() {
+  const { usuario, carregando } = useAuth()
+
+  if (carregando) {
+    return (
+      <div className="min-h-screen flex items-center justify-center text-gray-500">
+        Carregando...
+      </div>
+    )
+  }
+
+  if (!usuario) {
+    return <LoginPage />
+  }
+
+  return <AppLogado />
+}
+
+function AppLogado() {
   const [pagina, setPagina] = useState('chat') // 'chat' | 'reports' | 'acompanhamento' | 'qa-base' | 'parametros'
   const [telefoneAtual, setTelefoneAtual] = useState(null)
   const [telefones, setTelefones] = useState([])
@@ -181,4 +201,12 @@ function App() {
   )
 }
 
-export default App
+function AppComAuth() {
+  return (
+    <AuthProvider>
+      <App />
+    </AuthProvider>
+  )
+}
+
+export default AppComAuth

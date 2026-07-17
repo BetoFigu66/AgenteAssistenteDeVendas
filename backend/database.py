@@ -66,19 +66,27 @@ class Database:
             session.flush()
             return mensagem.id
 
-    def obter_historico(self, telefone: str) -> List[Dict]:
+    def obter_historico(self, telefone: str, limit: Optional[int] = None, offset: int = 0) -> List[Dict]:
         """
         Retorna o histórico de mensagens de um telefone.
 
         Args:
             telefone: Número do telefone
+            limit: se informado, retorna só as `limit` mensagens mais recentes
+                (a partir de `offset` mensagens atrás) — REQ-010, Fase 4.
+            offset: quantas mensagens recentes pular (paginação de "mais antigas").
 
         Returns:
-            Lista de mensagens ordenadas por timestamp
+            Lista de mensagens ordenadas por timestamp (crescente).
         """
         with self.get_session() as session:
-            stmt = select(Mensagem).where(Mensagem.telefone == telefone).order_by(Mensagem.timestamp.asc())
-            mensagens = session.scalars(stmt).all()
+            stmt = select(Mensagem).where(Mensagem.telefone == telefone)
+            if limit is not None:
+                stmt = stmt.order_by(Mensagem.timestamp.desc()).offset(offset).limit(limit)
+                mensagens = list(reversed(session.scalars(stmt).all()))
+            else:
+                stmt = stmt.order_by(Mensagem.timestamp.asc())
+                mensagens = session.scalars(stmt).all()
             return [msg.to_dict() for msg in mensagens]
 
     def listar_telefones(self) -> List[str]:

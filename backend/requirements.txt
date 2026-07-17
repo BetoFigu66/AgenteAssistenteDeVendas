@@ -3,6 +3,11 @@ uvicorn[standard]==0.27.0
 pydantic==2.5.3
 pydantic-settings==2.1.0
 python-multipart==0.0.6
+itsdangerous==2.2.0
+
+# Autenticação (REQ-010, Fase 4) — bcrypt puro (passlib 1.7.4 é incompatível com
+# bcrypt>=4.1: checagem de versão quebrada, ver github.com/pyca/bcrypt/issues/684)
+bcrypt==5.0.0
 
 # Database
 sqlalchemy==2.0.25

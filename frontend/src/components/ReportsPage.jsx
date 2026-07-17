@@ -38,6 +38,11 @@ function ReportsPage({ onVoltar }) {
   const [filtroSeveridade, setFiltroSeveridade] = useState('')
   const [apenasAbertos, setApenasAbertos] = useState(true)
 
+  // Paginação (REQ-010, Fase 4)
+  const [pagina, setPagina] = useState(1)
+  const [totalReports, setTotalReports] = useState(0)
+  const LIMITE_PAGINA = 20
+
   const montarFiltrosApi = () => ({
     status: filtroStatus,
     categoria: filtroCategoria,
@@ -52,13 +57,14 @@ function ReportsPage({ onVoltar }) {
     setLoading(true)
     setErro(null)
     try {
-      const filtros = montarFiltrosApi()
+      const filtros = { ...montarFiltrosApi(), page: pagina, limit: LIMITE_PAGINA }
       const [data, s, sFiltrado] = await Promise.all([
         api.listarReports(filtros),
         api.statsReports(),
-        temFiltroAtivo ? api.statsReports(filtros) : Promise.resolve(null),
+        temFiltroAtivo ? api.statsReports(montarFiltrosApi()) : Promise.resolve(null),
       ])
       setReports(data.reports || [])
+      setTotalReports(data.total || 0)
       setStats(s)
       setStatsFiltrados(sFiltrado)
     } catch (e) {
@@ -71,7 +77,15 @@ function ReportsPage({ onVoltar }) {
   useEffect(() => {
     carregar()
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [filtroStatus, filtroCategoria, filtroSeveridade, apenasAbertos])
+  }, [filtroStatus, filtroCategoria, filtroSeveridade, apenasAbertos, pagina])
+
+  // Troca de filtro sempre volta pra página 1 (setado no próprio handler do
+  // filtro, não num efeito separado — evita buscar com a página antiga antes
+  // do reset "pegar", que geraria uma requisição a mais e um flash de dados errados).
+  const handleFiltroChange = (setter) => (valor) => {
+    setPagina(1)
+    setter(valor)
+  }
 
   const onReportAtualizado = (reportAtualizado) => {
     setReports((prev) =>
@@ -172,7 +186,7 @@ function ReportsPage({ onVoltar }) {
             <label className="text-xs text-gray-500 uppercase tracking-wide">Status</label>
             <select
               value={filtroStatus}
-              onChange={(e) => setFiltroStatus(e.target.value)}
+              onChange={(e) => handleFiltroChange(setFiltroStatus)(e.target.value)}
               className="w-full border border-gray-300 rounded px-2 py-1.5 text-sm mt-0.5"
             >
               <option value="">Todos</option>
@@ -185,7 +199,7 @@ function ReportsPage({ onVoltar }) {
             <label className="text-xs text-gray-500 uppercase tracking-wide">Categoria</label>
             <select
               value={filtroCategoria}
-              onChange={(e) => setFiltroCategoria(e.target.value)}
+              onChange={(e) => handleFiltroChange(setFiltroCategoria)(e.target.value)}
               className="w-full border border-gray-300 rounded px-2 py-1.5 text-sm mt-0.5"
             >
               <option value="">Todas</option>
@@ -198,7 +212,7 @@ function ReportsPage({ onVoltar }) {
             <label className="text-xs text-gray-500 uppercase tracking-wide">Severidade</label>
             <select
               value={filtroSeveridade}
-              onChange={(e) => setFiltroSeveridade(e.target.value)}
+              onChange={(e) => handleFiltroChange(setFiltroSeveridade)(e.target.value)}
               className="w-full border border-gray-300 rounded px-2 py-1.5 text-sm mt-0.5"
             >
               <option value="">Todas</option>
@@ -212,7 +226,7 @@ function ReportsPage({ onVoltar }) {
               <input
                 type="checkbox"
                 checked={apenasAbertos}
-                onChange={(e) => setApenasAbertos(e.target.checked)}
+                onChange={(e) => handleFiltroChange(setApenasAbertos)(e.target.checked)}
                 disabled={!!filtroStatus}
               />
               Apenas não-finalizados
@@ -288,6 +302,28 @@ function ReportsPage({ onVoltar }) {
               )}
             </button>
           ))}
+        </div>
+      )}
+
+      {totalReports > LIMITE_PAGINA && (
+        <div className="flex items-center justify-between text-sm mt-3">
+          <button
+            onClick={() => setPagina((p) => Math.max(1, p - 1))}
+            disabled={pagina <= 1}
+            className="px-3 py-1 rounded border border-gray-300 text-gray-600 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed"
+          >
+            Anterior
+          </button>
+          <span className="text-gray-500">
+            Página {pagina} de {Math.max(1, Math.ceil(totalReports / LIMITE_PAGINA))} ({totalReports} reports)
+          </span>
+          <button
+            onClick={() => setPagina((p) => p + 1)}
+            disabled={pagina * LIMITE_PAGINA >= totalReports}
+            className="px-3 py-1 rounded border border-gray-300 text-gray-600 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed"
+          >
+            Próxima
+          </button>
         </div>
       )}
 

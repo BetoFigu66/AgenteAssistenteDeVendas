@@ -1,23 +1,26 @@
 import { useState, useEffect } from 'react'
-import { Eye, CheckCircle, XCircle, Send, UserPlus, Users, RefreshCw, Bot, User, Brain, Flag, Clipboard } from 'lucide-react'
+import { Eye, CheckCircle, XCircle, Send, RefreshCw, Bot, User, Brain, Flag, Clipboard } from 'lucide-react'
 import { api } from '../services/api'
 import DetalheModal from './DetalheModal'
 import ProcessamentoDetalhes from './ProcessamentoDetalhes'
 import { formatDatetimeBRT } from '../utils/datetime'
 import { numeroAtendimentoExibicao, rotuloAtendimento, rotuloFase, classesFase } from '../utils/atendimento'
+import { useAuth } from '../context/AuthContext'
 
 function AcompanhamentoPage() {
+  const { usuario } = useAuth()
   const [atendimentos, setAtendimentos] = useState([])
+  const [totalAtendimentos, setTotalAtendimentos] = useState(0)
+  const [filtroQ, setFiltroQ] = useState('')
+  const [filtroQAplicado, setFiltroQAplicado] = useState('')
+  const [filtroStatus, setFiltroStatus] = useState('ativo')
+  const [pagina, setPagina] = useState(1)
+  const LIMITE_PAGINA = 20
   const [atendimentoSelecionado, setAtendimentoSelecionado] = useState(null)
   const [mensagensAtendimento, setMensagensAtendimento] = useState([])
   const [carregandoAtendimentos, setCarregandoAtendimentos] = useState(false)
   const [carregandoMensagens, setCarregandoMensagens] = useState(false)
   const [erro, setErro] = useState(null)
-
-  const [users, setUsers] = useState([])
-  const [userSelecionado, setUserSelecionado] = useState(null)
-  const [mostrarModalCriarUser, setMostrarModalCriarUser] = useState(false)
-  const [novoUserNome, setNovoUserNome] = useState('')
 
   const [modoOperacao, setModoOperacao] = useState('agente')
   const [mensagemManual, setMensagemManual] = useState('')
@@ -39,10 +42,18 @@ function AcompanhamentoPage() {
   const [confirmandoPendentesQA, setConfirmandoPendentesQA] = useState(false)
 
   useEffect(() => {
-    carregarAtendimentos()
-    carregarUsers()
     carregarConfigExecucao()
   }, [])
+
+  useEffect(() => {
+    carregarAtendimentos()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filtroStatus, filtroQAplicado, pagina])
+
+  const aplicarBusca = () => {
+    setPagina(1)
+    setFiltroQAplicado(filtroQ.trim())
+  }
 
   useEffect(() => {
     if (atendimentoSelecionado) {
@@ -79,25 +90,19 @@ function AcompanhamentoPage() {
     setCarregandoAtendimentos(true)
     setErro(null)
     try {
-      const data = await api.listarAtendimentosAtivos()
+      const data = await api.listarAtendimentos({
+        status: filtroStatus,
+        q: filtroQAplicado,
+        page: pagina,
+        limit: LIMITE_PAGINA,
+      })
       setAtendimentos(data.atendimentos || [])
+      setTotalAtendimentos(data.total || 0)
     } catch (error) {
       console.error('Erro ao carregar atendimentos:', error)
       setErro('Erro ao carregar atendimentos ativos')
     } finally {
       setCarregandoAtendimentos(false)
-    }
-  }
-
-  const carregarUsers = async () => {
-    try {
-      const data = await api.listarUsers()
-      setUsers(data.users || [])
-      if (data.users && data.users.length > 0 && !userSelecionado) {
-        setUserSelecionado(data.users[0].id)
-      }
-    } catch (error) {
-      console.error('Erro ao carregar usuários:', error)
     }
   }
 
@@ -120,20 +125,6 @@ function AcompanhamentoPage() {
       setMensagensAtendimento([])
     } finally {
       setCarregandoMensagens(false)
-    }
-  }
-
-  const handleCriarUser = async () => {
-    if (!novoUserNome.trim()) return
-    try {
-      const user = await api.criarUser(novoUserNome.trim())
-      setUsers([...users, user])
-      setUserSelecionado(user.id)
-      setMostrarModalCriarUser(false)
-      setNovoUserNome('')
-    } catch (error) {
-      console.error('Erro ao criar usuário:', error)
-      alert('Erro ao criar usuário: ' + error.message)
     }
   }
 
@@ -196,17 +187,13 @@ function AcompanhamentoPage() {
   }
 
   const handleAprovarMensagem = async (mensagemId) => {
-    if (!userSelecionado) {
-      alert('Selecione um usuário para aprovar a mensagem')
-      return
-    }
     // REQ-011.6: feedback opcional na aprovação — "correto, mas..." (Cancelar/vazio pula).
     const feedback = window.prompt(
       'Feedback opcional sobre esta resposta (deixe em branco para pular):',
       ''
     )
     try {
-      await api.aprovarMensagem(mensagemId, userSelecionado, feedback || null)
+      await api.aprovarMensagem(mensagemId, feedback || null)
       if (atendimentoSelecionado) {
         carregarMensagensAtendimento(atendimentoSelecionado.telefone)
       }
@@ -219,10 +206,6 @@ function AcompanhamentoPage() {
 
   const handleReprovarMensagem = async () => {
     if (!mensagemReprovando || !justificativaReprovacao.trim()) return
-    if (!userSelecionado) {
-      alert('Selecione um usuário para reprovar a mensagem')
-      return
-    }
 
     if (respostaQA.trim() && !confirmandoPendentesQA) {
       setCarregandoPendentesQA(true)
@@ -242,7 +225,7 @@ function AcompanhamentoPage() {
 
     setEnviandoReprovacao(true)
     try {
-      await api.reprovarMensagem(mensagemReprovando.id, justificativaReprovacao.trim(), userSelecionado)
+      await api.reprovarMensagem(mensagemReprovando.id, justificativaReprovacao.trim())
 
       let mensagemAlerta = 'Mensagem reprovada com sucesso'
       if (respostaQA.trim() && perguntaQA.trim()) {
@@ -251,7 +234,7 @@ function AcompanhamentoPage() {
             pergunta: perguntaQA.trim(),
             resposta: respostaQA.trim(),
             contexto: contextoQA || null,
-            criado_por: String(userSelecionado),
+            criado_por: usuario?.nome || null,
           })
           mensagemAlerta = 'Mensagem reprovada · Rascunho Q&A salvo para revisão'
         } catch (errQA) {
@@ -277,11 +260,7 @@ function AcompanhamentoPage() {
     if (!mensagemManual.trim() || !atendimentoSelecionado) return
     setEnviandoMensagem(true)
     try {
-      await api.enviarMensagemManual(
-        atendimentoSelecionado.id,
-        mensagemManual.trim(),
-        userSelecionado
-      )
+      await api.enviarMensagemManual(atendimentoSelecionado.id, mensagemManual.trim())
       setMensagemManual('')
       carregarMensagensAtendimento(atendimentoSelecionado.telefone)
     } catch (error) {
@@ -320,30 +299,30 @@ function AcompanhamentoPage() {
             </button>
           </div>
 
-          <div className="flex items-center gap-4">
-            <div className="flex items-center gap-2">
-              <Users size={18} className="text-gray-500" />
-              <select
-                value={userSelecionado || ''}
-                onChange={(e) => setUserSelecionado(Number(e.target.value))}
-                className="px-3 py-1.5 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-inforrel-primary"
-              >
-                <option value="">Selecione um usuário</option>
-                {users.map((user) => (
-                  <option key={user.id} value={user.id}>
-                    {user.nome}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <button
-              onClick={() => setMostrarModalCriarUser(true)}
-              className="flex items-center gap-1.5 px-3 py-1.5 bg-inforrel-primary text-white rounded-md text-sm hover:bg-inforrel-secondary transition"
+          <div className="flex items-center gap-2">
+            <input
+              type="text"
+              value={filtroQ}
+              onChange={(e) => setFiltroQ(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') aplicarBusca()
+              }}
+              onBlur={aplicarBusca}
+              placeholder="Buscar por telefone, contato ou empresa..."
+              className="px-3 py-1.5 border border-gray-300 rounded-md text-sm w-64 focus:outline-none focus:ring-2 focus:ring-inforrel-primary"
+            />
+            <select
+              value={filtroStatus}
+              onChange={(e) => {
+                setPagina(1)
+                setFiltroStatus(e.target.value)
+              }}
+              className="px-3 py-1.5 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-inforrel-primary"
             >
-              <UserPlus size={16} />
-              Novo Usuário
-            </button>
+              <option value="ativo">Ativos</option>
+              <option value="encerrado">Encerrados</option>
+              <option value="todos">Todos</option>
+            </select>
           </div>
         </div>
 
@@ -358,7 +337,7 @@ function AcompanhamentoPage() {
         <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
           <div className="px-4 py-3 bg-gray-50 border-b border-gray-200">
             <h3 className="font-medium text-gray-700">
-              Atendimentos Ativos ({atendimentos.length})
+              Atendimentos ({totalAtendimentos})
             </h3>
             <p className="text-xs text-gray-500 mt-1">
               Ordenados por mensagens pendentes de aprovação
@@ -436,6 +415,28 @@ function AcompanhamentoPage() {
               </div>
             )}
           </div>
+
+          {totalAtendimentos > LIMITE_PAGINA && (
+            <div className="px-4 py-2 border-t border-gray-200 flex items-center justify-between text-sm">
+              <button
+                onClick={() => setPagina((p) => Math.max(1, p - 1))}
+                disabled={pagina <= 1}
+                className="px-3 py-1 rounded border border-gray-300 text-gray-600 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                Anterior
+              </button>
+              <span className="text-gray-500">
+                Página {pagina} de {Math.max(1, Math.ceil(totalAtendimentos / LIMITE_PAGINA))}
+              </span>
+              <button
+                onClick={() => setPagina((p) => p + 1)}
+                disabled={pagina * LIMITE_PAGINA >= totalAtendimentos}
+                className="px-3 py-1 rounded border border-gray-300 text-gray-600 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                Próxima
+              </button>
+            </div>
+          )}
         </div>
 
         <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
@@ -515,11 +516,6 @@ function AcompanhamentoPage() {
                       {mensagensAtendimento.filter(m => m.origem === 'system' && m.pendente_aprovacao).length} mensagen(s) pendente(s) de aprovação
                     </span>
                   </div>
-                  {!userSelecionado && (
-                    <p className="text-xs text-yellow-700 mt-1">
-                      Selecione um usuário no topo da página para aprovar as mensagens.
-                    </p>
-                  )}
                 </div>
               )}
 
@@ -617,31 +613,19 @@ function AcompanhamentoPage() {
                               <>
                                 <button
                                   onClick={() => handleAprovarMensagem(msg.id)}
-                                  disabled={!userSelecionado}
-                                  className={`flex items-center gap-1.5 px-2.5 py-1 text-xs rounded transition ${
-                                    userSelecionado
-                                      ? 'bg-inforrel-primary text-white hover:bg-inforrel-secondary'
-                                      : 'bg-gray-300 text-gray-500 cursor-not-allowed'
-                                  }`}
-                                  title={userSelecionado ? 'Aprovar mensagem' : 'Selecione um usuário para aprovar'}
+                                  className="flex items-center gap-1.5 px-2.5 py-1 text-xs rounded transition bg-inforrel-primary text-white hover:bg-inforrel-secondary"
+                                  title="Aprovar mensagem"
                                 >
                                   <CheckCircle size={12} />
                                   Aprovar
-                                  {!userSelecionado && ' (selecione usuário)'}
                                 </button>
                                 <button
                                   onClick={() => setMensagemReprovando(msg)}
-                                  disabled={!userSelecionado}
-                                  className={`flex items-center gap-1.5 px-2.5 py-1 text-xs rounded transition ${
-                                    userSelecionado
-                                      ? 'bg-red-100 text-red-700 hover:bg-red-200'
-                                      : 'bg-gray-300 text-gray-500 cursor-not-allowed'
-                                  }`}
-                                  title={userSelecionado ? 'Reprovar mensagem' : 'Selecione um usuário para reprovar'}
+                                  className="flex items-center gap-1.5 px-2.5 py-1 text-xs rounded transition bg-red-100 text-red-700 hover:bg-red-200"
+                                  title="Reprovar mensagem"
                                 >
                                   <XCircle size={12} />
                                   Reprovar
-                                  {!userSelecionado && ' (selecione usuário)'}
                                 </button>
                               </>
                             )}
@@ -700,51 +684,6 @@ function AcompanhamentoPage() {
           )}
         </div>
       </div>
-
-      {mostrarModalCriarUser && (
-        <DetalheModal
-          titulo="Criar Novo Usuário"
-          onClose={() => {
-            setMostrarModalCriarUser(false)
-            setNovoUserNome('')
-          }}
-        >
-          <div className="p-4">
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Nome do usuário
-            </label>
-            <input
-              type="text"
-              value={novoUserNome}
-              onChange={(e) => setNovoUserNome(e.target.value)}
-              placeholder="Ex: Rita, Beto, João..."
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-inforrel-primary"
-              onKeyDown={(e) => {
-                if (e.key === 'Enter') handleCriarUser()
-              }}
-              autoFocus
-            />
-            <div className="flex justify-end gap-2 mt-4">
-              <button
-                onClick={() => {
-                  setMostrarModalCriarUser(false)
-                  setNovoUserNome('')
-                }}
-                className="px-4 py-2 text-gray-600 hover:text-gray-800 transition"
-              >
-                Cancelar
-              </button>
-              <button
-                onClick={handleCriarUser}
-                disabled={!novoUserNome.trim()}
-                className="px-4 py-2 bg-inforrel-primary text-white rounded-md hover:bg-inforrel-secondary transition disabled:opacity-50"
-              >
-                Criar Usuário
-              </button>
-            </div>
-          </div>
-        </DetalheModal>
-      )}
 
       {mensagemReprovando && (
         <DetalheModal

@@ -10,7 +10,7 @@ from typing import Optional
 import uvicorn
 from config import settings
 from database import Database
-from fastapi import FastAPI, Form, HTTPException, Request
+from fastapi import Depends, FastAPI, Form, HTTPException, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, PlainTextResponse
@@ -26,22 +26,29 @@ from models import (
     MotivoEncerramento,
     OrigemMensagem,
     Parametro,
+    Pessoa,
     ProcessamentoMensagem,
     ReportProblema,
     SeveridadeReport,
     StatusAtendimento,
     StatusReport,
+    TipoDocumento,
     User,
 )
 from pydantic import BaseModel
 from routers.pares_qa import router as pares_qa_router
 from services import atendimentos as atendimentos_svc
+from services import auth as auth_svc
+from services.conversacao.campos_pendentes import campos_pendentes
+from services.cpf.validacao import mascarar_cpf
 from services.dev_limpeza_telefone import apagar_dados_telefone
 from services.identificador import identificar_por_telefone, normalizar_telefone
 from services.llm import get_llm_provider
 from services.parametro_service import MODO_EXECUCAO, ParametroService
 from services.processador import ProcessadorMensagem
 from sqlalchemy import func
+from sqlalchemy import or_ as sa_or
+from starlette.middleware.sessions import SessionMiddleware
 from utils.datetime_utils import serialize_utc_datetime, utc_now
 
 
@@ -107,6 +114,66 @@ app.add_middleware(
 )
 
 app.include_router(pares_qa_router)
+
+
+# ============================================================================
+# Autenticação (REQ-010, Fase 4) — gate mínimo por sessão (cookie assinado)
+# ============================================================================
+
+# Caminhos que não exigem sessão: webhook (validação própria do Twilio, fora
+# de escopo desta fase), health check, e o próprio login (senão ninguém
+# consegue logar).
+_CAMINHOS_PUBLICOS = {"/health", "/webhook", "/api/auth/login"}
+
+
+@app.middleware("http")
+async def gate_autenticacao(request: Request, call_next):
+    """Bloqueia qualquer `/api/*` sem sessão válida (REQ-010.1/010.2).
+
+    Resolve o `User` uma única vez aqui e guarda em `request.state.usuario`
+    para os endpoints que precisam da identidade não repetirem a consulta.
+    """
+    path = request.url.path
+    if request.method == "OPTIONS" or path in _CAMINHOS_PUBLICOS or not path.startswith("/api/"):
+        return await call_next(request)
+
+    user_id = request.session.get("user_id")
+    if user_id is None:
+        return JSONResponse(status_code=401, content={"detail": "Não autenticado"})
+
+    with db.get_session() as session:
+        usuario = session.query(User).filter_by(id=user_id).first()
+        if not usuario:
+            request.session.clear()
+            return JSONResponse(status_code=401, content={"detail": "Não autenticado"})
+        request.state.usuario = usuario.to_dict()
+        request.state.usuario_id = usuario.id
+        request.state.usuario_nome = usuario.nome
+
+    return await call_next(request)
+
+
+# `add_middleware()` insere no INÍCIO da lista, e a pilha final é montada em
+# ordem reversa (quem é adicionado por último roda primeiro) — por isso o
+# SessionMiddleware só é registrado aqui, depois do gate: precisa rodar ANTES
+# do gate (pra `request.session` já existir quando o gate ler), então tem que
+# ser o middleware mais "externo", ou seja, o último a ser adicionado.
+app.add_middleware(
+    SessionMiddleware,
+    secret_key=settings.SESSION_SECRET_KEY,
+    max_age=settings.SESSION_MAX_AGE_SEGUNDOS,
+)
+
+
+def usuario_id_atual(request: Request) -> int:
+    """Dependency com o id do usuário logado — já resolvido pelo middleware,
+    sem query adicional. Endpoints que precisam do objeto `User` completo devem
+    buscá-lo na própria sessão do endpoint (evita `DetachedInstanceError`)."""
+    return request.state.usuario_id
+
+
+def usuario_nome_atual(request: Request) -> str:
+    return request.state.usuario_nome
 
 
 # ============================================================================
@@ -236,11 +303,19 @@ async def enviar_mensagem(request: MensagemRequest):
 
 
 @app.get("/api/historico/{telefone}")
-async def obter_historico(telefone: str):
+async def obter_historico(telefone: str, limit: int = 200, offset: int = 0):
     """
     Retorna o histórico de mensagens para um número de telefone.
+
+    `limit`/`offset` (REQ-010, Fase 4) evitam carregar uma conversa inteira de
+    uma vez só — default de 200 preserva o comportamento atual para qualquer
+    conversa de teste (bem menor que isso).
     """
-    mensagens = db.obter_historico(telefone)
+    if limit < 1 or limit > 500:
+        raise HTTPException(status_code=400, detail="limit deve estar entre 1 e 500")
+    if offset < 0:
+        raise HTTPException(status_code=400, detail="offset deve ser >= 0")
+    mensagens = db.obter_historico(telefone, limit=limit, offset=offset)
     return {"telefone": telefone, "mensagens": mensagens}
 
 
@@ -297,7 +372,10 @@ async def obter_dados_conversa(telefone: str):
     """
     Retorna dados consolidados de uma conversa (telefone) para exibir no header.
 
-    Inclui: contato, empresa e atendimento ativo (quando identificados).
+    Inclui: contato, empresa OU pessoa (PJ/PF — REQ-010, Fase 4) e atendimento
+    ativo (quando identificados). CPF nunca é devolvido completo, só mascarado
+    (`mascarar_cpf`). Badge de restrição financeira fica de fora nesta fase —
+    depende da Fase 16 (REQ-015) ter uma consulta de crédito real habilitada.
     """
     tel_norm = normalizar_telefone(telefone)
 
@@ -317,6 +395,15 @@ async def obter_dados_conversa(telefone: str):
                 .first()
             )
 
+        pessoa = None
+        if (
+            atendimento
+            and not empresa
+            and atendimento.tipo_documento == TipoDocumento.CPF
+            and atendimento.pessoa_id
+        ):
+            pessoa = session.query(Pessoa).filter_by(id=atendimento.pessoa_id).first()
+
         return {
             "telefone": telefone,
             "status_identificacao": ident.status.value,
@@ -335,6 +422,13 @@ async def obter_dados_conversa(telefone: str):
                 "fantasia": empresa.fantasia,
             }
             if empresa
+            else None,
+            "pessoa": {
+                "id": pessoa.id,
+                "nome": pessoa.nome,
+                "cpf_mascarado": mascarar_cpf(pessoa.cpf),
+            }
+            if pessoa
             else None,
             "atendimento": {
                 "id": atendimento.id,
@@ -365,14 +459,34 @@ async def obter_empresa(empresa_id: int):
 
 
 @app.get("/api/atendimentos/ativas")
-async def listar_atendimentos_ativos():
+async def listar_atendimentos_ativos(
+    status: Optional[str] = None,
+    q: Optional[str] = None,
+    page: int = 1,
+    limit: int = 50,
+):
     """
-    Lista atendimentos ativos ordenados pela quantidade de mensagens pendentes
-    de aprovação (maior primeiro).
+    Lista atendimentos ordenados pela quantidade de mensagens pendentes de
+    aprovação (maior primeiro).
+
+    Args (REQ-010, Fase 4 — filtro/paginação; filtro por período fica pendente
+    até a Fase 6/REQ-005):
+        status: "ativo" (default, preserva o comportamento anterior) | "encerrado" | "todos".
+        q: busca livre por telefone, nome do contato ou nome/fantasia da empresa.
+        page/limit: paginação (mesmo padrão de `routers/pares_qa.py`).
 
     Retorna: id, status, modo_operacao, fase, telefone, nome_contato, empresa_nome,
     mensagens_pendentes.
     """
+    if page < 1:
+        raise HTTPException(status_code=400, detail="page deve ser >= 1")
+    if limit < 1 or limit > 200:
+        raise HTTPException(status_code=400, detail="limit deve estar entre 1 e 200")
+
+    status_norm = (status or "ativo").strip().lower()
+    if status_norm not in ("ativo", "encerrado", "todos"):
+        raise HTTPException(status_code=400, detail="status deve ser 'ativo', 'encerrado' ou 'todos'")
+
     with db.get_session() as session:
         # Subquery: contagem de mensagens pendentes por negociação
         pendentes_expr = func.count(Mensagem.id).label("pendentes")
@@ -393,12 +507,31 @@ async def listar_atendimentos_ativos():
             .join(Contato, Contato.id == Atendimento.contato_id)
             .outerjoin(Empresa, Empresa.id == Atendimento.empresa_id)
             .outerjoin(subq, subq.c.neg_id == Atendimento.id)
-            .filter(Atendimento.status.in_(STATUS_ATENDIMENTO_ATIVOS))
-            .order_by(
-                func.coalesce(subq.c.pendentes, 0).desc(),
-                func.coalesce(Atendimento.ultima_mensagem_at, Atendimento.updated_at).desc(),
-            )
         )
+
+        if status_norm == "ativo":
+            stmt = stmt.filter(Atendimento.status.in_(STATUS_ATENDIMENTO_ATIVOS))
+        elif status_norm == "encerrado":
+            stmt = stmt.filter(Atendimento.status == StatusAtendimento.ENCERRADO)
+        # "todos" não filtra por status
+
+        if q and q.strip():
+            termo = f"%{q.strip()}%"
+            stmt = stmt.filter(
+                sa_or(
+                    Contato.telefone.ilike(termo),
+                    Contato.nome.ilike(termo),
+                    Empresa.nome.ilike(termo),
+                    Empresa.fantasia.ilike(termo),
+                )
+            )
+
+        total = stmt.count()
+
+        stmt = stmt.order_by(
+            func.coalesce(subq.c.pendentes, 0).desc(),
+            func.coalesce(Atendimento.ultima_mensagem_at, Atendimento.updated_at).desc(),
+        ).offset((page - 1) * limit).limit(limit)
 
         resultado = []
         for atendimento, contato, empresa, pendentes in stmt.all():
@@ -419,7 +552,7 @@ async def listar_atendimentos_ativos():
                     "ultima_mensagem_at": serialize_utc_datetime(atendimento.ultima_mensagem_at),
                 }
             )
-        return {"total": len(resultado), "atendimentos": resultado}
+        return {"total": total, "page": page, "limit": limit, "atendimentos": resultado}
 
 
 @app.get("/api/atendimentos/{atendimento_id}")
@@ -449,12 +582,40 @@ async def obter_atendimento(atendimento_id: int):
         }
 
 
+@app.get("/api/atendimentos/{atendimento_id}/campos-pendentes")
+async def obter_campos_pendentes(atendimento_id: int):
+    """REQ-010, Fase 4: expõe `campos_pendentes()` (services/conversacao) — hoje
+    só existia indiretamente via `AtendimentoInfo.pendente` dentro do modal de
+    detalhes."""
+    with db.get_session() as session:
+        atendimento = session.query(Atendimento).filter_by(id=atendimento_id).first()
+        if not atendimento:
+            raise HTTPException(status_code=404, detail="Atendimento não encontrado")
+
+        pendentes = campos_pendentes(atendimento)
+        return {
+            "campos_pendentes": [
+                {
+                    "id_catalogo": c.id_catalogo,
+                    "chave": c.chave,
+                    "pergunta": c.pergunta,
+                    "ordem": c.ordem,
+                }
+                for c in pendentes
+            ]
+        }
+
+
 class AlterarModoRequest(BaseModel):
     modo_operacao: str  # "agente" | "humano"
 
 
 @app.patch("/api/atendimentos/{atendimento_id}/modo-operacao")
-async def alterar_modo_operacao(atendimento_id: int, payload: AlterarModoRequest):
+async def alterar_modo_operacao(
+    atendimento_id: int,
+    payload: AlterarModoRequest,
+    ator_nome: str = Depends(usuario_nome_atual),
+):
     """
     Alterna o modo de operação de um atendimento entre AGENTE e HUMANO.
 
@@ -477,16 +638,22 @@ async def alterar_modo_operacao(atendimento_id: int, payload: AlterarModoRequest
         atendimento.modo_operacao = novo_modo
         session.flush()
         session.refresh(atendimento)
-        logger.info(f"[ModoOperacao] Atendimento {atendimento.id} alterado para modo={novo_modo.value}")
+        logger.info(
+            f"[ModoOperacao] Atendimento {atendimento.id} alterado para modo={novo_modo.value} por {ator_nome}"
+        )
         return atendimento.to_dict()
 
 
 class EncerrarAtendimentoRequest(BaseModel):
-    ator: Optional[str] = None  # identificador de quem encerrou — sem autenticação real ainda (Fase 11)
+    justificativa: Optional[str] = None
 
 
 @app.post("/api/atendimentos/{atendimento_id}/encerrar")
-async def encerrar_atendimento_manual(atendimento_id: int, payload: EncerrarAtendimentoRequest):
+async def encerrar_atendimento_manual(
+    atendimento_id: int,
+    payload: EncerrarAtendimentoRequest,
+    ator: str = Depends(usuario_nome_atual),
+):
     """Encerramento manual pelo vendedor (REQ-016.4/016.8, motivo=manual_vendedor)."""
     with db.get_session() as session:
         atendimento = session.query(Atendimento).filter_by(id=atendimento_id).first()
@@ -495,7 +662,6 @@ async def encerrar_atendimento_manual(atendimento_id: int, payload: EncerrarAten
         if atendimento.status == StatusAtendimento.ENCERRADO:
             raise HTTPException(status_code=400, detail="Atendimento já está encerrado")
 
-        ator = (payload.ator or "vendedor").strip() or "vendedor"
         atendimentos_svc.encerrar_atendimento(
             session, atendimento, motivo=MotivoEncerramento.MANUAL_VENDEDOR, ator=ator
         )
@@ -505,12 +671,15 @@ async def encerrar_atendimento_manual(atendimento_id: int, payload: EncerrarAten
 
 
 class ReabrirAtendimentoRequest(BaseModel):
-    ator: Optional[str] = None
     justificativa: Optional[str] = None
 
 
 @app.post("/api/atendimentos/{atendimento_id}/reabrir")
-async def reabrir_atendimento_manual(atendimento_id: int, payload: ReabrirAtendimentoRequest):
+async def reabrir_atendimento_manual(
+    atendimento_id: int,
+    payload: ReabrirAtendimentoRequest,
+    ator: str = Depends(usuario_nome_atual),
+):
     """Reabertura manual pelo vendedor (REQ-016.8) — bloqueada quando o atendimento foi
     encerrado por conversão de orçamento (`concluido_conversao`), pois a compra já foi
     concluída (REQ-016.7)."""
@@ -526,7 +695,6 @@ async def reabrir_atendimento_manual(atendimento_id: int, payload: ReabrirAtendi
                 detail="Atendimento concluído por conversão de orçamento não pode ser reaberto",
             )
 
-        ator = (payload.ator or "vendedor").strip() or "vendedor"
         atendimentos_svc.reabrir_atendimento(session, atendimento, ator=ator, justificativa=payload.justificativa)
         session.refresh(atendimento)
         logger.info(f"[Atendimentos] Atendimento {atendimento.id} reaberto manualmente por {ator}")
@@ -535,16 +703,19 @@ async def reabrir_atendimento_manual(atendimento_id: int, payload: ReabrirAtendi
 
 class EnviarMensagemManualRequest(BaseModel):
     conteudo: str
-    aprovador_id: Optional[int] = None  # quem enviou (opcional nesta etapa)
 
 
 @app.post("/api/atendimentos/{atendimento_id}/mensagens-manuais", status_code=201)
-async def enviar_mensagem_manual(atendimento_id: int, payload: EnviarMensagemManualRequest):
+async def enviar_mensagem_manual(
+    atendimento_id: int,
+    payload: EnviarMensagemManualRequest,
+    aprovador_id: int = Depends(usuario_id_atual),
+):
     """
     Registra uma mensagem enviada manualmente pelo operador (modo HUMANO).
 
     A mensagem é salva com origem=SYSTEM e já considerada aprovada (o operador
-    é o próprio autor). No futuro, integrar com Twilio para envio efetivo ao cliente.
+    logado é o próprio autor). No futuro, integrar com Twilio para envio efetivo ao cliente.
     """
     conteudo = (payload.conteudo or "").strip()
     if not conteudo:
@@ -563,23 +734,14 @@ async def enviar_mensagem_manual(atendimento_id: int, payload: EnviarMensagemMan
                 detail="Atendimento não tem contato com telefone associado",
             )
 
-        aprovador = None
-        if payload.aprovador_id is not None:
-            aprovador = session.query(User).filter_by(id=payload.aprovador_id).first()
-            if not aprovador:
-                raise HTTPException(
-                    status_code=404,
-                    detail=f"Usuário aprovador_id={payload.aprovador_id} não encontrado",
-                )
-
         mensagem = Mensagem(
             telefone=telefone,
             conteudo=conteudo,
             origem=OrigemMensagem.SYSTEM,
             contato_id=contato.id if contato else None,
             atendimento_id=atendimento.id,
-            aprovador_id=aprovador.id if aprovador else None,
-            timestamp_aprovacao=utc_now() if aprovador else None,
+            aprovador_id=aprovador_id,
+            timestamp_aprovacao=utc_now(),
         )
         session.add(mensagem)
         session.flush()
@@ -601,22 +763,61 @@ async def obter_processamento(processamento_id: int):
 
 
 # ---------------------------------------------------------------------------
+# Autenticação (REQ-010, Fase 4)
+# ---------------------------------------------------------------------------
+
+
+class LoginRequest(BaseModel):
+    login: str
+    senha: str
+
+
+class SenhaRequest(BaseModel):
+    senha: str
+    login: Optional[str] = None  # obrigatório se o usuário ainda não tiver um (ex.: seeds antigos)
+
+
+@app.post("/api/auth/login")
+async def login(payload: LoginRequest, request: Request):
+    """Autentica por login+senha e abre a sessão (cookie assinado)."""
+    with db.get_session() as session:
+        usuario = auth_svc.autenticar(session, payload.login, payload.senha)
+        if not usuario:
+            raise HTTPException(status_code=401, detail="Login ou senha inválidos")
+        request.session["user_id"] = usuario.id
+        return usuario.to_dict()
+
+
+@app.post("/api/auth/logout")
+async def logout(request: Request):
+    request.session.clear()
+    return {"status": "ok"}
+
+
+@app.get("/api/auth/me")
+async def obter_usuario_logado(request: Request):
+    """Middleware já garante sessão válida para chegar aqui — devolve o usuário."""
+    return request.state.usuario
+
+
+# ---------------------------------------------------------------------------
 # Users e Aprovação de Mensagens
 # ---------------------------------------------------------------------------
 
 
 class UserRequest(BaseModel):
     nome: str
+    login: Optional[str] = None
+    senha: Optional[str] = None
 
 
 class AprovarMensagemRequest(BaseModel):
-    aprovador_id: int
     feedback: Optional[str] = None  # REQ-011.6: nota opcional ("correta, mas...")
 
 
 @app.get("/api/users")
 async def listar_users():
-    """Lista usuários cadastrados (sem autenticação)."""
+    """Lista usuários cadastrados."""
     with db.get_session() as session:
         users = session.query(User).order_by(User.nome.asc()).all()
         return {"users": [u.to_dict() for u in users]}
@@ -624,13 +825,64 @@ async def listar_users():
 
 @app.post("/api/users", status_code=201)
 async def criar_user(payload: UserRequest):
-    """Cria um usuário (id + nome). Sem autenticação por enquanto."""
+    """Cria um usuário. `login`/`senha` são opcionais nesta etapa — sem eles, o
+    usuário só ganha capacidade de login depois, via `PATCH /api/users/{id}/senha`."""
     nome = (payload.nome or "").strip()
     if not nome:
         raise HTTPException(status_code=400, detail="Nome é obrigatório")
+
+    login_normalizado = (payload.login or "").strip().lower() or None
+    if login_normalizado and payload.senha is None:
+        raise HTTPException(status_code=400, detail="Informe uma senha para o login")
+
     with db.get_session() as session:
-        user = User(nome=nome)
+        if login_normalizado:
+            existente = session.query(User).filter(User.login == login_normalizado).first()
+            if existente:
+                raise HTTPException(status_code=409, detail=f"Login '{login_normalizado}' já está em uso")
+
+        user = User(
+            nome=nome,
+            login=login_normalizado,
+            senha_hash=auth_svc.hash_senha(payload.senha) if login_normalizado else None,
+        )
         session.add(user)
+        session.flush()
+        return user.to_dict()
+
+
+@app.patch("/api/users/{user_id}/senha")
+async def definir_senha_user(user_id: int, payload: SenhaRequest):
+    """Define/redefine a senha de um usuário — requer sessão válida (qualquer
+    usuário logado pode fazer isso; escopo mínimo, sem fluxo de "esqueci senha").
+
+    Também é como os usuários criados antes desta fase (sem `login`) ganham
+    capacidade de logar: informe `login` junto na primeira vez.
+    """
+    senha = payload.senha or ""
+    if len(senha) < 4:
+        raise HTTPException(status_code=422, detail="Senha deve ter ao menos 4 caracteres")
+
+    login_novo = (payload.login or "").strip().lower() or None
+
+    with db.get_session() as session:
+        user = session.query(User).filter_by(id=user_id).first()
+        if not user:
+            raise HTTPException(status_code=404, detail="Usuário não encontrado")
+
+        if not user.login and not login_novo:
+            raise HTTPException(
+                status_code=400,
+                detail="Usuário não tem login definido — informe 'login' junto com a senha",
+            )
+
+        if login_novo and login_novo != user.login:
+            existente = session.query(User).filter(User.login == login_novo, User.id != user_id).first()
+            if existente:
+                raise HTTPException(status_code=409, detail=f"Login '{login_novo}' já está em uso")
+            user.login = login_novo
+
+        user.senha_hash = auth_svc.hash_senha(senha)
         session.flush()
         return user.to_dict()
 
@@ -658,14 +910,18 @@ async def listar_mensagens_pendentes():
 
 
 @app.post("/api/mensagens/{mensagem_id}/aprovar")
-async def aprovar_mensagem(mensagem_id: int, payload: AprovarMensagemRequest):
+async def aprovar_mensagem(
+    mensagem_id: int,
+    payload: AprovarMensagemRequest,
+    aprovador_id: int = Depends(usuario_id_atual),
+):
     """
-    Aprova uma mensagem gerada pelo agente, registrando aprovador e timestamp.
+    Aprova uma mensagem gerada pelo agente, registrando aprovador (usuário da
+    sessão) e timestamp.
 
     Regras:
     - Só mensagens com origem=SYSTEM podem ser aprovadas.
     - Não reaprova mensagens já aprovadas (retorna 409).
-    - aprovador_id deve existir na tabela users.
     """
     with db.get_session() as session:
         mensagem = session.query(Mensagem).filter_by(id=mensagem_id).first()
@@ -694,14 +950,7 @@ async def aprovar_mensagem(mensagem_id: int, payload: AprovarMensagemRequest):
             )
             raise HTTPException(status_code=409, detail=detalhe)
 
-        aprovador = session.query(User).filter_by(id=payload.aprovador_id).first()
-        if not aprovador:
-            raise HTTPException(
-                status_code=404,
-                detail=f"Usuário aprovador_id={payload.aprovador_id} não encontrado",
-            )
-
-        mensagem.aprovador_id = aprovador.id
+        mensagem.aprovador_id = aprovador_id
         mensagem.timestamp_aprovacao = utc_now()
         if payload.feedback is not None:
             feedback = payload.feedback.strip()
@@ -713,11 +962,15 @@ async def aprovar_mensagem(mensagem_id: int, payload: AprovarMensagemRequest):
 
 class ReprovarMensagemRequest(BaseModel):
     justificativa: str
-    reprovador_id: int
 
 
 @app.post("/api/mensagens/{mensagem_id}/reprovar", status_code=201)
-async def reprovar_mensagem(mensagem_id: int, payload: ReprovarMensagemRequest):
+async def reprovar_mensagem(
+    mensagem_id: int,
+    payload: ReprovarMensagemRequest,
+    reprovador_id: int = Depends(usuario_id_atual),
+    reprovador_nome: str = Depends(usuario_nome_atual),
+):
     """
     Reprova uma mensagem gerada pelo agente, criando um report de problema.
 
@@ -745,13 +998,6 @@ async def reprovar_mensagem(mensagem_id: int, payload: ReprovarMensagemRequest):
                     detail="Mensagem já foi aprovada e não pode ser reprovada",
                 )
 
-            reprovador = session.query(User).filter_by(id=payload.reprovador_id).first()
-            if not reprovador:
-                raise HTTPException(
-                    status_code=404,
-                    detail=f"Usuário reprovador_id={payload.reprovador_id} não encontrado",
-                )
-
             justificativa = payload.justificativa.strip()
             if not justificativa:
                 raise HTTPException(status_code=400, detail="Justificativa é obrigatória")
@@ -759,7 +1005,7 @@ async def reprovar_mensagem(mensagem_id: int, payload: ReprovarMensagemRequest):
             logger.info(f"Criando report para mensagem_id={mensagem_id}, processamento_id={mensagem.processamento_id}")
 
             # Marca a mensagem como "revisada" para sair do estado pendente_aprovacao
-            mensagem.aprovador_id = reprovador.id
+            mensagem.aprovador_id = reprovador_id
             mensagem.timestamp_aprovacao = utc_now()
 
             # Cria o report vinculado à mensagem (e ao processamento se existir)
@@ -767,7 +1013,7 @@ async def reprovar_mensagem(mensagem_id: int, payload: ReprovarMensagemRequest):
                 processamento_id=mensagem.processamento_id,  # pode ser None
                 mensagem_id=mensagem.id,
                 descricao=f"Mensagem reprovada: {justificativa}",
-                autor=reprovador.nome,
+                autor=reprovador_nome,
                 categoria=CategoriaReport.RESPOSTA_INADEQUADA,
                 severidade=SeveridadeReport.ALTA,
             )
@@ -811,7 +1057,6 @@ def _validar_enum(valor: Optional[str], enum_cls, nome: str):
 
 class ReportProblemaRequest(BaseModel):
     descricao: str
-    autor: Optional[str] = None
     categoria: Optional[str] = None
     severidade: Optional[str] = None
     mensagem_id: Optional[int] = None
@@ -822,11 +1067,14 @@ class AtualizarReportRequest(BaseModel):
     categoria: Optional[str] = None
     severidade: Optional[str] = None
     resolucao: Optional[str] = None
-    resolvido_por: Optional[str] = None
 
 
 @app.post("/api/processamentos/{processamento_id}/reports", status_code=201)
-async def criar_report_problema(processamento_id: int, payload: ReportProblemaRequest):
+async def criar_report_problema(
+    processamento_id: int,
+    payload: ReportProblemaRequest,
+    autor: str = Depends(usuario_nome_atual),
+):
     """Registra um report de problema sobre um processamento."""
     descricao = (payload.descricao or "").strip()
     if not descricao:
@@ -844,7 +1092,7 @@ async def criar_report_problema(processamento_id: int, payload: ReportProblemaRe
             processamento_id=processamento_id,
             mensagem_id=payload.mensagem_id,
             descricao=descricao,
-            autor=(payload.autor or None),
+            autor=autor,
         )
         if categoria:
             report.categoria = categoria
@@ -858,7 +1106,11 @@ async def criar_report_problema(processamento_id: int, payload: ReportProblemaRe
 
 
 @app.patch("/api/reports/{report_id}")
-async def atualizar_report(report_id: int, payload: AtualizarReportRequest):
+async def atualizar_report(
+    report_id: int,
+    payload: AtualizarReportRequest,
+    resolvido_por: str = Depends(usuario_nome_atual),
+):
     """Atualiza um report (triagem/resolução)."""
     status_novo = _validar_enum(payload.status, StatusReport, "status")
     categoria = _validar_enum(payload.categoria, CategoriaReport, "categoria")
@@ -873,11 +1125,11 @@ async def atualizar_report(report_id: int, payload: AtualizarReportRequest):
             report.status = status_novo
             if status_novo in (StatusReport.RESOLVIDO, StatusReport.DESCARTADO):
                 report.resolvido_em = utc_now()
-                if payload.resolvido_por:
-                    report.resolvido_por = payload.resolvido_por
+                report.resolvido_por = resolvido_por
             else:
-                # Se voltou a abrir, limpa resolvido_em
+                # Se voltou a abrir, limpa resolvido_em/resolvido_por
                 report.resolvido_em = None
+                report.resolvido_por = None
 
         if categoria is not None:
             report.categoria = categoria
@@ -885,8 +1137,6 @@ async def atualizar_report(report_id: int, payload: AtualizarReportRequest):
             report.severidade = severidade
         if payload.resolucao is not None:
             report.resolucao = payload.resolucao or None
-        if payload.resolvido_por is not None and status_novo is None:
-            report.resolvido_por = payload.resolvido_por or None
 
         session.commit()
         session.refresh(report)
@@ -963,8 +1213,18 @@ async def listar_todos_reports(
     categoria: Optional[str] = None,
     severidade: Optional[str] = None,
     apenas_abertos: bool = False,
+    page: int = 1,
+    limit: int = 50,
 ):
-    """Lista todos os reports de problema com filtros (fila de triagem)."""
+    """Lista todos os reports de problema com filtros (fila de triagem).
+
+    `page`/`limit` (REQ-010, Fase 4) seguem o mesmo padrão de `routers/pares_qa.py`.
+    """
+    if page < 1:
+        raise HTTPException(status_code=400, detail="page deve ser >= 1")
+    if limit < 1 or limit > 200:
+        raise HTTPException(status_code=400, detail="limit deve estar entre 1 e 200")
+
     status_enum = _validar_enum(status, StatusReport, "status")
     categoria_enum = _validar_enum(categoria, CategoriaReport, "categoria")
     severidade_enum = _validar_enum(severidade, SeveridadeReport, "severidade")
@@ -979,7 +1239,8 @@ async def listar_todos_reports(
             apenas_abertos=apenas_abertos,
         )
 
-        q = q.order_by(ReportProblema.created_at.desc())
+        total = q.count()
+        q = q.order_by(ReportProblema.created_at.desc()).offset((page - 1) * limit).limit(limit)
         reports = q.all()
 
         # Enriquecer com dados do processamento + mensagem
@@ -1002,7 +1263,7 @@ async def listar_todos_reports(
                         "timestamp": serialize_utc_datetime(msg.timestamp),
                     }
             result.append(d)
-        return {"reports": result}
+        return {"total": total, "page": page, "limit": limit, "reports": result}
 
 
 @app.get("/api/reports/stats")
@@ -1223,7 +1484,6 @@ async def get_config_atendimento():
 
 class ModoExecucaoUpdate(BaseModel):
     modo_execucao: str
-    ator: Optional[str] = None
 
 
 @app.get("/api/config/execucao")
@@ -1245,7 +1505,7 @@ async def get_config_execucao():
 
 
 @app.patch("/api/config/execucao")
-async def patch_config_execucao(body: ModoExecucaoUpdate):
+async def patch_config_execucao(body: ModoExecucaoUpdate, ator: str = Depends(usuario_nome_atual)):
     """Troca o modo de execução vigente, registrando auditoria (REQ-011.3)."""
     try:
         novo_modo = ModoExecucao(body.modo_execucao)
@@ -1263,7 +1523,6 @@ async def patch_config_execucao(body: ModoExecucaoUpdate):
             return {"modo_execucao": novo_modo.value, "alterado": False}
 
         svc.set(MODO_EXECUCAO, novo_modo.value, descricao="Modo de execução vigente (REQ-011)")
-        ator = (body.ator or "vendedor").strip() or "vendedor"
         session.add(
             HistoricoModoExecucao(modo_anterior=modo_anterior.value, modo_novo=novo_modo.value, ator=ator)
         )

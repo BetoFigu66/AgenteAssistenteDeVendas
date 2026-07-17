@@ -24,7 +24,6 @@ function ReportDetalhe({ reportId, onClose, onAtualizado }) {
   const [categoria, setCategoria] = useState('outro')
   const [severidade, setSeveridade] = useState('media')
   const [resolucao, setResolucao] = useState('')
-  const [resolvidoPor, setResolvidoPor] = useState('')
   const [salvando, setSalvando] = useState(false)
   const [erroSave, setErroSave] = useState(null)
   const [sucessoSave, setSucessoSave] = useState(false)
@@ -44,7 +43,6 @@ function ReportDetalhe({ reportId, onClose, onAtualizado }) {
         setCategoria(r.categoria || 'outro')
         setSeveridade(r.severidade || 'media')
         setResolucao(r.resolucao || '')
-        setResolvidoPor(r.resolvido_por || '')
       })
       .catch((e) => !cancelado && setErro(e.message))
       .finally(() => !cancelado && setLoading(false))
@@ -63,7 +61,6 @@ function ReportDetalhe({ reportId, onClose, onAtualizado }) {
         categoria,
         severidade,
         resolucao: resolucao.trim() || null,
-        resolvido_por: resolvidoPor.trim() || null,
       })
       setCtx((prev) => (prev ? { ...prev, report: atualizado } : prev))
       setSucessoSave(true)
@@ -292,18 +289,12 @@ function ReportDetalhe({ reportId, onClose, onAtualizado }) {
                 className="w-full border border-gray-300 rounded px-3 py-2 text-sm mt-0.5"
               />
             </div>
-            <div className="mb-3">
-              <label className="text-xs text-gray-500 uppercase tracking-wide">
-                Resolvido por
-              </label>
-              <input
-                type="text"
-                value={resolvidoPor}
-                onChange={(e) => setResolvidoPor(e.target.value)}
-                placeholder="Seu nome"
-                className="w-full border border-gray-300 rounded px-3 py-1.5 text-sm mt-0.5"
-              />
-            </div>
+            {ctx?.report?.resolvido_por && (
+              <p className="text-xs text-gray-500 mb-3">
+                Resolvido por <span className="font-medium">{ctx.report.resolvido_por}</span>
+                {ctx.report.resolvido_em && ` em ${formatDatetimeBRT(ctx.report.resolvido_em)}`}
+              </p>
+            )}
 
             {erroSave && (
               <div className="text-xs text-red-600 flex items-center gap-1 mb-2">

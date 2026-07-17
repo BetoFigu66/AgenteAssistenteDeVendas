@@ -23,6 +23,11 @@ class Settings(BaseSettings):
     LOG_LEVEL: str = "WARNING"
     SQL_ECHO: bool = False
 
+    # Autenticação (REQ-010, Fase 4) — assina o cookie de sessão. Default só serve
+    # para dev local; sobrescrever via .env em qualquer ambiente compartilhado/produção.
+    SESSION_SECRET_KEY: str = "dev-secret-key-troque-em-producao"
+    SESSION_MAX_AGE_SEGUNDOS: int = 8 * 60 * 60
+
     # LLM
     LLM_PROVIDER: str = "groq"
     LLM_MODEL: str = "llama-3.1-8b-instant"
