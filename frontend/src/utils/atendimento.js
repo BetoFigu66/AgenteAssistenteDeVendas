@@ -32,3 +32,18 @@ export function rotuloFase(fase) {
 export function classesFase(fase) {
   return FASE_CLASSES[fase] || 'bg-gray-100 text-gray-600'
 }
+
+const MOTIVO_ESCALONAMENTO_LABELS = {
+  solicitado_cliente: 'Cliente pediu para falar com atendente',
+  reclamacao: 'Reclamação/insatisfação do cliente',
+  projeto_complexo: 'Projeto complexo (quantidade/porte/leitor facial)',
+  baixa_confianca: 'Baixa confiança do classificador (mensagens repetidamente ambíguas)',
+  base_insuficiente: 'Base de conhecimento sem conteúdo suficiente',
+  manual_vendedor: 'Assumido manualmente pelo vendedor',
+}
+
+/** Rótulo legível do motivo de escalonamento (REQ-004, Fase 5). */
+export function labelMotivoEscalonamento(motivo) {
+  if (!motivo) return 'Em modo humano'
+  return MOTIVO_ESCALONAMENTO_LABELS[motivo] || motivo
+}

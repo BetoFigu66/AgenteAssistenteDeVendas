@@ -58,6 +58,8 @@ class MensagemId(IntEnum):
     CATALOGO_INDISPONIVEL = 38
     RAG_PEDIR_CLARIFICACAO = 39
     RAG_ESCALADO_SEM_BASE = 40
+    PROJETO_COMPLEXO_ESCALADO = 41
+    ESCALADO_BAIXA_CONFIANCA = 42
 
 
 @dataclass(frozen=True)
@@ -343,6 +345,22 @@ CATALOGO: dict[int, MensagemTemplate] = {
         mensagem=(
             "Ainda não encontrei uma resposta segura para isso na nossa base. "
             "Vou te transferir para um de nossos atendentes, que já assume a conversa por aqui. 🙋"
+        ),
+    ),
+    MensagemId.PROJETO_COMPLEXO_ESCALADO: MensagemTemplate(
+        id=MensagemId.PROJETO_COMPLEXO_ESCALADO,
+        codigo="PROJETO_COMPLEXO_ESCALADO",
+        mensagem=(
+            "Esse projeto parece exigir uma análise mais detalhada do nosso time técnico. "
+            "Vou te conectar com um especialista para dar continuidade. 🙋"
+        ),
+    ),
+    MensagemId.ESCALADO_BAIXA_CONFIANCA: MensagemTemplate(
+        id=MensagemId.ESCALADO_BAIXA_CONFIANCA,
+        codigo="ESCALADO_BAIXA_CONFIANCA",
+        mensagem=(
+            "Acho melhor eu te transferir para um de nossos atendentes, pra garantir que "
+            "você tenha a resposta certa. 🙋"
         ),
     ),
 }

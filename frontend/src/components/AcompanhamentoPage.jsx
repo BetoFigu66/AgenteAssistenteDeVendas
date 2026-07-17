@@ -4,7 +4,13 @@ import { api } from '../services/api'
 import DetalheModal from './DetalheModal'
 import ProcessamentoDetalhes from './ProcessamentoDetalhes'
 import { formatDatetimeBRT } from '../utils/datetime'
-import { numeroAtendimentoExibicao, rotuloAtendimento, rotuloFase, classesFase } from '../utils/atendimento'
+import {
+  numeroAtendimentoExibicao,
+  rotuloAtendimento,
+  rotuloFase,
+  classesFase,
+  labelMotivoEscalonamento,
+} from '../utils/atendimento'
 import { useAuth } from '../context/AuthContext'
 
 function AcompanhamentoPage() {
@@ -381,6 +387,11 @@ function AcompanhamentoPage() {
                                 ? 'bg-orange-100 text-orange-700'
                                 : 'bg-green-100 text-green-700'
                             }`}
+                            title={
+                              atendimento.modo_operacao === 'humano'
+                                ? labelMotivoEscalonamento(atendimento.motivo_escalonamento)
+                                : undefined
+                            }
                           >
                             {atendimento.modo_operacao === 'humano' ? 'HUMANO' : 'AGENTE'}
                           </span>

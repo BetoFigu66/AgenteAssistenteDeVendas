@@ -1,7 +1,14 @@
 import { useEffect, useState } from 'react'
+import { AlertTriangle } from 'lucide-react'
 import { api } from '../services/api'
 import { formatDatetimeBRT } from '../utils/datetime'
-import { rotuloAtendimento, numeroAtendimentoExibicao, rotuloFase, classesFase } from '../utils/atendimento'
+import {
+  rotuloAtendimento,
+  numeroAtendimentoExibicao,
+  rotuloFase,
+  classesFase,
+  labelMotivoEscalonamento,
+} from '../utils/atendimento'
 
 function Campo({ label, valor }) {
   if (valor === null || valor === undefined || valor === '') return null
@@ -100,6 +107,26 @@ function AtendimentoDetalhes({ atendimentoId }) {
             {atendimento.contato.nome || '—'}{' '}
             <span className="text-gray-500">{atendimento.contato.telefone}</span>
           </p>
+        </div>
+      )}
+
+      {atendimento.motivo_escalonamento && (
+        <div className="p-3 bg-orange-50 border border-orange-200 rounded-md">
+          <h3 className="text-sm font-semibold text-orange-800 mb-1 flex items-center gap-1.5">
+            <AlertTriangle size={14} /> Escalonamento (REQ-004)
+          </h3>
+          <p className="text-sm text-gray-800">
+            {labelMotivoEscalonamento(atendimento.motivo_escalonamento)}
+          </p>
+          <p className="text-xs text-gray-500 mt-1">
+            {formatDatetimeBRT(atendimento.escalado_em)}
+            {atendimento.escalado_por && ` · por ${atendimento.escalado_por}`}
+          </p>
+          {atendimento.resumo_escalonamento && (
+            <pre className="text-xs text-gray-700 bg-white border border-orange-100 rounded p-2 mt-2 whitespace-pre-wrap font-sans">
+              {atendimento.resumo_escalonamento}
+            </pre>
+          )}
         </div>
       )}
 

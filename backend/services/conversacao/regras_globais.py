@@ -9,27 +9,78 @@ existentes e testados em `ProcessadorMensagem` — nenhuma lógica de negócio n
 
 from __future__ import annotations
 
-from models import TipoDocumento
+from models import ModoOperacao, MotivoEscalonamento, TipoDocumento
 
 from services.classificador import Intencao
 from services.cpf.validacao import mascarar_cpf
+from services.parametro_service import ParametroService
 from services.respostas import MensagemId
 
 from .acoes import Acao, ContextoAcao, GrupoAcoes
 from .motor import RegraIntencao
 from .regras_encerramento import REGISTRO_ENCERRAMENTO
+from .regras_esclarecendo import _garantir_atendimento_dispatch
+
+# REQ-004.8 (Fase 5): limiar de funcionários pra considerar "projeto complexo" — o
+# próprio requisito deixa em aberto ("a definir com o vendedor"); default aqui só serve
+# se o Parametro (seed da migração) não existir por algum motivo.
+_LIMIAR_FUNCIONARIOS_PARAM = "escalonamento_limiar_funcionarios"
+_LIMIAR_FUNCIONARIOS_DEFAULT = 50
+_QUANTIDADE_MINIMA_PROJETO_COMPLEXO = 4
 
 
 async def _executar_escalar_humano(ctx: ContextoAcao):
+    """REQ-004.6: pedido explícito do cliente — escala de verdade (bug crítico
+    corrigido na Fase 5: antes só respondia o template, sem setar modo humano)."""
+    atendimento = await _garantir_atendimento_dispatch(ctx)
+    await ctx.processador._escalar_atendimento(
+        ctx.db, atendimento, MotivoEscalonamento.SOLICITADO_CLIENTE, ator="cliente", dlog=ctx.dlog
+    )
     if ctx.dlog:
-        ctx.dlog.log("rota", "ESCALAR_HUMANO → ESCALADO_HUMANO")
+        ctx.dlog.log("rota", "ESCALAR_HUMANO → ESCALADO_HUMANO + modo=HUMANO")
     return (MensagemId.ESCALADO_HUMANO, None)
 
 
 async def _executar_reclamar(ctx: ContextoAcao):
+    """REQ-004.7: reclamação/insatisfação — escala de verdade (mesmo bug corrigido
+    acima). Prioridade de pós-venda (REQ-009) só se aplica na Fase 15."""
+    atendimento = await _garantir_atendimento_dispatch(ctx)
+    await ctx.processador._escalar_atendimento(
+        ctx.db, atendimento, MotivoEscalonamento.RECLAMACAO, ator="cliente", dlog=ctx.dlog
+    )
     if ctx.dlog:
-        ctx.dlog.log("rota", "RECLAMAR → RECLAMACAO_ESCALADA")
+        ctx.dlog.log("rota", "RECLAMAR → RECLAMACAO_ESCALADA + modo=HUMANO")
     return (MensagemId.RECLAMACAO_ESCALADA, None)
+
+
+async def _executar_projeto_complexo(ctx: ContextoAcao):
+    atendimento = await _garantir_atendimento_dispatch(ctx)
+    await ctx.processador._escalar_atendimento(
+        ctx.db, atendimento, MotivoEscalonamento.PROJETO_COMPLEXO, ator="sistema:projeto_complexo", dlog=ctx.dlog
+    )
+    if ctx.dlog:
+        ctx.dlog.log("rota", "projeto complexo → PROJETO_COMPLEXO_ESCALADO + modo=HUMANO")
+    return (MensagemId.PROJETO_COMPLEXO_ESCALADO, None)
+
+
+def _builder_projeto_complexo(ctx: ContextoAcao) -> GrupoAcoes:
+    """REQ-004.8: escala quando o cliente sinaliza "cliente grande/projeto complexo" —
+    quantidade de equipamentos >= 4, faixa de funcionários acima do limiar configurável,
+    ou menção a leitor facial (controle de acesso em porta é sempre considerado
+    complexo). Não repete se o atendimento já está em modo humano."""
+    if ctx.atendimento and ctx.atendimento.modo_operacao == ModoOperacao.HUMANO:
+        return GrupoAcoes()
+
+    entidades = ctx.resultado_class.entidades
+    limiar = ParametroService(ctx.db).get_int(_LIMIAR_FUNCIONARIOS_PARAM, _LIMIAR_FUNCIONARIOS_DEFAULT)
+    gatilho = (
+        any(q >= _QUANTIDADE_MINIMA_PROJETO_COMPLEXO for q in entidades.quantidades)
+        or (entidades.faixa_funcionarios is not None and entidades.faixa_funcionarios >= limiar)
+        or entidades.tipo_leitor_mencionado == "facial"
+    )
+    if not gatilho:
+        return GrupoAcoes()
+    return GrupoAcoes(exclusivo=[Acao("projeto_complexo", _executar_projeto_complexo)])
 
 
 async def _executar_fornecer_cnpj(ctx: ContextoAcao):
@@ -116,6 +167,12 @@ REGRAS_GLOBAIS: list[RegraIntencao] = [
         fase=None,
         builder=lambda ctx: GrupoAcoes(exclusivo=[Acao("escalar_humano", _executar_escalar_humano)]),
         nome="escalar_humano",
+    ),
+    RegraIntencao(
+        intencao=None,
+        fase=None,
+        builder=_builder_projeto_complexo,
+        nome="projeto_complexo",
     ),
     RegraIntencao(
         intencao=Intencao.RECLAMAR,

@@ -31,6 +31,7 @@ from models import (
     ModoExecucao,
     ModoOperacao,
     MotivoEncerramento,
+    MotivoEscalonamento,
     OrigemClassificacao,
     OrigemInfo,
     OrigemMensagem,
@@ -44,7 +45,7 @@ from sqlalchemy.orm import Session
 from utils.datetime_utils import utc_now
 
 from services import atendimentos as atendimentos_svc
-from services.classificador import Intencao, ResultadoClassificacao, classificar
+from services.classificador import Intencao, NivelConfianca, ResultadoClassificacao, classificar
 from services.cnpj import ConsultaCnpjError, obter_ou_criar_empresa
 from services.cnpj.receitaws import validar_cnpj
 from services.conversacao.acoes import ContextoAcao
@@ -132,6 +133,10 @@ _CONFIRMAR_INTERESSE_PENDENTE_CHAVE = "confirmar_interesse_pendente"
 # base, escala para humano em vez de insistir de novo (mesmo padrão de
 # `_MODELO_TENTATIVAS_CHAVE`, mas booleano: no máximo 1 tentativa extra, não N).
 _RAG_CLARIFICACAO_PENDENTE_CHAVE = "rag_clarificacao_pendente"
+
+# REQ-004.9 (Fase 5): confiança baixa do classificador 2x seguidas sem nada resolver
+# escala para humano — mesmo padrão de "1 tentativa extra, depois escala" acima.
+_CONFIANCA_BAIXA_TENTATIVA_CHAVE = "confianca_baixa_tentativas"
 
 # REQ-003.11: tipos de produto com catálogo próprio, e o nome do Parametro (tabela
 # `parametros`) que guarda o link público correspondente — configurável sem deploy.
@@ -563,17 +568,31 @@ class ProcessadorMensagem:
         resposta = await resolver_e_executar(ctx, REGRAS_GLOBAIS, REGISTRO_POR_FASE)
         if resposta is not None:
             return resposta
-        return await self._fallback_qa_ou_nao_entendi(conteudo, dlog=dlog)
+        return await self._fallback_qa_ou_nao_entendi(
+            conteudo, resultado_class=resultado_class, db=db, atendimento=atendimento, dlog=dlog
+        )
 
     async def _fallback_qa_ou_nao_entendi(
         self,
         conteudo_cliente: str,
+        resultado_class: Optional[ResultadoClassificacao] = None,
+        db: Optional[Session] = None,
+        atendimento: Optional[Atendimento] = None,
         dlog: Optional[DebugLogger] = None,
     ) -> RespostaGerada:
         """Último recurso quando nenhuma Ação do motor (Intenção×Fase→Ações) produziu
-        fragmento: tenta QA antes de NAO_ENTENDI."""
+        fragmento: tenta QA antes de NAO_ENTENDI.
+
+        REQ-004.9 (Fase 5): quando a mensagem tem `confianca_nivel` BAIXA duas vezes
+        seguidas sem nenhuma outra Ação resolver nada, escala para humano em vez de
+        insistir com NAO_ENTENDI de novo — mesmo padrão de "1 tentativa extra, depois
+        escala" já usado em REQ-002.21/REQ-003.7. `resultado_class`/`db`/`atendimento`
+        são opcionais (contato totalmente novo, sem atendimento ainda, simplesmente não
+        rastreia o contador — não vale criar atendimento só por isso)."""
         par = await self._buscar_resposta_qa(conteudo_cliente, dlog=dlog)
         if par is not None:
+            if db is not None and atendimento is not None:
+                self._remover_info_atendimento(db, atendimento.id, _CONFIANCA_BAIXA_TENTATIVA_CHAVE)
             if dlog:
                 dlog.log(
                     "qa_decisao",
@@ -587,6 +606,27 @@ class ProcessadorMensagem:
                 trechos_rag=[par.to_dict()],
                 rag_score_maximo=par.score,
             )
+
+        if (
+            resultado_class is not None
+            and resultado_class.confianca_nivel == NivelConfianca.BAIXA
+            and db is not None
+            and atendimento is not None
+        ):
+            aguardando = bool(self._info_atendimento(db, atendimento.id, _CONFIANCA_BAIXA_TENTATIVA_CHAVE))
+            if aguardando:
+                self._remover_info_atendimento(db, atendimento.id, _CONFIANCA_BAIXA_TENTATIVA_CHAVE)
+                await self._escalar_atendimento(
+                    db, atendimento, MotivoEscalonamento.BAIXA_CONFIANCA, ator="sistema:confianca_baixa", dlog=dlog
+                )
+                if dlog:
+                    dlog.log("rota", "confiança baixa 2x seguidas → escalar_humano (REQ-004.9)")
+                return await self._gerador.gerar(MensagemId.ESCALADO_BAIXA_CONFIANCA)
+            self._salvar_info_atendimento(db, atendimento.id, _CONFIANCA_BAIXA_TENTATIVA_CHAVE, "1")
+            if dlog:
+                dlog.log("rota", "confiança baixa (1ª vez) → NAO_ENTENDI, aguardando 2ª ocorrência")
+        elif db is not None and atendimento is not None:
+            self._remover_info_atendimento(db, atendimento.id, _CONFIANCA_BAIXA_TENTATIVA_CHAVE)
 
         if dlog:
             dlog.log("rota", "nada respondeu → NAO_ENTENDI")
@@ -843,12 +883,12 @@ class ProcessadorMensagem:
                 dlog.log("rag_decisao", "sem conteúdo → 1ª pergunta de clarificação (REQ-003.7)")
             return await self._gerador.gerar(MensagemId.RAG_PEDIR_CLARIFICACAO)
 
-        # Já perguntamos uma vez e a base continua sem conteúdo — escala para humano.
+        # Já perguntamos uma vez e a base continua sem conteúdo — escala para humano
+        # (REQ-004.9/REQ-004.2: motivo/timestamp/resumo via helper central da Fase 5).
         self._remover_info_atendimento(db, atendimento.id, _RAG_CLARIFICACAO_PENDENTE_CHAVE)
-        atendimento.modo_operacao = ModoOperacao.HUMANO
-        db.commit()
-        if dlog:
-            dlog.log("rag_decisao", "clarificação sem resultado → escalar_humano (REQ-003.7)")
+        await self._escalar_atendimento(
+            db, atendimento, MotivoEscalonamento.BASE_INSUFICIENTE, ator="sistema:base_insuficiente", dlog=dlog
+        )
         return await self._gerador.gerar(MensagemId.RAG_ESCALADO_SEM_BASE)
 
     async def _responder_pedir_catalogo(
@@ -1184,6 +1224,81 @@ class ProcessadorMensagem:
         if dlog:
             dlog.log("finalizando", f"tudo capturado → resumo (modelo={ctx['modelo']})")
         return await self._gerador.gerar(MensagemId.RESUMO_FINALIZANDO, ctx)
+
+    # ------------------------------------------------------------------
+    # Escalonamento (REQ-004, Fase 5)
+    # ------------------------------------------------------------------
+
+    async def _escalar_atendimento(
+        self,
+        db: Session,
+        atendimento: Atendimento,
+        motivo: MotivoEscalonamento,
+        ator: str,
+        dlog: Optional[DebugLogger] = None,
+    ) -> None:
+        """REQ-004.2/004.4/004.5: marca modo humano, persiste motivo/timestamp/ator e
+        gera o resumo de contexto para o vendedor — helper central reaproveitado por
+        todo caminho de escalonamento (explícito, implícito, retrofit da Fase 3 e
+        takeover manual do painel). Não faz nada se o atendimento já não está ATIVO
+        (encerrado não deveria ser "escalado")."""
+        if atendimento.status != StatusAtendimento.ATIVO:
+            return
+        atendimento.modo_operacao = ModoOperacao.HUMANO
+        atendimento.escalado_em = utc_now()
+        atendimento.escalado_por = ator
+        atendimento.motivo_escalonamento = motivo.value
+        atendimento.resumo_escalonamento = self._montar_resumo_escalonamento(db, atendimento, motivo)
+        db.commit()
+        if dlog:
+            dlog.log(
+                "escalonamento",
+                f"atendimento {atendimento.id} → HUMANO (motivo={motivo.value}, ator={ator})",
+            )
+
+    _LABEL_MOTIVO_ESCALONAMENTO = {
+        MotivoEscalonamento.SOLICITADO_CLIENTE: "Cliente pediu para falar com atendente",
+        MotivoEscalonamento.RECLAMACAO: "Reclamação/insatisfação do cliente",
+        MotivoEscalonamento.PROJETO_COMPLEXO: "Projeto complexo (quantidade/porte/leitor facial)",
+        MotivoEscalonamento.BAIXA_CONFIANCA: "Baixa confiança do classificador (mensagens repetidamente ambíguas)",
+        MotivoEscalonamento.BASE_INSUFICIENTE: "Base de conhecimento sem conteúdo suficiente",
+        MotivoEscalonamento.MANUAL_VENDEDOR: "Assumido manualmente pelo vendedor",
+    }
+
+    def _montar_resumo_escalonamento(
+        self, db: Session, atendimento: Atendimento, motivo: MotivoEscalonamento
+    ) -> str:
+        """REQ-004.2: resumo de contexto para o vendedor — reaproveita a mesma leitura
+        de dados do `_gerar_resumo_finalizando` (AtendimentoInfo + ItemAtendimento/Modelo),
+        mas em prosa voltada para quem vai assumir a conversa, não para o cliente."""
+        linhas = []
+        contato = atendimento.contato
+        if contato:
+            linhas.append(f"Cliente: {contato.nome or 'sem nome'} ({contato.telefone})")
+        if atendimento.empresa:
+            linhas.append(f"Empresa: {atendimento.empresa.nome} (CNPJ {atendimento.empresa.cnpj})")
+        elif atendimento.pessoa:
+            linhas.append(f"Pessoa física: {atendimento.pessoa.nome or 'sem nome'}")
+
+        valores = {info.chave: info.valor for info in atendimento.informacoes}
+        if valores.get("tipos_produto"):
+            linhas.append(f"Interesse: {valores['tipos_produto'].replace('_', ' ')}")
+        item_resolvido = next((item for item in atendimento.itens if item.modelo_id is not None), None)
+        if item_resolvido and item_resolvido.modelo:
+            linhas.append(f"Modelo: {item_resolvido.modelo.descricao}")
+        if valores.get(CAMPO_SOFTWARE_PONTO.chave):
+            linhas.append(f"Software de ponto: {valores[CAMPO_SOFTWARE_PONTO.chave]}")
+        if valores.get(CAMPO_FAIXA_FUNCIONARIOS.chave):
+            linhas.append(f"Funcionários: {valores[CAMPO_FAIXA_FUNCIONARIOS.chave]}")
+        if valores.get("quantidades"):
+            linhas.append(f"Quantidade mencionada: {valores['quantidades']}")
+
+        pendentes = campos_pendentes(atendimento)
+        if pendentes:
+            linhas.append("Pendente: " + ", ".join(c.chave for c in pendentes))
+
+        linhas.append(f"Motivo do escalonamento: {self._LABEL_MOTIVO_ESCALONAMENTO[motivo]}")
+        return "\n".join(linhas)
 
     # ------------------------------------------------------------------
     # RAG helpers

@@ -108,6 +108,22 @@ class MotivoEncerramento(str, enum.Enum):
     MANUAL_VENDEDOR = "manual_vendedor"
 
 
+class MotivoEscalonamento(str, enum.Enum):
+    """Motivo de escalonamento para modo humano (REQ-004, Fase 5).
+
+    Armazenado como string livre em `Atendimento.motivo_escalonamento` — sem CHECK
+    constraint (diferente de `MotivoEncerramento`), "solução simples" até a tabela de
+    eventos genérica da Fase 6/REQ-005 existir.
+    """
+
+    SOLICITADO_CLIENTE = "solicitado_cliente"
+    RECLAMACAO = "reclamacao"
+    PROJETO_COMPLEXO = "projeto_complexo"
+    BAIXA_CONFIANCA = "baixa_confianca"
+    BASE_INSUFICIENTE = "base_insuficiente"
+    MANUAL_VENDEDOR = "manual_vendedor"
+
+
 class StatusOrcamento(str, enum.Enum):
     """Status do orçamento."""
 
@@ -554,6 +570,12 @@ class Atendimento(Base):
     reaberto_em: Mapped[Optional[datetime]] = mapped_column(UTCDateTime, nullable=True)
     reaberto_por: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
     reabertura_justificativa: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    # Auditoria mínima de escalonamento (REQ-004, Fase 5) — mesmo padrão simplificado
+    # dos campos de encerramento acima, sem CHECK constraint (ver MotivoEscalonamento).
+    escalado_em: Mapped[Optional[datetime]] = mapped_column(UTCDateTime, nullable=True)
+    escalado_por: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
+    motivo_escalonamento: Mapped[Optional[str]] = mapped_column(String(30), nullable=True)
+    resumo_escalonamento: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     modo_operacao: Mapped[ModoOperacao] = mapped_column(
         Enum(ModoOperacao, values_callable=lambda x: [e.value for e in x], name="modooperacao"),
         default=ModoOperacao.AGENTE,
@@ -610,6 +632,10 @@ class Atendimento(Base):
             "reaberto_em": serialize_utc_datetime(self.reaberto_em),
             "reaberto_por": self.reaberto_por,
             "reabertura_justificativa": self.reabertura_justificativa,
+            "escalado_em": serialize_utc_datetime(self.escalado_em),
+            "escalado_por": self.escalado_por,
+            "motivo_escalonamento": self.motivo_escalonamento,
+            "resumo_escalonamento": self.resumo_escalonamento,
             "modo_operacao": self.modo_operacao.value if self.modo_operacao else None,
             "fase": self.fase.value if self.fase else None,
             "valor_estimado": str(self.valor_estimado) if self.valor_estimado else None,

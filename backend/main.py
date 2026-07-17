@@ -24,6 +24,7 @@ from models import (
     ModoExecucao,
     ModoOperacao,
     MotivoEncerramento,
+    MotivoEscalonamento,
     OrigemMensagem,
     Parametro,
     Pessoa,
@@ -541,6 +542,7 @@ async def listar_atendimentos_ativos(
                     "numero_atendimento_cliente": atendimento.numero_atendimento_cliente,
                     "status": atendimento.status.value if atendimento.status else None,
                     "modo_operacao": (atendimento.modo_operacao.value if atendimento.modo_operacao else None),
+                    "motivo_escalonamento": atendimento.motivo_escalonamento,
                     "fase": atendimento.fase.value if atendimento.fase else None,
                     "titulo": atendimento.titulo,
                     "telefone": contato.telefone,
@@ -635,8 +637,15 @@ async def alterar_modo_operacao(
         atendimento = session.query(Atendimento).filter_by(id=atendimento_id).first()
         if not atendimento:
             raise HTTPException(status_code=404, detail="Atendimento não encontrado")
-        atendimento.modo_operacao = novo_modo
-        session.flush()
+        if novo_modo == ModoOperacao.HUMANO:
+            # REQ-004.3: takeover manual pelo vendedor recebe o mesmo tratamento de um
+            # escalonamento (motivo/timestamp/resumo via helper central da Fase 5).
+            await processador._escalar_atendimento(
+                session, atendimento, MotivoEscalonamento.MANUAL_VENDEDOR, ator=ator_nome
+            )
+        else:
+            atendimento.modo_operacao = novo_modo
+            session.flush()
         session.refresh(atendimento)
         logger.info(
             f"[ModoOperacao] Atendimento {atendimento.id} alterado para modo={novo_modo.value} por {ator_nome}"

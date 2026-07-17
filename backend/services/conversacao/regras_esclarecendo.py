@@ -183,7 +183,9 @@ async def _executar_acao_padrao_esclarecendo(ctx: ContextoAcao):
             if nome:
                 return (MensagemId.SAUDACAO_COM_NOME, {"nome": nome})
             return (MensagemId.PERGUNTAR_NOME, None)
-        return await p._fallback_qa_ou_nao_entendi(ctx.conteudo, dlog=ctx.dlog)
+        return await p._fallback_qa_ou_nao_entendi(
+            ctx.conteudo, resultado_class=ctx.resultado_class, db=ctx.db, atendimento=ctx.atendimento, dlog=ctx.dlog
+        )
 
     atendimento = await _garantir_atendimento_dispatch(ctx)
     estado_doc = p._info_atendimento(ctx.db, atendimento.id, _CHAVE_DOC_PENDENTE)
@@ -198,7 +200,9 @@ async def _executar_acao_padrao_esclarecendo(ctx: ContextoAcao):
                 )
         elif ctx.dlog:
             ctx.dlog.log("esclarecendo", "documento_fiscal_pendente=recusado → não repete, cai no fallback")
-        return await p._fallback_qa_ou_nao_entendi(ctx.conteudo, dlog=ctx.dlog)
+        return await p._fallback_qa_ou_nao_entendi(
+            ctx.conteudo, resultado_class=ctx.resultado_class, db=ctx.db, atendimento=atendimento, dlog=ctx.dlog
+        )
 
     p._salvar_info_atendimento(ctx.db, atendimento.id, _CHAVE_DOC_PENDENTE, "solicitado")
 
