@@ -1,5 +1,7 @@
 # Pendências de Segurança — Análise de Exposição de Código
 
+<!-- CLASSIFICACAO: ANDAMENTO -->
+
 > **Agente:** [arquiteto]
 > **Data:** 2026-05-22
 > **Contexto:** Verificação de se o código-fonte fica exposto ao disponibilizar o sistema via `docker-compose up`.

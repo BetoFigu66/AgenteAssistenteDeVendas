@@ -1,5 +1,7 @@
 # FASE-encerrado-por-inatividade
 
+<!-- CLASSIFICACAO: ANDAMENTO -->
+
 **Nome exibido:** Encerrado por Inatividade  
 **Versão:** 0.1  
 **Status:** Rascunho

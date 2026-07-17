@@ -1,5 +1,7 @@
 # FASE-finalizando
 
+<!-- CLASSIFICACAO: ANDAMENTO -->
+
 **Nome exibido:** Finalizando  
 **Versão:** 0.2  
 **Status:** Rascunho

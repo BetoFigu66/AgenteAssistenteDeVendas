@@ -1,5 +1,8 @@
 # REQ-011: Modos de Execução e Workflow de Aprovação Humana de Mensagens
 
+<!-- CLASSIFICACAO: SISTEMA-CAIXAPRETA -->
+<!-- CLASSIFICACAO: IA -->
+
 **Versão**: 1.2
 **Data**: 2026-05-18
 **Autor**: Kika (Analista de Requisitos)

@@ -1,5 +1,8 @@
 # Plano de Evolução do Agente / Reports do Gerente de Projetos
 
+<!-- CLASSIFICACAO: PROCESSO -->
+<!-- CLASSIFICACAO: ANDAMENTO -->
+
 ## Objetivo
 Este documento entrega um plano inicial de evolução para a manutenção e geração de reports do agente `gerente_de_projetos`.
 

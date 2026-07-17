@@ -1,5 +1,7 @@
 # Bugs encontrados durante os testes manuais
 
+<!-- CLASSIFICACAO: SISTEMA-DEV -->
+
 Cada arquivo neste diretório representa **um bug** encontrado durante a execução de um cenário de teste.
 
 ## Convenção de nome

@@ -1,5 +1,7 @@
 # Revisão de Alinhamento: Catálogo de Conversação × REQs Formais
 
+<!-- CLASSIFICACAO: ANDAMENTO -->
+
 **Versão:** 0.1  
 **Data:** 2026-07-04  
 **Autor:** Cascade (rascunho para revisão da Kika)  

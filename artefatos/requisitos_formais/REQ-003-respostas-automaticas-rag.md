@@ -1,5 +1,8 @@
 # REQ-003: Respostas Automáticas com Base de Conhecimento (RAG)
 
+<!-- CLASSIFICACAO: SISTEMA-CAIXAPRETA -->
+<!-- CLASSIFICACAO: IA -->
+
 **Versão**: 1.8  
 **Data**: 2026-05-06  
 **Autor**: Kika (Analista de Requisitos)  

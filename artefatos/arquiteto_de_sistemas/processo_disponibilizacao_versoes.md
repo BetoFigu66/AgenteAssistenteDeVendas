@@ -1,5 +1,7 @@
 # Processo de Disponibilização de Versões
 
+<!-- CLASSIFICACAO: SISTEMA-DEV -->
+
 **Versão**: 1.0  
 **Data**: 2026-04-19  
 **Autor**: Arquiteto de Sistemas  

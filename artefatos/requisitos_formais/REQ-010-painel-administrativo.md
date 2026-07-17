@@ -1,5 +1,8 @@
 # REQ-010: Painel Administrativo (POC)
 
+<!-- CLASSIFICACAO: SISTEMA-CAIXAPRETA -->
+<!-- CLASSIFICACAO: IA -->
+
 **Versão**: 1.4  
 **Data**: 2026-07-14  
 **Autor**: Kika (Analista de Requisitos)  

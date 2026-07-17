@@ -1,5 +1,7 @@
 # Índice de Cobertura dos REQs pelos Roteiros de Teste
 
+<!-- CLASSIFICACAO: SISTEMA-DEV -->
+
 **Data de criação:** 2026-06-15
 **Autor:** `[qa]` (Cascade)
 **Fonte de status de implementação:** `artefatos/gerente_de_projetos/cobertura_reqs_sprint02.md`

@@ -1,5 +1,7 @@
 # Análise — Transição Esclarecendo → Finalizando
 
+<!-- CLASSIFICACAO: ANDAMENTO -->
+
 **Versão:** 1.0  
 **Data:** 2026-07-10  
 **Autor:** Beto (pedido) + Cursor (análise)  

@@ -1,5 +1,7 @@
 # Disponibilização em `auxvendas.com` (Cloudflare)
 
+<!-- CLASSIFICACAO: ANDAMENTO -->
+
 **Versão**: 1.0  
 **Data**: 2026-06-06  
 **Autor**: Beto (Arquiteto) — rascunho para revisão da Kika  

@@ -1,5 +1,7 @@
 # Backlog de Tarefas — REQ-016 (Atendimentos) + Renomeação Negociação→Atendimento
 
+<!-- CLASSIFICACAO: HISTORICO -->
+
 **Versão:** 0.1 (rascunho para revisão da Kika)
 **Data:** 2026-06-09
 **Autor:** Beto (`[gerente]`)

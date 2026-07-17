@@ -1,8 +1,10 @@
 # Plano Q&A Pairs v1
 
+<!-- CLASSIFICACAO: HISTORICO -->
+
 **Data:** 2026-05-02  
 **Agente:** Arquiteto de Sistemas  
-**Status:** Em andamento — 8 de 9 passos concluídos (aguardando Passo 8: Frontend)
+**Status:** Concluído — 9 de 9 passos (Passo 8/Frontend confirmado implementado em `frontend/src/components/QABasePage.jsx`, corrigido em 2026-07-17)
 **Atualizado em:** 2026-05-10
 
 ## 1. Contexto e motivacao
@@ -230,7 +232,7 @@ Criar `backend/scripts/buscar_qa.py`:
 - Aceita `--contexto`, `--score-minimo`, `--apenas-aprovados`, `--json`.
 - Exibe: score, distancia, contexto, pergunta, preview da resposta.
 
-### 🔲 Passo 8: Frontend — pagina Base Q&A  ← PENDENTE
+### ✅ Passo 8: Frontend — pagina Base Q&A
 
 Criar componente `frontend/src/components/QABasePage.jsx`:
 

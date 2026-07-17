@@ -1,5 +1,7 @@
 # Agente `[curador_conhecimento]` — Identidade e prompt
 
+<!-- CLASSIFICACAO: PROCESSO -->
+
 > **Convenção:** `agentes/curador_conhecimento.md` segue o padrão de `AGENTS.md`.
 > Diretrizes operacionais numeradas em `artefatos/curador_conhecimento/diretrizes.md`.
 

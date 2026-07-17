@@ -1,5 +1,8 @@
 # Proposta: GitHub Projects para planejamento e acompanhamento
 
+<!-- CLASSIFICACAO: HISTORICO -->
+<!-- CLASSIFICACAO: ANDAMENTO -->
+
 **Versão:** 0.2  
 **Data:** 2026-06-08  
 **Autor:** Beto (`[gerente]`)  

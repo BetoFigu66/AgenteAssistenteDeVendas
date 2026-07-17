@@ -1,5 +1,7 @@
 # Prompts dos Agentes
 
+<!-- CLASSIFICACAO: HISTORICO -->
+
 Use estes prompts para interagir com cada agente via IA (Windsurf Cascade, ChatGPT, Claude, etc.).
 
 ---

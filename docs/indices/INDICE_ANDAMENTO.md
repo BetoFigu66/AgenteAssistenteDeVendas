@@ -1,0 +1,43 @@
+# Índice — ANDAMENTO
+
+_Gerado automaticamente por `scripts/gerar_indices_documentacao.sh` — não editar à mão. Rode o script de novo após retaguear algum arquivo._
+
+- [`agentes/plano_evolucao.md`](../../agentes/plano_evolucao.md) — Plano de Evolução do Agente / Reports do Gerente de Projetos
+- [`artefatos/analista_de_requisitos/TransicaoEscalrecendoFinalizandoClaude.md`](../../artefatos/analista_de_requisitos/TransicaoEscalrecendoFinalizandoClaude.md) — Transição Esclarecendo → Finalizando: análise de duas propostas antagônicas
+- [`artefatos/analista_de_requisitos/TransicaoEsclarecendoFinalizandoCursor.md`](../../artefatos/analista_de_requisitos/TransicaoEsclarecendoFinalizandoCursor.md) — Análise — Transição Esclarecendo → Finalizando
+- [`artefatos/analista_de_requisitos/catalogo_conversacao/README.md`](../../artefatos/analista_de_requisitos/catalogo_conversacao/README.md) — Catálogo de Conversação
+- [`artefatos/analista_de_requisitos/catalogo_conversacao/campos/CAMPO-cnpj.md`](../../artefatos/analista_de_requisitos/catalogo_conversacao/campos/CAMPO-cnpj.md) — CAMPO-cnpj
+- [`artefatos/analista_de_requisitos/catalogo_conversacao/campos/CAMPO-contato.md`](../../artefatos/analista_de_requisitos/catalogo_conversacao/campos/CAMPO-contato.md) — CAMPO-contato
+- [`artefatos/analista_de_requisitos/catalogo_conversacao/campos/CAMPO-cpf.md`](../../artefatos/analista_de_requisitos/catalogo_conversacao/campos/CAMPO-cpf.md) — CAMPO-cpf
+- [`artefatos/analista_de_requisitos/catalogo_conversacao/campos/CAMPO-endereco.md`](../../artefatos/analista_de_requisitos/catalogo_conversacao/campos/CAMPO-endereco.md) — CAMPO-endereco
+- [`artefatos/analista_de_requisitos/catalogo_conversacao/campos/CAMPO-faixa-funcionarios.md`](../../artefatos/analista_de_requisitos/catalogo_conversacao/campos/CAMPO-faixa-funcionarios.md) — CAMPO-faixa-funcionarios
+- [`artefatos/analista_de_requisitos/catalogo_conversacao/campos/CAMPO-modelo.md`](../../artefatos/analista_de_requisitos/catalogo_conversacao/campos/CAMPO-modelo.md) — CAMPO-modelo
+- [`artefatos/analista_de_requisitos/catalogo_conversacao/campos/CAMPO-quantidade.md`](../../artefatos/analista_de_requisitos/catalogo_conversacao/campos/CAMPO-quantidade.md) — CAMPO-quantidade
+- [`artefatos/analista_de_requisitos/catalogo_conversacao/campos/CAMPO-software-ponto.md`](../../artefatos/analista_de_requisitos/catalogo_conversacao/campos/CAMPO-software-ponto.md) — CAMPO-software-ponto
+- [`artefatos/analista_de_requisitos/catalogo_conversacao/fases/FASE-criando-orcamento.md`](../../artefatos/analista_de_requisitos/catalogo_conversacao/fases/FASE-criando-orcamento.md) — FASE-criando-orcamento
+- [`artefatos/analista_de_requisitos/catalogo_conversacao/fases/FASE-encerrado-por-inatividade.md`](../../artefatos/analista_de_requisitos/catalogo_conversacao/fases/FASE-encerrado-por-inatividade.md) — FASE-encerrado-por-inatividade
+- [`artefatos/analista_de_requisitos/catalogo_conversacao/fases/FASE-encerrado.md`](../../artefatos/analista_de_requisitos/catalogo_conversacao/fases/FASE-encerrado.md) — FASE-encerrado
+- [`artefatos/analista_de_requisitos/catalogo_conversacao/fases/FASE-esclarecendo.md`](../../artefatos/analista_de_requisitos/catalogo_conversacao/fases/FASE-esclarecendo.md) — FASE-esclarecendo
+- [`artefatos/analista_de_requisitos/catalogo_conversacao/fases/FASE-finalizando.md`](../../artefatos/analista_de_requisitos/catalogo_conversacao/fases/FASE-finalizando.md) — FASE-finalizando
+- [`artefatos/analista_de_requisitos/catalogo_conversacao/indice.md`](../../artefatos/analista_de_requisitos/catalogo_conversacao/indice.md) — Índice do Catálogo de Conversação
+- [`artefatos/analista_de_requisitos/catalogo_conversacao/perguntas/PERG-002-022.md`](../../artefatos/analista_de_requisitos/catalogo_conversacao/perguntas/PERG-002-022.md) — PERG-002-022
+- [`artefatos/analista_de_requisitos/catalogo_conversacao/perguntas/PERG-002-2A.md`](../../artefatos/analista_de_requisitos/catalogo_conversacao/perguntas/PERG-002-2A.md) — PERG-002-2A
+- [`artefatos/analista_de_requisitos/catalogo_conversacao/perguntas/PERG-016-009.md`](../../artefatos/analista_de_requisitos/catalogo_conversacao/perguntas/PERG-016-009.md) — PERG-016-009
+- [`artefatos/analista_de_requisitos/catalogo_conversacao/perguntas/PERG-016-009B.md`](../../artefatos/analista_de_requisitos/catalogo_conversacao/perguntas/PERG-016-009B.md) — PERG-016-009B
+- [`artefatos/analista_de_requisitos/catalogo_conversacao/perguntas/PERG-016-010.md`](../../artefatos/analista_de_requisitos/catalogo_conversacao/perguntas/PERG-016-010.md) — PERG-016-010
+- [`artefatos/analista_de_requisitos/catalogo_conversacao/perguntas/PERG-esclarecendo-confirmar-interesse.md`](../../artefatos/analista_de_requisitos/catalogo_conversacao/perguntas/PERG-esclarecendo-confirmar-interesse.md) — PERG-esclarecendo-confirmar-interesse
+- [`artefatos/analista_de_requisitos/revisao_alinhamento_catalogo_reqs.md`](../../artefatos/analista_de_requisitos/revisao_alinhamento_catalogo_reqs.md) — Revisão de Alinhamento: Catálogo de Conversação × REQs Formais
+- [`artefatos/arquiteto_de_sistemas/disponibilizacao_auxvendas_com.md`](../../artefatos/arquiteto_de_sistemas/disponibilizacao_auxvendas_com.md) — Disponibilização em `auxvendas.com` (Cloudflare)
+- [`artefatos/arquiteto_de_sistemas/pendenciasSeguranca.md`](../../artefatos/arquiteto_de_sistemas/pendenciasSeguranca.md) — Pendências de Segurança — Análise de Exposição de Código
+- [`artefatos/gerente_de_projetos/backlog_req001_tarefas.md`](../../artefatos/gerente_de_projetos/backlog_req001_tarefas.md) — Backlog de Tarefas — REQ-001 (Integração Receita Federal / CNPJ)
+- [`artefatos/gerente_de_projetos/backlog_req002_tarefas.md`](../../artefatos/gerente_de_projetos/backlog_req002_tarefas.md) — Backlog de Tarefas — REQ-002 (Fluxo Conversacional)
+- [`artefatos/gerente_de_projetos/backlog_req013_tarefas.md`](../../artefatos/gerente_de_projetos/backlog_req013_tarefas.md) — Backlog de Tarefas — REQ-013 (Pares Q&A Curados)
+- [`artefatos/gerente_de_projetos/backlog_req015_tarefas.md`](../../artefatos/gerente_de_projetos/backlog_req015_tarefas.md) — Backlog de Tarefas — REQ-015 (Validação de CPF e Consulta de Débitos)
+- [`artefatos/gerente_de_projetos/proposta_github_projects.md`](../../artefatos/gerente_de_projetos/proposta_github_projects.md) — Proposta: GitHub Projects para planejamento e acompanhamento
+- [`artefatos/gerente_de_projetos/proposta_reorganizacao_issues.md`](../../artefatos/gerente_de_projetos/proposta_reorganizacao_issues.md) — Proposta de Reorganização das Issues do Board
+- [`artefatos/gerente_de_projetos/sprint_03/planning.yaml`](../../artefatos/gerente_de_projetos/sprint_03/planning.yaml) — Sprint 03 — Planning v3 (entregáveis)
+- [`artefatos/gerente_de_projetos/sprint_03/tasks/REQ-016-F01.yaml`](../../artefatos/gerente_de_projetos/sprint_03/tasks/REQ-016-F01.yaml) — REQ-016-F01 — Migração completa negociação → atendimento
+- [`artefatos/gerente_de_projetos/sprint_03/tasks/REQ-016-F02.yaml`](../../artefatos/gerente_de_projetos/sprint_03/tasks/REQ-016-F02.yaml) — REQ-016-F02 — Criação automática de atendimento com numeração sequencial
+- [`docs/brainstorming_continuidade_2026-07.md`](../../docs/brainstorming_continuidade_2026-07.md) — Brainstorming — Continuidade do Projeto (jul/2026)
+- [`docs/dicionario_termos.md`](../../docs/dicionario_termos.md) — Dicionário de Termos — Assistente de Vendas via WhatsApp com IA
+- [`docs/plano_implementacao_requisitos_formais_2026-07.md`](../../docs/plano_implementacao_requisitos_formais_2026-07.md) — Plano de Implementação — Requisitos Formais (ordem definida por Beto, jul/2026)

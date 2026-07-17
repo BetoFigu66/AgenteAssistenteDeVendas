@@ -1,5 +1,7 @@
 # CAMPO-software-ponto
 
+<!-- CLASSIFICACAO: ANDAMENTO -->
+
 **Título:** Software de controle de ponto  
 **Tipo:** Coleta  
 **Versão:** 0.1  

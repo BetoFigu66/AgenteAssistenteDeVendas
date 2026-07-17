@@ -1,5 +1,7 @@
 # RT-004 — Jornada: Gestão de reports de problema no painel
 
+<!-- CLASSIFICACAO: SISTEMA-DEV -->
+
 **Data de criação:** 2026-06-15
 **Autor:** `[qa]` (Cascade)
 **Tempo estimado:** ~10 min

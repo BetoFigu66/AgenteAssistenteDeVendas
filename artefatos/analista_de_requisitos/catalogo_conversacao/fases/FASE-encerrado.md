@@ -1,5 +1,7 @@
 # FASE-encerrado
 
+<!-- CLASSIFICACAO: ANDAMENTO -->
+
 **Nome exibido:** Encerrado  
 **Versão:** 0.2  
 **Status:** Rascunho

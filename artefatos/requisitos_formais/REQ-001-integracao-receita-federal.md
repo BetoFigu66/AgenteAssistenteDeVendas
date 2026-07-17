@@ -1,5 +1,8 @@
 # REQ-001: Integração com Receita Federal (CNPJ)
 
+<!-- CLASSIFICACAO: SISTEMA-CAIXAPRETA -->
+<!-- CLASSIFICACAO: IA -->
+
 **Versão**: 1.2  
 **Data**: 2026-05-06  
 **Autor**: Kika (Analista de Requisitos)  

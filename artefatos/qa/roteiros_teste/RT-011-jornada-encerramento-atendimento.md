@@ -1,5 +1,7 @@
 # RT-011 — Jornada: Encerramento de atendimento (manual, pergunta de fechamento e abandono)
 
+<!-- CLASSIFICACAO: SISTEMA-DEV -->
+
 **Data de criação:** 2026-06-19
 **Autor:** `[qa]` (Cascade)
 **Tempo estimado:** ~20 min

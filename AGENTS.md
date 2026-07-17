@@ -1,5 +1,7 @@
 # Regras do Projeto - Assistente de Vendas via WhatsApp com IA
 
+<!-- CLASSIFICACAO: PROCESSO -->
+
 ## Contexto
 
 Este projeto e um sistema de automacao de atendimento via WhatsApp usando IA para a empresa Inforrel, com foco em venda de catracas, relogios de ponto e controle de acesso.

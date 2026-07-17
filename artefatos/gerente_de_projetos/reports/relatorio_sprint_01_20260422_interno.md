@@ -1,5 +1,7 @@
 # 📊 Relatório de Sprint 1
 
+<!-- CLASSIFICACAO: HISTORICO -->
+
 **Período**: 08/04/2026 → 22/04/2026  
 **Gerado em**: 22/04/2026 07:50  
 **Duração**: 14 dias

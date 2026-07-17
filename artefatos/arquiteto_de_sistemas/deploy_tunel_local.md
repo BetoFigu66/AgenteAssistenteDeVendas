@@ -1,5 +1,7 @@
 # Deploy via Túnel Local (Cloudflare Tunnel)
 
+<!-- CLASSIFICACAO: SISTEMA-DEV -->
+
 **Versão**: 1.0
 **Data**: 2026-04-28
 **Autor**: Arquiteto de Sistemas

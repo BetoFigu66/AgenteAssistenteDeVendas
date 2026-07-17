@@ -1,5 +1,7 @@
 # RT-009 — Jornada: Criação automática de atendimento e numeração sequencial
 
+<!-- CLASSIFICACAO: SISTEMA-DEV -->
+
 **Data de criação:** 2026-06-19
 **Autor:** `[qa]` (Cascade)
 **Tempo estimado:** ~15 min

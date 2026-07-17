@@ -1,5 +1,8 @@
 # REQ-002: Fluxo Conversacional Guiado
 
+<!-- CLASSIFICACAO: SISTEMA-CAIXAPRETA -->
+<!-- CLASSIFICACAO: IA -->
+
 **Versão**: 1.34  
 **Data**: 2026-07-15  
 **Autor**: Kika (Analista de Requisitos)  

@@ -1,3 +1,5 @@
+<!-- CLASSIFICACAO: HISTORICO -->
+
 Sou desenvolvedor de sw.  Tenho um cliente que vende catracas para controle de acesso, como para academias, por exemplo. Eles fazem vendas por WhatsApp Business, principalmente. 
 Quero fazer um sistema de automação usando ia, treinar um modelo para interagir com os clientes, pelo WhatsApp, como se fosse um humano, e que alerte para um vendedor humano, casos que precisam mais atenção. Que arquitetura de suspensa você me sugere?
 

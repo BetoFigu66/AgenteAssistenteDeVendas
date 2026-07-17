@@ -1,8 +1,10 @@
 # Plano RAG Produtos v1
 
+<!-- CLASSIFICACAO: HISTORICO -->
+
 **Data:** 2026-04-30  
 **Agente:** Arquiteto de Sistemas  
-**Status:** Proposta para discussao
+**Status:** Executado (rótulo "Proposta para discussão" desatualizado — o plano já está implementado e em uso; arquivo está em `planos_executados/`, corrigido em 2026-07-17)
 
 ## 1. Resumo do pedido
 

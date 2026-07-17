@@ -1,5 +1,7 @@
 # Respostas da Rita ao Questionário
 
+<!-- CLASSIFICACAO: HISTORICO -->
+
 **Data**: 12/04/2026 (atualizado 14/04/2026)  
 **Status**: ✅ COMPLETO - Todas as seções respondidas
 

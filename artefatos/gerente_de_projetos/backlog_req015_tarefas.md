@@ -1,5 +1,7 @@
 # Backlog de Tarefas — REQ-015 (Validação de CPF e Consulta de Débitos)
 
+<!-- CLASSIFICACAO: ANDAMENTO -->
+
 **Versão:** 0.1
 **Data:** 2026-06-10
 **Autor:** Beto (`[gerente]`)

@@ -1,5 +1,7 @@
 # RT-001 — Jornada: Novo cliente envia CNPJ e faz pergunta técnica
 
+<!-- CLASSIFICACAO: SISTEMA-DEV -->
+
 **Data de criação:** 2026-06-15
 **Autor:** `[qa]` (Cascade)
 **Tempo estimado:** ~15 min

@@ -1,5 +1,7 @@
 # FASE-esclarecendo
 
+<!-- CLASSIFICACAO: ANDAMENTO -->
+
 **Nome exibido:** Esclarecendo  
 **Versão:** 0.2  
 **Status:** Rascunho

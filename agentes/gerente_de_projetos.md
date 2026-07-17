@@ -1,5 +1,7 @@
 # Agente `[gerente]` — Identidade e prompt
 
+<!-- CLASSIFICACAO: PROCESSO -->
+
 > **Convenção:** este arquivo segue o padrão `agentes/<nome>.md` definido em `AGENTS.md` (seção "Convencao: dois arquivos por agente"). É a **fonte da verdade** do prompt de sistema do `GerenteDeProjetos`. O `gerente_de_projetos.py` deve carregar este `.md` em `get_prompt_sistema()` e concatenar dinamicamente o conteúdo de `artefatos/gerente_de_projetos/diretrizes.md`.
 
 ---

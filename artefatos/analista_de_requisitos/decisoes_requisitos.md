@@ -1,5 +1,8 @@
 # Decisões de Requisitos
 
+<!-- CLASSIFICACAO: IA -->
+<!-- CLASSIFICACAO: SISTEMA-DEV -->
+
 Este documento registra **decisões importantes** tomadas ao longo da evolução dos requisitos formais (`artefatos/requisitos_formais/REQ-XXX-*.md`).
 
 Os REQs em si são mantidos enxutos — descrevem **o que** o sistema deve fazer. Este documento captura **por que** algumas decisões foram tomadas daquela forma, alternativas que foram consideradas e descartadas, e contexto histórico que ajuda a entender o estado atual sem poluir o requisito.

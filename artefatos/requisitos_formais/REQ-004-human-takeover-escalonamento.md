@@ -1,5 +1,8 @@
 # REQ-004: Escalonamento para Humano (Human Takeover)
 
+<!-- CLASSIFICACAO: SISTEMA-CAIXAPRETA -->
+<!-- CLASSIFICACAO: IA -->
+
 **Versão**: 1.8  
 **Data**: 2026-07-10  
 **Autor**: Kika (Analista de Requisitos)  

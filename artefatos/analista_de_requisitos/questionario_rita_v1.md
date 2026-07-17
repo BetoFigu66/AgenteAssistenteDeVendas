@@ -1,5 +1,7 @@
 # Questionário para Levantamento de Requisitos
 
+<!-- CLASSIFICACAO: HISTORICO -->
+
 **Para**: Rita  
 **De**: Equipe de Desenvolvimento  
 **Data**: 2026-04-12  

@@ -1,5 +1,7 @@
 # CAMPO-cpf
 
+<!-- CLASSIFICACAO: ANDAMENTO -->
+
 **Título:** CPF do solicitante  
 **Tipo:** Coleta  
 **Versão:** 0.1  

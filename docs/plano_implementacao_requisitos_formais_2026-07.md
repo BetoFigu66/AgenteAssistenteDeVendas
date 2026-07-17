@@ -1,5 +1,7 @@
 # Plano de Implementação — Requisitos Formais (ordem definida por Beto, jul/2026)
 
+<!-- CLASSIFICACAO: ANDAMENTO -->
+
 **Versão:** 1.1
 **Data de criação:** 2026-07-16
 **Última revisão:** 2026-07-16 (reunião de priorização — ver [Histórico de Revisões](#4-histórico-de-revisões))

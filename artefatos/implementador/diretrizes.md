@@ -1,5 +1,7 @@
 # Harness do Agente Implementador
 
+<!-- CLASSIFICACAO: PROCESSO -->
+
 Este documento é o **contrato de conduta** que toda implementação neste repositório deve seguir. Cada diretriz foi acumulada a partir de um episódio real do projeto e permanece ativa até ser revisada explicitamente.
 
 > 🧭 **Regra de ouro:** leia este arquivo antes de implementar qualquer coisa. Se uma situação nova não estiver coberta, **pergunte ao usuário** e registre a decisão como nova diretriz.

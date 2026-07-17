@@ -1,5 +1,7 @@
 # CAMPO-cnpj
 
+<!-- CLASSIFICACAO: ANDAMENTO -->
+
 **Título:** CNPJ da empresa  
 **Tipo:** Coleta  
 **Versão:** 0.1  

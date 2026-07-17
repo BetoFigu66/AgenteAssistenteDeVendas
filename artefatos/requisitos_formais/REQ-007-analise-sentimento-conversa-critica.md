@@ -1,5 +1,8 @@
 # REQ-007: Análise de Sentimento e Classificação de Conversas Críticas
 
+<!-- CLASSIFICACAO: SISTEMA-CAIXAPRETA -->
+<!-- CLASSIFICACAO: IA -->
+
 **Versão**: 1.3  
 **Data**: 2026-04-16  
 **Autor**: Kika (Analista de Requisitos)  

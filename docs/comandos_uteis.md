@@ -1,5 +1,8 @@
 # Comandos Úteis
 
+<!-- CLASSIFICACAO: SISTEMA-DEV -->
+<!-- CLASSIFICACAO: IA -->
+
 Referência rápida de comandos para o projeto. Atualizado conforme dúvidas da equipe.
 
 ---

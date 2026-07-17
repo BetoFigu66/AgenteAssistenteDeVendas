@@ -1,5 +1,7 @@
 # Índice do Catálogo de Conversação
 
+<!-- CLASSIFICACAO: ANDAMENTO -->
+
 **Atualizado em:** 2026-07-15
 
 ---

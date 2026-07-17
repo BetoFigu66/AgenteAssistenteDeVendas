@@ -1,5 +1,8 @@
 # REQ-012: Reports de Problema — Captura, Triagem e Evolução do Agente
 
+<!-- CLASSIFICACAO: SISTEMA-CAIXAPRETA -->
+<!-- CLASSIFICACAO: IA -->
+
 **Versão**: 1.1
 **Data**: 2026-05-18
 **Autor**: Kika (Analista de Requisitos)

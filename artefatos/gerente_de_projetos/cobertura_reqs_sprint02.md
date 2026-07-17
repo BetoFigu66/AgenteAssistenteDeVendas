@@ -1,5 +1,7 @@
 # Cobertura dos REQs pelo desenvolvimento — fim da Sprint 2
 
+<!-- CLASSIFICACAO: HISTORICO -->
+
 **Data:** 2026-05-18
 **Autor:** `[gerente]` (Cascade)
 **Período analisado:** até o final da Sprint 2 (2026-05-15)

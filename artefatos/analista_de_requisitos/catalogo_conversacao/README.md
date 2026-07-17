@@ -1,5 +1,7 @@
 # Catálogo de Conversação
 
+<!-- CLASSIFICACAO: ANDAMENTO -->
+
 **Versão:** 0.2 (piloto)  
 **Data:** 2026-07-04  
 **Autor:** Beto + Cascade (rascunho para revisão da Kika)  

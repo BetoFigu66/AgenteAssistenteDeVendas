@@ -1,5 +1,7 @@
 # CAMPO-endereco
 
+<!-- CLASSIFICACAO: ANDAMENTO -->
+
 **Título:** Endereço de entrega/instalação  
 **Tipo:** Coleta (texto livre estruturado)  
 **Versão:** 0.1  

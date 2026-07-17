@@ -1,5 +1,7 @@
 # PERG-002-2A
 
+<!-- CLASSIFICACAO: ANDAMENTO -->
+
 **Título:** Identificação PF ou PJ  
 **Tipo:** Decisão  
 **Versão:** 0.1  

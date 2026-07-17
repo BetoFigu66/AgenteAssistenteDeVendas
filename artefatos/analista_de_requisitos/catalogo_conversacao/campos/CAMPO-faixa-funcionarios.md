@@ -1,5 +1,7 @@
 # CAMPO-faixa-funcionarios
 
+<!-- CLASSIFICACAO: ANDAMENTO -->
+
 **Título:** Faixa de funcionários/usuários  
 **Tipo:** Coleta (número ou faixa)  
 **Versão:** 0.1  

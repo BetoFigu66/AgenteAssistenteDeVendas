@@ -1,11 +1,13 @@
 # Análise: Renomeação "Negociação" → "Atendimento"
 
+<!-- CLASSIFICACAO: HISTORICO -->
+
 **Agente:** `[analista]` (inferido)
-**Versão:** 0.3 (Fases 1 e 2 executadas)
+**Versão:** 0.4 (Fases 1-4 executadas)
 **Data:** 2026-06-09
 **Autor:** Beto
 **Base:** conversa Kika ↔ Beto + REQ-016 v1.0
-**Status:** Fase 1 (REQs) e Fase 2 (backlogs) **executadas**. Decisões D1–D6 fechadas; ganha/perdida confirmada exclusivamente no orçamento (D2-bis). Faltam Fase 3 (código + migration via `backlog_req016_atendimentos.md`) e Fase 4 (validação no painel).
+**Status:** Concluído. Fases 1-4 executadas: REQs e backlogs fechados, código renomeado (`backend/models.py` usa `Atendimento`/`StatusAtendimento`/`AtendimentoInfo`, classe `Negociacao` não existe mais) e painel usa a terminologia "Atendimento" ponta a ponta. Decisões D1–D6 fechadas; ganha/perdida confirmada exclusivamente no orçamento (D2-bis). (Corrigido em 2026-07-17 — rótulo anterior dizia Fases 3-4 pendentes.)
 
 ---
 

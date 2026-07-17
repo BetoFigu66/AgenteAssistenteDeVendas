@@ -1,5 +1,7 @@
 # Agente: Analista de Requisitos (Kika)
 
+<!-- CLASSIFICACAO: PROCESSO -->
+
 Este arquivo é a **fonte da verdade** das regras de trabalho do agente Analista de Requisitos. Ele é carregado pelo `analista_requisitos.py` (`get_prompt_sistema()`) e também é lido pelo Cascade quando assume o papel `[analista]` conforme `AGENTS.md`.
 
 ---

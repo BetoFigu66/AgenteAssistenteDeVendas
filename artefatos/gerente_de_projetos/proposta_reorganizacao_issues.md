@@ -1,5 +1,7 @@
 # Proposta de Reorganização das Issues do Board
 
+<!-- CLASSIFICACAO: ANDAMENTO -->
+
 **Data:** 2026-06-16
 **Autor:** `[gerente]` (Cascade)
 **Motivação:** Reagrupar tarefas técnicas em funcionalidades entregáveis e testáveis, de forma que cada issue possa ser validada funcionalmente de ponta a ponta quando concluída.

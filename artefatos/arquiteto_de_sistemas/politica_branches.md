@@ -1,5 +1,7 @@
 # Política de Branches e Fluxo de Trabalho
 
+<!-- CLASSIFICACAO: SISTEMA-DEV -->
+
 **Versão**: 1.1  
 **Data**: 2026-06-08  
 **Autor**: Arquiteto de Sistemas  

@@ -1,5 +1,7 @@
 # Gerente de Projetos — Artefatos
 
+<!-- CLASSIFICACAO: PROCESSO -->
+
 Diretório dos artefatos gerados pelo agente `GerenteDeProjetos`. Os fluxos principais são o **Sprint Planning** ([`G07`](./diretrizes.md#g07--sprint-planning-sprint_nnplanningyaml-é-fonte-única-do-planejamento-técnico)) e o **Sprint Review**, regido pelas diretrizes [`G01`](./diretrizes.md#g01--sprint-review-yaml-é-fonte-única-pptx-é-derivado), [`G03`](./diretrizes.md#g03--versionamento-da-pasta-de-sprint-review), [`G04`](./diretrizes.md#g04--tokens-do-template-e-yaml-devem-casar) e [`G05`](./diretrizes.md#g05--pptx-é-editável-apenas-para-formatação-visual) deste agente.
 
 > **Estrutura dos arquivos deste diretório:**

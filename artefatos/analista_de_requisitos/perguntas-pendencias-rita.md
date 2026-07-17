@@ -1,5 +1,7 @@
 # Pendências para Definir com a Rita (POC)
 
+<!-- CLASSIFICACAO: HISTORICO -->
+
 **Data**: 2026-04-16  
 
 ---

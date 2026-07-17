@@ -1,5 +1,7 @@
 # Análise: Agentes vs. Skills vs. Harness para Direcionamento de IA em Desenvolvimento
 
+<!-- CLASSIFICACAO: HISTORICO -->
+
 **Autores:** Arquiteto de Sistemas + Beto (análise conjunta)  
 **Data:** 2025-05  
 **Contexto:** Projeto Assistente de Vendas Inforrel — avaliação da estrutura atual (`agentes/`) e comparação com abordagens alternativas.

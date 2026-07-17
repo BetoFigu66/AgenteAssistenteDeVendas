@@ -1,5 +1,7 @@
 # Plano de Implementação — MVP Continuidade (jul/2026)
 
+<!-- CLASSIFICACAO: HISTORICO -->
+
 **Versão:** 2.4  
 **Data:** 2026-07-06 (atualizado 2026-07-15)  
 **Autor:** Beto + Cascade + Claude  

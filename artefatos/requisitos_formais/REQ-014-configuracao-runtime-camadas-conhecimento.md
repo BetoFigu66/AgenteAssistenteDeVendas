@@ -1,5 +1,8 @@
 # REQ-014: Configuração em Runtime das Camadas de Conhecimento (RAG e Q&A)
 
+<!-- CLASSIFICACAO: SISTEMA-CAIXAPRETA -->
+<!-- CLASSIFICACAO: IA -->
+
 **Versão**: 1.3
 **Data**: 2026-07-04
 **Autor**: Kika (Analista de Requisitos)

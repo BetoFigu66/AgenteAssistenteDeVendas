@@ -1,5 +1,7 @@
 # CAMPO-contato
 
+<!-- CLASSIFICACAO: ANDAMENTO -->
+
 **Título:** Contato para envio do orçamento  
 **Tipo:** Coleta (texto livre)  
 **Versão:** 0.1  

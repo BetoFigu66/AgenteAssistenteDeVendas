@@ -1,5 +1,7 @@
 # CAMPO-quantidade
 
+<!-- CLASSIFICACAO: ANDAMENTO -->
+
 **Título:** Quantidade de equipamentos  
 **Tipo:** Coleta (número ou faixa)  
 **Versão:** 0.1  

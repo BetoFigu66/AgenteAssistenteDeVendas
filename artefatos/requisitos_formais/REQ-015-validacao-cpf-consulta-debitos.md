@@ -1,5 +1,8 @@
 # REQ-015: Validação de CPF e Consulta de Débitos (Pessoa Física)
 
+<!-- CLASSIFICACAO: SISTEMA-CAIXAPRETA -->
+<!-- CLASSIFICACAO: IA -->
+
 **Versão**: 1.0  
 **Data**: 2026-06-01  
 **Autor**: Kika (Analista de Requisitos)  

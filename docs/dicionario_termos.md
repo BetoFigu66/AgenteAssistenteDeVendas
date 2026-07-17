@@ -1,5 +1,7 @@
 # Dicionário de Termos — Assistente de Vendas via WhatsApp com IA
 
+<!-- CLASSIFICACAO: ANDAMENTO -->
+
 **Versão:** 0.1
 **Data:** 2026-07-09
 **Autor:** Beto + Claude

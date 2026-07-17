@@ -1,5 +1,8 @@
 # Cenários de Teste Manual — Sprint 2
 
+<!-- CLASSIFICACAO: SISTEMA-DEV -->
+<!-- CLASSIFICACAO: HISTORICO -->
+
 **Data:** 2026-05-27
 **Autor:** `[qa]` (Cascade)
 **Escopo:** validar funcionalmente os subitens com status ✅ ou 🟡 conforme `artefatos/gerente_de_projetos/cobertura_reqs_sprint02.md`.

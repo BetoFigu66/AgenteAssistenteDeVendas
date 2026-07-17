@@ -1,5 +1,7 @@
 # Diretrizes do Gerente de Projetos
 
+<!-- CLASSIFICACAO: PROCESSO -->
+
 > **Convenção:** este arquivo segue o padrão `artefatos/<nome>/diretrizes.md` definido em `AGENTS.md` (seção "Convencao: dois arquivos por agente").
 >
 > **IDs:** prefixo `G` (de Gerente), nunca reciclados. Quando uma diretriz for movida para outro lugar, o ID original vira pointer.

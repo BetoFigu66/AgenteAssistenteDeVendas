@@ -1,5 +1,8 @@
 # Cenários de Teste Funcional — Sprint 2
 
+<!-- CLASSIFICACAO: SISTEMA-CAIXAPRETA -->
+<!-- CLASSIFICACAO: HISTORICO -->
+
 **Data:** 2026-05-27
 **Autor:** `[qa]` (Cascade)
 **Escopo:** validação funcional caixa-preta dos comportamentos entregues até o fim da Sprint 2.

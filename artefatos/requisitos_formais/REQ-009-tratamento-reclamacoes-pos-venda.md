@@ -1,5 +1,8 @@
 # REQ-009: Tratamento de Reclamações Pós-venda (Atraso/Suporte) com Identificação de Orçamento/Pedido
 
+<!-- CLASSIFICACAO: SISTEMA-CAIXAPRETA -->
+<!-- CLASSIFICACAO: IA -->
+
 **Versão**: 1.3  
 **Data**: 2026-04-17  
 **Autor**: Kika (Analista de Requisitos)  

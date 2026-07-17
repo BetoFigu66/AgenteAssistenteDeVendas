@@ -1,5 +1,7 @@
 # Guia operacional — Evolução da base de conhecimento
 
+<!-- CLASSIFICACAO: PROCESSO -->
+
 Público: **desenvolvedor** (Beto) e **curador de conteúdo** (quem mantém Q&A e documentos de produto).
 
 Este guia descreve o fluxo técnico para tratar respostas inadequadas do agente via `[curador_conhecimento]`, sem envolver operação da Rita.

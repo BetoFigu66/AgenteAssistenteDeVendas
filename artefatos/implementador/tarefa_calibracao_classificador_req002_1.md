@@ -1,5 +1,7 @@
 # Tarefa — Calibração do Classificador de Intenções (REQ-002.1 / REQ-002.1A)
 
+<!-- CLASSIFICACAO: HISTORICO -->
+
 **De:** Kika (Analista de Requisitos)  
 **Para:** Beto (Implementador)  
 **Data:** 2026-06-03  

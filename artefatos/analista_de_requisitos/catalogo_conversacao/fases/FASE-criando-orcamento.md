@@ -1,5 +1,7 @@
 # FASE-criando-orcamento
 
+<!-- CLASSIFICACAO: ANDAMENTO -->
+
 **Nome exibido:** Criando Orçamento  
 **Versão:** 0.1  
 **Status:** Rascunho

@@ -1,5 +1,7 @@
 # Transição Esclarecendo → Finalizando: análise de duas propostas antagônicas
 
+<!-- CLASSIFICACAO: ANDAMENTO -->
+
 **Versão:** 0.1
 **Data:** 2026-07-10
 **Autor:** Claude (a pedido do Beto)

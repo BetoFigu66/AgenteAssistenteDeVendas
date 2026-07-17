@@ -1,5 +1,8 @@
 # REQ-016: Identificação e Numeração de Atendimentos por Cliente
 
+<!-- CLASSIFICACAO: SISTEMA-CAIXAPRETA -->
+<!-- CLASSIFICACAO: IA -->
+
 **Versão**: 2.6
 **Data**: 2026-07-06
 **Autor**: Kika (Analista de Requisitos)

@@ -1,5 +1,7 @@
 # RT-006 — Jornada: Orçamentos via backend (Swagger)
 
+<!-- CLASSIFICACAO: SISTEMA-DEV -->
+
 **Data de criação:** 2026-06-15
 **Autor:** `[qa]` (Cascade)
 **Tempo estimado:** ~10 min

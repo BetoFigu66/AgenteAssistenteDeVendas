@@ -1,5 +1,7 @@
 # Diretrizes do Arquiteto de Sistemas
 
+<!-- CLASSIFICACAO: PROCESSO -->
+
 > **Convenção:** este arquivo segue o padrão `artefatos/<nome>/diretrizes.md` definido em `AGENTS.md` (seção "Convencao: dois arquivos por agente").
 >
 > **Particularidade do `[arquiteto]`:** as decisões arquiteturais costumam ser longas demais para caber inline. Por isso, cada diretriz aqui é um **resumo + pointer** para o `.md` temático que contém a decisão completa. Os `.md` temáticos são a fonte da verdade; este documento é o **índice navegável** que registra a regra-síntese e quando ela foi tomada.

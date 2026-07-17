@@ -1,5 +1,7 @@
 # RT-007 — Jornada: Reclamação e escalonamento automático por sentimento
 
+<!-- CLASSIFICACAO: SISTEMA-DEV -->
+
 > ## 🚧 NÃO PRONTO PARA EXECUÇÃO
 >
 > Este roteiro cobre REQ-007 (análise de sentimento) e partes do REQ-004 (gatilhos automáticos de escalonamento) que ainda **não estão implementados**.

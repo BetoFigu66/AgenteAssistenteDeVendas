@@ -1,5 +1,7 @@
 # RT-002 — Jornada: Aprovação de mensagem pendente e criação de par Q&A
 
+<!-- CLASSIFICACAO: SISTEMA-DEV -->
+
 **Data de criação:** 2026-06-15
 **Autor:** `[qa]` (Cascade)
 **Tempo estimado:** ~15 min

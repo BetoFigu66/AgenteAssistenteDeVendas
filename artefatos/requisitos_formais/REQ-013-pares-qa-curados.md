@@ -1,5 +1,8 @@
 # REQ-013: Base de Pares Q&A Curados como Camada Prioritária do RAG
 
+<!-- CLASSIFICACAO: SISTEMA-CAIXAPRETA -->
+<!-- CLASSIFICACAO: IA -->
+
 **Versão**: 1.0
 **Data**: 2026-05-18
 **Autor**: Kika (Analista de Requisitos)

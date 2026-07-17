@@ -1,8 +1,10 @@
 # Arquitetura POC - Assistente de Vendas via WhatsApp com IA
 
+<!-- CLASSIFICACAO: SISTEMA-DEV -->
+
 **Versão**: 1.0  
 **Data**: 2026-04-13  
-**Status**: Esboço para validação  
+**Status**: Vigente — arquitetura adotada e em produção na POC (rótulo "Esboço para validação" desatualizado, corrigido em 2026-07-17)  
 **Moeda**: Valores em US$ (dólares americanos)
 
 ---

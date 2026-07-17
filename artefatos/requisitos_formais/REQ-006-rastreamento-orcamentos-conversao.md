@@ -1,5 +1,8 @@
 # REQ-006: Rastreamento de Orçamentos e Status de Conversão
 
+<!-- CLASSIFICACAO: SISTEMA-CAIXAPRETA -->
+<!-- CLASSIFICACAO: IA -->
+
 **Versão**: 1.7  
 **Data**: 2026-06-01  
 **Autor**: Kika (Analista de Requisitos)  

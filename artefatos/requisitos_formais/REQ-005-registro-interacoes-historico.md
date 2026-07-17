@@ -1,5 +1,8 @@
 # REQ-005: Registro Completo de Interações e Histórico de Conversas
 
+<!-- CLASSIFICACAO: SISTEMA-CAIXAPRETA -->
+<!-- CLASSIFICACAO: IA -->
+
 **Versão**: 1.9  
 **Data**: 2026-06-06  
 **Autor**: Kika (Analista de Requisitos)  

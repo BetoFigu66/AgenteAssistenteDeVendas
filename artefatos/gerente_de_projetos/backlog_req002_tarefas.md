@@ -1,5 +1,7 @@
 # Backlog de Tarefas — REQ-002 (Fluxo Conversacional)
 
+<!-- CLASSIFICACAO: ANDAMENTO -->
+
 **Versão:** 0.3 (revisão pós-análise de código)
 **Data:** 2026-06-10
 **Autor:** Beto (`[gerente]`)

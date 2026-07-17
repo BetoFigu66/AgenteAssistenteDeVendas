@@ -1,5 +1,7 @@
 # 📋 Análise de Gaps: Requisitos Formais vs Backlog
 
+<!-- CLASSIFICACAO: HISTORICO -->
+
 **Data da análise**: 22/04/2026  
 **Analisado por**: Gerente de Projetos  
 **Escopo**: Cruzamento dos 9 requisitos formais com o backlog atual

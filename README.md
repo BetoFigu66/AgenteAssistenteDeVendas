@@ -1,5 +1,7 @@
 # Assistente de Vendas via WhatsApp com IA
 
+<!-- CLASSIFICACAO: SISTEMA-CAIXAPRETA -->
+
 Sistema de automação de atendimento via WhatsApp usando IA para empresas que fazem vendas pelo canal.
 
 ## 👥 Equipe
@@ -19,7 +21,7 @@ Sistema de automação de atendimento via WhatsApp usando IA para empresas que f
 | Backend (FastAPI + SQLAlchemy) | ✅ Implementado |
 | Frontend (React + Vite) | ✅ Implementado |
 | CI/CD (GitHub Actions) | ✅ Configurado |
-| Requisitos formais | 🔜 Pendente |
+| Requisitos formais | 🟡 Em elaboração (16 REQs criados em `artefatos/requisitos_formais/`, várias já implementadas) |
 | Histórias de usuário | 🔜 Pendente |
 
 ## 🎯 Objetivo

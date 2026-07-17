@@ -1,5 +1,7 @@
 # Brainstorming — Continuidade do Projeto (jul/2026)
 
+<!-- CLASSIFICACAO: ANDAMENTO -->
+
 **Versão:** 1.0 (primeira rodada — Beto + Cascade)  
 **Data:** 2026-07-02  
 **Status:** Provisório — aguardando considerações da Kika  

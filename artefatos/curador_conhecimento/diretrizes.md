@@ -1,5 +1,7 @@
 # Diretrizes — Curador de Conhecimento
 
+<!-- CLASSIFICACAO: PROCESSO -->
+
 Regras operacionais do agente `[curador_conhecimento]`. IDs estáveis; não reciclar.
 
 ---

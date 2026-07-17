@@ -1,5 +1,7 @@
 # CAMPO-modelo
 
+<!-- CLASSIFICACAO: ANDAMENTO -->
+
 **Título:** Modelo/especificação do produto  
 **Tipo:** Coleta (lista fechada por tipo de produto)  
 **Versão:** 0.1  

@@ -1,5 +1,7 @@
 # RT-010 — Jornada: Janela de continuação e pergunta de continuação
 
+<!-- CLASSIFICACAO: SISTEMA-DEV -->
+
 **Data de criação:** 2026-06-19
 **Autor:** `[qa]` (Cascade)
 **Tempo estimado:** ~20 min

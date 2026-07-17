@@ -1,5 +1,7 @@
 # Diretrizes do Agente Especialista em IA
 
+<!-- CLASSIFICACAO: PROCESSO -->
+
 Este documento registra as diretrizes de governança de IA acumuladas ao longo do projeto. Cada diretriz tem ID estável (`IAxx`), categoria, data de registro, regra, motivação, contexto originário e aplicação prática.
 
 > 🧭 **Regra de ouro:** antes de propor qualquer mudança na estrutura de agentes ou no harness, consultar este arquivo para verificar se já há diretriz cobrindo o caso.

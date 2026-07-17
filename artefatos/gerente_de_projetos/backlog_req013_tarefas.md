@@ -1,5 +1,7 @@
 # Backlog de Tarefas — REQ-013 (Pares Q&A Curados)
 
+<!-- CLASSIFICACAO: ANDAMENTO -->
+
 **Versão:** 0.1
 **Data:** 2026-06-10
 **Autor:** Beto (`[gerente]`)

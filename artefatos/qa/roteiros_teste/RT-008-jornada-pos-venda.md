@@ -1,5 +1,7 @@
 # RT-008 — Jornada: Reclamação pós-venda com identificação de orçamento
 
+<!-- CLASSIFICACAO: SISTEMA-DEV -->
+
 > ## 🚧 NÃO PRONTO PARA EXECUÇÃO
 >
 > Este roteiro cobre REQ-009 (tratamento de reclamações pós-venda), que **não está implementado**. Também depende da conclusão de REQ-006 (rastreamento de orçamentos com UI e listagem).

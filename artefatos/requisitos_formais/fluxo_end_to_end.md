@@ -1,5 +1,8 @@
 # Fluxo End-to-End — Sequência de REQs Disparados
 
+<!-- CLASSIFICACAO: SISTEMA-CAIXAPRETA -->
+<!-- CLASSIFICACAO: IA -->
+
 **Versão**: 2.0
 **Data**: 2026-07-16
 **Autor**: Kika (Analista de Requisitos)

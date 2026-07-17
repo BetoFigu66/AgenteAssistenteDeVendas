@@ -1,5 +1,7 @@
 # RT-012 — Jornada: MVP Continuidade (relógio de ponto — Esclarecendo → Finalizando → Em orçamentação)
 
+<!-- CLASSIFICACAO: SISTEMA-DEV -->
+
 **Data de criação:** 2026-07-13
 **Autor:** `[qa]` (Claude Code)
 **Tempo estimado:** ~25 min

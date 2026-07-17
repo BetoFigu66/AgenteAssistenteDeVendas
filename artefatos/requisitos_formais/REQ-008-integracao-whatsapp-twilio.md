@@ -1,5 +1,8 @@
 # REQ-008: Integração WhatsApp via Twilio (Webhook + Envio)
 
+<!-- CLASSIFICACAO: SISTEMA-CAIXAPRETA -->
+<!-- CLASSIFICACAO: IA -->
+
 **Versão**: 1.4  
 **Data**: 2026-04-16  
 **Autor**: Kika (Analista de Requisitos)  

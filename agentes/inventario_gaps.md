@@ -1,5 +1,7 @@
 # Inventário de gaps — adoção da convenção de dois arquivos por agente
 
+<!-- CLASSIFICACAO: PROCESSO -->
+
 > **Convenção de referência:** `AGENTS.md` → seção "Convencao: dois arquivos por agente (identidade + diretrizes)".
 >
 > **Padrão-alvo:**
