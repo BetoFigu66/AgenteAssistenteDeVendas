@@ -127,6 +127,23 @@ _RESUMO_APRESENTADO_CHAVE = "resumo_finalizando_apresentado"
 _CONTINUACAO_PENDENTE_CHAVE = "continuacao_atendimento_pendente"
 _CONFIRMAR_INTERESSE_PENDENTE_CHAVE = "confirmar_interesse_pendente"
 
+# REQ-003.7: quando a RAG/QA não encontram conteúdo para uma dúvida de produto, marca que
+# já fizemos a 1 pergunta de clarificação permitida — se a resposta a ela ainda não tiver
+# base, escala para humano em vez de insistir de novo (mesmo padrão de
+# `_MODELO_TENTATIVAS_CHAVE`, mas booleano: no máximo 1 tentativa extra, não N).
+_RAG_CLARIFICACAO_PENDENTE_CHAVE = "rag_clarificacao_pendente"
+
+# REQ-003.11: tipos de produto com catálogo próprio, e o nome do Parametro (tabela
+# `parametros`) que guarda o link público correspondente — configurável sem deploy.
+_CATALOGO_TIPOS_LABEL = {
+    "catraca": "catracas",
+    "relogio_ponto": "relógios de ponto",
+}
+_CATALOGO_PARAM_POR_TIPO = {
+    "catraca": "catalogo_link_catraca",
+    "relogio_ponto": "catalogo_link_relogio_ponto",
+}
+
 _REGEX_CONTINUAR_ATENDIMENTO = re.compile(r"\b(1|continuar|continua|de\s+onde\s+paramos)\b", re.IGNORECASE)
 _REGEX_NOVO_PEDIDO = re.compile(r"\b(2|novo|outro|outra\s+coisa|pedido\s+novo)\b", re.IGNORECASE)
 _REGEX_MUDOU_DE_IDEIA = re.compile(
@@ -744,6 +761,8 @@ class ProcessadorMensagem:
         self,
         intencao: Intencao,
         conteudo_cliente: str,
+        db: Optional[Session] = None,
+        atendimento: Optional[Atendimento] = None,
         dlog: Optional[DebugLogger] = None,
     ) -> RespostaGerada:
         """Responde intenção de categoria 3 (REQ-002.1) — dúvida sobre produto/preço/fora de
@@ -753,6 +772,10 @@ class ProcessadorMensagem:
         (`regras_esclarecendo.py`) e pela retomada de dúvida em Finalizando (F3,
         `_retomar_apos_duvida`) — mesmo comportamento, não importa se o CNPJ/CPF já foi
         informado.
+
+        `db`/`atendimento` são opcionais e usados apenas por PERGUNTAR_PRODUTO para o
+        fluxo de clarificação/escalonamento (REQ-003.7) — sem eles (ex.: atendimento ainda
+        não garantido), cai no fallback genérico de sempre.
         """
         if intencao == Intencao.PERGUNTAR_PRECO:
             # Plano v1: para perguntas de preco a resposta e sempre o template
@@ -768,6 +791,10 @@ class ProcessadorMensagem:
             return resposta
 
         if intencao == Intencao.PERGUNTAR_PRODUTO:
+            if db is not None and atendimento is not None:
+                return await self._responder_produto_com_clarificacao(
+                    db, atendimento, conteudo_cliente, dlog=dlog
+                )
             return await self._responder_com_rag(
                 conteudo_cliente=conteudo_cliente,
                 template_fallback=MensagemId.PRODUTO_SEM_CONTEXTO,
@@ -780,6 +807,77 @@ class ProcessadorMensagem:
             template_fallback=MensagemId.FORA_CONTEXTO,
             dlog=dlog,
         )
+
+    async def _responder_produto_com_clarificacao(
+        self,
+        db: Session,
+        atendimento: Atendimento,
+        conteudo_cliente: str,
+        dlog: Optional[DebugLogger] = None,
+    ) -> RespostaGerada:
+        """REQ-003.7: quando a base (Q&A/RAG) não tem conteúdo sobre o produto perguntado,
+        faz no máximo 1 pergunta de clarificação antes de escalar para atendimento humano —
+        em vez de cair direto no fallback genérico `PRODUTO_SEM_CONTEXTO`.
+
+        Estado rastreado em `AtendimentoInfo` (`_RAG_CLARIFICACAO_PENDENTE_CHAVE`), mesmo
+        padrão já usado por `_MODELO_TENTATIVAS_CHAVE` (F2)."""
+        aguardando_clarificacao = bool(
+            self._info_atendimento(db, atendimento.id, _RAG_CLARIFICACAO_PENDENTE_CHAVE)
+        )
+
+        resposta = await self._responder_com_rag(
+            conteudo_cliente=conteudo_cliente,
+            template_fallback=MensagemId.PRODUTO_SEM_CONTEXTO,
+            dlog=dlog,
+        )
+
+        if resposta.trechos_rag:
+            # Achou conteúdo (QA ou RAG) — limpa clarificação pendente, se houver.
+            if aguardando_clarificacao:
+                self._remover_info_atendimento(db, atendimento.id, _RAG_CLARIFICACAO_PENDENTE_CHAVE)
+            return resposta
+
+        if not aguardando_clarificacao:
+            self._salvar_info_atendimento(db, atendimento.id, _RAG_CLARIFICACAO_PENDENTE_CHAVE, "1")
+            if dlog:
+                dlog.log("rag_decisao", "sem conteúdo → 1ª pergunta de clarificação (REQ-003.7)")
+            return await self._gerador.gerar(MensagemId.RAG_PEDIR_CLARIFICACAO)
+
+        # Já perguntamos uma vez e a base continua sem conteúdo — escala para humano.
+        self._remover_info_atendimento(db, atendimento.id, _RAG_CLARIFICACAO_PENDENTE_CHAVE)
+        atendimento.modo_operacao = ModoOperacao.HUMANO
+        db.commit()
+        if dlog:
+            dlog.log("rag_decisao", "clarificação sem resultado → escalar_humano (REQ-003.7)")
+        return await self._gerador.gerar(MensagemId.RAG_ESCALADO_SEM_BASE)
+
+    async def _responder_pedir_catalogo(
+        self,
+        db: Session,
+        resultado_class: ResultadoClassificacao,
+        dlog: Optional[DebugLogger] = None,
+    ) -> RespostaGerada:
+        """REQ-003.11: envia o link do catálogo do tipo de produto identificado na mensagem;
+        se o tipo não estiver claro (nenhum ou mais de um tipo suportado mencionado),
+        pergunta qual catálogo o cliente quer antes de enviar."""
+        tipos_suportados = [t for t in resultado_class.entidades.tipos_produto if t in _CATALOGO_PARAM_POR_TIPO]
+
+        if len(tipos_suportados) != 1:
+            if dlog:
+                dlog.log("catalogo", f"tipo ambíguo/ausente ({tipos_suportados}) → pergunta qual catálogo")
+            return await self._gerador.gerar(MensagemId.PEDIR_TIPO_CATALOGO)
+
+        tipo = tipos_suportados[0]
+        link = ParametroService(db).get_str(_CATALOGO_PARAM_POR_TIPO[tipo])
+        rotulo = _CATALOGO_TIPOS_LABEL[tipo]
+        if not link:
+            if dlog:
+                dlog.log("catalogo", f"link não configurado para tipo={tipo}")
+            return await self._gerador.gerar(MensagemId.CATALOGO_INDISPONIVEL, {"tipo": rotulo})
+
+        if dlog:
+            dlog.log("catalogo", f"enviando catálogo tipo={tipo}")
+        return await self._gerador.gerar(MensagemId.CATALOGO_ENVIADO, {"tipo": rotulo, "link": link})
 
     # ------------------------------------------------------------------
     # Transição Esclarecendo → Finalizando (Fase E)
@@ -1035,7 +1133,9 @@ class ProcessadorMensagem:
         """F3: se a mensagem em Finalizando for uma dúvida (categoria 3), responde via
         Q&A/RAG e reapresenta a última pergunta pendente — sem perder o progresso da
         coleta (a fase continua Finalizando)."""
-        resposta_duvida = await self._responder_categoria3(resultado_class.intencao_principal, conteudo, dlog=dlog)
+        resposta_duvida = await self._responder_categoria3(
+            resultado_class.intencao_principal, conteudo, db=db, atendimento=atendimento, dlog=dlog
+        )
 
         pendentes = campos_pendentes(atendimento)
         if not pendentes:

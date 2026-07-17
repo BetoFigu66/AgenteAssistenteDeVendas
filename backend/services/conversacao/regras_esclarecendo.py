@@ -29,6 +29,7 @@ from .motor import RegraIntencao
 from .regras_encerramento import CHAVE_FECHAMENTO_PENDENTE
 
 _CHAVE_DOC_PENDENTE = "documento_fiscal_pendente"
+_CHAVE_CATALOGO_PENDENTE = "catalogo_pendente"
 
 # REQ-016.10: intenções de "dúvida pura" (categoria 3) — dispara a pergunta de fechamento
 # só quando NENHUMA outra intenção de qualificação (ex.: PEDIR_ORCAMENTO) bateu junto na
@@ -99,12 +100,45 @@ def _builder_categoria3(intencao_categoria: Intencao):
             return None
         if garante_atendimento:
             await _garantir_atendimento_dispatch(ctx)
-        return await ctx.processador._responder_categoria3(intencao_categoria, ctx.conteudo, dlog=ctx.dlog)
+        return await ctx.processador._responder_categoria3(
+            intencao_categoria, ctx.conteudo, db=ctx.db, atendimento=ctx.atendimento, dlog=ctx.dlog
+        )
 
     def _builder(ctx: ContextoAcao) -> GrupoAcoes:
         return GrupoAcoes(pos=[Acao(f"categoria3_{intencao_categoria.value}", _executar)])
 
     return _builder
+
+
+async def _executar_pedir_catalogo(ctx: ContextoAcao):
+    """REQ-003.11 — registrada ANTES das Regras de categoria 3 em `REGISTRO_ESCLARECENDO`:
+    "catálogo de catracas" bate tanto em PEDIR_CATALOGO quanto em PERGUNTAR_PRODUTO (a
+    palavra "catraca"), e o catálogo deve vencer, não a resposta genérica de dúvida.
+
+    Também é o alvo da resposta "solta" a `PEDIR_TIPO_CATALOGO` (ex.: cliente responde só
+    "catracas", sem repetir a palavra "catálogo") — `_builder_pedir_catalogo` decide
+    quando isso se aplica, olhando `catalogo_pendente` em `AtendimentoInfo`."""
+    if ctx.fragmentos_ate_agora:
+        return None
+    atendimento = await _garantir_atendimento_dispatch(ctx)
+    p = ctx.processador
+    p._remover_info_atendimento(ctx.db, atendimento.id, _CHAVE_CATALOGO_PENDENTE)
+    resposta = await p._responder_pedir_catalogo(ctx.db, ctx.resultado_class, dlog=ctx.dlog)
+    if resposta.template_usado == "PEDIR_TIPO_CATALOGO":
+        p._salvar_info_atendimento(ctx.db, atendimento.id, _CHAVE_CATALOGO_PENDENTE, "1")
+    return resposta
+
+
+def _builder_pedir_catalogo(ctx: ContextoAcao) -> GrupoAcoes:
+    if Intencao.PEDIR_CATALOGO in ctx.resultado_class.intencoes:
+        return GrupoAcoes(pos=[Acao("pedir_catalogo", _executar_pedir_catalogo)])
+    if (
+        ctx.atendimento
+        and ctx.resultado_class.entidades.tipos_produto
+        and ctx.processador._info_atendimento(ctx.db, ctx.atendimento.id, _CHAVE_CATALOGO_PENDENTE)
+    ):
+        return GrupoAcoes(pos=[Acao("pedir_catalogo", _executar_pedir_catalogo)])
+    return GrupoAcoes()
 
 
 async def _executar_perguntar_prazo(ctx: ContextoAcao):
@@ -217,6 +251,12 @@ REGISTRO_ESCLARECENDO: list[RegraIntencao] = [
         fase=FaseAtendimento.ESCLARECENDO,
         builder=lambda ctx: GrupoAcoes(pos=[Acao("pedir_orcamento", _executar_pedir_orcamento)]),
         nome="pedir_orcamento",
+    ),
+    RegraIntencao(
+        intencao=None,
+        fase=FaseAtendimento.ESCLARECENDO,
+        builder=_builder_pedir_catalogo,
+        nome="pedir_catalogo",
     ),
     RegraIntencao(
         intencao=Intencao.PERGUNTAR_PRECO,

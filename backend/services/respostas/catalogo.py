@@ -53,6 +53,11 @@ class MensagemId(IntEnum):
     CONFIRMAR_INTERESSE_ANTERIOR = 33
     PERGUNTA_FECHAMENTO_ATENDIMENTO = 34
     DESPEDIDA_ATENDIMENTO_ENCERRADO = 35
+    PEDIR_TIPO_CATALOGO = 36
+    CATALOGO_ENVIADO = 37
+    CATALOGO_INDISPONIVEL = 38
+    RAG_PEDIR_CLARIFICACAO = 39
+    RAG_ESCALADO_SEM_BASE = 40
 
 
 @dataclass(frozen=True)
@@ -305,6 +310,40 @@ CATALOGO: dict[int, MensagemTemplate] = {
         id=MensagemId.DESPEDIDA_ATENDIMENTO_ENCERRADO,
         codigo="DESPEDIDA_ATENDIMENTO_ENCERRADO",
         mensagem="Tudo bem! Qualquer coisa é só chamar por aqui. Até mais! 👋",
+    ),
+    MensagemId.PEDIR_TIPO_CATALOGO: MensagemTemplate(
+        id=MensagemId.PEDIR_TIPO_CATALOGO,
+        codigo="PEDIR_TIPO_CATALOGO",
+        mensagem="Temos catálogo de catracas e de relógios de ponto. Qual te interessa?",
+    ),
+    MensagemId.CATALOGO_ENVIADO: MensagemTemplate(
+        id=MensagemId.CATALOGO_ENVIADO,
+        codigo="CATALOGO_ENVIADO",
+        mensagem="Aqui está o catálogo de {tipo}: {link}",
+    ),
+    MensagemId.CATALOGO_INDISPONIVEL: MensagemTemplate(
+        id=MensagemId.CATALOGO_INDISPONIVEL,
+        codigo="CATALOGO_INDISPONIVEL",
+        mensagem=(
+            "No momento não tenho o link do catálogo de {tipo} configurado por aqui. "
+            "Vou pedir para nosso time te enviar diretamente."
+        ),
+    ),
+    MensagemId.RAG_PEDIR_CLARIFICACAO: MensagemTemplate(
+        id=MensagemId.RAG_PEDIR_CLARIFICACAO,
+        codigo="RAG_PEDIR_CLARIFICACAO",
+        mensagem=(
+            "Não tenho certeza se consigo te responder com precisão ainda. "
+            "Pode me explicar com outras palavras o que você gostaria de saber sobre o produto?"
+        ),
+    ),
+    MensagemId.RAG_ESCALADO_SEM_BASE: MensagemTemplate(
+        id=MensagemId.RAG_ESCALADO_SEM_BASE,
+        codigo="RAG_ESCALADO_SEM_BASE",
+        mensagem=(
+            "Ainda não encontrei uma resposta segura para isso na nossa base. "
+            "Vou te transferir para um de nossos atendentes, que já assume a conversa por aqui. 🙋"
+        ),
     ),
 }
 

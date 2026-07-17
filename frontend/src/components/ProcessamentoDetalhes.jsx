@@ -72,6 +72,58 @@ function EntidadesView({ entidades }) {
   )
 }
 
+function ScoreBadge({ valor }) {
+  if (valor === null || valor === undefined) return null
+  const pct = Math.round(valor * 100)
+  let cor = 'bg-red-100 text-red-700'
+  if (pct >= 70) cor = 'bg-green-100 text-green-700'
+  else if (pct >= 40) cor = 'bg-yellow-100 text-yellow-700'
+  return (
+    <span className={`inline-block text-xs px-2 py-0.5 rounded-full ${cor}`}>
+      {pct}%
+    </span>
+  )
+}
+
+function RagTrechosView({ trechos }) {
+  if (!trechos || trechos.length === 0) {
+    return <p className="text-sm text-gray-500 italic">Nenhum trecho recuperado</p>
+  }
+  return (
+    <ul className="space-y-2">
+      {trechos.map((t, i) => {
+        const rotulo = t.titulo || t.pergunta || t.id_externo || `Trecho ${i + 1}`
+        return (
+          <li key={t.id ?? i} className="border border-gray-200 rounded p-2 text-sm">
+            <div className="flex items-center justify-between gap-2 flex-wrap">
+              <span className="text-gray-800 font-medium">{rotulo}</span>
+              <div className="flex items-center gap-1.5">
+                {t.tipo && (
+                  <span className="text-xs bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full font-mono">
+                    {t.tipo}
+                  </span>
+                )}
+                <ScoreBadge valor={t.score} />
+              </div>
+            </div>
+            {t.resposta && <p className="text-gray-600 mt-1 whitespace-pre-wrap">{t.resposta}</p>}
+            {t.url && (
+              <a
+                href={t.url}
+                target="_blank"
+                rel="noreferrer"
+                className="text-xs text-inforrel-secondary hover:underline mt-1 inline-block"
+              >
+                {t.url}
+              </a>
+            )}
+          </li>
+        )
+      })}
+    </ul>
+  )
+}
+
 function ReportsSection({ processamentoId, reportsIniciais }) {
   const [reports, setReports] = useState(reportsIniciais || [])
   const [descricao, setDescricao] = useState('')
@@ -312,6 +364,20 @@ function ProcessamentoDetalhes({ processamentoId }) {
           />
         </div>
       </Secao>
+
+      {/* RAG / Base de conhecimento (REQ-003.5/REQ-003.14) */}
+      {proc.rag_utilizada && (
+        <Secao titulo="Base de conhecimento (RAG/Q&A)">
+          <div className="grid grid-cols-2 gap-3 mb-2">
+            <Campo label="RAG utilizada" valor="sim" />
+            <div className="flex flex-col">
+              <span className="text-xs text-gray-500 uppercase tracking-wide">Score máximo</span>
+              <ScoreBadge valor={proc.rag_score_maximo} />
+            </div>
+          </div>
+          <RagTrechosView trechos={proc.rag_trechos} />
+        </Secao>
+      )}
 
       {/* LLM */}
       {(proc.llm_provider || proc.llm_latencia_ms || proc.llm_tokens_input) && (

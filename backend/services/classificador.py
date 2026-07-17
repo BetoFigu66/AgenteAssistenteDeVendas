@@ -41,6 +41,7 @@ class Intencao(str, Enum):
     CONFIRMAR = "confirmar"
     NEGAR = "negar"
     PEDIR_ORCAMENTO = "pedir_orcamento"
+    PEDIR_CATALOGO = "pedir_catalogo"
     PERGUNTAR_PRECO = "perguntar_preco"
     PERGUNTAR_PRODUTO = "perguntar_produto"
     PERGUNTAR_PRAZO = "perguntar_prazo"
@@ -156,6 +157,12 @@ _REGRAS_INTENCAO: list[tuple[Intencao, re.Pattern]] = [
             r"\b(or[çc]amento|cota[çc][aã]o|quanto\s+sai|quanto\s+custa|pre[çc]o)\b",
             re.IGNORECASE,
         ),
+    ),
+    (
+        # REQ-003.11 — checada antes de PERGUNTAR_PRODUTO: "catálogo de catracas" não pode
+        # cair só na resposta genérica de dúvida sobre produto.
+        Intencao.PEDIR_CATALOGO,
+        re.compile(r"\bcat[aá]logo\b", re.IGNORECASE),
     ),
     (
         Intencao.PERGUNTAR_PRAZO,
@@ -473,6 +480,7 @@ Classifique a mensagem do cliente em UMA das intenções:
 - confirmar: resposta afirmativa a uma pergunta
 - negar: resposta negativa a uma pergunta
 - pedir_orcamento: solicita orçamento/cotação
+- pedir_catalogo: pede o catálogo de produtos (ex: "tem catálogo?", "me manda o catálogo")
 - perguntar_preco: pergunta quanto custa
 - perguntar_produto: pergunta sobre produtos/modelos
 - perguntar_prazo: pergunta sobre prazo de entrega
