@@ -47,6 +47,29 @@ function ConfiancaBadge({ valor }) {
   )
 }
 
+function NivelConfiancaBadge({ nivel }) {
+  if (!nivel) return null
+  const cores = {
+    alta: 'bg-green-100 text-green-700',
+    media: 'bg-yellow-100 text-yellow-700',
+    baixa: 'bg-red-100 text-red-700',
+  }
+  const rotulos = { alta: 'Alta', media: 'Média', baixa: 'Baixa' }
+  const chave = String(nivel).toLowerCase()
+  return (
+    <span className={`inline-block text-xs px-2 py-0.5 rounded-full ${cores[chave] || 'bg-gray-100 text-gray-700'}`}>
+      {rotulos[chave] || nivel}
+    </span>
+  )
+}
+
+const ROTULOS_RESULTADO_FALLBACK = {
+  qa_encontrado: 'Par Q&A encontrado',
+  escalado_baixa_confianca: 'Escalado por baixa confiança (2ª ocorrência)',
+  nao_entendi_aguardando_confirmacao: 'Não entendi (1ª ocorrência, aguardando confirmação)',
+  nao_entendi: 'Não entendi (fallback genérico)',
+}
+
 function EntidadesView({ entidades }) {
   if (!entidades) return <p className="text-sm text-gray-500 italic">Nenhuma entidade extraída</p>
   const grupos = [
@@ -320,12 +343,18 @@ function ProcessamentoDetalhes({ processamentoId }) {
         <div className="grid grid-cols-2 gap-3">
           <div className="flex flex-col">
             <span className="text-xs text-gray-500 uppercase tracking-wide">Intenção</span>
-            <span className="text-sm text-gray-800 font-mono flex items-center gap-2">
-              {proc.intencao}
-              <ConfiancaBadge valor={proc.confianca} />
-            </span>
+            <span className="text-sm text-gray-800 font-mono">{proc.intencao}</span>
           </div>
           <Campo label="Origem" valor={proc.origem_classificacao} />
+          <div className="flex flex-col">
+            <span className="text-xs text-gray-500 uppercase tracking-wide">
+              Confiança da classificação
+            </span>
+            <span className="flex items-center gap-2 mt-0.5">
+              <ConfiancaBadge valor={proc.confianca} />
+              <NivelConfiancaBadge nivel={proc.confianca_nivel} />
+            </span>
+          </div>
         </div>
       </Secao>
 
@@ -371,11 +400,31 @@ function ProcessamentoDetalhes({ processamentoId }) {
           <div className="grid grid-cols-2 gap-3 mb-2">
             <Campo label="RAG utilizada" valor="sim" />
             <div className="flex flex-col">
-              <span className="text-xs text-gray-500 uppercase tracking-wide">Score máximo</span>
+              <span className="text-xs text-gray-500 uppercase tracking-wide">
+                Confiabilidade da resposta (RAG)
+              </span>
               <ScoreBadge valor={proc.rag_score_maximo} />
             </div>
           </div>
           <RagTrechosView trechos={proc.rag_trechos} />
+        </Secao>
+      )}
+
+      {/* Fallback REQ-003.7/REQ-004.9 (Fase 6, REQ-005) */}
+      {proc.fallback_req003 && (
+        <Secao titulo="Fallback (último recurso)">
+          <div className="grid grid-cols-1 gap-2">
+            <Campo
+              label="Desfecho"
+              valor={ROTULOS_RESULTADO_FALLBACK[proc.resultado_fallback] || proc.resultado_fallback}
+            />
+            {proc.justificativa_curta && (
+              <div className="flex flex-col">
+                <span className="text-xs text-gray-500 uppercase tracking-wide">Justificativa</span>
+                <span className="text-sm text-gray-800">{proc.justificativa_curta}</span>
+              </div>
+            )}
+          </div>
         </Secao>
       )}
 

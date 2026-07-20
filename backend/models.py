@@ -108,6 +108,22 @@ class MotivoEncerramento(str, enum.Enum):
     MANUAL_VENDEDOR = "manual_vendedor"
 
 
+class TipoEventoAtendimento(str, enum.Enum):
+    """Tipo de evento auditável de um Atendimento (`EventoAtendimento`, REQ-005 Fase 6).
+
+    String livre (sem CHECK constraint) para admitir novos tipos futuros — ex.:
+    `orcamento_criado`/`orcamento_convertido`/`orcamento_perdido` na Fase 14 — sem
+    exigir migração de schema, só um novo valor.
+    """
+
+    CRIADO = "criado"
+    ENCERRADO = "encerrado"
+    REABERTO = "reaberto"
+    ESCALADO = "escalado"
+    MODO_OPERACAO_ALTERADO = "modo_operacao_alterado"
+    FASE_ALTERADA = "fase_alterada"
+
+
 class MotivoEscalonamento(str, enum.Enum):
     """Motivo de escalonamento para modo humano (REQ-004, Fase 5).
 
@@ -614,6 +630,11 @@ class Atendimento(Base):
     informacoes: Mapped[List["AtendimentoInfo"]] = relationship(
         back_populates="atendimento", cascade="all, delete-orphan"
     )
+    eventos: Mapped[List["EventoAtendimento"]] = relationship(
+        back_populates="atendimento",
+        cascade="all, delete-orphan",
+        order_by="EventoAtendimento.timestamp.desc()",
+    )
 
     def to_dict(self) -> dict:
         """Converte o modelo para dicionário."""
@@ -643,6 +664,51 @@ class Atendimento(Base):
             "updated_at": serialize_utc_datetime(self.updated_at),
             "ultima_mensagem_at": serialize_utc_datetime(self.ultima_mensagem_at),
             "numero_atendimento_cliente": self.numero_atendimento_cliente,
+        }
+
+
+class EventoAtendimento(Base):
+    """Log auditável e genérico de mudanças de estado de um Atendimento (REQ-005, Fase 6).
+
+    Generaliza os padrões simplificados de auditoria criados nas Fases 1
+    (`encerrar_atendimento`/`reabrir_atendimento`) e 5 (`_escalar_atendimento`): cada
+    transição continua também atualizando as colunas de "estado atual" no próprio
+    `Atendimento` (`encerrado_em`, `motivo_escalonamento` etc.) como snapshot rápido de
+    consulta direta, e passa a gravar aqui o histórico completo (múltiplas ocorrências),
+    igual ao par Parâmetro (estado atual) + `HistoricoModoExecucao` (log) já usado para o
+    modo de execução (REQ-011).
+    """
+
+    __tablename__ = "eventos_atendimento"
+
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    atendimento_id: Mapped[int] = mapped_column(ForeignKey("atendimentos.id"), nullable=False, index=True)
+    tipo: Mapped[str] = mapped_column(String(30), nullable=False, index=True)
+    estado_anterior: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
+    estado_novo: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
+    ator: Mapped[str] = mapped_column(String(50), nullable=False)
+    motivo: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    mensagem_id: Mapped[Optional[int]] = mapped_column(ForeignKey("mensagens.id"), nullable=True)
+    processamento_id: Mapped[Optional[int]] = mapped_column(
+        ForeignKey("processamentos_mensagem.id"), nullable=True
+    )
+    timestamp: Mapped[datetime] = mapped_column(UTCDateTime, default=utc_now, nullable=False, index=True)
+
+    atendimento: Mapped["Atendimento"] = relationship(back_populates="eventos")
+
+    def to_dict(self) -> dict:
+        """Converte o modelo para dicionário."""
+        return {
+            "id": self.id,
+            "atendimento_id": self.atendimento_id,
+            "tipo": self.tipo,
+            "estado_anterior": self.estado_anterior,
+            "estado_novo": self.estado_novo,
+            "ator": self.ator,
+            "motivo": self.motivo,
+            "mensagem_id": self.mensagem_id,
+            "processamento_id": self.processamento_id,
+            "timestamp": serialize_utc_datetime(self.timestamp),
         }
 
 
@@ -1033,6 +1099,19 @@ class ProcessamentoMensagem(Base):
     rag_trechos: Mapped[Optional[list]] = mapped_column(JSONB, nullable=True)
     rag_score_maximo: Mapped[Optional[Decimal]] = mapped_column(Numeric(5, 4), nullable=True)
 
+    # --- Fallback REQ-003.7/REQ-004.9 (Fase 6, REQ-005) ---
+    fallback_req003: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    """True quando nenhuma Ação do motor (Intenção×Fase→Ações) produziu resposta e o
+    cérebro caiu no último recurso (`_fallback_qa_ou_nao_entendi`): QA, escalonamento
+    por baixa confiança repetida, ou NAO_ENTENDI genérico."""
+    resultado_fallback: Mapped[Optional[str]] = mapped_column(String(30), nullable=True)
+    """Qual desfecho o fallback teve: `qa_encontrado` / `escalado_baixa_confianca` /
+    `nao_entendi_aguardando_confirmacao` / `nao_entendi`. `None` quando `fallback_req003`
+    é `False`."""
+    justificativa_curta: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    """Explicação de uma linha do porquê desse desfecho — alimenta a janela "Raciocínio
+    do Cérebro" no painel."""
+
     # --- Controle ---
     duracao_ms: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
     erro: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
@@ -1057,6 +1136,7 @@ class ProcessamentoMensagem(Base):
             "intencao": self.intencao,
             "intencoes": self.intencoes,
             "confianca": float(self.confianca) if self.confianca is not None else None,
+            "confianca_nivel": self.confianca_nivel,
             "origem_classificacao": (self.origem_classificacao.value if self.origem_classificacao else None),
             "entidades": self.entidades,
             "status_identificacao": self.status_identificacao,
@@ -1075,6 +1155,9 @@ class ProcessamentoMensagem(Base):
             "rag_utilizada": self.rag_utilizada,
             "rag_trechos": self.rag_trechos,
             "rag_score_maximo": (float(self.rag_score_maximo) if self.rag_score_maximo is not None else None),
+            "fallback_req003": self.fallback_req003,
+            "resultado_fallback": self.resultado_fallback,
+            "justificativa_curta": self.justificativa_curta,
             "duracao_ms": self.duracao_ms,
             "erro": self.erro,
             "created_at": serialize_utc_datetime(self.created_at),

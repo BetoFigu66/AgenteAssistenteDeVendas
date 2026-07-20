@@ -33,6 +33,10 @@ class RespostaGerada:
     rag_utilizada: bool = False
     trechos_rag: List[dict] = field(default_factory=list)
     rag_score_maximo: Optional[float] = None
+    # --- Fallback REQ-003.7/REQ-004.9 (Fase 6, REQ-005) ---
+    fallback_req003: bool = False
+    resultado_fallback: Optional[str] = None
+    justificativa_curta: Optional[str] = None
 
 
 _PROMPT_SISTEMA_PERSONALIZACAO = \

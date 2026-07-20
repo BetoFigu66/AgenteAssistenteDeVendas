@@ -5,6 +5,7 @@ Assistente de Vendas via WhatsApp com IA - Backend FastAPI
 import logging
 import traceback
 from contextlib import asynccontextmanager
+from datetime import datetime
 from typing import Optional
 
 import uvicorn
@@ -19,6 +20,7 @@ from models import (
     CategoriaReport,
     Contato,
     Empresa,
+    EventoAtendimento,
     HistoricoModoExecucao,
     Mensagem,
     ModoExecucao,
@@ -34,6 +36,7 @@ from models import (
     StatusAtendimento,
     StatusReport,
     TipoDocumento,
+    TipoEventoAtendimento,
     User,
 )
 from pydantic import BaseModel
@@ -304,19 +307,43 @@ async def enviar_mensagem(request: MensagemRequest):
 
 
 @app.get("/api/historico/{telefone}")
-async def obter_historico(telefone: str, limit: int = 200, offset: int = 0):
+async def obter_historico(
+    telefone: str,
+    limit: int = 200,
+    offset: int = 0,
+    data_inicio: Optional[datetime] = None,
+    data_fim: Optional[datetime] = None,
+    status: Optional[str] = None,
+):
     """
     Retorna o histórico de mensagens para um número de telefone.
 
     `limit`/`offset` (REQ-010, Fase 4) evitam carregar uma conversa inteira de
     uma vez só — default de 200 preserva o comportamento atual para qualquer
     conversa de teste (bem menor que isso).
+
+    `data_inicio`/`data_fim`/`status` (REQ-005, Fase 6) filtram por período e por
+    status do atendimento vinculado — destrava o filtro de período pendente na
+    Fase 4 (Painel Administrativo).
     """
     if limit < 1 or limit > 500:
         raise HTTPException(status_code=400, detail="limit deve estar entre 1 e 500")
     if offset < 0:
         raise HTTPException(status_code=400, detail="offset deve ser >= 0")
-    mensagens = db.obter_historico(telefone, limit=limit, offset=offset)
+    if status is not None:
+        try:
+            StatusAtendimento(status)
+        except ValueError:
+            valores = [s.value for s in StatusAtendimento]
+            raise HTTPException(status_code=400, detail=f"status inválido: '{status}'. Aceitos: {valores}")
+    mensagens = db.obter_historico(
+        telefone,
+        limit=limit,
+        offset=offset,
+        data_inicio=data_inicio,
+        data_fim=data_fim,
+        status_atendimento=status,
+    )
     return {"telefone": telefone, "mensagens": mensagens}
 
 
@@ -608,6 +635,28 @@ async def obter_campos_pendentes(atendimento_id: int):
         }
 
 
+@app.get("/api/atendimentos/{atendimento_id}/eventos")
+async def obter_eventos_atendimento(atendimento_id: int, limit: int = 100):
+    """REQ-005, Fase 6: timeline de eventos auditáveis do atendimento (criação,
+    encerramento, reabertura, escalonamento, mudanças de fase/modo de operação),
+    mais recentes primeiro."""
+    if limit < 1 or limit > 500:
+        raise HTTPException(status_code=400, detail="limit deve estar entre 1 e 500")
+    with db.get_session() as session:
+        atendimento = session.query(Atendimento).filter_by(id=atendimento_id).first()
+        if not atendimento:
+            raise HTTPException(status_code=404, detail="Atendimento não encontrado")
+
+        eventos = (
+            session.query(EventoAtendimento)
+            .filter_by(atendimento_id=atendimento_id)
+            .order_by(EventoAtendimento.timestamp.desc())
+            .limit(limit)
+            .all()
+        )
+        return {"atendimento_id": atendimento_id, "eventos": [evento.to_dict() for evento in eventos]}
+
+
 class AlterarModoRequest(BaseModel):
     modo_operacao: str  # "agente" | "humano"
 
@@ -644,8 +693,18 @@ async def alterar_modo_operacao(
                 session, atendimento, MotivoEscalonamento.MANUAL_VENDEDOR, ator=ator_nome
             )
         else:
+            modo_anterior = atendimento.modo_operacao.value
             atendimento.modo_operacao = novo_modo
             session.flush()
+            atendimentos_svc.registrar_evento_atendimento(
+                session,
+                atendimento,
+                tipo=TipoEventoAtendimento.MODO_OPERACAO_ALTERADO,
+                ator=ator_nome,
+                estado_anterior=modo_anterior,
+                estado_novo=novo_modo.value,
+                motivo="Retomada manual do modo agente pelo vendedor",
+            )
         session.refresh(atendimento)
         logger.info(
             f"[ModoOperacao] Atendimento {atendimento.id} alterado para modo={novo_modo.value} por {ator_nome}"

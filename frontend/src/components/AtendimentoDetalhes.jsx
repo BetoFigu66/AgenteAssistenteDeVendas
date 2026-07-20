@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { AlertTriangle } from 'lucide-react'
+import { AlertTriangle, History } from 'lucide-react'
 import { api } from '../services/api'
 import { formatDatetimeBRT } from '../utils/datetime'
 import {
@@ -9,6 +9,82 @@ import {
   classesFase,
   labelMotivoEscalonamento,
 } from '../utils/atendimento'
+
+// Rótulos amigáveis para os tipos de EventoAtendimento (REQ-005, Fase 6) — tipos sem
+// entrada aqui caem no fallback (o próprio valor técnico), admitindo novos tipos
+// futuros (ex.: orcamento_* na Fase 14) sem exigir alteração aqui.
+const LABELS_TIPO_EVENTO = {
+  criado: 'Atendimento criado',
+  encerrado: 'Encerrado',
+  reaberto: 'Reaberto',
+  escalado: 'Escalado para humano',
+  modo_operacao_alterado: 'Modo de operação alterado',
+  fase_alterada: 'Fase alterada',
+}
+
+function rotuloTipoEvento(tipo) {
+  return LABELS_TIPO_EVENTO[tipo] || tipo
+}
+
+function TimelineAtendimento({ atendimentoId }) {
+  const [eventos, setEventos] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [erro, setErro] = useState(null)
+
+  useEffect(() => {
+    let cancelado = false
+    setLoading(true)
+    api
+      .obterEventosAtendimento(atendimentoId)
+      .then((data) => {
+        if (!cancelado) setEventos(data.eventos || [])
+      })
+      .catch((e) => {
+        if (!cancelado) setErro(e.message)
+      })
+      .finally(() => {
+        if (!cancelado) setLoading(false)
+      })
+    return () => {
+      cancelado = true
+    }
+  }, [atendimentoId])
+
+  if (loading) return <p className="text-xs text-gray-500">Carregando timeline...</p>
+  if (erro) return <p className="text-xs text-red-600">{erro}</p>
+  if (eventos.length === 0) {
+    return <p className="text-xs text-gray-500 italic">Nenhum evento registrado</p>
+  }
+
+  return (
+    <ul className="space-y-2">
+      {eventos.map((ev) => (
+        <li key={ev.id} className="border-l-2 border-inforrel-secondary pl-3 text-sm">
+          <div className="flex items-center justify-between flex-wrap gap-1">
+            <span className="font-medium text-gray-800">{rotuloTipoEvento(ev.tipo)}</span>
+            <span className="text-xs text-gray-500">{formatDatetimeBRT(ev.timestamp)}</span>
+          </div>
+          {(ev.estado_anterior || ev.estado_novo) && (
+            <p className="text-xs text-gray-600">
+              {ev.estado_anterior || '—'} → {ev.estado_novo || '—'}
+            </p>
+          )}
+          <p className="text-xs text-gray-500">
+            por {ev.ator}
+            {ev.motivo && ` · ${ev.motivo}`}
+          </p>
+          {(ev.mensagem_id || ev.processamento_id) && (
+            <p className="text-xs text-gray-400">
+              {ev.mensagem_id && `mensagem #${ev.mensagem_id}`}
+              {ev.mensagem_id && ev.processamento_id && ' · '}
+              {ev.processamento_id && `processamento #${ev.processamento_id}`}
+            </p>
+          )}
+        </li>
+      ))}
+    </ul>
+  )
+}
 
 function Campo({ label, valor }) {
   if (valor === null || valor === undefined || valor === '') return null
@@ -129,6 +205,13 @@ function AtendimentoDetalhes({ atendimentoId }) {
           )}
         </div>
       )}
+
+      <div>
+        <h3 className="text-sm font-semibold text-inforrel-primary mb-2 flex items-center gap-1.5">
+          <History size={14} /> Timeline do atendimento
+        </h3>
+        <TimelineAtendimento atendimentoId={atendimentoId} />
+      </div>
 
       {atendimento.itens?.length > 0 && (
         <div>

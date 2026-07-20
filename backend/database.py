@@ -4,11 +4,12 @@ Usa SQLAlchemy para ORM e suporta SQLite, MySQL e PostgreSQL.
 """
 
 from contextlib import contextmanager
+from datetime import datetime
 from pathlib import Path
 from typing import Dict, List, Optional
 
 from config import settings
-from models import Mensagem, OrigemMensagem
+from models import Atendimento, Mensagem, OrigemMensagem, StatusAtendimento
 from sqlalchemy import create_engine, select
 from sqlalchemy.orm import sessionmaker
 
@@ -66,7 +67,15 @@ class Database:
             session.flush()
             return mensagem.id
 
-    def obter_historico(self, telefone: str, limit: Optional[int] = None, offset: int = 0) -> List[Dict]:
+    def obter_historico(
+        self,
+        telefone: str,
+        limit: Optional[int] = None,
+        offset: int = 0,
+        data_inicio: Optional[datetime] = None,
+        data_fim: Optional[datetime] = None,
+        status_atendimento: Optional[str] = None,
+    ) -> List[Dict]:
         """
         Retorna o histórico de mensagens de um telefone.
 
@@ -75,12 +84,25 @@ class Database:
             limit: se informado, retorna só as `limit` mensagens mais recentes
                 (a partir de `offset` mensagens atrás) — REQ-010, Fase 4.
             offset: quantas mensagens recentes pular (paginação de "mais antigas").
+            data_inicio/data_fim: filtra por período de `Mensagem.timestamp` (REQ-005,
+                Fase 6) — destrava o filtro de período pendente na Fase 4.
+            status_atendimento: filtra só mensagens de atendimentos com este status
+                (`ativo`/`encerrado`) — mensagens sem atendimento vinculado são excluídas
+                quando este filtro é usado.
 
         Returns:
             Lista de mensagens ordenadas por timestamp (crescente).
         """
         with self.get_session() as session:
             stmt = select(Mensagem).where(Mensagem.telefone == telefone)
+            if data_inicio is not None:
+                stmt = stmt.where(Mensagem.timestamp >= data_inicio)
+            if data_fim is not None:
+                stmt = stmt.where(Mensagem.timestamp <= data_fim)
+            if status_atendimento is not None:
+                stmt = stmt.join(Atendimento, Mensagem.atendimento_id == Atendimento.id).where(
+                    Atendimento.status == StatusAtendimento(status_atendimento)
+                )
             if limit is not None:
                 stmt = stmt.order_by(Mensagem.timestamp.desc()).offset(offset).limit(limit)
                 mensagens = list(reversed(session.scalars(stmt).all()))

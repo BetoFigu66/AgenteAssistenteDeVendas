@@ -13,17 +13,52 @@ from models import (
     Atendimento,
     Contato,
     Empresa,
+    EventoAtendimento,
     FaseAtendimento,
     MotivoEncerramento,
     Pessoa,
     StatusAtendimento,
     TipoDocumento,
+    TipoEventoAtendimento,
 )
 from sqlalchemy import func, text
 from sqlalchemy.orm import Session
 from utils.datetime_utils import utc_now
 
 logger = logging.getLogger(__name__)
+
+
+def registrar_evento_atendimento(
+    db: Session,
+    atendimento: Atendimento,
+    *,
+    tipo: TipoEventoAtendimento,
+    ator: str,
+    estado_anterior: Optional[str] = None,
+    estado_novo: Optional[str] = None,
+    motivo: Optional[str] = None,
+    mensagem_id: Optional[int] = None,
+    processamento_id: Optional[int] = None,
+) -> EventoAtendimento:
+    """Registra um evento auditável do Atendimento (REQ-005, Fase 6).
+
+    Tabela append-only e genérica — quem quiser o "estado atual" continua lendo as
+    colunas dedicadas do próprio `Atendimento` (`encerrado_em`, `motivo_escalonamento`
+    etc.); isto aqui é o histórico completo (múltiplas ocorrências) para timeline/auditoria.
+    """
+    evento = EventoAtendimento(
+        atendimento_id=atendimento.id,
+        tipo=tipo.value,
+        estado_anterior=estado_anterior,
+        estado_novo=estado_novo,
+        ator=ator,
+        motivo=motivo,
+        mensagem_id=mensagem_id,
+        processamento_id=processamento_id,
+    )
+    db.add(evento)
+    db.commit()
+    return evento
 
 
 def atendimento_ativo(db: Session, contato: Contato) -> Optional[Atendimento]:
@@ -62,17 +97,27 @@ def encerrar_atendimento(
     """Transição `ativo` → `encerrado` (REQ-016.4/016.5).
 
     `ator` identifica quem/o que decidiu (ex.: "cliente", "vendedor:Rita",
-    "sistema:abandono") — auditoria simplificada até a tabela de eventos da Fase 5
-    (REQ-005) existir, conforme decisão registrada no plano de implementação.
+    "sistema:abandono"). Colunas de encerramento em `Atendimento` seguem como snapshot
+    do estado atual; o histórico completo vai para `EventoAtendimento` (REQ-005, Fase 6).
     """
     if atendimento.status == StatusAtendimento.ENCERRADO:
         raise ValueError(f"Atendimento {atendimento.id} já está encerrado")
+    estado_anterior = atendimento.status.value
     atendimento.status = StatusAtendimento.ENCERRADO
     atendimento.motivo_encerramento = motivo.value
     atendimento.encerrado_em = utc_now()
     atendimento.encerrado_por = ator
     db.commit()
     db.refresh(atendimento)
+    registrar_evento_atendimento(
+        db,
+        atendimento,
+        tipo=TipoEventoAtendimento.ENCERRADO,
+        ator=ator,
+        estado_anterior=estado_anterior,
+        estado_novo=StatusAtendimento.ENCERRADO.value,
+        motivo=motivo.value,
+    )
     logger.info(
         "[Atendimentos] Atendimento id=%s encerrado motivo=%s ator=%s",
         atendimento.id,
@@ -101,6 +146,7 @@ def reabrir_atendimento(
         raise ValueError(
             f"Atendimento {atendimento.id} concluído por conversão de orçamento não pode ser reaberto"
         )
+    estado_anterior = atendimento.status.value
     atendimento.status = StatusAtendimento.ATIVO
     atendimento.motivo_encerramento = None
     atendimento.reaberto_em = utc_now()
@@ -108,6 +154,15 @@ def reabrir_atendimento(
     atendimento.reabertura_justificativa = justificativa
     db.commit()
     db.refresh(atendimento)
+    registrar_evento_atendimento(
+        db,
+        atendimento,
+        tipo=TipoEventoAtendimento.REABERTO,
+        ator=ator,
+        estado_anterior=estado_anterior,
+        estado_novo=StatusAtendimento.ATIVO.value,
+        motivo=justificativa,
+    )
     logger.info(
         "[Atendimentos] Atendimento id=%s reaberto ator=%s",
         atendimento.id,
@@ -247,6 +302,13 @@ def obter_ou_criar_atendimento(
     db.add(atendimento)
     db.commit()
     db.refresh(atendimento)
+    registrar_evento_atendimento(
+        db,
+        atendimento,
+        tipo=TipoEventoAtendimento.CRIADO,
+        ator="sistema:criacao_automatica",
+        estado_novo=StatusAtendimento.ATIVO.value,
+    )
     logger.info(
         "[Atendimentos] Criado id=%s numero=%s contato_id=%s empresa_id=%s pessoa_id=%s",
         atendimento.id,
@@ -283,6 +345,14 @@ def obter_ou_criar_atendimento_pf_pendente(
     db.add(atendimento)
     db.commit()
     db.refresh(atendimento)
+    registrar_evento_atendimento(
+        db,
+        atendimento,
+        tipo=TipoEventoAtendimento.CRIADO,
+        ator="sistema:criacao_automatica",
+        estado_novo=StatusAtendimento.ATIVO.value,
+        motivo="pf_pendente_data_nascimento",
+    )
     logger.info(
         "[Atendimentos] PF pendente criado id=%s numero=%s cpf=%s",
         atendimento.id,

@@ -39,6 +39,7 @@ from models import (
     ProcessamentoMensagem,
     Produto,
     StatusAtendimento,
+    TipoEventoAtendimento,
     User,
 )
 from sqlalchemy.orm import Session
@@ -477,6 +478,9 @@ class ProcessadorMensagem:
             rag_utilizada=resposta.rag_utilizada,
             rag_trechos=resposta.trechos_rag or None,
             rag_score_maximo=score_maximo,
+            fallback_req003=resposta.fallback_req003,
+            resultado_fallback=resposta.resultado_fallback,
+            justificativa_curta=resposta.justificativa_curta,
             duracao_ms=duracao_ms,
             erro=erro,
         )
@@ -605,7 +609,16 @@ class ProcessadorMensagem:
                 rag_utilizada=True,
                 trechos_rag=[par.to_dict()],
                 rag_score_maximo=par.score,
+                fallback_req003=True,
+                resultado_fallback="qa_encontrado",
+                justificativa_curta=(
+                    f"Nenhuma ação do motor respondeu; par Q&A encontrado no fallback "
+                    f"(score={par.score:.2f})."
+                ),
             )
+
+        resultado_fallback = "nao_entendi"
+        justificativa_curta = "Nenhuma ação do motor, QA ou escalonamento respondeu — fallback genérico."
 
         if (
             resultado_class is not None
@@ -621,8 +634,20 @@ class ProcessadorMensagem:
                 )
                 if dlog:
                     dlog.log("rota", "confiança baixa 2x seguidas → escalar_humano (REQ-004.9)")
-                return await self._gerador.gerar(MensagemId.ESCALADO_BAIXA_CONFIANCA)
+                resposta = await self._gerador.gerar(MensagemId.ESCALADO_BAIXA_CONFIANCA)
+                resposta.fallback_req003 = True
+                resposta.resultado_fallback = "escalado_baixa_confianca"
+                resposta.justificativa_curta = (
+                    "Confiança baixa 2 mensagens seguidas sem nenhuma ação resolver — "
+                    "escalado para humano (REQ-004.9)."
+                )
+                return resposta
             self._salvar_info_atendimento(db, atendimento.id, _CONFIANCA_BAIXA_TENTATIVA_CHAVE, "1")
+            resultado_fallback = "nao_entendi_aguardando_confirmacao"
+            justificativa_curta = (
+                "Confiança baixa (1ª ocorrência) — respondendo NAO_ENTENDI e aguardando "
+                "2ª ocorrência antes de escalar (REQ-004.9)."
+            )
             if dlog:
                 dlog.log("rota", "confiança baixa (1ª vez) → NAO_ENTENDI, aguardando 2ª ocorrência")
         elif db is not None and atendimento is not None:
@@ -630,11 +655,15 @@ class ProcessadorMensagem:
 
         if dlog:
             dlog.log("rota", "nada respondeu → NAO_ENTENDI")
-        return await self._gerador.gerar(
+        resposta = await self._gerador.gerar(
             MensagemId.NAO_ENTENDI,
             personalizar=True,
             mensagem_cliente=conteudo_cliente,
         )
+        resposta.fallback_req003 = True
+        resposta.resultado_fallback = resultado_fallback
+        resposta.justificativa_curta = justificativa_curta
+        return resposta
 
     # ------------------------------------------------------------------
     # Continuação de atendimento encerrado (REQ-016.7/016.9)
@@ -777,8 +806,18 @@ class ProcessadorMensagem:
             self._remover_info_atendimento(db, atendimento.id, chave)
         for item in list(atendimento.itens):
             db.delete(item)
+        fase_anterior = atendimento.fase.value
         atendimento.fase = FaseAtendimento.ESCLARECENDO
         db.commit()
+        atendimentos_svc.registrar_evento_atendimento(
+            db,
+            atendimento,
+            tipo=TipoEventoAtendimento.FASE_ALTERADA,
+            ator="sistema:motor_conversacao",
+            estado_anterior=fase_anterior,
+            estado_novo=FaseAtendimento.ESCLARECENDO.value,
+            motivo="PERG-016-009B: cliente mudou de ideia, reiniciando qualificação",
+        )
 
     def _resumo_curto_atendimento(self, db: Session, atendimento: Atendimento) -> str:
         """`{resumo_curto}` da PERG-016-009 — texto genérico se não houver dado suficiente
@@ -938,8 +977,18 @@ class ProcessadorMensagem:
         já reflete isso e não repete a pergunta correspondente (`nao_perguntar_de_novo`, C3).
         """
         if atendimento.fase != FaseAtendimento.FINALIZANDO:
+            fase_anterior = atendimento.fase.value
             atendimento.fase = FaseAtendimento.FINALIZANDO
             db.commit()
+            atendimentos_svc.registrar_evento_atendimento(
+                db,
+                atendimento,
+                tipo=TipoEventoAtendimento.FASE_ALTERADA,
+                ator="sistema:motor_conversacao",
+                estado_anterior=fase_anterior,
+                estado_novo=FaseAtendimento.FINALIZANDO.value,
+                motivo="PEDIR_ORCAMENTO recebido (E1)",
+            )
             if dlog:
                 dlog.log("fase", f"Esclarecendo → Finalizando (atendimento id={atendimento.id})")
 
@@ -1036,9 +1085,29 @@ class ProcessadorMensagem:
         handoff para o time humano montar o orçamento de verdade (REQ-004 /
         FASE-criando-orcamento). `modo_operacao = HUMANO` suprime respostas automáticas
         daqui em diante (mesmo mecanismo já usado pelo escalonamento do F2)."""
+        fase_anterior = atendimento.fase.value
+        modo_anterior = atendimento.modo_operacao.value
         atendimento.fase = FaseAtendimento.EM_ORCAMENTACAO
         atendimento.modo_operacao = ModoOperacao.HUMANO
         db.commit()
+        atendimentos_svc.registrar_evento_atendimento(
+            db,
+            atendimento,
+            tipo=TipoEventoAtendimento.FASE_ALTERADA,
+            ator="sistema:motor_conversacao",
+            estado_anterior=fase_anterior,
+            estado_novo=FaseAtendimento.EM_ORCAMENTACAO.value,
+            motivo="G1-G3: cliente confirmou o resumo",
+        )
+        atendimentos_svc.registrar_evento_atendimento(
+            db,
+            atendimento,
+            tipo=TipoEventoAtendimento.MODO_OPERACAO_ALTERADO,
+            ator="sistema:motor_conversacao",
+            estado_anterior=modo_anterior,
+            estado_novo=ModoOperacao.HUMANO.value,
+            motivo="Handoff para o time humano montar o orçamento",
+        )
         if dlog:
             dlog.log(
                 "fase",
@@ -1244,12 +1313,22 @@ class ProcessadorMensagem:
         (encerrado não deveria ser "escalado")."""
         if atendimento.status != StatusAtendimento.ATIVO:
             return
+        modo_anterior = atendimento.modo_operacao.value
         atendimento.modo_operacao = ModoOperacao.HUMANO
         atendimento.escalado_em = utc_now()
         atendimento.escalado_por = ator
         atendimento.motivo_escalonamento = motivo.value
         atendimento.resumo_escalonamento = self._montar_resumo_escalonamento(db, atendimento, motivo)
         db.commit()
+        atendimentos_svc.registrar_evento_atendimento(
+            db,
+            atendimento,
+            tipo=TipoEventoAtendimento.ESCALADO,
+            ator=ator,
+            estado_anterior=modo_anterior,
+            estado_novo=ModoOperacao.HUMANO.value,
+            motivo=motivo.value,
+        )
         if dlog:
             dlog.log(
                 "escalonamento",

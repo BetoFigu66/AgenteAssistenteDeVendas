@@ -262,6 +262,7 @@ A ordem foi definida pelo Beto e não foi alterada por este plano, exceto pela r
 ---
 
 ## Fase 10 — REQ-008: Integração WhatsApp/Twilio
+Beto: Obs: Não implementar a partir daqui antes de testar.
 
 **Estado atual**: ~40%. Webhook de entrada funciona bem; falta segurança e envio ativo real.
 

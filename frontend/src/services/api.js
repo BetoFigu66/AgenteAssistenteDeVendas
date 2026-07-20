@@ -70,11 +70,14 @@ export const api = {
     }
   },
 
-  async obterHistorico(telefone, { limit, offset } = {}) {
+  async obterHistorico(telefone, { limit, offset, dataInicio, dataFim, status } = {}) {
     try {
       const params = new URLSearchParams()
       if (limit !== undefined) params.append('limit', limit)
       if (offset !== undefined) params.append('offset', offset)
+      if (dataInicio) params.append('data_inicio', dataInicio)
+      if (dataFim) params.append('data_fim', dataFim)
+      if (status) params.append('status', status)
       const qs = params.toString()
       const response = await apiFetch(
         `${API_URL}/api/historico/${encodeURIComponent(telefone)}${qs ? `?${qs}` : ''}`,
@@ -145,6 +148,24 @@ export const api = {
       const response = await apiFetch(`${API_URL}/api/atendimentos/${atendimentoId}`)
       if (!response.ok) {
         throw new ApiError('Erro ao obter atendimento', response.status, 'server')
+      }
+      return response.json()
+    } catch (error) {
+      if (error instanceof ApiError) throw error
+      throw new ApiError('Backend não está respondendo', 0, 'network')
+    }
+  },
+
+  async obterEventosAtendimento(atendimentoId, { limit } = {}) {
+    try {
+      const params = new URLSearchParams()
+      if (limit !== undefined) params.append('limit', limit)
+      const qs = params.toString()
+      const response = await apiFetch(
+        `${API_URL}/api/atendimentos/${atendimentoId}/eventos${qs ? `?${qs}` : ''}`,
+      )
+      if (!response.ok) {
+        throw new ApiError('Erro ao obter eventos do atendimento', response.status, 'server')
       }
       return response.json()
     } catch (error) {
