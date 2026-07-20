@@ -787,7 +787,7 @@ class Modelo(Base):
     produto_id: Mapped[int] = mapped_column(ForeignKey("produtos.id"), nullable=False, index=True)
     codigo: Mapped[Optional[str]] = mapped_column(String(50), nullable=True, unique=True)
     descricao: Mapped[str] = mapped_column(String(300), nullable=False)
-    preco_tabela: Mapped[Decimal] = mapped_column(Numeric(15, 2), nullable=False)
+    preco_tabela: Mapped[Optional[Decimal]] = mapped_column(Numeric(15, 2), nullable=True)
     unidade: Mapped[Optional[str]] = mapped_column(String(20), nullable=True, default="UN")
     categoria: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
     ativo: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
@@ -808,7 +808,7 @@ class Modelo(Base):
             "produto_id": self.produto_id,
             "codigo": self.codigo,
             "descricao": self.descricao,
-            "preco_tabela": str(self.preco_tabela),
+            "preco_tabela": str(self.preco_tabela) if self.preco_tabela is not None else None,
             "unidade": self.unidade,
             "categoria": self.categoria,
             "ativo": self.ativo,

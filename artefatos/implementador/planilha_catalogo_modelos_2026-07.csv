@@ -1,0 +1,46 @@
+﻿id_linha;produto;modelo;codigo;unidade;categoria_produto;fonte;status_validacao;observacoes
+1;Catraca;Catraca Biométrica Fit TOPDATA;;UN;Controle de Acesso;documentos_conhecimento;confirmado;Modelo confirmado pelo usuário.
+2;Catraca;Catraca com leitor facial Fit TOPDATA;;UN;Controle de Acesso;documentos_conhecimento;confirmado;Modelo confirmado pelo usuário.
+3;Catraca;Catraca Facial em inox Box TOPDATA;;UN;Controle de Acesso;documentos_conhecimento;confirmado;Modelo confirmado pelo usuário.
+4;Catraca;Catraca Facial Revolution TOPDATA;;UN;Controle de Acesso;documentos_conhecimento;confirmado;Modelo confirmado pelo usuário.
+5;Catraca;Catraca iDBlock Balcão Facial - Control iD;;UN;Controle de Acesso;documentos_conhecimento;confirmado;Modelo confirmado pelo usuário.
+6;Catraca;Catraca iDBlock Next com Contador de Giros - Control iD;;UN;Controle de Acesso;documentos_conhecimento;confirmado;Modelo confirmado pelo usuário.
+7;Catraca;Catraca iDBlock Next com iDFace Max - Control iD;;UN;Controle de Acesso;documentos_conhecimento;confirmado;Modelo confirmado pelo usuário.
+8;Catraca;Catraca iDBlock PcD Facial com iDFace Max - Control iD;;UN;Controle de Acesso;documentos_conhecimento;confirmado;Modelo confirmado pelo usuário.
+9;Relógio de Ponto;Pontto - Relógio de Ponto Cartográfico - TOPDATA;;UN;Controle de Ponto;documentos_conhecimento;confirmado;Modelo confirmado pelo usuário.
+10;Relógio de Ponto;Relógio de Ponto Biométrico - TOPDATA;;UN;Controle de Ponto;documentos_conhecimento;confirmado;Modelo confirmado pelo usuário.
+11;Relógio de Ponto;Relógio de Ponto REP iDClass Bio Barras - Control iD;;UN;Controle de Ponto;documentos_conhecimento;confirmado;Modelo confirmado pelo usuário.
+12;Relógio de Ponto;Relógio de Ponto REP iDClass Bio - Control iD;;UN;Controle de Ponto;documentos_conhecimento;confirmado;Modelo confirmado pelo usuário.
+13;Relógio de Ponto;Relógio de Ponto REP iDClass Facial - Control iD;;UN;Controle de Ponto;documentos_conhecimento;confirmado;Modelo confirmado pelo usuário.
+14;Controle de Acesso;Inner Acesso 2 Prox;;UN;Controle de Acesso;folder-controle-de-acesso.txt;confirmado;Modelo identificado no folder.
+15;Controle de Acesso;Inner Acesso 2 LC Bio;;UN;Controle de Acesso;folder-controle-de-acesso.txt;confirmado;Modelo identificado no folder.
+16;Controle de Acesso;Inner Acesso 2 LC Bio Prox;;UN;Controle de Acesso;folder-controle-de-acesso.txt;confirmado;Modelo identificado no folder.
+17;Controle de Acesso;Inner Acesso 2 QR Code Prox;;UN;Controle de Acesso;folder-controle-de-acesso.txt;confirmado;Modelo identificado no folder.
+18;Controle de Acesso;Inner Acesso 2 QR Code LC Bio;;UN;Controle de Acesso;folder-controle-de-acesso.txt;confirmado;Modelo identificado no folder.
+19;Controle de Acesso;Inner Acesso 2 QR Code LC Bio Prox;;UN;Controle de Acesso;folder-controle-de-acesso.txt;confirmado;Modelo identificado no folder.
+20;Controle de Acesso;Inner Acesso 2 Complementar;;UN;Controle de Acesso;folder-controle-de-acesso.txt;confirmado;Modelo confirmado no inventário.
+21;Controle de Acesso;Inner Acesso 2 com Botão;;UN;Controle de Acesso;folder-controle-de-acesso.txt;confirmado;Modelo confirmado no inventário.
+22;Controle de Acesso;Leitor TopProx Adicional;;UN;Acessório;folder-controle-de-acesso.txt;decisao_comercial;Acessório listado entre os modelos do folder.
+23;Controle de Acesso;Botoeira Adicional;;UN;Acessório;folder-controle-de-acesso.txt;decisao_comercial;Acessório listado entre os modelos do folder.
+24;Leitor Facial;Leitor Facial F4;;UN;Controle de Acesso;folder-leitor-facial.txt;confirmado;Capacidade para 5 mil faces.
+25;Leitor Facial;Leitor Facial T4-50K;;UN;Controle de Acesso;folder-leitor-facial.txt;confirmado;Capacidade para 50 mil faces.
+26;Software de Ponto;TopPonto Web;;UN;Software;folder-ponto-web.txt;confirmar_cadastro;Software em nuvem de tratamento de ponto.
+27;Bastão de Ronda;Viggia;;UN;Controle de Ronda;folder-bastao-de-ronda.txt;confirmar_cadastro;Solução para controle de rondas.
+28;Cancela;Barrier Jetflex Brushless – Barreira Articulada de Alumínio;;UN;Controle de Acesso;documentos_conhecimento;confirmado;Modelo confirmado pelo usuário.
+29;Cancela;Barrier Jetflex Brushless – Barreira Linear de PVC;;UN;Controle de Acesso;documentos_conhecimento;confirmado;Modelo confirmado pelo usuário.
+30;Cancela;Cancela K1 Jetflex;;UN;Controle de Acesso;documentos_conhecimento;confirmado;Modelo confirmado pelo usuário.
+31;Controle de Acesso;Controle de Acesso iDFace - Control iD;;UN;Controle de Acesso;documentos_conhecimento;confirmado;Modelo confirmado pelo usuário.
+32;Controle de Acesso;Controle de Acesso iDFace Max - Control iD;;UN;Controle de Acesso;documentos_conhecimento;confirmado;Modelo confirmado pelo usuário.
+33;Controle de Acesso;Controle de Acesso iDFlex IP65 Prox - Control iD;;UN;Controle de Acesso;documentos_conhecimento;confirmado;Modelo confirmado pelo usuário.
+34;Controle de Acesso;Controle de Acesso iDUHF - Control iD;;UN;Controle de Acesso;documentos_conhecimento;confirmado;Modelo confirmado pelo usuário.
+35;Controle de Acesso;Controle de Acesso Torniquete Facial com iDFace Max - Control iD;;UN;Controle de Acesso;documentos_conhecimento;confirmado;Modelo confirmado pelo usuário.
+36;Software para Controle de Acesso;Software para Controle de Acesso iDSecure Cloud - Control iD;;UN;Software;documentos_conhecimento;confirmado;Modelo confirmado pelo usuário.
+37;Software para Controle de Acesso;Software para Controle de Acesso iDSecure On-Premises - Control iD;;UN;Software;documentos_conhecimento;confirmado;Modelo confirmado pelo usuário.
+38;Software para Controle de Acesso;TopAcesso;;UN;Software;confirmado_usuario;confirmado;Modelo confirmado pelo usuário.
+39;Leitor Facial;Terminal de Reconhecimento Facial da série Pro DS-K1T673DX - Hikvision;;UN;Controle de Acesso;documentos_conhecimento;confirmado;Modelo confirmado pelo usuário.
+40;Leitor Facial;Leitor facial Topdata;;UN;Controle de Acesso;documentos_conhecimento;confirmado;Modelo confirmado pelo usuário.
+41;Controle de Acesso;Coletor Inner Acesso 2 - Topdata;;UN;Controle de Acesso;documentos_conhecimento;confirmado;Modelo confirmado pelo usuário.
+42;Controle de Acesso;Coletor Inner Acesso - Topdata;;UN;Controle de Acesso;documentos_conhecimento;confirmado;Modelo confirmado pelo usuário.
+43;Ponto Eletrônico;Ponto Eletrônico Inner Ponto 4 TOPDATA;;UN;Controle de Ponto;documentos_conhecimento;confirmado;Modelo confirmado pelo usuário.
+44;Câmera;Câmera IP série 1000 com Full Color e IR - Intelbras;;UN;CFTV;documentos_conhecimento;confirmado;Modelo confirmado pelo usuário.
+45;Câmera;Câmera IP série 1000 com Full Color e IR VIP 1430 D FC+ - Intelbras;;UN;CFTV;documentos_conhecimento;confirmado;Modelo confirmado pelo usuário.
