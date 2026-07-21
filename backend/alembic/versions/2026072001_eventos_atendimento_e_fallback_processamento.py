@@ -1,7 +1,7 @@
 """eventos_atendimento_e_fallback_processamento
 
 Revision ID: 2026072001
-Revises: 2026071702
+Revises: 2026071703
 Create Date: 2026-07-20 00:00:00.000000
 
 """
@@ -12,7 +12,7 @@ from alembic import op
 
 # revision identifiers, used by Alembic.
 revision: str = "2026072001"
-down_revision: Union[str, None] = "2026071702"
+down_revision: Union[str, None] = "2026071703"
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 

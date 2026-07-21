@@ -12,12 +12,14 @@ Pipeline:
     5. Grava `backend/data/ingestao_pares_qa_resumo.json` com as estatisticas.
 
 Uso:
-    python -m scripts.ingerir_pares_qa
-    python -m scripts.ingerir_pares_qa --dry-run
-    python -m scripts.ingerir_pares_qa --aprovar-automaticamente
-    python -m scripts.ingerir_pares_qa --arquivo caminho/outro.json
+    python -m scripts.base_conhecimento.ingerir_pares_qa
+    python -m scripts.base_conhecimento.ingerir_pares_qa --dry-run
+    python -m scripts.base_conhecimento.ingerir_pares_qa --aprovar-automaticamente
+    python -m scripts.base_conhecimento.ingerir_pares_qa --arquivo caminho/outro.json
 
-Executar a partir de `backend/` com o .env configurado (EMBEDDING_API_KEY etc.).
+Executar a partir de `backend/` com o .env configurado (EMBEDDING_API_KEY etc. — só
+necessário se algum par for ficar aprovado=True nesta execução; ver lazy embedding
+acima).
 """
 
 from __future__ import annotations
@@ -32,7 +34,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Iterable, Iterator
 
-BACKEND_DIR = Path(__file__).resolve().parents[1]
+BACKEND_DIR = Path(__file__).resolve().parents[2]
 if str(BACKEND_DIR) not in sys.path:
     sys.path.insert(0, str(BACKEND_DIR))
 
@@ -165,8 +167,14 @@ async def ingerir(
 
     par_por_id = _deduplicar_pares(pares, stats)
 
+    # Lazy embedding (mesmo principio do POST /api/pares-qa manual): so vale a pena
+    # pagar o custo de embedding para pares que vao ficar aprovados=True imediatamente
+    # apos esta ingestao — os demais ficam como rascunho (embedding=None) e so geram
+    # embedding quando alguem aprovar via painel/API.
+    gerar_embeddings_agora = not dry_run and aprovar_automaticamente
+
     provider: EmbeddingProvider | None = None
-    if not dry_run:
+    if gerar_embeddings_agora:
         provider = get_embedding_provider()
         stats.provider = provider.nome
         stats.modelo = provider.modelo
@@ -214,7 +222,7 @@ async def ingerir(
             return stats
 
         embeddings: list[list[float]] = []
-        if total_embed > 0:
+        if total_embed > 0 and gerar_embeddings_agora:
             print(f"[ingestao_qa] gerando {total_embed} embedding(s) em lotes de {tamanho_lote}"
                 f" (provider={provider.nome} modelo={provider.modelo})")
             textos = [p["pergunta"] for p in para_inserir + para_atualizar]
@@ -222,11 +230,18 @@ async def ingerir(
             if len(embeddings) != total_embed:
                 raise RuntimeError("Quantidade de embeddings retornada difere do esperado:"
                     f" {len(embeddings)} != {total_embed}")
+        elif total_embed > 0:
+            print(
+                f"[ingestao_qa] {total_embed} par(es) novo(s)/atualizado(s) sem aprovação "
+                "automática — embedding não gerado agora (lazy embedding); será gerado na "
+                "aprovação manual via painel/API."
+            )
 
         offset = 0
         for par in para_inserir:
-            vetor = embeddings[offset]
-            offset += 1
+            vetor = embeddings[offset] if gerar_embeddings_agora else None
+            if gerar_embeddings_agora:
+                offset += 1
             novo = ParQA(
                 id_externo=par["_id_externo_resolvido"],
                 pergunta=par["pergunta"],
@@ -242,8 +257,9 @@ async def ingerir(
             stats.novos += 1
 
         for par in para_atualizar:
-            vetor = embeddings[offset]
-            offset += 1
+            vetor = embeddings[offset] if gerar_embeddings_agora else None
+            if gerar_embeddings_agora:
+                offset += 1
             session.execute(
                 update(ParQA)
                 .where(ParQA.id_externo == par["_id_externo_resolvido"])

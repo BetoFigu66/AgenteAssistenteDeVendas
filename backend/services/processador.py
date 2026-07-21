@@ -270,7 +270,8 @@ class ProcessadorMensagem:
         )
 
         # 3. Classifica intenção e extrai entidades
-        resultado_class = await classificar(conteudo, llm=self._llm)
+        limiares_confianca = ParametroService(db).limiares_classificador()
+        resultado_class = await classificar(conteudo, llm=self._llm, limiares_confianca=limiares_confianca)
         logger.info(
             f"[Processador] Intenção: {resultado_class.intencao_principal.value}"
             f" (confiança={resultado_class.confianca:.2f}, via {resultado_class.origem})"
@@ -1389,7 +1390,7 @@ class ProcessadorMensagem:
         dlog: Optional[DebugLogger] = None,
     ) -> Optional[ParRecuperado]:
         """Busca o melhor par Q&A para a query; retorna None se nao encontrado."""
-        if not settings.QA_ENABLED or self._qa is None:
+        if self._qa is None or not self._qa.habilitado:
             if dlog:
                 dlog.log("qa_busca", "QA desabilitado ou servico nao inicializado")
             return None
@@ -1423,7 +1424,7 @@ class ProcessadorMensagem:
         dlog: Optional[DebugLogger] = None,
     ) -> list[DocumentoRecuperado]:
         """Busca trechos na RAG, tolerando RAG desabilitada ou em falha."""
-        if not settings.RAG_ENABLED or self._retrieval is None:
+        if self._retrieval is None or not self._retrieval.habilitado:
             if dlog:
                 dlog.log("rag_busca", "RAG desabilitada ou retrieval não inicializado")
             return []
@@ -1475,7 +1476,7 @@ class ProcessadorMensagem:
             if dlog:
                 dlog.log("rag_decisao", f"sem trechos → fallback template={codigo_fallback}")
             resposta = await self._gerador.gerar(template_fallback)
-            resposta.rag_utilizada = settings.RAG_ENABLED and self._retrieval is not None
+            resposta.rag_utilizada = self._retrieval is not None and self._retrieval.habilitado
             return resposta
         if dlog:
             dlog.log("rag_decisao", f"{len(trechos)} trechos → gerando com LLM+RAG")

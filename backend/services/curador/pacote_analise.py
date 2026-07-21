@@ -206,8 +206,9 @@ async def _reprocessar_buscas(
     top_k: int = 10,
 ) -> dict:
     diagnostico: dict[str, Any] = {
-        "qa_habilitado": settings.QA_ENABLED and qa_service is not None,
-        "rag_habilitado": settings.RAG_ENABLED and retrieval_service is not None,
+        "qa_habilitado": qa_service is not None and getattr(qa_service, "habilitado", settings.QA_ENABLED),
+        "rag_habilitado": retrieval_service is not None
+        and getattr(retrieval_service, "habilitado", settings.RAG_ENABLED),
         "qa_top_candidatos": [],
         "rag_top_candidatos": [],
         "qa_hit_producao": None,

@@ -4,11 +4,19 @@ Router CRUD para pares Q&A curados (`/api/pares-qa`).
 Rotas:
     GET    /api/pares-qa                        Lista pares (filtros + paginacao)
     GET    /api/pares-qa/pendentes-aprovacao     Lista pares nao aprovados (rascunhos)
+    GET    /api/pares-qa/similares               Busca por similaridade (deteccao de duplicatas)
+    GET    /api/pares-qa/estatisticas-uso        Pares mais usados nas respostas reais
     GET    /api/pares-qa/{id}                   Retorna um par pelo id
     POST   /api/pares-qa                        Cria rascunho (sem embedding)
     PATCH  /api/pares-qa/{id}                   Atualiza par (re-gera embedding se pergunta mudou)
     DELETE /api/pares-qa/{id}                   Soft delete (ativo=False)
     POST   /api/pares-qa/{id}/aprovar           Gera embedding e marca aprovado=True
+
+IMPORTANTE sobre ordem de declaracao: rotas literais (`/pendentes-aprovacao`,
+`/similares`, `/estatisticas-uso`) precisam vir ANTES de `/{par_id}` — Starlette
+casa `{par_id}` com qualquer segmento de path antes de o FastAPI tentar converter
+para `int`, e uma falha de conversao vira 422 em vez de cair pra proxima rota.
+Ja aconteceu com `/pendentes-aprovacao` (ver historico do REQ-013, Fase 9).
 """
 
 from __future__ import annotations
@@ -19,8 +27,9 @@ from typing import Optional
 
 from database import Database
 from fastapi import APIRouter, HTTPException
-from models import ParQA
+from models import ParQA, Vector
 from pydantic import BaseModel
+from sqlalchemy import Float, bindparam, select, text
 from utils.datetime_utils import utc_now
 
 logger = logging.getLogger(__name__)
@@ -86,6 +95,7 @@ async def _gerar_embedding(texto: str) -> list[float]:
 @router.get("")
 async def listar_pares_qa(
     contexto: Optional[str] = None,
+    tag: Optional[str] = None,
     ativo: Optional[bool] = True,
     aprovado: Optional[bool] = None,
     page: int = 1,
@@ -107,6 +117,8 @@ async def listar_pares_qa(
             q = q.filter(ParQA.aprovado == aprovado)
         if contexto:
             q = q.filter(ParQA.contexto == contexto)
+        if tag:
+            q = q.filter(ParQA.tags.any(tag))
 
         total = q.count()
         pares = q.order_by(ParQA.criado_em.desc()).offset(offset).limit(limit).all()
@@ -117,6 +129,111 @@ async def listar_pares_qa(
             "limit": limit,
             "pares": [p.to_dict() for p in pares],
         }
+
+
+# ---------------------------------------------------------------------------
+# Rotas literais (precisam vir antes de /{par_id} — ver nota no topo do arquivo)
+# ---------------------------------------------------------------------------
+
+
+@router.get("/pendentes-aprovacao")
+async def listar_pendentes_aprovacao(contexto: Optional[str] = None):
+    """Lista pares ativos ainda não aprovados (rascunhos para revisão)."""
+    with _db.get_session() as session:
+        q = session.query(ParQA).filter(ParQA.ativo, not ParQA.aprovado)
+        if contexto:
+            q = q.filter(ParQA.contexto == contexto)
+        pares = q.order_by(ParQA.criado_em.desc()).all()
+        return {"total": len(pares), "pares": [p.to_dict() for p in pares]}
+
+
+@router.get("/similares")
+async def buscar_pares_similares(pergunta: str, top_k: int = 5):
+    """
+    Busca pares Q&A por similaridade semântica (REQ-013.5) — usado para alertar
+    sobre possíveis duplicatas antes de criar um novo par manualmente.
+
+    Só compara contra pares que já têm embedding (aprovados) — rascunhos não
+    aprovados não têm embedding ainda (lazy embedding), então não entram nesta
+    busca; a checagem de duplicata entre rascunhos fica para uma fase futura.
+    """
+    pergunta = (pergunta or "").strip()
+    if not pergunta:
+        raise HTTPException(status_code=400, detail="pergunta é obrigatória")
+    if top_k < 1 or top_k > 20:
+        raise HTTPException(status_code=400, detail="top_k deve estar entre 1 e 20")
+
+    try:
+        vetor = await _gerar_embedding(pergunta)
+    except Exception as e:
+        logger.warning("[pares_qa] Falha ao gerar embedding para busca de similares: %s", e)
+        raise HTTPException(status_code=502, detail=f"Falha ao gerar embedding: {e}")
+
+    dim = len(vetor)
+    param = bindparam("q_emb", value=vetor, type_=Vector(dim))
+    distancia_expr = ParQA.embedding.op("<=>", return_type=Float())(param)
+
+    with _db.get_session() as session:
+        stmt = (
+            select(ParQA, distancia_expr.label("distancia"))
+            .where(ParQA.ativo.is_(True))
+            .where(ParQA.embedding.isnot(None))
+            .order_by(distancia_expr)
+            .limit(top_k)
+        )
+        linhas = session.execute(stmt).all()
+
+        candidatos = []
+        for par, distancia in linhas:
+            d = par.to_dict()
+            d["score"] = round(1.0 - float(distancia), 4)
+            candidatos.append(d)
+    return {"candidatos": candidatos}
+
+
+@router.get("/estatisticas-uso")
+async def estatisticas_uso_pares_qa(top: int = 10, dias: int = 90):
+    """
+    Pares Q&A mais usados como resposta real (REQ-013.7), derivado de
+    `processamentos_mensagem.rag_trechos` — coluna que registra o `id_externo`
+    do par quando ele decidiu a resposta (`template_usado='qa_pair'`).
+    """
+    if top < 1 or top > 100:
+        raise HTTPException(status_code=400, detail="top deve estar entre 1 e 100")
+    if dias < 1 or dias > 3650:
+        raise HTTPException(status_code=400, detail="dias deve estar entre 1 e 3650")
+
+    sql = text(
+        """
+        SELECT trecho->>'id_externo' AS id_externo, COUNT(*) AS usos
+        FROM processamentos_mensagem,
+             jsonb_array_elements(rag_trechos) AS trecho
+        WHERE template_usado = 'qa_pair'
+          AND trecho->>'tipo' = 'qa_pair'
+          AND created_at >= now() - make_interval(days => :dias)
+        GROUP BY trecho->>'id_externo'
+        ORDER BY usos DESC
+        LIMIT :top
+        """
+    )
+    with _db.get_session() as session:
+        linhas = session.execute(sql, {"dias": dias, "top": top}).all()
+        id_externos = [r.id_externo for r in linhas if r.id_externo]
+        pares_por_id_externo = {}
+        if id_externos:
+            pares = session.query(ParQA).filter(ParQA.id_externo.in_(id_externos)).all()
+            pares_por_id_externo = {p.id_externo: p.to_dict() for p in pares}
+
+    estatisticas = [
+        {
+            "id_externo": r.id_externo,
+            "usos": r.usos,
+            "par": pares_por_id_externo.get(r.id_externo),
+        }
+        for r in linhas
+        if r.id_externo
+    ]
+    return {"estatisticas": estatisticas}
 
 
 # ---------------------------------------------------------------------------
@@ -137,17 +254,6 @@ async def obter_par_qa(par_id: int):
 # ---------------------------------------------------------------------------
 # POST /api/pares-qa
 # ---------------------------------------------------------------------------
-
-
-@router.get("/pendentes-aprovacao")
-async def listar_pendentes_aprovacao(contexto: Optional[str] = None):
-    """Lista pares ativos ainda não aprovados (rascunhos para revisão)."""
-    with _db.get_session() as session:
-        q = session.query(ParQA).filter(ParQA.ativo, not ParQA.aprovado)
-        if contexto:
-            q = q.filter(ParQA.contexto == contexto)
-        pares = q.order_by(ParQA.criado_em.desc()).all()
-        return {"total": len(pares), "pares": [p.to_dict() for p in pares]}
 
 
 @router.post("", status_code=201)

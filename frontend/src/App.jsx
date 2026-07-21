@@ -32,6 +32,7 @@ function App() {
 
 function AppLogado() {
   const [pagina, setPagina] = useState('chat') // 'chat' | 'reports' | 'acompanhamento' | 'qa-base' | 'parametros'
+  const [atendimentoIdAlvo, setAtendimentoIdAlvo] = useState(null)
   const [telefoneAtual, setTelefoneAtual] = useState(null)
   const [telefones, setTelefones] = useState([])
   const [mensagens, setMensagens] = useState([])
@@ -84,6 +85,11 @@ function AppLogado() {
       console.error('Erro ao carregar dados da conversa:', error)
       setDadosConversa(null)
     }
+  }
+
+  const abrirAtendimento = (atendimentoId) => {
+    setAtendimentoIdAlvo(atendimentoId)
+    setPagina('acompanhamento')
   }
 
   const selecionarTelefone = (telefone) => {
@@ -190,8 +196,15 @@ function AppLogado() {
             </div>
           </div>
         )}
-        {pagina === 'acompanhamento' && <AcompanhamentoPage />}
-        {pagina === 'reports' && <ReportsPage onVoltar={() => setPagina('chat')} />}
+        {pagina === 'acompanhamento' && (
+          <AcompanhamentoPage
+            atendimentoIdInicial={atendimentoIdAlvo}
+            onAtendimentoIdInicialConsumido={() => setAtendimentoIdAlvo(null)}
+          />
+        )}
+        {pagina === 'reports' && (
+          <ReportsPage onVoltar={() => setPagina('chat')} onAbrirAtendimento={abrirAtendimento} />
+        )}
         {pagina === 'qa-base' && <QABasePage />}
         {pagina === 'parametros' && <ParametrosPage />}
       </main>

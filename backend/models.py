@@ -1279,6 +1279,37 @@ class ReportProblema(Base):
         }
 
 
+class HistoricoStatusReport(Base):
+    """Log de transições de status de um `ReportProblema` (REQ-012, Fase 8).
+
+    Tabela dedicada e simplificada — mesmo padrão de `HistoricoModoExecucao`/
+    `HistoricoConfiguracao`, não a `EventoAtendimento` da Fase 6 (que exige
+    `atendimento_id` not-null; um report nem sempre resolve a um atendimento,
+    ex. reports manuais sem mensagem vinculada).
+    """
+
+    __tablename__ = "historico_status_report"
+
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    report_id: Mapped[int] = mapped_column(
+        ForeignKey("reports_problema.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    status_anterior: Mapped[Optional[str]] = mapped_column(String(30), nullable=True)
+    status_novo: Mapped[str] = mapped_column(String(30), nullable=False)
+    ator: Mapped[str] = mapped_column(String(50), nullable=False)
+    timestamp: Mapped[datetime] = mapped_column(UTCDateTime, default=utc_now, nullable=False, index=True)
+
+    def to_dict(self) -> dict:
+        return {
+            "id": self.id,
+            "report_id": self.report_id,
+            "status_anterior": self.status_anterior,
+            "status_novo": self.status_novo,
+            "ator": self.ator,
+            "timestamp": serialize_utc_datetime(self.timestamp),
+        }
+
+
 class Parametro(Base):
     """
     Parâmetro de configuração dinâmica, calibrável sem deploy.
@@ -1312,10 +1343,9 @@ class Parametro(Base):
 class HistoricoModoExecucao(Base):
     """Log de mudanças do modo de execução vigente (REQ-011.3/REQ-011.19).
 
-    Tabela dedicada e simplificada — assim como a auditoria mínima de
-    encerrar/reabrir Atendimento (REQ-016 Fase 1), fica para a Fase 5 (REQ-005)
-    consolidar isto na tabela de eventos auditáveis genérica quando ela existir; ver
-    docs/plano_implementacao_requisitos_formais_2026-07.md.
+    Tabela dedicada e simplificada — mesmo padrão de `HistoricoConfiguracao` (REQ-014,
+    Fase 7), não a `EventoAtendimento` da Fase 6 (que exige `atendimento_id`, não
+    aplicável a configuração global).
     """
 
     __tablename__ = "historico_modo_execucao"
@@ -1331,6 +1361,37 @@ class HistoricoModoExecucao(Base):
             "id": self.id,
             "modo_anterior": self.modo_anterior,
             "modo_novo": self.modo_novo,
+            "ator": self.ator,
+            "timestamp": serialize_utc_datetime(self.timestamp),
+        }
+
+
+class HistoricoConfiguracao(Base):
+    """Log de alterações de parâmetros de configuração via API (REQ-014, Fase 7).
+
+    Tabela dedicada e simplificada — mesmo padrão de `HistoricoModoExecucao` (REQ-011),
+    não a `EventoAtendimento` da Fase 6 (que exige `atendimento_id`, não aplicável a
+    configuração global). Alimentada por `ParametroService.set()`/`set_int()` quando
+    chamados com `ator` (endpoints que não passam `ator` não geram registro — hoje é o
+    caso só de `PATCH /api/config/execucao`, que já tem sua própria auditoria dedicada
+    em `HistoricoModoExecucao`).
+    """
+
+    __tablename__ = "historico_configuracao"
+
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    nome: Mapped[str] = mapped_column(String(100), nullable=False, index=True)
+    valor_anterior: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    valor_novo: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    ator: Mapped[str] = mapped_column(String(50), nullable=False)
+    timestamp: Mapped[datetime] = mapped_column(UTCDateTime, default=utc_now, nullable=False, index=True)
+
+    def to_dict(self) -> dict:
+        return {
+            "id": self.id,
+            "nome": self.nome,
+            "valor_anterior": self.valor_anterior,
+            "valor_novo": self.valor_novo,
             "ator": self.ator,
             "timestamp": serialize_utc_datetime(self.timestamp),
         }

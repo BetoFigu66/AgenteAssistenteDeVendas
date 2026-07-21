@@ -408,9 +408,10 @@ export const api = {
   },
 
   // Pares Q&A
-  async listarParesQA({ contexto, ativo, aprovado, page = 1, limit = 50 } = {}) {
+  async listarParesQA({ contexto, tag, ativo, aprovado, page = 1, limit = 50 } = {}) {
     const params = new URLSearchParams()
     if (contexto !== undefined && contexto !== null && contexto !== '') params.append('contexto', contexto)
+    if (tag !== undefined && tag !== null && tag !== '') params.append('tag', tag)
     if (ativo !== undefined && ativo !== null) params.append('ativo', ativo)
     if (aprovado !== undefined && aprovado !== null) params.append('aprovado', aprovado)
     params.append('page', page)
@@ -425,6 +426,23 @@ export const api = {
     if (contexto) params.append('contexto', contexto)
     const response = await apiFetch(`${API_URL}/api/pares-qa/pendentes-aprovacao?${params}`)
     if (!response.ok) throw new ApiError('Erro ao listar pendentes Q&A', response.status, 'server')
+    return response.json()
+  },
+
+  async buscarSimilaresQA(pergunta, topK = 5) {
+    const params = new URLSearchParams({ pergunta, top_k: String(topK) })
+    const response = await apiFetch(`${API_URL}/api/pares-qa/similares?${params}`)
+    if (!response.ok) {
+      const detail = await response.json().catch(() => null)
+      throw new ApiError(detail?.detail || 'Erro ao buscar pares similares', response.status, 'server')
+    }
+    return response.json()
+  },
+
+  async estatisticasUsoQA({ top = 10, dias = 90 } = {}) {
+    const params = new URLSearchParams({ top: String(top), dias: String(dias) })
+    const response = await apiFetch(`${API_URL}/api/pares-qa/estatisticas-uso?${params}`)
+    if (!response.ok) throw new ApiError('Erro ao obter estatísticas de uso Q&A', response.status, 'server')
     return response.json()
   },
 

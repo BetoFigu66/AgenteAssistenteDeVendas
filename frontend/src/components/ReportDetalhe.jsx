@@ -1,8 +1,21 @@
 import { useEffect, useState } from 'react'
-import { Loader2, Save, AlertTriangle, CheckCircle2, MessageCircle, Download } from 'lucide-react'
+import {
+  Loader2,
+  Save,
+  AlertTriangle,
+  CheckCircle2,
+  MessageCircle,
+  Download,
+  Brain,
+  ExternalLink,
+  BookOpen,
+} from 'lucide-react'
 import { api } from '../services/api'
 import DetalheModal from './DetalheModal'
+import ProcessamentoDetalhes, { RagTrechosView, ScoreBadge } from './ProcessamentoDetalhes'
 import { formatDatetimeBRT, formatTimeBRT } from '../utils/datetime'
+import { useAuth } from '../context/AuthContext'
+import { CONTEXTOS_QA } from '../constants/qa'
 import {
   CATEGORIAS,
   SEVERIDADES,
@@ -12,12 +25,23 @@ import {
   labelCategoria,
   labelStatus,
   labelSeveridade,
+  statusPermitidos,
 } from '../constants/reports'
 
-function ReportDetalhe({ reportId, onClose, onAtualizado }) {
+function ReportDetalhe({ reportId, onClose, onAtualizado, onAbrirAtendimento }) {
+  const { usuario } = useAuth()
   const [ctx, setCtx] = useState(null)
   const [loading, setLoading] = useState(true)
   const [erro, setErro] = useState(null)
+
+  // Criar par Q&A a partir deste report (REQ-013.7, Fase 9)
+  const [mostrarCriarQA, setMostrarCriarQA] = useState(false)
+  const [qaPergunta, setQaPergunta] = useState('')
+  const [qaResposta, setQaResposta] = useState('')
+  const [qaContexto, setQaContexto] = useState('')
+  const [criandoQA, setCriandoQA] = useState(false)
+  const [erroQA, setErroQA] = useState(null)
+  const [sucessoQA, setSucessoQA] = useState(false)
 
   // Form
   const [status, setStatus] = useState('aberto')
@@ -29,6 +53,7 @@ function ReportDetalhe({ reportId, onClose, onAtualizado }) {
   const [sucessoSave, setSucessoSave] = useState(false)
   const [baixandoYaml, setBaixandoYaml] = useState(false)
   const [erroYaml, setErroYaml] = useState(null)
+  const [mostrarProcessamento, setMostrarProcessamento] = useState(false)
 
   useEffect(() => {
     let cancelado = false
@@ -91,6 +116,42 @@ function ReportDetalhe({ reportId, onClose, onAtualizado }) {
   const telefone =
     ctx?.telefone || msgs.find((m) => m.telefone)?.telefone || null
   const msgReportadaId = proc?.id ? msgs.find((m) => m.processamento_id === proc.id)?.id : null
+
+  const abrirCriarQA = () => {
+    const idx = msgReportadaId ? msgs.findIndex((m) => m.id === msgReportadaId) : -1
+    const perguntaCliente =
+      idx >= 0
+        ? msgs.slice(0, idx).reverse().find((m) => m.origem === 'user')?.conteudo
+        : msgs.find((m) => m.origem === 'user')?.conteudo
+    setQaPergunta(perguntaCliente || '')
+    setQaResposta('')
+    setQaContexto('')
+    setErroQA(null)
+    setSucessoQA(false)
+    setMostrarCriarQA(true)
+  }
+
+  const criarParQADoReport = async () => {
+    if (!qaPergunta.trim() || !qaResposta.trim() || criandoQA) return
+    setCriandoQA(true)
+    setErroQA(null)
+    try {
+      await api.criarParQA({
+        // REQ-013.3/013.7 (Fase 9): id_externo rastreável até o report de origem.
+        id_externo: `report:${reportId}`,
+        pergunta: qaPergunta.trim(),
+        resposta: qaResposta.trim(),
+        contexto: qaContexto || null,
+        criado_por: usuario?.nome || null,
+      })
+      setSucessoQA(true)
+      setMostrarCriarQA(false)
+    } catch (e) {
+      setErroQA(e.message || 'Falha ao criar par Q&A')
+    } finally {
+      setCriandoQA(false)
+    }
+  }
 
   return (
     <DetalheModal
@@ -156,6 +217,33 @@ function ReportDetalhe({ reportId, onClose, onAtualizado }) {
             </div>
           )}
 
+          {/* Navegação real report → atendimento/processamento */}
+          {(proc || ctx?.atendimento_id) && (
+            <div className="flex flex-wrap gap-2">
+              {proc && (
+                <button
+                  type="button"
+                  onClick={() => setMostrarProcessamento(true)}
+                  className="text-xs bg-white border border-gray-300 hover:border-inforrel-primary text-gray-700 hover:text-inforrel-primary px-2.5 py-1 rounded-full flex items-center gap-1"
+                >
+                  <Brain size={12} /> Ver processamento completo
+                </button>
+              )}
+              {ctx?.atendimento_id && onAbrirAtendimento && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    onAbrirAtendimento(ctx.atendimento_id)
+                    onClose?.()
+                  }}
+                  className="text-xs bg-white border border-gray-300 hover:border-inforrel-primary text-gray-700 hover:text-inforrel-primary px-2.5 py-1 rounded-full flex items-center gap-1"
+                >
+                  <ExternalLink size={12} /> Ver atendimento #{ctx.atendimento_id}
+                </button>
+              )}
+            </div>
+          )}
+
           {/* Processamento — resumo */}
           {proc && (
             <div>
@@ -194,6 +282,109 @@ function ReportDetalhe({ reportId, onClose, onAtualizado }) {
               </div>
             </div>
           )}
+
+          {/* RAG/Q&A — trechos recuperados na resposta reportada (REQ-003.5/003.14) */}
+          {proc?.rag_utilizada && (
+            <div>
+              <h3 className="text-sm font-semibold text-inforrel-primary mb-2 flex items-center gap-2">
+                Base de conhecimento (RAG/Q&A)
+                <ScoreBadge valor={proc.rag_score_maximo} />
+              </h3>
+              <RagTrechosView trechos={proc.rag_trechos} />
+            </div>
+          )}
+
+          {/* Criar par Q&A a partir deste report (REQ-013.7) */}
+          <div className="border rounded-lg p-3 bg-slate-50">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+              <div>
+                <h3 className="text-sm font-semibold text-inforrel-primary flex items-center gap-1.5">
+                  <BookOpen size={14} /> Criar par Q&A a partir deste report
+                </h3>
+                <p className="text-xs text-gray-600 mt-0.5">
+                  Salva um rascunho na Base Q&A (sem embedding ainda) rastreável até este report.
+                </p>
+              </div>
+              {!mostrarCriarQA && (
+                <button
+                  type="button"
+                  onClick={abrirCriarQA}
+                  className="btn-secondary text-sm px-4 py-1.5 rounded flex items-center gap-1.5 shrink-0"
+                >
+                  <BookOpen size={14} /> Criar par Q&A
+                </button>
+              )}
+            </div>
+
+            {sucessoQA && !mostrarCriarQA && (
+              <div className="text-xs text-green-600 flex items-center gap-1 mt-2">
+                <CheckCircle2 size={12} /> Rascunho Q&A criado — revise na Base Q&A.
+              </div>
+            )}
+
+            {mostrarCriarQA && (
+              <div className="mt-3 space-y-2">
+                <div>
+                  <label className="text-xs text-gray-500 uppercase tracking-wide">Pergunta</label>
+                  <textarea
+                    value={qaPergunta}
+                    onChange={(e) => setQaPergunta(e.target.value)}
+                    rows={2}
+                    placeholder="Como o cliente costuma perguntar..."
+                    className="w-full border border-gray-300 rounded px-3 py-2 text-sm mt-0.5"
+                  />
+                </div>
+                <div>
+                  <label className="text-xs text-gray-500 uppercase tracking-wide">Resposta</label>
+                  <textarea
+                    value={qaResposta}
+                    onChange={(e) => setQaResposta(e.target.value)}
+                    rows={3}
+                    placeholder="Resposta ideal para esta pergunta..."
+                    className="w-full border border-gray-300 rounded px-3 py-2 text-sm mt-0.5"
+                  />
+                </div>
+                <div>
+                  <label className="text-xs text-gray-500 uppercase tracking-wide">Contexto</label>
+                  <select
+                    value={qaContexto}
+                    onChange={(e) => setQaContexto(e.target.value)}
+                    className="w-full border border-gray-300 rounded px-2 py-1.5 text-sm mt-0.5"
+                  >
+                    {CONTEXTOS_QA.map((c) => (
+                      <option key={c.value} value={c.value}>{c.label}</option>
+                    ))}
+                  </select>
+                </div>
+                {erroQA && (
+                  <div className="text-xs text-red-600 flex items-center gap-1">
+                    <AlertTriangle size={12} /> {erroQA}
+                  </div>
+                )}
+                <div className="flex justify-end gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setMostrarCriarQA(false)}
+                    className="text-sm text-gray-600 hover:text-gray-800 px-3 py-1.5"
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    type="button"
+                    onClick={criarParQADoReport}
+                    disabled={!qaPergunta.trim() || !qaResposta.trim() || criandoQA}
+                    className="btn-primary text-sm px-4 py-1.5 rounded flex items-center gap-1.5 disabled:opacity-50"
+                  >
+                    {criandoQA ? (
+                      <><Loader2 size={14} className="animate-spin" /> Salvando...</>
+                    ) : (
+                      <><BookOpen size={14} /> Salvar rascunho</>
+                    )}
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
 
           <div className="border rounded-lg p-3 bg-slate-50">
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
@@ -247,7 +438,7 @@ function ReportDetalhe({ reportId, onClose, onAtualizado }) {
                   onChange={(e) => setStatus(e.target.value)}
                   className="w-full border border-gray-300 rounded px-2 py-1.5 text-sm mt-0.5"
                 >
-                  {STATUS.map((s) => (
+                  {STATUS.filter((s) => statusPermitidos(report.status).includes(s.valor)).map((s) => (
                     <option key={s.valor} value={s.valor}>{s.label}</option>
                   ))}
                 </select>
@@ -326,6 +517,15 @@ function ReportDetalhe({ reportId, onClose, onAtualizado }) {
             </div>
           </div>
         </div>
+      )}
+
+      {mostrarProcessamento && proc && (
+        <DetalheModal
+          titulo={`Raciocínio do cérebro — processamento #${proc.id}`}
+          onClose={() => setMostrarProcessamento(false)}
+        >
+          <ProcessamentoDetalhes processamentoId={proc.id} />
+        </DetalheModal>
       )}
     </DetalheModal>
   )

@@ -25,6 +25,22 @@ export const STATUS = [
 
 export const STATUS_ABERTOS = ['aberto', 'em_analise', 'aguardando_fix']
 
+// Espelha `_TRANSICOES_STATUS_REPORT` do backend (backend/main.py) — usado só
+// para restringir as opções do <select> de status na UI; a validação de
+// verdade é sempre feita no backend em `PATCH /api/reports/{id}`.
+export const TRANSICOES_STATUS = {
+  aberto: ['em_analise', 'aguardando_fix', 'descartado'],
+  em_analise: ['aguardando_fix', 'resolvido', 'descartado', 'aberto'],
+  aguardando_fix: ['resolvido', 'descartado', 'em_analise'],
+  resolvido: ['aberto'],
+  descartado: ['aberto'],
+}
+
+export const statusPermitidos = (statusAtual) => [
+  statusAtual,
+  ...(TRANSICOES_STATUS[statusAtual] || []),
+]
+
 export const corSeveridade = (sev) =>
   SEVERIDADES.find((s) => s.valor === sev)?.cor || 'bg-gray-100 text-gray-700'
 

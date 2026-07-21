@@ -21,7 +21,9 @@ from models import (
     Contato,
     Empresa,
     EventoAtendimento,
+    HistoricoConfiguracao,
     HistoricoModoExecucao,
+    HistoricoStatusReport,
     Mensagem,
     ModoExecucao,
     ModoOperacao,
@@ -1083,7 +1085,7 @@ async def reprovar_mensagem(
                 descricao=f"Mensagem reprovada: {justificativa}",
                 autor=reprovador_nome,
                 categoria=CategoriaReport.RESPOSTA_INADEQUADA,
-                severidade=SeveridadeReport.ALTA,
+                severidade=SeveridadeReport.MEDIA,
             )
             session.add(report)
             session.commit()
@@ -1123,6 +1125,25 @@ def _validar_enum(valor: Optional[str], enum_cls, nome: str):
         )
 
 
+DESCRICAO_REPORT_MIN_CHARS = 10
+
+# REQ-012 (Fase 8): transições válidas do workflow de triagem de reports — evita
+# pular etapas por engano (ex.: aberto → resolvido sem passar por análise) e
+# permite reabertura a partir de qualquer estado terminal.
+_TRANSICOES_STATUS_REPORT: dict[StatusReport, set[StatusReport]] = {
+    StatusReport.ABERTO: {StatusReport.EM_ANALISE, StatusReport.AGUARDANDO_FIX, StatusReport.DESCARTADO},
+    StatusReport.EM_ANALISE: {
+        StatusReport.AGUARDANDO_FIX,
+        StatusReport.RESOLVIDO,
+        StatusReport.DESCARTADO,
+        StatusReport.ABERTO,
+    },
+    StatusReport.AGUARDANDO_FIX: {StatusReport.RESOLVIDO, StatusReport.DESCARTADO, StatusReport.EM_ANALISE},
+    StatusReport.RESOLVIDO: {StatusReport.ABERTO},
+    StatusReport.DESCARTADO: {StatusReport.ABERTO},
+}
+
+
 class ReportProblemaRequest(BaseModel):
     descricao: str
     categoria: Optional[str] = None
@@ -1147,6 +1168,11 @@ async def criar_report_problema(
     descricao = (payload.descricao or "").strip()
     if not descricao:
         raise HTTPException(status_code=400, detail="Descrição do problema é obrigatória")
+    if len(descricao) < DESCRICAO_REPORT_MIN_CHARS:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Descrição do problema deve ter pelo menos {DESCRICAO_REPORT_MIN_CHARS} caracteres",
+        )
 
     categoria = _validar_enum(payload.categoria, CategoriaReport, "categoria")
     severidade = _validar_enum(payload.severidade, SeveridadeReport, "severidade")
@@ -1189,7 +1215,27 @@ async def atualizar_report(
         if not report:
             raise HTTPException(status_code=404, detail="Report não encontrado")
 
-        if status_novo is not None:
+        if status_novo is not None and status_novo != report.status:
+            permitidos = _TRANSICOES_STATUS_REPORT.get(report.status, set())
+            if status_novo not in permitidos:
+                raise HTTPException(
+                    status_code=409,
+                    detail=(
+                        f"Transição de status inválida: '{report.status.value}' → "
+                        f"'{status_novo.value}'. Permitidas a partir de "
+                        f"'{report.status.value}': {sorted(s.value for s in permitidos)}"
+                    ),
+                )
+
+            session.add(
+                HistoricoStatusReport(
+                    report_id=report.id,
+                    status_anterior=report.status.value,
+                    status_novo=status_novo.value,
+                    ator=resolvido_por,
+                )
+            )
+
             report.status = status_novo
             if status_novo in (StatusReport.RESOLVIDO, StatusReport.DESCARTADO):
                 report.resolvido_em = utc_now()
@@ -1236,6 +1282,10 @@ def _aplicar_filtros_reports(
     categoria_enum=None,
     severidade_enum=None,
     apenas_abertos=False,
+    autor=None,
+    data_inicio=None,
+    data_fim=None,
+    busca=None,
 ):
     if status_enum:
         q = q.filter(ReportProblema.status == status_enum)
@@ -1245,6 +1295,21 @@ def _aplicar_filtros_reports(
         q = q.filter(ReportProblema.categoria == categoria_enum)
     if severidade_enum:
         q = q.filter(ReportProblema.severidade == severidade_enum)
+    if autor:
+        q = q.filter(ReportProblema.autor.ilike(f"%{autor}%"))
+    if data_inicio is not None:
+        q = q.filter(ReportProblema.created_at >= data_inicio)
+    if data_fim is not None:
+        q = q.filter(ReportProblema.created_at <= data_fim)
+    if busca:
+        termo = f"%{busca}%"
+        q = q.filter(
+            sa_or(
+                ReportProblema.descricao.ilike(termo),
+                ReportProblema.resolucao.ilike(termo),
+                ReportProblema.autor.ilike(termo),
+            )
+        )
     return q
 
 
@@ -1281,12 +1346,18 @@ async def listar_todos_reports(
     categoria: Optional[str] = None,
     severidade: Optional[str] = None,
     apenas_abertos: bool = False,
+    autor: Optional[str] = None,
+    data_inicio: Optional[datetime] = None,
+    data_fim: Optional[datetime] = None,
+    q_busca: Optional[str] = None,
     page: int = 1,
     limit: int = 50,
 ):
     """Lista todos os reports de problema com filtros (fila de triagem).
 
     `page`/`limit` (REQ-010, Fase 4) seguem o mesmo padrão de `routers/pares_qa.py`.
+    `autor`/`data_inicio`/`data_fim`/`q_busca` (REQ-012, Fase 8) filtram por autor
+    (parcial), período de `created_at`, e busca textual em descrição/resolução/autor.
     """
     if page < 1:
         raise HTTPException(status_code=400, detail="page deve ser >= 1")
@@ -1305,6 +1376,10 @@ async def listar_todos_reports(
             categoria_enum=categoria_enum,
             severidade_enum=severidade_enum,
             apenas_abertos=apenas_abertos,
+            autor=autor,
+            data_inicio=data_inicio,
+            data_fim=data_fim,
+            busca=q_busca,
         )
 
         total = q.count()
@@ -1340,6 +1415,10 @@ async def stats_reports(
     categoria: Optional[str] = None,
     severidade: Optional[str] = None,
     apenas_abertos: bool = False,
+    autor: Optional[str] = None,
+    data_inicio: Optional[datetime] = None,
+    data_fim: Optional[datetime] = None,
+    q_busca: Optional[str] = None,
 ):
     """Estatísticas agregadas dos reports (para header da tela de triagem)."""
     status_enum = _validar_enum(status, StatusReport, "status")
@@ -1354,6 +1433,10 @@ async def stats_reports(
             categoria_enum=categoria_enum,
             severidade_enum=severidade_enum,
             apenas_abertos=apenas_abertos,
+            autor=autor,
+            data_inicio=data_inicio,
+            data_fim=data_fim,
+            busca=q_busca,
         )
         return _calcular_stats_reports(q)
 
@@ -1398,11 +1481,22 @@ async def obter_contexto_report(report_id: int, antes: int = 3, depois: int = 3)
                 m.to_dict() for m in reversed(antes_q)] + [msg.to_dict()] + [m.to_dict() for m in depois_q
             ]
 
+        atendimento_id = (proc.atendimento_id_ativa if proc else None) or (msg.atendimento_id if msg else None)
+
+        historico_status = (
+            session.query(HistoricoStatusReport)
+            .filter_by(report_id=report.id)
+            .order_by(HistoricoStatusReport.timestamp.desc())
+            .all()
+        )
+
         return {
             "report": report.to_dict(),
             "processamento": proc.to_dict() if proc else None,
             "contexto_mensagens": contexto_msgs,
             "telefone": msg.telefone if msg else None,
+            "atendimento_id": atendimento_id,
+            "historico_status": [h.to_dict() for h in historico_status],
         }
 
 
@@ -1470,6 +1564,9 @@ async def obter_pacote_analise_report(
 class RagConfigUpdate(BaseModel):
     rag_score_minimo: Optional[float] = None
     rag_top_k: Optional[int] = None
+    rag_enabled: Optional[bool] = None
+    qa_enabled: Optional[bool] = None
+    qa_score_minimo: Optional[float] = None
 
 
 class AtendimentoConfigUpdate(BaseModel):
@@ -1482,50 +1579,131 @@ class ParametroValorUpdate(BaseModel):
 
 @app.get("/api/config/rag")
 async def get_config_rag():
-    """Retorna a configuração atual da RAG em memória."""
-    from services.rag import get_retrieval_service
+    """Retorna a configuração vigente de RAG e Q&A (REQ-014, Fase 7) — superfície única
+    para os dois, já que ambos compõem a mesma etapa de geração de resposta."""
+    from services.rag import get_qa_service, get_retrieval_service
 
+    resultado = {
+        "rag_enabled": settings.RAG_ENABLED,
+        "rag_score_minimo": settings.RAG_SCORE_MINIMO,
+        "rag_top_k": settings.RAG_TOP_K,
+        "qa_enabled": settings.QA_ENABLED,
+        "qa_score_minimo": settings.QA_SCORE_MINIMO,
+    }
     try:
         servico = get_retrieval_service()
-        return {
-            "rag_enabled": settings.RAG_ENABLED,
-            "rag_score_minimo": servico._score_minimo_padrao,
-            "rag_top_k": servico._top_k_padrao,
-        }
+        resultado["rag_enabled"] = servico.habilitado
+        resultado["rag_score_minimo"] = servico._score_minimo_padrao
+        resultado["rag_top_k"] = servico._top_k_padrao
     except Exception:
-        return {
-            "rag_enabled": settings.RAG_ENABLED,
-            "rag_score_minimo": settings.RAG_SCORE_MINIMO,
-            "rag_top_k": settings.RAG_TOP_K,
-        }
+        pass
+    try:
+        qa = get_qa_service()
+        resultado["qa_enabled"] = qa.habilitado
+        # `_score_minimo_padrao` é o limiar "responde" da zona cinza (persistido como
+        # parametro `qa_embedding_responde_min`) — exposto aqui como `qa_score_minimo`
+        # para espelhar o nome irmão `rag_score_minimo` na mesma superfície de config.
+        resultado["qa_score_minimo"] = qa._score_minimo_padrao
+    except Exception:
+        pass
+    return resultado
 
 
 @app.patch("/api/config/rag")
-async def patch_config_rag(body: RagConfigUpdate):
-    """Atualiza em memória os parâmetros da RAG sem reiniciar o servidor."""
-    from services.rag import get_retrieval_service
+async def patch_config_rag(body: RagConfigUpdate, ator: str = Depends(usuario_nome_atual)):
+    """Atualiza RAG/Q&A sem reiniciar o servidor, persistindo em `parametros`
+    (REQ-014, Fase 7).
+
+    Valida TODOS os campos antes de aplicar qualquer um — uma falha de validação em
+    um campo não deixa outro já aplicado pela metade (bug de atomicidade original).
+    """
+    from services.rag import get_qa_service, get_retrieval_service
+
+    if body.rag_score_minimo is not None and not 0.0 <= body.rag_score_minimo <= 1.0:
+        raise HTTPException(status_code=422, detail="rag_score_minimo deve estar entre 0.0 e 1.0")
+    if body.rag_top_k is not None and body.rag_top_k < 1:
+        raise HTTPException(status_code=422, detail="rag_top_k deve ser >= 1")
+    if body.qa_score_minimo is not None and not 0.0 <= body.qa_score_minimo <= 1.0:
+        raise HTTPException(status_code=422, detail="qa_score_minimo deve estar entre 0.0 e 1.0")
+
+    retrieval = None
+    if body.rag_score_minimo is not None or body.rag_top_k is not None or body.rag_enabled is not None:
+        try:
+            retrieval = get_retrieval_service()
+        except Exception as exc:
+            raise HTTPException(status_code=503, detail=f"RAG não disponível: {exc}")
+
+    qa = None
+    if body.qa_enabled is not None or body.qa_score_minimo is not None:
+        try:
+            qa = get_qa_service()
+        except Exception as exc:
+            raise HTTPException(status_code=503, detail=f"QA não disponível: {exc}")
+
+    with db.get_session() as session:
+        svc = ParametroService(session)
+        if body.rag_score_minimo is not None:
+            svc.set("rag_score_minimo", str(body.rag_score_minimo), ator=ator)
+            retrieval._score_minimo_padrao = body.rag_score_minimo
+        if body.rag_top_k is not None:
+            svc.set("rag_top_k", str(body.rag_top_k), ator=ator)
+            retrieval._top_k_padrao = body.rag_top_k
+        if body.rag_enabled is not None:
+            svc.set("rag_enabled", "true" if body.rag_enabled else "false", ator=ator)
+            retrieval.habilitado = body.rag_enabled
+        if body.qa_enabled is not None:
+            svc.set("qa_enabled", "true" if body.qa_enabled else "false", ator=ator)
+            qa.habilitado = body.qa_enabled
+        if body.qa_score_minimo is not None:
+            svc.set("qa_embedding_responde_min", str(body.qa_score_minimo), ator=ator)
+            qa._score_minimo_padrao = body.qa_score_minimo
+
+    logger.info("[Config RAG/QA] alterado por %s: %s", ator, body.model_dump(exclude_none=True))
+    return await get_config_rag()
+
+
+@app.post("/api/config/rag/reset")
+async def reset_config_rag(ator: str = Depends(usuario_nome_atual)):
+    """Restaura RAG/Q&A aos defaults de `Settings` (REQ-014, Fase 7)."""
+    from services.rag import get_qa_service, get_retrieval_service
+
+    with db.get_session() as session:
+        svc = ParametroService(session)
+        svc.set("rag_score_minimo", str(settings.RAG_SCORE_MINIMO), ator=ator)
+        svc.set("rag_top_k", str(settings.RAG_TOP_K), ator=ator)
+        svc.set("rag_enabled", "true" if settings.RAG_ENABLED else "false", ator=ator)
+        svc.set("qa_enabled", "true" if settings.QA_ENABLED else "false", ator=ator)
+        svc.set("qa_embedding_responde_min", str(settings.QA_SCORE_MINIMO), ator=ator)
 
     try:
-        servico = get_retrieval_service()
-    except Exception as exc:
-        raise HTTPException(status_code=503, detail=f"RAG não disponível: {exc}")
-    if body.rag_score_minimo is not None:
-        if not 0.0 <= body.rag_score_minimo <= 1.0:
-            raise HTTPException(status_code=422, detail="rag_score_minimo deve estar entre 0.0 e 1.0")
-        servico._score_minimo_padrao = body.rag_score_minimo
-    if body.rag_top_k is not None:
-        if body.rag_top_k < 1:
-            raise HTTPException(status_code=422, detail="rag_top_k deve ser >= 1")
-        servico._top_k_padrao = body.rag_top_k
-    logger.info(
-        "[RAG config] score_minimo=%.2f top_k=%d",
-        servico._score_minimo_padrao,
-        servico._top_k_padrao,
-    )
-    return {
-        "rag_score_minimo": servico._score_minimo_padrao,
-        "rag_top_k": servico._top_k_padrao,
-    }
+        retrieval = get_retrieval_service()
+        retrieval._score_minimo_padrao = settings.RAG_SCORE_MINIMO
+        retrieval._top_k_padrao = settings.RAG_TOP_K
+        retrieval.habilitado = settings.RAG_ENABLED
+    except Exception:
+        pass
+    try:
+        qa = get_qa_service()
+        qa.habilitado = settings.QA_ENABLED
+        qa._score_minimo_padrao = settings.QA_SCORE_MINIMO
+    except Exception:
+        pass
+
+    logger.info("[Config RAG/QA] reset a defaults por %s", ator)
+    return await get_config_rag()
+
+
+@app.get("/api/config/historico")
+async def obter_historico_configuracao(nome: Optional[str] = None, limit: int = 50):
+    """Histórico de alterações de parâmetros de configuração (REQ-014, Fase 7)."""
+    if limit < 1 or limit > 200:
+        raise HTTPException(status_code=400, detail="limit deve estar entre 1 e 200")
+    with db.get_session() as session:
+        query = session.query(HistoricoConfiguracao)
+        if nome:
+            query = query.filter(HistoricoConfiguracao.nome == nome)
+        registros = query.order_by(HistoricoConfiguracao.timestamp.desc()).limit(limit).all()
+        return {"historico": [r.to_dict() for r in registros]}
 
 
 # ============================================================================
@@ -1600,7 +1778,7 @@ async def patch_config_execucao(body: ModoExecucaoUpdate, ator: str = Depends(us
 
 
 @app.patch("/api/config/atendimento")
-async def patch_config_atendimento(body: AtendimentoConfigUpdate):
+async def patch_config_atendimento(body: AtendimentoConfigUpdate, ator: str = Depends(usuario_nome_atual)):
     """Atualiza parâmetros de atendimento sem reiniciar o servidor."""
     from services.parametro_service import (
         JANELA_CONTINUACAO_ATENDIMENTO_HORAS,
@@ -1615,6 +1793,7 @@ async def patch_config_atendimento(body: AtendimentoConfigUpdate):
                     JANELA_CONTINUACAO_ATENDIMENTO_HORAS,
                     body.janela_continuacao_atendimento_horas,
                     minimo=1,
+                    ator=ator,
                 )
             except ValueError as exc:
                 raise HTTPException(status_code=422, detail=str(exc)) from exc
@@ -1640,7 +1819,7 @@ async def listar_parametros():
 
 
 @app.patch("/api/parametros/{nome}")
-async def atualizar_parametro(nome: str, body: ParametroValorUpdate):
+async def atualizar_parametro(nome: str, body: ParametroValorUpdate, ator: str = Depends(usuario_nome_atual)):
     """Atualiza apenas o valor de um parâmetro existente."""
     from services.parametro_service import ParametroService, validar_valor_parametro
 
@@ -1653,7 +1832,7 @@ async def atualizar_parametro(nome: str, body: ParametroValorUpdate):
         except ValueError as exc:
             raise HTTPException(status_code=422, detail=str(exc)) from exc
         svc = ParametroService(session)
-        atualizado = svc.set(nome, valor)
+        atualizado = svc.set(nome, valor, ator=ator)
         return atualizado.to_dict()
 
 

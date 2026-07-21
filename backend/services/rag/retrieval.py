@@ -67,12 +67,14 @@ class RetrievalService:
         engine: Engine,
         top_k_padrao: int = 4,
         score_minimo_padrao: float = 0.70,
+        habilitado: bool = True,
     ):
         self._embeddings = embedding_provider
         self._engine = engine
         self._SessionLocal = sessionmaker(bind=engine, autocommit=False, autoflush=False)
         self._top_k_padrao = top_k_padrao
         self._score_minimo_padrao = score_minimo_padrao
+        self.habilitado = habilitado
 
     async def buscar(
         self,
@@ -227,11 +229,27 @@ class RetrievalService:
 
 @lru_cache(maxsize=1)
 def get_retrieval_service() -> RetrievalService:
-    """Retorna instancia singleton do `RetrievalService`."""
+    """Retorna instancia singleton do `RetrievalService`.
+
+    `rag_score_minimo`/`rag_top_k`/`rag_enabled` (REQ-014, Fase 7) substituem os
+    defaults de `Settings` quando já persistidos em `parametros` — carregados uma
+    única vez aqui; `PATCH /api/config/rag` muta os atributos da instância diretamente
+    (e persiste) para ter efeito sem restart.
+    """
+    from sqlalchemy.orm import sessionmaker as _sessionmaker
+
+    from services.parametro_service import ParametroService
+
     engine = create_engine(settings.DATABASE_URL, future=True)
+    with _sessionmaker(bind=engine)() as sessao:
+        svc = ParametroService(sessao)
+        top_k = svc.get_int("rag_top_k", settings.RAG_TOP_K)
+        score_minimo = svc.get_float("rag_score_minimo", settings.RAG_SCORE_MINIMO)
+        rag_habilitado = svc.get_bool("rag_enabled", settings.RAG_ENABLED)
     return RetrievalService(
         embedding_provider=get_embedding_provider(),
         engine=engine,
-        top_k_padrao=settings.RAG_TOP_K,
-        score_minimo_padrao=settings.RAG_SCORE_MINIMO,
+        top_k_padrao=top_k,
+        score_minimo_padrao=score_minimo,
+        habilitado=rag_habilitado,
     )

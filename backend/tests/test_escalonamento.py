@@ -21,6 +21,7 @@ from services.rag.retrieval import DocumentoRecuperado
 class _RetrievalFake:
     def __init__(self, resultados=None):
         self._score_minimo_padrao = 0.70
+        self.habilitado = True
         self.resultados = resultados or []
 
     async def buscar(self, query, tipo=None, **kwargs):
@@ -30,6 +31,7 @@ class _RetrievalFake:
 class _QAFake:
     def __init__(self, resultados=None):
         self._score_minimo_padrao = 0.80
+        self.habilitado = True
         self.resultados = resultados or []
 
     async def buscar(self, query, apenas_aprovados=True, **kwargs):

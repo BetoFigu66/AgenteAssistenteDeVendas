@@ -1,17 +1,8 @@
 import { useState, useEffect, useCallback } from 'react'
-import { RefreshCw, CheckCircle, Edit2, Trash2, Plus, Search, Filter, BookOpen } from 'lucide-react'
+import { RefreshCw, CheckCircle, Edit2, Trash2, Plus, Search, Filter, BookOpen, Flame, AlertTriangle } from 'lucide-react'
 import { api } from '../services/api'
 import DetalheModal from './DetalheModal'
-
-const CONTEXTOS = [
-  { value: '', label: '— todos —' },
-  { value: 'catraca', label: 'Catraca' },
-  { value: 'relogio_ponto', label: 'Relógio de Ponto' },
-  { value: 'facial', label: 'Leitor Facial' },
-  { value: 'controle_acesso', label: 'Controle de Acesso' },
-  { value: 'bastao_ronda', label: 'Bastão de Ronda' },
-  { value: 'geral', label: 'Geral' },
-]
+import { CONTEXTOS_QA as CONTEXTOS } from '../constants/qa'
 
 const BADGE_CONTEXTO = {
   catraca: 'bg-blue-100 text-blue-800',
@@ -30,9 +21,13 @@ function QABasePage() {
 
   // Filtros
   const [filtroContexto, setFiltroContexto] = useState('')
+  const [filtroTag, setFiltroTag] = useState('')
   const [filtroAprovado, setFiltroAprovado] = useState('')
   const [filtroAtivo, setFiltroAtivo] = useState('true')
   const [buscaTexto, setBuscaTexto] = useState('')
+
+  // Estatísticas de uso (REQ-013.7)
+  const [statsUso, setStatsUso] = useState([])
 
   // Modal de edição
   const [parEditando, setParEditando] = useState(null)
@@ -48,6 +43,13 @@ function QABasePage() {
   const [novoContexto, setNovoContexto] = useState('')
   const [criando, setCriando] = useState(false)
 
+  // Detecção de duplicatas por similaridade (REQ-013.5) — dispara antes de
+  // criar de fato; usuário confirma explicitamente se quiser prosseguir mesmo
+  // com candidatos parecidos já existentes.
+  const [verificandoSimilares, setVerificandoSimilares] = useState(false)
+  const [similaresEncontrados, setSimilaresEncontrados] = useState([])
+  const [confirmandoSimilares, setConfirmandoSimilares] = useState(false)
+
   // Aprovação em andamento
   const [aprovandoId, setAprovandoId] = useState(null)
   const [desativandoId, setDesativandoId] = useState(null)
@@ -58,6 +60,7 @@ function QABasePage() {
     try {
       const params = {}
       if (filtroContexto) params.contexto = filtroContexto
+      if (filtroTag.trim()) params.tag = filtroTag.trim()
       if (filtroAprovado !== '') params.aprovado = filtroAprovado === 'true'
       if (filtroAtivo !== '') params.ativo = filtroAtivo === 'true'
       params.limit = 100
@@ -69,11 +72,17 @@ function QABasePage() {
     } finally {
       setCarregando(false)
     }
-  }, [filtroContexto, filtroAprovado, filtroAtivo])
+  }, [filtroContexto, filtroTag, filtroAprovado, filtroAtivo])
 
   useEffect(() => {
     carregarPares()
   }, [carregarPares])
+
+  useEffect(() => {
+    api.estatisticasUsoQA({ top: 5 })
+      .then((data) => setStatsUso(data.estatisticas || []))
+      .catch(() => setStatsUso([]))
+  }, [])
 
   const paresVisiveis = pares.filter(p => {
     if (!buscaTexto.trim()) return true
@@ -138,8 +147,38 @@ function QABasePage() {
     }
   }
 
+  const SIMILARIDADE_ALERTA_MIN = 0.8
+
+  const fecharModalCriar = () => {
+    setMostrarModalCriar(false)
+    setNovoPergunta('')
+    setNovoResposta('')
+    setNovoContexto('')
+    setSimilaresEncontrados([])
+    setConfirmandoSimilares(false)
+  }
+
   const handleCriar = async () => {
-    if (!novoPergunta.trim() || !novoResposta.trim()) return
+    if (!novoPergunta.trim() || !novoResposta.trim() || criando || verificandoSimilares) return
+
+    if (!confirmandoSimilares) {
+      setVerificandoSimilares(true)
+      try {
+        const data = await api.buscarSimilaresQA(novoPergunta.trim(), 5)
+        const candidatos = (data.candidatos || []).filter((c) => c.score >= SIMILARIDADE_ALERTA_MIN)
+        if (candidatos.length > 0) {
+          setSimilaresEncontrados(candidatos)
+          setConfirmandoSimilares(true)
+          return
+        }
+      } catch {
+        // busca de similares indisponível (ex.: embedding provider fora do ar) —
+        // não bloqueia a criação por conta disso, só não alerta de duplicata.
+      } finally {
+        setVerificandoSimilares(false)
+      }
+    }
+
     setCriando(true)
     try {
       await api.criarParQA({
@@ -147,10 +186,7 @@ function QABasePage() {
         resposta: novoResposta.trim(),
         contexto: novoContexto || null,
       })
-      setMostrarModalCriar(false)
-      setNovoPergunta('')
-      setNovoResposta('')
-      setNovoContexto('')
+      fecharModalCriar()
       carregarPares()
     } catch (e) {
       alert('Erro ao criar: ' + e.message)
@@ -222,6 +258,13 @@ function QABasePage() {
             <option value="false">Inativos</option>
             <option value="">Todos</option>
           </select>
+          <input
+            type="text"
+            value={filtroTag}
+            onChange={(e) => setFiltroTag(e.target.value)}
+            placeholder="Filtrar por tag..."
+            className="px-2 py-1.5 border border-gray-200 rounded text-sm w-36 focus:outline-none focus:ring-1 focus:ring-inforrel-primary"
+          />
           <div className="flex items-center gap-1 flex-1 min-w-[180px] max-w-xs">
             <Search size={14} className="text-gray-400 ml-1 absolute pointer-events-none" />
             <input
@@ -237,6 +280,27 @@ function QABasePage() {
           )}
         </div>
       </div>
+
+      {/* Pares mais usados (REQ-013.7) */}
+      {statsUso.length > 0 && (
+        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-3 mb-4">
+          <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2 flex items-center gap-1.5">
+            <Flame size={13} className="text-orange-500" /> Pares mais usados (últimos 90 dias)
+          </h3>
+          <div className="flex flex-wrap gap-2">
+            {statsUso.map((s) => (
+              <span
+                key={s.id_externo}
+                title={s.par?.pergunta || s.id_externo}
+                className="text-xs bg-gray-50 border border-gray-200 rounded-full px-2.5 py-1 flex items-center gap-1.5 max-w-xs"
+              >
+                <span className="font-semibold text-inforrel-primary">{s.usos}×</span>
+                <span className="truncate">{s.par?.pergunta || s.id_externo}</span>
+              </span>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Erro */}
       {erro && (
@@ -283,9 +347,15 @@ function QABasePage() {
                     </td>
                     <td className="px-4 py-3 text-gray-800 max-w-xs">
                       <p className="line-clamp-2 leading-snug">{par.pergunta}</p>
-                      {par.criado_por && (
-                        <p className="text-xs text-gray-400 mt-0.5">por: {par.criado_por}</p>
-                      )}
+                      <p className="text-xs text-gray-400 mt-0.5 flex items-center gap-1.5 flex-wrap">
+                        {par.criado_por && <span>por: {par.criado_por}</span>}
+                        <span
+                          title="id_externo — origem/rastreabilidade do par"
+                          className="font-mono bg-gray-100 rounded px-1"
+                        >
+                          {par.id_externo}
+                        </span>
+                      </p>
                     </td>
                     <td className="px-4 py-3 text-gray-600 max-w-sm">
                       <p className="line-clamp-2 leading-snug text-xs">{par.resposta}</p>
@@ -405,7 +475,7 @@ function QABasePage() {
       {mostrarModalCriar && (
         <DetalheModal
           titulo="Novo Par Q&A"
-          onClose={() => { setMostrarModalCriar(false); setNovoPergunta(''); setNovoResposta(''); setNovoContexto('') }}
+          onClose={fecharModalCriar}
         >
           <div className="p-4 space-y-4">
             <p className="text-xs text-gray-500 bg-blue-50 border border-blue-100 rounded p-2">
@@ -417,7 +487,11 @@ function QABasePage() {
               </label>
               <textarea
                 value={novoPergunta}
-                onChange={(e) => setNovoPergunta(e.target.value)}
+                onChange={(e) => {
+                  setNovoPergunta(e.target.value)
+                  setConfirmandoSimilares(false)
+                  setSimilaresEncontrados([])
+                }}
                 placeholder="Como o cliente costuma perguntar..."
                 className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-inforrel-primary resize-none text-sm"
                 rows={3}
@@ -446,19 +520,46 @@ function QABasePage() {
                 {CONTEXTOS.map(c => <option key={c.value} value={c.value}>{c.label}</option>)}
               </select>
             </div>
+
+            {confirmandoSimilares && similaresEncontrados.length > 0 && (
+              <div className="text-xs text-amber-800 bg-amber-50 border border-amber-200 rounded p-2.5 space-y-1.5">
+                <p className="flex items-center gap-1 font-medium">
+                  <AlertTriangle size={13} /> Já existem par(es) parecido(s) na base:
+                </p>
+                <ul className="space-y-1 pl-1">
+                  {similaresEncontrados.map((c) => (
+                    <li key={c.id} className="border-l-2 border-amber-300 pl-2">
+                      <span className="font-mono text-amber-600">{Math.round(c.score * 100)}%</span>{' '}
+                      <span className="italic">"{c.pergunta}"</span>
+                      {!c.aprovado && <span className="text-amber-500"> (rascunho)</span>}
+                    </li>
+                  ))}
+                </ul>
+                <p>Clique em "Criar mesmo assim" para prosseguir ou ajuste a pergunta acima.</p>
+              </div>
+            )}
+
             <div className="flex justify-end gap-2">
               <button
-                onClick={() => { setMostrarModalCriar(false); setNovoPergunta(''); setNovoResposta(''); setNovoContexto('') }}
+                onClick={fecharModalCriar}
                 className="px-4 py-2 text-gray-600 hover:text-gray-800 transition"
               >
                 Cancelar
               </button>
               <button
                 onClick={handleCriar}
-                disabled={!novoPergunta.trim() || !novoResposta.trim() || criando}
+                disabled={!novoPergunta.trim() || !novoResposta.trim() || criando || verificandoSimilares}
                 className="px-4 py-2 bg-inforrel-primary text-white rounded-md hover:bg-inforrel-secondary transition disabled:opacity-50 flex items-center gap-2"
               >
-                {criando ? <><RefreshCw size={15} className="animate-spin" />Salvando...</> : 'Salvar rascunho'}
+                {verificandoSimilares ? (
+                  <><RefreshCw size={15} className="animate-spin" />Verificando duplicatas...</>
+                ) : criando ? (
+                  <><RefreshCw size={15} className="animate-spin" />Salvando...</>
+                ) : confirmandoSimilares ? (
+                  'Criar mesmo assim'
+                ) : (
+                  'Salvar rascunho'
+                )}
               </button>
             </div>
           </div>

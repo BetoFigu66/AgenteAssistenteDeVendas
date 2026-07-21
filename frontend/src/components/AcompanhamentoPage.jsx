@@ -13,7 +13,7 @@ import {
 } from '../utils/atendimento'
 import { useAuth } from '../context/AuthContext'
 
-function AcompanhamentoPage() {
+function AcompanhamentoPage({ atendimentoIdInicial, onAtendimentoIdInicialConsumido }) {
   const { usuario } = useAuth()
   const [atendimentos, setAtendimentos] = useState([])
   const [totalAtendimentos, setTotalAtendimentos] = useState(0)
@@ -50,6 +50,44 @@ function AcompanhamentoPage() {
   useEffect(() => {
     carregarConfigExecucao()
   }, [])
+
+  // Navegação vinda da Triagem de Reports (REQ-012, Fase 8): abre o atendimento
+  // direto pelo id, independente de estar na página/filtro atual da lista.
+  useEffect(() => {
+    if (!atendimentoIdInicial) return
+    let cancelado = false
+    api
+      .obterAtendimento(atendimentoIdInicial)
+      .then((data) => {
+        if (cancelado) return
+        setAtendimentoSelecionado({
+          id: data.id,
+          numero_atendimento_cliente: data.numero_atendimento_cliente,
+          status: data.status,
+          modo_operacao: data.modo_operacao,
+          motivo_escalonamento: data.motivo_escalonamento,
+          fase: data.fase,
+          titulo: data.titulo,
+          telefone: data.contato?.telefone || null,
+          nome_contato: data.contato?.nome || null,
+          empresa_id: data.empresa?.id ?? null,
+          empresa_nome: data.empresa?.nome ?? null,
+          mensagens_pendentes: 0,
+          updated_at: data.updated_at,
+          ultima_mensagem_at: data.ultima_mensagem_at,
+        })
+      })
+      .catch((error) => {
+        console.error('Erro ao abrir atendimento vindo do report:', error)
+      })
+      .finally(() => {
+        if (!cancelado) onAtendimentoIdInicialConsumido?.()
+      })
+    return () => {
+      cancelado = true
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [atendimentoIdInicial])
 
   useEffect(() => {
     carregarAtendimentos()
@@ -237,6 +275,9 @@ function AcompanhamentoPage() {
       if (respostaQA.trim() && perguntaQA.trim()) {
         try {
           await api.criarParQA({
+            // REQ-013.3 (Fase 9): id_externo rastreável até a mensagem reprovada
+            // que originou o rascunho, em vez do hash genérico da pergunta.
+            id_externo: `reprovacao:${mensagemReprovando.id}`,
             pergunta: perguntaQA.trim(),
             resposta: respostaQA.trim(),
             contexto: contextoQA || null,

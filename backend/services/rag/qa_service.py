@@ -67,6 +67,9 @@ class QAService:
         top_k_padrao: int = 3,
         score_minimo_padrao: float = 0.80,
         score_minimo_fulltext: float = 0.25,
+        habilitado: bool = True,
+        score_desambigua_padrao: Optional[float] = None,
+        score_desambigua_fulltext: Optional[float] = None,
     ):
         self._embeddings = embedding_provider
         self._engine = engine
@@ -74,6 +77,12 @@ class QAService:
         self._top_k_padrao = top_k_padrao
         self._score_minimo_padrao = score_minimo_padrao
         self._score_minimo_fulltext = score_minimo_fulltext
+        self.habilitado = habilitado
+        # Limiares "desambigua" da zona cinza (REQ-014, Fase 7) — capturados aqui para
+        # ficarem disponíveis a quem for construir a etapa de pergunta de clarificação
+        # (REQ-003.7); `buscar()` ainda usa só o corte binário "responde" acima.
+        self.score_desambigua_padrao = score_desambigua_padrao
+        self.score_desambigua_fulltext = score_desambigua_fulltext
 
     async def buscar(
         self,
@@ -293,12 +302,28 @@ class QAService:
 
 @lru_cache(maxsize=1)
 def get_qa_service() -> QAService:
-    """Retorna instancia singleton do QAService."""
+    """Retorna instancia singleton do QAService.
+
+    Limiares "responde" da zona cinza (REQ-014, Fase 7) substituem os defaults de
+    `Settings` quando persistidos em `parametros` — mesmo padrão do `RetrievalService`
+    (valor carregado uma vez na primeira chamada; `PATCH /api/config/rag` muta os
+    atributos da instância diretamente para ter efeito sem restart).
+    """
+    from sqlalchemy.orm import sessionmaker as _sessionmaker
+
+    from services.parametro_service import ParametroService
+
     engine = create_engine(settings.DATABASE_URL, future=True)
+    with _sessionmaker(bind=engine)() as sessao:
+        limiares = ParametroService(sessao).limiares_zona_cinza()
+        qa_habilitado = ParametroService(sessao).get_bool("qa_enabled", settings.QA_ENABLED)
     return QAService(
         embedding_provider=get_embedding_provider(),
         engine=engine,
         top_k_padrao=settings.QA_TOP_K,
-        score_minimo_padrao=settings.QA_SCORE_MINIMO,
-        score_minimo_fulltext=settings.QA_SCORE_MINIMO_FULLTEXT,
+        score_minimo_padrao=limiares["qa_embedding_responde_min"],
+        score_minimo_fulltext=limiares["qa_fulltext_responde_min"],
+        habilitado=qa_habilitado,
+        score_desambigua_padrao=limiares["qa_embedding_desambigua_min"],
+        score_desambigua_fulltext=limiares["qa_fulltext_desambigua_min"],
     )

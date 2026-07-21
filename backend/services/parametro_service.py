@@ -9,7 +9,7 @@ import logging
 from decimal import Decimal
 from typing import Optional, TypeVar, Union
 
-from models import ModoExecucao, Parametro
+from models import HistoricoConfiguracao, ModoExecucao, Parametro
 from sqlalchemy.orm import Session
 from utils.datetime_utils import utc_now
 
@@ -37,12 +37,18 @@ _PARAM_FLOAT_0_1 = frozenset({
     "qa_embedding_desambigua_min",
     "classificador_conf_alta_min",
     "classificador_conf_baixa_max",
+    "rag_score_minimo",
 })
 _PARAM_INT_MIN_1 = frozenset({
     JANELA_CONTINUACAO_ATENDIMENTO_HORAS,
     "desambiguador_max_opcoes",
     "desambiguador_timeout_min",
     SLA_APROVACAO_MINUTOS,
+    "rag_top_k",
+})
+_PARAM_BOOL = frozenset({
+    "rag_enabled",
+    "qa_enabled",
 })
 _PARAM_ENUM: dict[str, frozenset[str]] = {
     MODO_EXECUCAO: frozenset(m.value for m in ModoExecucao),
@@ -114,9 +120,23 @@ class ParametroService:
         else:
             self._cache.pop(nome, None)
 
-    def set(self, nome: str, valor: str, *, descricao: Optional[str] = None) -> Parametro:
-        """Persiste parâmetro na tabela `parametros` e invalida cache da chave."""
+    def set(
+        self,
+        nome: str,
+        valor: str,
+        *,
+        descricao: Optional[str] = None,
+        ator: Optional[str] = None,
+    ) -> Parametro:
+        """Persiste parâmetro na tabela `parametros` e invalida cache da chave.
+
+        Quando `ator` é informado, grava também uma linha em `HistoricoConfiguracao`
+        (REQ-014, Fase 7) com o valor anterior/novo — endpoints que já têm sua própria
+        auditoria dedicada (ex.: `PATCH /api/config/execucao` → `HistoricoModoExecucao`)
+        podem seguir sem passar `ator` aqui para não duplicar o registro.
+        """
         row = self._db.query(Parametro).filter(Parametro.nome == nome).first()
+        valor_anterior = row.valor if row else None
         if row:
             row.valor = valor
             if descricao is not None:
@@ -125,16 +145,33 @@ class ParametroService:
         else:
             row = Parametro(nome=nome, valor=valor, descricao=descricao)
             self._db.add(row)
+        if ator is not None:
+            self._db.add(
+                HistoricoConfiguracao(
+                    nome=nome,
+                    valor_anterior=valor_anterior,
+                    valor_novo=valor,
+                    ator=ator,
+                )
+            )
         self._db.commit()
         self._db.refresh(row)
         self.invalidar_cache(nome)
-        logger.info("[Parametro] '%s' atualizado para %r", nome, valor)
+        logger.info("[Parametro] '%s' atualizado para %r (ator=%s)", nome, valor, ator)
         return row
 
-    def set_int(self, nome: str, valor: int, *, minimo: int = 1, descricao: Optional[str] = None) -> int:
+    def set_int(
+        self,
+        nome: str,
+        valor: int,
+        *,
+        minimo: int = 1,
+        descricao: Optional[str] = None,
+        ator: Optional[str] = None,
+    ) -> int:
         if valor < minimo:
             raise ValueError(f"'{nome}' deve ser inteiro >= {minimo}")
-        self.set(nome, str(valor), descricao=descricao)
+        self.set(nome, str(valor), descricao=descricao, ator=ator)
         return valor
 
     def janela_continuacao_atendimento_horas(self) -> int:
@@ -205,6 +242,8 @@ def validar_valor_parametro(nome: str, valor: str) -> str:
     elif nome in _PARAM_ENUM:
         if v not in _PARAM_ENUM[nome]:
             raise ValueError(f"'{nome}' deve ser um de {sorted(_PARAM_ENUM[nome])}")
+    elif nome in _PARAM_BOOL:
+        _cast(v, bool)  # levanta ValueError se não for um booleano reconhecido
     return v
 
 

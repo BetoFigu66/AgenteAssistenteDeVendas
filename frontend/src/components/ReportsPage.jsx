@@ -24,7 +24,7 @@ function StatCard({ label, valor, valorFiltrado, temFiltro, cor = 'bg-gray-100 t
   )
 }
 
-function ReportsPage({ onVoltar }) {
+function ReportsPage({ onVoltar, onAbrirAtendimento }) {
   const [reports, setReports] = useState([])
   const [stats, setStats] = useState(null)
   const [statsFiltrados, setStatsFiltrados] = useState(null)
@@ -37,6 +37,16 @@ function ReportsPage({ onVoltar }) {
   const [filtroCategoria, setFiltroCategoria] = useState('')
   const [filtroSeveridade, setFiltroSeveridade] = useState('')
   const [apenasAbertos, setApenasAbertos] = useState(true)
+  const [filtroDataInicio, setFiltroDataInicio] = useState('')
+  const [filtroDataFim, setFiltroDataFim] = useState('')
+
+  // Autor/busca textual (REQ-012, Fase 8) — aplicados só ao clicar "Buscar",
+  // mesmo padrão de `filtroQ`/`filtroQAplicado` em AcompanhamentoPage (evita
+  // uma requisição por tecla digitada).
+  const [filtroAutor, setFiltroAutor] = useState('')
+  const [filtroAutorAplicado, setFiltroAutorAplicado] = useState('')
+  const [filtroBusca, setFiltroBusca] = useState('')
+  const [filtroBuscaAplicada, setFiltroBuscaAplicada] = useState('')
 
   // Paginação (REQ-010, Fase 4)
   const [pagina, setPagina] = useState(1)
@@ -48,10 +58,27 @@ function ReportsPage({ onVoltar }) {
     categoria: filtroCategoria,
     severidade: filtroSeveridade,
     apenas_abertos: !filtroStatus && apenasAbertos ? 'true' : '',
+    autor: filtroAutorAplicado,
+    q_busca: filtroBuscaAplicada,
+    data_inicio: filtroDataInicio,
+    data_fim: filtroDataFim,
   })
 
   const temFiltroAtivo =
-    !!filtroStatus || !!filtroCategoria || !!filtroSeveridade || (!filtroStatus && apenasAbertos)
+    !!filtroStatus ||
+    !!filtroCategoria ||
+    !!filtroSeveridade ||
+    !!filtroAutorAplicado ||
+    !!filtroBuscaAplicada ||
+    !!filtroDataInicio ||
+    !!filtroDataFim ||
+    (!filtroStatus && apenasAbertos)
+
+  const aplicarFiltrosTexto = () => {
+    setPagina(1)
+    setFiltroAutorAplicado(filtroAutor.trim())
+    setFiltroBuscaAplicada(filtroBusca.trim())
+  }
 
   const carregar = async () => {
     setLoading(true)
@@ -77,7 +104,17 @@ function ReportsPage({ onVoltar }) {
   useEffect(() => {
     carregar()
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [filtroStatus, filtroCategoria, filtroSeveridade, apenasAbertos, pagina])
+  }, [
+    filtroStatus,
+    filtroCategoria,
+    filtroSeveridade,
+    apenasAbertos,
+    filtroAutorAplicado,
+    filtroBuscaAplicada,
+    filtroDataInicio,
+    filtroDataFim,
+    pagina,
+  ])
 
   // Troca de filtro sempre volta pra página 1 (setado no próprio handler do
   // filtro, não num efeito separado — evita buscar com a página antiga antes
@@ -179,6 +216,39 @@ function ReportsPage({ onVoltar }) {
         </div>
       )}
 
+      {/* Distribuição por categoria/severidade */}
+      {stats && (
+        <div className="flex flex-wrap gap-x-6 gap-y-2 mb-4 text-xs">
+          <div className="flex flex-wrap items-center gap-1.5">
+            <span className="text-gray-500 uppercase tracking-wide mr-1">Por categoria:</span>
+            {CATEGORIAS.map((c) => {
+              const valor = (temFiltroAtivo ? statsFiltrados : stats)?.por_categoria?.[c.valor]
+              if (!valor) return null
+              return (
+                <span
+                  key={c.valor}
+                  className="bg-gray-100 text-gray-700 px-2 py-0.5 rounded-full"
+                >
+                  {c.label}: {valor}
+                </span>
+              )
+            })}
+          </div>
+          <div className="flex flex-wrap items-center gap-1.5">
+            <span className="text-gray-500 uppercase tracking-wide mr-1">Por severidade:</span>
+            {SEVERIDADES.map((s) => {
+              const valor = (temFiltroAtivo ? statsFiltrados : stats)?.por_severidade?.[s.valor]
+              if (!valor) return null
+              return (
+                <span key={s.valor} className={`px-2 py-0.5 rounded-full ${corSeveridade(s.valor)}`}>
+                  {s.label}: {valor}
+                </span>
+              )
+            })}
+          </div>
+        </div>
+      )}
+
       {/* Filtros */}
       <div className="bg-white rounded-lg border border-gray-200 p-3 mb-4">
         <div className="grid grid-cols-1 md:grid-cols-4 gap-2">
@@ -231,6 +301,57 @@ function ReportsPage({ onVoltar }) {
               />
               Apenas não-finalizados
             </label>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-2 mt-2">
+          <div>
+            <label className="text-xs text-gray-500 uppercase tracking-wide">Autor</label>
+            <input
+              type="text"
+              value={filtroAutor}
+              onChange={(e) => setFiltroAutor(e.target.value)}
+              onKeyDown={(e) => e.key === 'Enter' && aplicarFiltrosTexto()}
+              placeholder="Nome de quem reportou..."
+              className="w-full border border-gray-300 rounded px-2 py-1.5 text-sm mt-0.5"
+            />
+          </div>
+          <div>
+            <label className="text-xs text-gray-500 uppercase tracking-wide">Busca (descrição/resolução)</label>
+            <input
+              type="text"
+              value={filtroBusca}
+              onChange={(e) => setFiltroBusca(e.target.value)}
+              onKeyDown={(e) => e.key === 'Enter' && aplicarFiltrosTexto()}
+              placeholder="Termo livre..."
+              className="w-full border border-gray-300 rounded px-2 py-1.5 text-sm mt-0.5"
+            />
+          </div>
+          <div>
+            <label className="text-xs text-gray-500 uppercase tracking-wide">De</label>
+            <input
+              type="date"
+              value={filtroDataInicio}
+              onChange={(e) => handleFiltroChange(setFiltroDataInicio)(e.target.value)}
+              className="w-full border border-gray-300 rounded px-2 py-1.5 text-sm mt-0.5"
+            />
+          </div>
+          <div>
+            <label className="text-xs text-gray-500 uppercase tracking-wide">Até</label>
+            <div className="flex gap-1.5">
+              <input
+                type="date"
+                value={filtroDataFim}
+                onChange={(e) => handleFiltroChange(setFiltroDataFim)(e.target.value)}
+                className="w-full border border-gray-300 rounded px-2 py-1.5 text-sm mt-0.5"
+              />
+              <button
+                onClick={aplicarFiltrosTexto}
+                className="mt-0.5 shrink-0 text-sm bg-inforrel-primary text-white px-3 py-1.5 rounded hover:opacity-90"
+              >
+                Buscar
+              </button>
+            </div>
           </div>
         </div>
       </div>
@@ -333,6 +454,7 @@ function ReportsPage({ onVoltar }) {
           reportId={selecionado.id}
           onClose={() => setSelecionado(null)}
           onAtualizado={onReportAtualizado}
+          onAbrirAtendimento={onAbrirAtendimento}
         />
       )}
     </div>

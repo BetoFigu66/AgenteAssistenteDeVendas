@@ -97,16 +97,22 @@ class ResultadoClassificacao:
         return self.intencoes[0] if self.intencoes else Intencao.DESCONHECIDO
 
 
-def _calcular_nivel_confianca(confianca: float) -> NivelConfianca:
+def _calcular_nivel_confianca(
+    confianca: float,
+    alta_min: float = 0.70,
+    baixa_max: float = 0.40,
+) -> NivelConfianca:
     """
     Converte um score numérico em nível qualitativo.
 
-    Thresholds padrão (podem ser sobrescritos pelo ParametroService
-    no processador para decisões de fallback).
+    Defaults preservam o comportamento histórico (0.70/0.40) para chamadores que não
+    passam limiares — `classificar()` recebe os valores efetivos de quem tiver acesso
+    ao `ParametroService` (REQ-014, Fase 7); este módulo permanece sem dependência de
+    banco.
     """
-    if confianca >= 0.70:
+    if confianca >= alta_min:
         return NivelConfianca.ALTA
-    if confianca >= 0.40:
+    if confianca >= baixa_max:
         return NivelConfianca.MEDIA
     return NivelConfianca.BAIXA
 
@@ -572,6 +578,7 @@ async def classificar(
     texto: str,
     llm: Optional[LLMProvider] = None,
     contexto: Optional[str] = None,
+    limiares_confianca: Optional[dict] = None,
 ) -> ResultadoClassificacao:
     """
     Classifica a mensagem de forma híbrida: primeiro regras, depois LLM.
@@ -580,10 +587,18 @@ async def classificar(
         texto: Texto da mensagem
         llm: Provedor LLM (opcional, se None só usa regras)
         contexto: Contexto adicional para a LLM
+        limiares_confianca: dict opcional `{"alta_min": float, "baixa_max": float}`
+            (ex.: `ParametroService.limiares_classificador()`) — quando `None`, usa os
+            defaults históricos de `_calcular_nivel_confianca` (REQ-014, Fase 7).
 
     Returns:
         ResultadoClassificacao com intenção, confiança, entidades e origem.
     """
+    kwargs_nivel = (
+        {"alta_min": limiares_confianca["alta_min"], "baixa_max": limiares_confianca["baixa_max"]}
+        if limiares_confianca
+        else {}
+    )
     entidades_regra = extrair_entidades(texto)
     matches_regra = classificar_por_regras(texto)
     confianca_regra = max(c for _, c in matches_regra)
@@ -595,7 +610,7 @@ async def classificar(
         return ResultadoClassificacao(
             intencoes=intencoes,
             confianca=confianca_regra,
-            confianca_nivel=_calcular_nivel_confianca(confianca_regra),
+            confianca_nivel=_calcular_nivel_confianca(confianca_regra, **kwargs_nivel),
             entidades=entidades_regra,
             origem="regra",
         )
@@ -606,7 +621,7 @@ async def classificar(
         return ResultadoClassificacao(
             intencoes=intencoes,
             confianca=confianca_regra,
-            confianca_nivel=_calcular_nivel_confianca(confianca_regra),
+            confianca_nivel=_calcular_nivel_confianca(confianca_regra, **kwargs_nivel),
             entidades=entidades_regra,
             origem="regra",
         )
@@ -645,7 +660,7 @@ async def classificar(
     return ResultadoClassificacao(
         intencoes=intencoes,
         confianca=confianca_llm,
-        confianca_nivel=_calcular_nivel_confianca(confianca_llm),
+        confianca_nivel=_calcular_nivel_confianca(confianca_llm, **kwargs_nivel),
         entidades=entidades_final,
         origem="llm",
         raw_llm=raw,

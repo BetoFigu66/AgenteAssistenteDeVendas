@@ -95,7 +95,7 @@ function EntidadesView({ entidades }) {
   )
 }
 
-function ScoreBadge({ valor }) {
+export function ScoreBadge({ valor }) {
   if (valor === null || valor === undefined) return null
   const pct = Math.round(valor * 100)
   let cor = 'bg-red-100 text-red-700'
@@ -108,7 +108,7 @@ function ScoreBadge({ valor }) {
   )
 }
 
-function RagTrechosView({ trechos }) {
+export function RagTrechosView({ trechos }) {
   if (!trechos || trechos.length === 0) {
     return <p className="text-sm text-gray-500 italic">Nenhum trecho recuperado</p>
   }
@@ -147,6 +147,8 @@ function RagTrechosView({ trechos }) {
   )
 }
 
+const DESCRICAO_REPORT_MIN_CHARS = 10
+
 function ReportsSection({ processamentoId, reportsIniciais }) {
   const [reports, setReports] = useState(reportsIniciais || [])
   const [descricao, setDescricao] = useState('')
@@ -156,9 +158,11 @@ function ReportsSection({ processamentoId, reportsIniciais }) {
   const [erroEnvio, setErroEnvio] = useState(null)
   const [sucesso, setSucesso] = useState(false)
 
+  const descricaoValida = descricao.trim().length >= DESCRICAO_REPORT_MIN_CHARS
+
   const handleEnviar = async (e) => {
     e.preventDefault()
-    if (!descricao.trim() || enviando) return
+    if (!descricaoValida || enviando) return
     setEnviando(true)
     setErroEnvio(null)
     setSucesso(false)
@@ -196,6 +200,12 @@ function ReportsSection({ processamentoId, reportsIniciais }) {
           className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:border-inforrel-primary"
           disabled={enviando}
         />
+        {descricao.trim().length > 0 && !descricaoValida && (
+          <p className="text-xs text-amber-600">
+            Descrição precisa ter pelo menos {DESCRICAO_REPORT_MIN_CHARS} caracteres
+            ({descricao.trim().length}/{DESCRICAO_REPORT_MIN_CHARS}).
+          </p>
+        )}
         <div className="grid grid-cols-2 gap-2">
           <div>
             <label className="text-xs text-gray-500 uppercase tracking-wide">Categoria</label>
@@ -241,7 +251,7 @@ function ReportsSection({ processamentoId, reportsIniciais }) {
         <div className="flex justify-end">
           <button
             type="submit"
-            disabled={!descricao.trim() || enviando}
+            disabled={!descricaoValida || enviando}
             className="btn-primary text-sm px-4 py-1.5 rounded flex items-center gap-1.5 disabled:opacity-50"
           >
             {enviando ? (
