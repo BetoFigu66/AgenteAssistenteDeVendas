@@ -10,6 +10,7 @@ from typing import List, Optional
 from sqlalchemy import (
     JSON,
     Boolean,
+    Column,
     Date,
     DateTime,
     Enum,
@@ -18,6 +19,7 @@ from sqlalchemy import (
     Integer,
     Numeric,
     String,
+    Table,
     Text,
     UniqueConstraint,
 )
@@ -751,6 +753,34 @@ class Orcamento(Base):
         }
 
 
+modelos_categorias = Table(
+    "modelos_categorias",
+    Base.metadata,
+    Column("modelo_id", ForeignKey("modelos.id", ondelete="CASCADE"), primary_key=True),
+    Column("categoria_id", ForeignKey("categorias.id", ondelete="CASCADE"), primary_key=True),
+)
+
+
+class Categoria(Base):
+    """Agrupador comercial associado a um ou mais modelos."""
+
+    __tablename__ = "categorias"
+
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    descricao: Mapped[str] = mapped_column(String(100), nullable=False, unique=True)
+    ativo: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(UTCDateTime, default=utc_now, nullable=False)
+
+    modelos: Mapped[List["Modelo"]] = relationship(
+        secondary=modelos_categorias,
+        back_populates="categorias",
+    )
+
+    def to_dict(self) -> dict:
+        """Converte o modelo para dicionário."""
+        return {"id": self.id, "descricao": self.descricao, "ativo": self.ativo}
+
+
 class Produto(Base):
     """
     Categoria genérica de produto (ex: Catraca, Relógio de Ponto).
@@ -789,7 +819,8 @@ class Modelo(Base):
     descricao: Mapped[str] = mapped_column(String(300), nullable=False)
     preco_tabela: Mapped[Optional[Decimal]] = mapped_column(Numeric(15, 2), nullable=True)
     unidade: Mapped[Optional[str]] = mapped_column(String(20), nullable=True, default="UN")
-    categoria: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
+    marca: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
+    aplicacao: Mapped[Optional[str]] = mapped_column(String(300), nullable=True)
     ativo: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
     created_at: Mapped[datetime] = mapped_column(UTCDateTime, default=utc_now, nullable=False)
     updated_at: Mapped[datetime] = mapped_column(
@@ -798,6 +829,10 @@ class Modelo(Base):
 
     # Relacionamentos
     produto: Mapped["Produto"] = relationship(back_populates="modelos")
+    categorias: Mapped[List["Categoria"]] = relationship(
+        secondary=modelos_categorias,
+        back_populates="modelos",
+    )
     itens_orcamento: Mapped[List["ItemOrcamento"]] = relationship(back_populates="modelo")
     itens_atendimento: Mapped[List["ItemAtendimento"]] = relationship(back_populates="modelo")
 
@@ -810,7 +845,9 @@ class Modelo(Base):
             "descricao": self.descricao,
             "preco_tabela": str(self.preco_tabela) if self.preco_tabela is not None else None,
             "unidade": self.unidade,
-            "categoria": self.categoria,
+            "categorias": [categoria.to_dict() for categoria in self.categorias],
+            "marca": self.marca,
+            "aplicacao": self.aplicacao,
             "ativo": self.ativo,
         }
 

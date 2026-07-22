@@ -1,25 +1,23 @@
 {
-  "gerado_em": "2026-04-30T16:31:03.408428+00:00",
+  "gerado_em": "2026-07-21T18:49:11.321313+00:00",
   "inventario": "backend/data/rag/inventario_fontes.json",
-  "total_fontes": 95,
-  "total_documentos": 82,
+  "total_fontes": 94,
+  "total_documentos": 81,
   "por_tipo_documento": {
     "blog": 4,
     "categoria_produto": 6,
-    "conversa": 1,
     "indice_produto": 6,
     "institucional": 7,
     "produto": 54,
     "solucao": 4
   },
   "por_origem": {
-    "conversa_whatsapp": 1,
     "folder_produto": 19,
     "webscraping": 62
   },
   "por_status": {
     "extensao_ignorada": 13,
-    "processado": 82
+    "processado": 81
   },
   "status_fontes": [
     {
@@ -666,25 +664,6 @@
       "extensao": ".txt",
       "motivo": "processado",
       "linhas_removidas": 8
-    },
-    {
-      "arquivo": "docs/ConversasDoWhatsApp/[CONVERSA_WHATSAPP].txt",
-      "tipo_fonte": "conversa_whatsapp",
-      "extensao": ".txt",
-      "motivo": "processado",
-      "mensagens": 23,
-      "anexos_removidos": 7,
-      "mensagens_sistema_removidas": 0,
-      "anexos": [
-        "[ANEXO_REMOVIDO]",
-        "[ANEXO_REMOVIDO]",
-        "[ANEXO_REMOVIDO]",
-        "[ANEXO_REMOVIDO]",
-        "[ANEXO_REMOVIDO]",
-        "[ANEXO_REMOVIDO]",
-        "[ANEXO_REMOVIDO]"
-      ],
-      "anonimizado": true
     }
   ]
 }

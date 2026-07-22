@@ -1,29 +1,27 @@
 {
-  "gerado_em": "2026-04-30T16:36:30.684968+00:00",
+  "gerado_em": "2026-07-21T18:49:11.586668+00:00",
   "similaridade_minima": 0.82,
-  "total_entrada": 82,
-  "total_saida": 80,
+  "total_entrada": 81,
+  "total_saida": 79,
   "duplicatas_exatas_removidas": 2,
   "grupos_duplicata_exata": 1,
   "pares_similares_para_revisao": 1,
   "por_tipo_documento": {
     "blog": 4,
     "categoria_produto": 6,
-    "conversa": 1,
     "indice_produto": 6,
     "institucional": 7,
     "produto": 52,
     "solucao": 4
   },
   "por_origem": {
-    "conversa_whatsapp": 1,
     "folder_produto": 17,
     "webscraping": 62
   },
   "por_status_consolidacao": {
     "representante_duplicata_exata": 1,
     "similar_precisa_revisao": 2,
-    "unico": 77
+    "unico": 76
   },
   "duplicatas_exatas": [
     {

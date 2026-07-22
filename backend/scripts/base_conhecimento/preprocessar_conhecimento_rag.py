@@ -20,7 +20,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-RAIZ_PROJETO = Path(__file__).resolve().parents[2]
+RAIZ_PROJETO = Path(__file__).resolve().parents[3]
 INVENTARIO_PADRAO = RAIZ_PROJETO / "backend" / "data" / "rag" / "inventario_fontes.json"
 SAIDA_PADRAO = RAIZ_PROJETO / "backend" / "data" / "rag" / "documentos_normalizados.jsonl"
 RESUMO_PADRAO = RAIZ_PROJETO / "backend" / "data" / "rag" / "preprocessamento_resumo.json"

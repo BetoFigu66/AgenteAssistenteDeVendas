@@ -1,7 +1,7 @@
 {
-  "gerado_em": "2026-04-30T17:05:34.887813+00:00",
-  "total_documentos": 80,
-  "total_chunks": 198,
+  "gerado_em": "2026-07-21T18:49:11.846242+00:00",
+  "total_documentos": 79,
+  "total_chunks": 197,
   "configuracao": {
     "alvo_tokens": 700,
     "max_tokens": 900,
@@ -10,20 +10,19 @@
   "por_tipo_documento": {
     "blog": 4,
     "categoria_produto": 6,
-    "conversa": 1,
     "indice_produto": 6,
     "institucional": 7,
     "produto": 170,
     "solucao": 4
   },
   "por_tipo_chunk": {
-    "conteudo": 80,
+    "conteudo": 79,
     "faq": 118
   },
   "tokens_aproximados": {
     "min": 3,
     "max": 758,
-    "media": 121.8
+    "media": 121.3
   },
   "chunks_por_documento": {
     "folder_produto:bastão-de-ronda:084cc66f4f85": 1,
@@ -104,7 +103,6 @@
     "webscraping:solucoes-especiais:c369ba128725": 1,
     "webscraping:solucoes-especiais_para-academias:51e5edde62ba": 1,
     "webscraping:solucoes-especiais_para-clubes:1a5e36c65a54": 1,
-    "webscraping:solucoes-especiais_para-comercios-em-geral:e5fb76b93915": 1,
-    "conversa_whatsapp:conversa-whatsapp-bc8298f10dfb:22d756d3ec5b": 1
+    "webscraping:solucoes-especiais_para-comercios-em-geral:e5fb76b93915": 1
   }
 }
