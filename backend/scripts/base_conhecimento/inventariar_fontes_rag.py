@@ -22,7 +22,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Iterable
 
-RAIZ_PROJETO = Path(__file__).resolve().parents[2]
+RAIZ_PROJETO = Path(__file__).resolve().parents[3]
 SAIDA_PADRAO = RAIZ_PROJETO / "backend" / "data" / "rag" / "inventario_fontes.json"
 
 FONTES_PADRAO = {

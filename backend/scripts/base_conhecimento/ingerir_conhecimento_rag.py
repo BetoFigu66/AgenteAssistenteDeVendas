@@ -34,7 +34,7 @@ from typing import Any, Iterable, Iterator
 
 # Permite rodar tanto como `python -m scripts.ingerir_conhecimento_rag`
 # quanto como `python scripts/ingerir_conhecimento_rag.py` a partir de backend/.
-BACKEND_DIR = Path(__file__).resolve().parents[1]
+BACKEND_DIR = Path(__file__).resolve().parents[2]
 if str(BACKEND_DIR) not in sys.path:
     sys.path.insert(0, str(BACKEND_DIR))
 

@@ -1,0 +1,45 @@
+﻿id_linha;produto;modelo;Categoria;Marca;Aplicação;codigo;unidade;fonte
+1;Catraca;Catraca Biométrica Fit TOPDATA;Controle de Acesso;Topdata;Pequenas e médias empresas;;UN;documentos_conhecimento
+2;Catraca;Catraca com leitor facial Fit TOPDATA;Controle de Acesso;Topdata;Academias;;UN;documentos_conhecimento
+3;Catraca;Catraca Facial em inox Box TOPDATA;Controle de Acesso;Topdata;Pequenas e médias empresas;;UN;documentos_conhecimento
+4;Catraca;Catraca Facial Revolution TOPDATA;Controle de Acesso;Topdata;Escritórios;;UN;documentos_conhecimento
+5;Catraca;Catraca iDBlock Balcão Facial - Control iD;Controle de Acesso;Control-ID;Condomínios;;UN;documentos_conhecimento
+6;Catraca;Catraca iDBlock Next com Contador de Giros - Control iD;Controle de Acesso;Control-ID;Condomínios;;UN;documentos_conhecimento
+7;Catraca;Catraca iDBlock Next com iDFace Max - Control iD;Controle de Acesso;Control-ID;Condomínios;;UN;documentos_conhecimento
+8;Catraca;Catraca iDBlock PcD Facial com iDFace Max - Control iD;Controle de Acesso;Control-ID;Rodoviárias;;UN;documentos_conhecimento
+35;Catraca;Controle de Acesso Torniquete Facial com iDFace Max - Control iD;Controle de Acesso;Control-ID;Bancos;;UN;documentos_conhecimento
+28;Cancela;Barrier Jetflex Brushless – Barreira Articulada de Alumínio;Controle de Acesso;PPA;Pedágio;;UN;documentos_conhecimento
+29;Cancela;Barrier Jetflex Brushless – Barreira Linear de PVC;Controle de Acesso;PPA;Pedágio;;UN;documentos_conhecimento
+30;Cancela;Cancela K1 Jetflex;Controle de Acesso;PPA;Pedágio;;UN;documentos_conhecimento
+;Cancela;Barrier Jetflex Brushless – Barreira Linear de Alumínio;Controle de Acesso;PPA;Pedágio;;UN;
+;Cancela;Brasso Jetflex – Barreira Linear de Alumínio;Controle de Acesso;PPA;Pedágio;;UN;
+24;Leitor Facial;Leitor Facial TOPDATA F4;Controle de Acesso, Controle de Ponto;Topdata;Academias;;UN;folder-leitor-facial.txt
+25;Leitor Facial;Leitor Facial TOPDATA T4-50K;Controle de Acesso, Controle de Ponto;Topdata;Academias;;UN;folder-leitor-facial.txt
+31;Leitor Facial;Controle de Acesso iDFace - Control iD;Controle de Acesso;Control-ID;Pequenas e médias empresas;;UN;documentos_conhecimento
+32;Leitor Facial;Controle de Acesso iDFace Max - Control iD;Controle de Acesso;Control-ID;Residências;;UN;documentos_conhecimento
+39;Leitor Facial;Terminal de Reconhecimento Facial da série Pro DS-K1T673DX - Hikvision;Controle de Acesso;Hikvision;Residências;;UN;documentos_conhecimento
+;Leitor Facial;Controlador de acesso facial com biometria digital SS 5542 MF W – Intelbras;Controle de Acesso;Intelbras;Residências;;UN;
+;Leitor Facial;Controlador de acesso facial SS 5531 MF EX – Intelbras;Controle de Acesso;Intelbras;Residências;;UN;
+;Leitor Facial;Controlador de acesso facial com biometria digital SS 5542 MF W – Intelbras;Controle de Acesso;Intelbras;Residências;;UN;
+;Leitor Facial;Controlador de acesso facial SS 5531 MF EX – Intelbras;Controle de Acesso;Intelbras;Residências;;UN;
+41;Leitor biométrico;Coletor Inner Acesso 2 - Topdata;Controle de Acesso;Topdata;Escritórios;;UN;documentos_conhecimento
+42;Leitor biométrico;Coletor Inner Acesso - Topdata;Controle de Acesso, Controle de Ponto;Topdata;Pequenas e médias empresas;;UN;documentos_conhecimento
+44;Câmera;Câmera IP série 1000 com Full Color e IR - Intelbras;Controle de Acesso;Intelbras;Bancos;;UN;documentos_conhecimento
+45;Câmera;Câmera IP série 1000 com Full Color e IR VIP 1430 D FC+ - Intelbras;Controle de Acesso;Intelbras;Residências;;UN;documentos_conhecimento
+;Leitor QR Code;QR Code para controle de acesso;Controle de Acesso;Topdata;Academias;;UN;
+33;Controle por cartão;Controle de Acesso iDFlex IP65 Prox - Control iD;Controle de Acesso;Control-ID;Pequenas e médias empresas;;UN;documentos_conhecimento
+34;Controle de Acesso de Veículos;Controle de Acesso iDUHF - Control iD;Controle de Acesso;Control-ID;Pequenas e médias empresas;;UN;documentos_conhecimento
+;Gravador de Vídeo;Gravador de vídeo Multi HD com 16 canais MHDX 1316 – Intelbras;Controle de Acesso, Vigilância;Intelbras;Pedágio;;UN;
+27;Bastão de Ronda;Bastão de Ronda – TOPDATA;Controle de Acesso, Vigilância;Topdata;Pedágio;;UN;folder-bastao-de-ronda.txt
+36;Software para Controle de Acesso;Software para Controle de Acesso iDSecure Cloud - Control iD;Controle de Acesso;Control-ID;Não se aplica;;UN;documentos_conhecimento
+37;Software para Controle de Acesso;Software para Controle de Acesso iDSecure On-Premises - Control iD;Controle de Acesso;Control-ID;Não se aplica;;UN;documentos_conhecimento
+38;Software para Controle de Acesso;Software para Controle de Acesso TopAcesso;Controle de Acesso;Topdata;Não se aplica;;UN;confirmado_usuario
+9;Relógio de Ponto;Pontto - Relógio de Ponto Cartográfico - TOPDATA;Controle de Ponto;Topdata;Pequenas e médias empresas;;UN;documentos_conhecimento
+10;Relógio de Ponto;Relógio de Ponto Biométrico - TOPDATA;Controle de Ponto;Topdata;Pequenas e médias empresas;;UN;documentos_conhecimento
+11;Relógio de Ponto;Relógio de Ponto REP iDClass Bio Barras - Control iD;Controle de Ponto;Control-ID;Escritórios;;UN;documentos_conhecimento
+12;Relógio de Ponto;Relógio de Ponto REP iDClass Bio - Control iD;Controle de Ponto;Control-ID;Pequenas e médias empresas;;UN;documentos_conhecimento
+13;Relógio de Ponto;Relógio de Ponto REP iDClass Facial - Control iD;Controle de Ponto;Control-ID;Pequenas e médias empresas;;UN;documentos_conhecimento
+26;Software de Ponto;TopPonto Web -Sistema de Controle de Ponto Web – TOPDATA;Controle de Ponto;Topdata;Não se aplica;;UN;folder-ponto-web.txt
+43;Ponto Eletrônico;Ponto Eletrônico Inner Ponto 4 TOPDATA;Controle de Ponto;Topdata;Pequenas e médias empresas;;UN;documentos_conhecimento
+;Roteador;Roteador Empresarial Wi-Fi 4 de longo alcance AP 360 – Intelbras;Roteador;Intelbras;Grandes Empresas;;UN;
+;Roteador;Roteador Empresarial Wi-Fi 5 de alta velocidade AP 1350 AC-S – Intelbras;Roteador;Intelbras;Grandes Empresas;;UN;
