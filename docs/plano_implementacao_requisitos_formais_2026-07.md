@@ -2,11 +2,11 @@
 
 <!-- CLASSIFICACAO: ANDAMENTO -->
 
-**Versão:** 1.1
+**Versão:** 1.2
 **Data de criação:** 2026-07-16
-**Última revisão:** 2026-07-16 (reunião de priorização — ver [Histórico de Revisões](#4-histórico-de-revisões))
+**Última revisão:** 2026-07-22 (levantamento motivado por avaliação do RAG — ver [Histórico de Revisões](#4-histórico-de-revisões))
 **Autor:** Beto + Claude
-**Status:** Em execução — Fases 1 (REQ-016), 2 (REQ-011) e 3 (REQ-003) implementadas (Fase 3 ainda pendente de commit). Prioridades das fases seguintes revisadas em reunião de 2026-07-16.
+**Status:** Em execução — Fases 1 a 8 (REQ-016, REQ-011, REQ-003, REQ-010, REQ-004, REQ-005, REQ-014, REQ-012) implementadas e commitadas; Fase 9 (REQ-013) substancialmente implementada no mesmo commit das Fases 7/8. Fases 3, 7 e 9 foram reauditadas tarefa a tarefa em 2026-07-22 (ver `docs/arquitetura_avaliacao_rag_2026-07.md`); Fases 4, 5, 6 e 8 têm commit de implementação mas **não** foram reauditadas tarefa a tarefa nesta revisão. Próxima fase não iniciada: Fase 10 (REQ-008, Twilio).
 **Origem:** `AnotacoesPessoais/Beto/relatorio_completude_requisitos_2026-07-16.md` (análise de completude código x `artefatos/requisitos_formais/`)
 **Escopo deste plano:** sequenciar a implementação dos 16 REQs formais na ordem de prioridade definida pelo Beto, com tarefas concretas por fase.
 
@@ -28,15 +28,15 @@ A ordem foi definida pelo Beto e não foi alterada por este plano, exceto pela r
 
 | Fase | REQ | Título | Completude atual | Depende de (fases anteriores) | Deixa pendente para |
 |---|---|---|---|---|---|
-| 1 | REQ-016 | Identificação/Numeração de Atendimentos | ~42% — **implementada** | — | Efeito de conversão/perda de orçamento (fase 14) |
-| 2 | REQ-011 | Modos de Execução/Aprovação | ~30% — **implementada** | — | — |
-| 3 | REQ-003 | Respostas Automáticas RAG | ~79% — **implementada** (pendente commit) | — | — |
-| 4 | REQ-010 | Painel Administrativo | ~37% | Fases 1-3 (parcial — ver notas da fase) | Tela de escalonamentos (fase 5), filtro de período no histórico (fase 6), badge de restrição financeira (fase 16), tela de orçamentos (fase 14) |
-| 5 | REQ-004 | Human Takeover/Escalonamento | ~25% | Fase 2 | Regra de prioridade sobre REQ-009 (fase 15); tela de escalonamentos da fase 4 fica pendente até aqui |
-| 6 | REQ-005 | Registro de Interações/Histórico | ~35% | Fases 1, 5 | Eventos de orçamento (fase 14) |
-| 7 | REQ-014 | Configuração em Runtime | ~39% | Fase 1 | — |
-| 8 | REQ-012 | Reports de Problema | ~57% | — | Ponte com REQ-013 (fase 9) |
-| 9 | REQ-013 | Pares Q&A Curados | ~59% | Fases 3, 8 | — |
+| 1 | REQ-016 | Identificação/Numeração de Atendimentos | ~42% — **implementada** (commit `4c4666b`) | — | Efeito de conversão/perda de orçamento (fase 14) |
+| 2 | REQ-011 | Modos de Execução/Aprovação | ~30% — **implementada** (commit `3316200`) | — | — |
+| 3 | REQ-003 | Respostas Automáticas RAG | **~100% — implementada** (commit `58c2d54`; reauditada tarefa a tarefa em 2026-07-22) | — | — |
+| 4 | REQ-010 | Painel Administrativo | ~37% — **implementada** (commit `998ce5b`; não reauditada tarefa a tarefa) | Fases 1-3 (parcial — ver notas da fase) | Tela de escalonamentos (fase 5), filtro de período no histórico (fase 6), badge de restrição financeira (fase 16), tela de orçamentos (fase 14) — confirmar se ainda pendentes |
+| 5 | REQ-004 | Human Takeover/Escalonamento | ~25% — **implementada** (commit `38fb1ee`; bug crítico de `modo_operacao` confirmado corrigido, demais tarefas não reauditadas) | Fase 2 | Regra de prioridade sobre REQ-009 (fase 15); tela de escalonamentos da fase 4 fica pendente até aqui |
+| 6 | REQ-005 | Registro de Interações/Histórico | ~35% — **implementada** (commit `eca2aca`; não reauditada tarefa a tarefa) | Fases 1, 5 | Eventos de orçamento (fase 14) |
+| 7 | REQ-014 | Configuração em Runtime | **~100% — implementada** (commit `3652491`, junto com a fase 8; reauditada tarefa a tarefa em 2026-07-22) | Fase 1 | — |
+| 8 | REQ-012 | Reports de Problema | ~57% — **implementada** (commit `3652491`, junto com a fase 7; correção de severidade default confirmada, demais tarefas não reauditadas) | — | Ponte com REQ-013 (fase 9) |
+| 9 | REQ-013 | Pares Q&A Curados | **~100% — implementada** (mesmo commit `3652491` das fases 7/8; reauditada tarefa a tarefa em 2026-07-22) | Fases 3, 8 | — |
 | 10 | REQ-008 | Integração WhatsApp/Twilio | ~40% | Fase 2 | — |
 | 11 | REQ-002 | Fluxo Conversacional Guiado | ~38% | Fases 1, 7, 10 | — |
 | 12 | REQ-007 | Análise de Sentimento/Conversa Crítica | ~10% | Fase 5 | — |
@@ -98,9 +98,11 @@ A ordem foi definida pelo Beto e não foi alterada por este plano, exceto pela r
 
 ## Fase 3 — REQ-003: Respostas Automáticas RAG
 
-**Status: ✅ Implementada** (pendente commit — ver `git status`).
+**Status: ✅ Implementada** (commit `58c2d54`).
 
-**Estado atual**: ~79%. Requisito mais maduro do sistema.
+**Nota de verificação (2026-07-22)**, feita durante o levantamento para `docs/arquitetura_avaliacao_rag_2026-07.md`: as 5 tarefas abaixo foram confirmadas concluídas no código atual — (1) índice HNSW recriado em `documentos_conhecimento.embedding` (migração `2026071605_recria_indice_vetorial_documentos_conhecimento.py`); (2) catálogo de produto (REQ-003.11) implementado e testado (`test_processador_responder_com_rag.py::test_pedir_catalogo_*`); (3) pergunta de clarificação antes do fallback implementada (parâmetros `RAG_PEDIR_CLARIFICACAO`/`RAG_ESCALADO_SEM_BASE`); (4) `rag_trechos`/`rag_score_maximo`/`rag_utilizada` expostos em `ProcessamentoDetalhes.jsx`; (5) testes automatizados existem para `RetrievalService` (`test_retrieval_service.py`) e para `_responder_com_rag`/`_decidir_resposta` (`test_processador_responder_com_rag.py`). Sem gaps residuais conhecidos nesta camada — ver avaliação completa e recomendações de evolução (reranking, filtro por produto, ingestão incremental) no documento de arquitetura citado acima.
+
+**Estado atual (na criação deste plano, 2026-07-16)**: ~79%. Requisito mais maduro do sistema.
 
 **Objetivo da fase**: fechar os gaps restantes e eliminar o risco de performance já identificado.
 
@@ -123,7 +125,9 @@ A ordem foi definida pelo Beto e não foi alterada por este plano, exceto pela r
 
 > **Nota de reordenação (2026-07-16)**: esta fase estava originalmente na posição 11 ("depende de todas as anteriores"). Foi antecipada para a posição 4 por prioridade de negócio definida em reunião — ver [Histórico de Revisões](#4-histórico-de-revisões). Como consequência, ela roda logo depois de REQ-016/REQ-011/REQ-003 (fases 1-3) e **antes** de REQ-004/escalonamento (fase 5) e REQ-005/eventos (fase 6). Isso muda o perfil de dependências desta fase: em vez de "todas as anteriores" prontas, várias tarefas ficam com pendência explícita até essas fases futuras rodarem — marcado tarefa a tarefa abaixo.
 
-**Estado atual**: ~37%. Sem autenticação; faltam telas inteiras.
+**Status: ✅ Implementada** (commit `998ce5b`) — inclui autenticação real (`backend/services/auth.py`, `frontend/src/components/LoginPage.jsx`, gate global `gate_autenticacao` em `backend/main.py` protegendo todas as rotas exceto `/health`, `/webhook`, `/api/auth/login`). **Não foi reauditada tarefa a tarefa nesta revisão** (focada em RAG, ver `docs/arquitetura_avaliacao_rag_2026-07.md`) — antes de assumir 100%, confirmar as demais tarefas (telas de histórico/escalonamento/orçamento, badge de restrição, paginação).
+
+**Estado atual (na criação deste plano, 2026-07-16)**: ~37%. Sem autenticação; faltam telas inteiras.
 
 **Objetivo da fase**: autenticação mínima + telas que já têm dados disponíveis nas Fases 1-3, deixando pendência explícita (não meia-implementação silenciosa) onde depender de fases futuras.
 
@@ -147,7 +151,9 @@ A ordem foi definida pelo Beto e não foi alterada por este plano, exceto pela r
 
 ## Fase 5 — REQ-004: Human Takeover / Escalonamento
 
-**Estado atual**: ~25%. **Bug crítico**: gatilhos de escalonamento (`ESCALAR_HUMANO`/`RECLAMAR`) respondem um template mas nunca setam `modo_operacao = HUMANO` — o bot continua respondendo normalmente depois.
+**Status: ✅ Implementada** (commit `38fb1ee`). **Verificado nesta revisão (2026-07-22)**: o bug crítico abaixo foi corrigido — `backend/services/processador.py` hoje seta `atendimento.modo_operacao = ModoOperacao.HUMANO` nos fluxos de escalonamento/reclamação (linhas ~1092, ~1170, ~1318) e persiste. Demais tarefas da fase (resumo de contexto, notificação, gatilhos implícitos) **não foram reauditadas tarefa a tarefa** nesta revisão.
+
+**Estado atual (na criação deste plano, 2026-07-16)**: ~25%. **Bug crítico**: gatilhos de escalonamento (`ESCALAR_HUMANO`/`RECLAMAR`) respondem um template mas nunca setam `modo_operacao = HUMANO` — o bot continua respondendo normalmente depois.
 
 **Objetivo da fase**: fazer o escalonamento ter efeito real, com resumo de contexto e notificação.
 
@@ -168,7 +174,9 @@ A ordem foi definida pelo Beto e não foi alterada por este plano, exceto pela r
 
 ## Fase 6 — REQ-005: Registro de Interações e Histórico
 
-**Estado atual**: ~35%. Mensagens e `ProcessamentoMensagem` bem auditados; falta log de eventos de transição de estado.
+**Status: ✅ Implementada** (commit `eca2aca`) — **não foi reauditada tarefa a tarefa nesta revisão** (focada em RAG, ver `docs/arquitetura_avaliacao_rag_2026-07.md`).
+
+**Estado atual (na criação deste plano, 2026-07-16)**: ~35%. Mensagens e `ProcessamentoMensagem` bem auditados; falta log de eventos de transição de estado.
 
 **Objetivo da fase**: implementar a estrutura de eventos auditáveis que várias outras fases (1, 5, 7, 14) precisam, e generalizá-la retroativamente. **Inclui, por prioridade definida em reunião de 2026-07-16, a timeline de mudanças de estado do atendimento no painel — ver tarefas 1 e 7 abaixo.**
 
@@ -191,7 +199,11 @@ A ordem foi definida pelo Beto e não foi alterada por este plano, exceto pela r
 
 ## Fase 7 — REQ-014: Configuração em Runtime
 
-**Estado atual**: ~39%. Parâmetros existem no banco mas boa parte é ignorada pela lógica real.
+**Status: ✅ Implementada** (commit `3652491`, junto com a Fase 8).
+
+**Nota de verificação (2026-07-22)**, feita durante o levantamento para `docs/arquitetura_avaliacao_rag_2026-07.md`: as 8 tarefas foram confirmadas concluídas — (1) bug de atomicidade corrigido, `PATCH /api/config/rag` valida todos os campos antes de aplicar qualquer um; (2) `ParametroService` conectado ao classificador (`_calcular_nivel_confianca`/`classificar()` aceitam `limiares_confianca` opcional, comentário no código referencia explicitamente "REQ-014, Fase 7") e à zona cinza do `QAService` (limiares carregados via `ParametroService.limiares_zona_cinza()`, embora a lógica de "pergunta de desambiguação" em si ainda não use os limiares "desambigua" — ver observação equivalente na avaliação de RAG); (3) `janela_continuacao_atendimento_horas` já lida do parâmetro desde a Fase 1; (4) `rag_score_minimo`/`rag_top_k` persistidos em `parametros`, não mais voláteis no singleton; (5) `GET`/`PATCH /api/config/rag` unificado, incluindo `rag_enabled`/`qa_enabled`/`qa_score_minimo`; (6) tabela `historico_configuracao` criada (migração `2026072002_cria_historico_configuracao.py`) com endpoint `GET /api/config/historico`; (7) `POST /api/config/rag/reset` implementado; (8) endpoints de configuração já protegidos pelo gate de autenticação global (`gate_autenticacao`, entregue na Fase 4). Completude reestimada: **~100%**.
+
+**Estado atual (na criação deste plano, 2026-07-16)**: ~39%. Parâmetros existem no banco mas boa parte é ignorada pela lógica real.
 
 **Objetivo da fase**: fazer os parâmetros já persistidos terem efeito real, e corrigir o bug de atomicidade.
 
@@ -215,7 +227,9 @@ A ordem foi definida pelo Beto e não foi alterada por este plano, exceto pela r
 
 ## Fase 8 — REQ-012: Reports de Problema
 
-**Estado atual**: ~57%. Boa cobertura de captura/triagem; faltam regras de negócio e complementos de UI.
+**Status: ✅ Implementada** (commit `3652491`, junto com a Fase 7). **Verificado nesta revisão (2026-07-22)**: a tarefa 1 (severidade default da reprovação automática) está corrigida para `SeveridadeReport.MEDIA` (`backend/main.py:1088`). Demais tarefas (transições de status, filtros, estatísticas na UI, navegação report↔atendimento) **não foram reauditadas tarefa a tarefa** nesta revisão.
+
+**Estado atual (na criação deste plano, 2026-07-16)**: ~57%. Boa cobertura de captura/triagem; faltam regras de negócio e complementos de UI.
 
 **Objetivo da fase**: corrigir divergências de regra de negócio e completar a UI existente.
 
@@ -239,7 +253,11 @@ A ordem foi definida pelo Beto e não foi alterada por este plano, exceto pela r
 
 ## Fase 9 — REQ-013: Pares Q&A Curados
 
-**Estado atual**: ~59%. Workflow de curadoria bem implementado; faltam integração com o resto do sistema e infraestrutura de busca em escala.
+**Status: ✅ Implementada** (mesmo commit `3652491` das Fases 7/8 — não há commit dedicado "Fase 9", mas todo o escopo foi entregue junto).
+
+**Nota de verificação (2026-07-22)**, feita durante o levantamento para `docs/arquitetura_avaliacao_rag_2026-07.md`: as 8 tarefas foram confirmadas concluídas — (1) índice HNSW cosine criado em `pares_qa.embedding` (migração `2026072004_indice_vetorial_pares_qa.py`); (2) `qa_enabled`/`qa_score_minimo` expostos no `PATCH /api/config/rag` unificado da Fase 7; (3) `id_externo` corrigido no fluxo de criação a partir de reprovação — `frontend/src/components/AcompanhamentoPage.jsx` gera `` `reprovacao:${mensagemReprovando.id}` ``; (4) ação "criar par Q&A a partir de report" implementada em `ReportDetalhe.jsx` (`abrirCriarQA`/`criarParQADoReport`); (5) detecção de duplicatas na criação manual implementada em `QABasePage.jsx` via `GET /api/pares-qa/similares`; (6) `ingerir_pares_qa.py` já respeita lazy embedding também na ingestão em lote — só gera embedding se `--aprovar-automaticamente` for passado; (7) `QABasePage.jsx` completo: filtro por tag, contexto, aprovado/ativo, e painel de "pares mais usados" (`GET /api/pares-qa/estatisticas-uso`); (8) testes automatizados cobrindo lazy embedding, soft delete e ordenação de rotas (`test_pares_qa_router.py`) e precedência QA sobre RAG (`test_processador_responder_com_rag.py`). Completude reestimada: **~100%** — sem gaps residuais conhecidos.
+
+**Estado atual (na criação deste plano, 2026-07-16)**: ~59%. Workflow de curadoria bem implementado; faltam integração com o resto do sistema e infraestrutura de busca em escala.
 
 **Objetivo da fase**: fechar a ponte com Reports/Config e resolver o gap de performance.
 
@@ -461,3 +479,4 @@ A timeline de mudanças de estado do atendimento (segundo item priorizado na reu
 |------|--------|-----------|
 | 2026-07-16 | 1.0 | Criação do plano — 16 fases na ordem original de prioridade definida pelo Beto. |
 | 2026-07-16 | 1.1 | Reunião de priorização: (1) REQ-010 (Painel Administrativo) antecipado da posição 11 para posição 4 — fases antigas 4-10 (REQ-004, REQ-005, REQ-014, REQ-012, REQ-013, REQ-008, REQ-002) renumeradas para 5-11, mantendo a ordem relativa entre si; fases 12-16 inalteradas. Tarefas da Fase 4 (REQ-010) que dependiam de fases hoje posteriores foram marcadas com pendência explícita (tela de escalonamentos, filtro de período, badge de restrição). (2) Adicionada nova seção "2. Melhorias imediatas — janela Raciocínio do Cérebro", com tarefas concretas de UI/backend sem dependência de fase, decididas em reunião (RAG sim/não sempre visível; badges de score renomeados + `confianca_nivel` exposto; toggle de ordenação cronológica/importância; rótulo explícito da pergunta Q&A que casou; modo de execução vigente por mensagem via consulta retroativa ao histórico). (3) Fase 6 (REQ-005) teve o desenho da tabela de eventos (tarefa 1) e um novo item de timeline (tarefa 7) atualizados para incluir qual mensagem/evento motivou cada mudança de estado do atendimento — sem antecipar a posição desta fase no cronograma. |
+| 2026-07-22 | 1.2 | Atualização motivada por um levantamento de arquitetura do RAG (ver `docs/arquitetura_avaliacao_rag_2026-07.md`), que revelou o plano desatualizado em relação ao código: (1) confirmado via `git log` que as Fases 1 a 8 têm commit de implementação (`4c4666b`, `3316200`, `58c2d54`, `998ce5b`, `38fb1ee`, `eca2aca`, `3652491` — as Fases 7 e 8 foram entregues no mesmo commit) e que a Fase 9 (REQ-013) foi substancialmente entregue nesse mesmo commit `3652491`, apesar de não ter commit dedicado. (2) Fases 3 (REQ-003), 7 (REQ-014) e 9 (REQ-013) foram reauditadas tarefa a tarefa neste levantamento — todas as tarefas confirmadas concluídas, completude reestimada em ~100% para as três, sem gaps residuais conhecidos (recomendações de evolução, não gaps do escopo original, estão em `docs/arquitetura_avaliacao_rag_2026-07.md`). (3) Fases 4, 5, 6 e 8 tiveram apenas o status atualizado para "implementada" com base no commit encontrado; para 5 e 8 os respectivos bugs críticos/de prioridade máxima foram verificados e confirmados corrigidos, mas as demais tarefas dessas 4 fases **não foram reauditadas tarefa a tarefa** — recomenda-se uma revisão dedicada antes de assumir 100% de completude nelas. (4) Nenhuma alteração na ordem das fases ou nos textos de "Estado atual" originais (mantidos como registro histórico do estado em 2026-07-16, com nota indicando isso). |
