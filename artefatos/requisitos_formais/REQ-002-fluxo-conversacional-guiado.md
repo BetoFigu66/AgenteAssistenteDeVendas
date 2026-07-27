@@ -3,8 +3,8 @@
 <!-- CLASSIFICACAO: SISTEMA-CAIXAPRETA -->
 <!-- CLASSIFICACAO: IA -->
 
-**Versão**: 1.34  
-**Data**: 2026-07-15  
+**Versão**: 1.35  
+**Data**: 2026-07-27  
 **Autor**: Kika (Analista de Requisitos)  
 **Status**: Em Elaboração  
 **Prioridade**: Alta  
@@ -204,11 +204,15 @@ O sistema deve conduzir conversas de forma estruturada, porém **adaptativa**, c
 
 - [ ] **REQ-002.3C — Coletar informações adicionais para orçamento**: O sistema deve coletar os dados complementares que não pertencem nem ao tipo/modelo nem ao endereço de entrega:
   - **Nome do solicitante** — **obrigatório para PF** (substitui a função identificadora da razão social, que existe apenas para PJ); **recomendado para PJ** quando informado pelo cliente (útil para tratamento personalizado, mas não bloqueia a qualificação se ausente)
-  - Quantidade ou faixa de pessoas (funcionários/usuários) → `CAMPO-faixa-funcionarios` (ponto) ou `CAMPO-quantidade` (acesso)
-  - Software de controle existente (controle de ponto ou controle de acesso), quando aplicável → `CAMPO-software-ponto`
+  - Faixa de pessoas (funcionários/usuários) → `CAMPO-faixa-funcionarios`
+  - Software de controle de ponto existente, quando aplicável → `CAMPO-software-ponto`
+  - Software de controle de acesso existente, quando aplicável → `CAMPO-software-acesso`
+  - Interesse em sistema de controle de acesso na nuvem, quando aplicável → `CAMPO-interesse-sistema-nuvem`
+  - Homologação com software de controle de acesso de terceiros, quando aplicável → `CAMPO-homologado-software`
+  - Quantidade de equipamentos → `CAMPO-quantidade`
   - Contato para envio do orçamento (e-mail e/ou telefone) → `CAMPO-contato`
 
-  Esta etapa aciona as regras específicas REQ-002.14 (faixa de funcionários em controle de ponto sem software), REQ-002.14A (quantidade de equipamentos em controle de acesso sem software) e REQ-002.15 (quantidade opcional para catraca com software existente). A flexibilidade de formato da quantidade/faixa é tratada pela validação em REQ-002.6.
+  Esta etapa aciona as regras específicas REQ-002.14 (relógio de ponto sem software), REQ-002.14A (catraca sem software e interesse em sistema na nuvem), REQ-002.14B (catraca sem software e sem interesse em sistema na nuvem), REQ-002.14C (catraca com software EVO/Pacto/SCA/Panobianco/Sky) e REQ-002.15 (catraca com outro software existente). A flexibilidade de formato da faixa de pessoas é tratada pela validação em REQ-002.6.
 
   **Observação sobre o nome do solicitante PF**: o nome capturado aqui é usado, entre outros, como identificador do cliente no painel administrativo (REQ-010.7A) substituindo o papel que a razão social cumpre para PJ. Por se tratar de dado pessoal, segue as mesmas regras LGPD aplicáveis ao CPF (REQ-015.13) no que diz respeito a uso restrito ao orçamento e não indexação pelo RAG (REQ-003).
 
@@ -229,8 +233,12 @@ O sistema deve conduzir conversas de forma estruturada, porém **adaptativa**, c
   - Tipo de cliente (PF/PJ) — capturado em REQ-002.2A
   - Tipo de produto/serviço — capturado em REQ-002.3A
   - Modelo/especificação do produto — capturado em REQ-002.3B
-  - Quantidade/faixa de pessoas (obrigatória para controle de ponto e controle de acesso) — capturado em REQ-002.3C
-  - Software existente (se aplicável) — capturado em REQ-002.3C
+  - Faixa de pessoas (quando aplicável conforme REQ-002.14 e REQ-002.14A) — capturado em REQ-002.3C
+  - Quantidade de equipamentos (quando aplicável conforme REQ-002.14A, REQ-002.14B e REQ-002.15) — capturado em REQ-002.3C
+  - Software de controle de ponto existente (se aplicável) — capturado em REQ-002.3C
+  - Software de controle de acesso existente (se aplicável) — capturado em REQ-002.3C
+  - Interesse em sistema de controle de acesso na nuvem (se aplicável) — capturado em REQ-002.3C
+  - Homologação com software de controle de acesso de terceiros (se aplicável) — capturado em REQ-002.3C
   - Contato para orçamento — capturado em REQ-002.3C
   - Endereço de entrega/instalação — capturado em REQ-002.3D
 
@@ -261,11 +269,18 @@ O sistema deve conduzir conversas de forma estruturada, porém **adaptativa**, c
 
   Nesses casos, o sistema deve fazer uma confirmação pontual (ex: “Você mencionou dois CNPJs diferentes. Qual devo usar para o orçamento?” ou “Antes você fez orçamento como pessoa física; agora é para uma empresa?”)
 
-- [ ] **REQ-002.14 — Faixa de funcionários em controle de ponto sem software**: Para controle de ponto (relógio de ponto), se o cliente não tiver software de controle de ponto, o sistema deve solicitar a faixa de funcionários (resposta obrigatória) para concluir a qualificação
+- [ ] **REQ-002.14 — Relógio de ponto sem software: faixa de pessoas**: Para relógio de ponto, se o cliente não tiver software de controle de ponto (`CAMPO-software-ponto = nenhum`), o sistema deve solicitar a **faixa de pessoas** (`CAMPO-faixa-funcionarios`) como resposta obrigatória para concluir a qualificação.
 
-- [ ] **REQ-002.14A — Quantidade de equipamentos em controle de acesso sem software**: Para controle de acesso (catracas), se o cliente não tiver software de controle de acesso, o sistema deve solicitar a quantidade de equipamentos (resposta obrigatória) para concluir a qualificação
+- [ ] **REQ-002.14A — Catraca sem software e interesse em sistema na nuvem**: Para catraca, se o cliente não tiver software de controle de acesso (`CAMPO-software-acesso = nenhum`) e manifestar interesse em adquirir um sistema de controle de acesso na nuvem (`CAMPO-interesse-sistema-nuvem = sim`), o sistema deve solicitar:
+  1. A **faixa de pessoas** (`CAMPO-faixa-funcionarios`); e
+  2. A **quantidade de equipamentos** (`CAMPO-quantidade`).
+  Ambas são obrigatórias para concluir a qualificação nesse cenário.
 
-- [ ] **REQ-002.15 — Quantidade opcional para catraca com software existente**: Para catracas, se o cliente já tiver software de controle de acesso, a quantidade/faixa de pessoas pode ser tratada como opcional; se o cliente não souber ou não quiser informar, o sistema deve seguir o fluxo e solicitar apenas os demais campos pendentes
+- [ ] **REQ-002.14B — Catraca sem software e sem interesse em sistema na nuvem**: Para catraca, se o cliente não tiver software de controle de acesso (`CAMPO-software-acesso = nenhum`) e não quiser adquirir um sistema de controle de acesso na nuvem (`CAMPO-interesse-sistema-nuvem = não`), o sistema deve solicitar **apenas a quantidade de equipamentos** (`CAMPO-quantidade`) como resposta obrigatória.
+
+- [ ] **REQ-002.14C — Catraca com software EVO/Pacto/SCA/Panobianco/Sky: verificar homologação**: Para catraca, se o cliente já usar um software de controle de acesso do tipo EVO, Pacto, SCA, Panobianco ou Sky (`CAMPO-software-acesso` com um desses valores), o sistema deve perguntar se a catraca ou leitor sendo adquirido precisa ser **homologado** para aquele software (`CAMPO-homologado-software`). A resposta deve ser obrigatória; caso o cliente não saiba, o sistema deve registrar a dúvida e seguir o fluxo.
+
+- [ ] **REQ-002.15 — Catraca com outro software existente: quantidade obrigatória**: Para catraca, se o cliente já tiver um software de controle de acesso que **não** seja EVO, Pacto, SCA, Panobianco ou Sky (incluindo "não sei"), o sistema deve solicitar a **quantidade de equipamentos** (`CAMPO-quantidade`) como resposta obrigatória. A faixa de pessoas é opcional nesse cenário e pode ser pulada se o cliente não souber ou não quiser informar.
 
 - [ ] **REQ-002.16 — Confirmação dos dados extraídos da mensagem inicial**: Quando o sistema extrair um ou mais dados da **mensagem inicial** do cliente (REQ-002.2), deve validar se é necessário confirmar a interpretação antes de prosseguir. A confirmação **não deve ocorrer a cada campo** nem a cada mensagem — apenas quando o risco de interpretação incorreta for relevante.
 
@@ -519,6 +534,7 @@ Cliente: "Facial."
 | 06/07/2026 | 1.32 | REQ-002.3, REQ-002.3B, REQ-002.3C, REQ-002.3D: adicionadas referências explícitas aos campos do catálogo de conversação (`CAMPO-modelo`, `CAMPO-faixa-funcionarios`, `CAMPO-quantidade`, `CAMPO-software-ponto`, `CAMPO-contato`, `CAMPO-endereco`). | Cascade |
 | 14/07/2026 | 1.33 | REQ-002.1C reescrito: (1) transição Esclarecendo→Finalizando **imediata** pela intenção (cat. 1), sem exigir modelo/quantidade antes; (2) retorno Finalizando→Esclarecendo quando cliente faz dúvida (cat. 3) durante coleta; (3) retorno automático Esclarecendo→Finalizando quando dúvida cessa. Adicionados papéis conceituais das fases (reativa vs. ativa). Alinha REQ formal com implementação MVP (plano §3/E1/F3) e visão do Beto. Decisão Kika. | Cascade |
 | 15/07/2026 | 1.34 | REQ-002.3B: adicionada regra explícita — modelo não reconhecido no catálogo **nunca** é armazenado como texto livre; sistema informa que não reconheceu e reapresenta opções; após 2 tentativas escala para humano. | Cascade |
+| 27/07/2026 | 1.35 | Regras de negócio do atendente Inforrel para catraca e relógio de ponto: uso unificado de "faixa de pessoas"; novos campos `CAMPO-software-acesso`, `CAMPO-interesse-sistema-nuvem` e `CAMPO-homologado-software`; criação de REQ-002.14A, 14B, 14C e ajuste de REQ-002.15. | Cascade |
 
 ---
 

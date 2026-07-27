@@ -5,7 +5,7 @@ from __future__ import annotations
 import argparse
 import csv
 import sys
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 
 BACKEND_DIR = Path(__file__).resolve().parents[1]
@@ -14,7 +14,7 @@ if str(BACKEND_DIR) not in sys.path:
     sys.path.insert(0, str(BACKEND_DIR))
 
 from config import settings  # noqa: E402
-from models import Categoria, Modelo, Produto  # noqa: E402
+from models import AtributoAdicionalModelo, Categoria, Modelo, Produto  # noqa: E402
 from sqlalchemy import create_engine, select  # noqa: E402
 from sqlalchemy.orm import Session, selectinload  # noqa: E402
 
@@ -35,6 +35,18 @@ APLICACOES_PERMITIDAS = {
 ALIASES_CATEGORIAS = {"Roteador": "Roteadores"}
 CAMPOS_OBRIGATORIOS = {"produto", "modelo", "Categoria", "Marca", "Aplicação", "unidade"}
 
+# Palavras na coluna `modelo` que disparam atributos genéricos no catálogo.
+# Chave do atributo deve coincidir com a chave usada em AtendimentoInfo pelo
+# classificador (ex.: tipo_leitor_mencionado -> tecnologia_leitura).
+_ATRIBUTOS_POR_PALAVRA: dict[tuple[str, ...], tuple[str, str]] = {
+    ("biométrico", "biometrico", "biometria", "bio"): ("tecnologia_leitura", "biometria"),
+    ("facial", "face", "reconhecimento facial"): ("tecnologia_leitura", "facial"),
+    ("cartão", "cartao", "proximidade", "prox"): ("tecnologia_leitura", "cartao"),
+    ("cartográfico", "cartografico", "cartografia"): ("tecnologia_leitura", "cartografico"),
+    ("barras", "codigo de barras", "código de barras"): ("tecnologia_leitura", "barras"),
+    ("qr code", "qrcode", "qr-code"): ("tecnologia_leitura", "qr_code"),
+}
+
 
 @dataclass(frozen=True)
 class LinhaCatalogo:
@@ -49,6 +61,7 @@ class LinhaCatalogo:
     aplicacao: str
     codigo: str | None
     unidade: str
+    atributos: frozenset[tuple[str, str]] = field(default_factory=frozenset)
 
 
 @dataclass
@@ -74,6 +87,16 @@ def normalizar_chave(valor: str) -> str:
 def texto_limpo(valor: str | None) -> str:
     """Remove espaços externos e normaliza campos ausentes."""
     return (valor or "").strip()
+
+
+def _extrair_atributos(descricao: str) -> frozenset[tuple[str, str]]:
+    """Mapeia palavras-chave da descrição do modelo em atributos genéricos."""
+    texto = normalizar_chave(descricao)
+    encontrados: set[tuple[str, str]] = set()
+    for palavras, (chave, valor) in _ATRIBUTOS_POR_PALAVRA.items():
+        if any(palavra in texto for palavra in palavras):
+            encontrados.add((chave, valor))
+    return frozenset(encontrados)
 
 
 def carregar_planilha(caminho: Path) -> tuple[list[LinhaCatalogo], EstatisticasImportacao]:
@@ -117,6 +140,8 @@ def carregar_planilha(caminho: Path) -> tuple[list[LinhaCatalogo], EstatisticasI
 
             if not produto or not modelo or not categorias or not marca or not aplicacao or not unidade:
                 raise ValueError(f"Linha {numero_linha}: há campos obrigatórios vazios")
+
+            atributos = _extrair_atributos(modelo)
             if marca not in MARCAS_PERMITIDAS:
                 raise ValueError(f"Linha {numero_linha}: marca não permitida: {marca!r}")
             if aplicacao not in APLICACOES_PERMITIDAS:
@@ -138,6 +163,7 @@ def carregar_planilha(caminho: Path) -> tuple[list[LinhaCatalogo], EstatisticasI
                 aplicacao=aplicacao,
                 codigo=codigo,
                 unidade=unidade,
+                atributos=atributos,
             )
             chave = normalizar_chave(modelo)
             anterior = modelos.get(chave)
@@ -150,6 +176,7 @@ def carregar_planilha(caminho: Path) -> tuple[list[LinhaCatalogo], EstatisticasI
                     anterior.aplicacao,
                     anterior.codigo,
                     anterior.unidade,
+                    anterior.atributos,
                 )
                 comparavel_atual = (
                     linha.produto,
@@ -159,6 +186,7 @@ def carregar_planilha(caminho: Path) -> tuple[list[LinhaCatalogo], EstatisticasI
                     linha.aplicacao,
                     linha.codigo,
                     linha.unidade,
+                    linha.atributos,
                 )
                 if comparavel_anterior != comparavel_atual:
                     raise ValueError(
@@ -184,17 +212,31 @@ def indexar_unicos(registros: list[Produto] | list[Categoria], entidade: str) ->
     return indice
 
 
+def _indexar_atributos_existentes(modelos: list[Modelo]) -> dict[int, dict[tuple[str, str], AtributoAdicionalModelo]]:
+    """Indexa atributos ativos por modelo_id -> (chave, valor)."""
+    indice: dict[int, dict[tuple[str, str], AtributoAdicionalModelo]] = {}
+    for modelo in modelos:
+        for atributo in modelo.atributos:
+            if not atributo.ativo:
+                continue
+            indice.setdefault(modelo.id, {})[(atributo.chave, atributo.valor)] = atributo
+    return indice
+
+
 def importar(session: Session, linhas: list[LinhaCatalogo], stats: EstatisticasImportacao) -> None:
     """Aplica a planilha à sessão SQLAlchemy atual."""
     produtos = indexar_unicos(list(session.scalars(select(Produto))), "produto")
     categorias = indexar_unicos(list(session.scalars(select(Categoria))), "categoria")
-    modelos_existentes = list(session.scalars(select(Modelo).options(selectinload(Modelo.categorias))))
+    modelos_existentes = list(
+        session.scalars(select(Modelo).options(selectinload(Modelo.categorias), selectinload(Modelo.atributos)))
+    )
     modelos_por_descricao: dict[str, Modelo] = {}
     for modelo in modelos_existentes:
         chave = normalizar_chave(modelo.descricao)
         if chave in modelos_por_descricao:
             raise ValueError(f"Banco contém modelo duplicado por descrição: {modelo.descricao!r}")
         modelos_por_descricao[chave] = modelo
+    atributos_por_modelo = _indexar_atributos_existentes(modelos_existentes)
 
     for linha in linhas:
         chave_produto = normalizar_chave(linha.produto)
@@ -255,6 +297,17 @@ def importar(session: Session, linhas: list[LinhaCatalogo], stats: EstatisticasI
             stats.modelos_atualizados += 1
         modelo.categorias = categorias_modelo
         stats.associacoes_finais += len(categorias_modelo)
+
+        # Sincroniza atributos adicionais do modelo.
+        atributos_existentes = atributos_por_modelo.get(modelo.id, {})
+        atributos_desejados: set[tuple[str, str]] = set(linha.atributos)
+        for (chave, valor), atributo in atributos_existentes.items():
+            if (chave, valor) not in atributos_desejados:
+                atributo.ativo = False
+        for chave, valor in atributos_desejados:
+            if (chave, valor) not in atributos_existentes:
+                novo = AtributoAdicionalModelo(modelo=modelo, chave=chave, valor=valor, ativo=True)
+                session.add(novo)
 
 
 def exibir_resumo(stats: EstatisticasImportacao, aplicar: bool) -> None:

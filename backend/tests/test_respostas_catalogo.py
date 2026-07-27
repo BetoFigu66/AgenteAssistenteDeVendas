@@ -16,6 +16,9 @@ def test_pedir_software_ponto_renderiza():
 
 
 def test_pedir_faixa_funcionarios_renderiza():
-    texto, codigo = renderizar_mensagem(MensagemId.PEDIR_FAIXA_FUNCIONARIOS)
+    texto, codigo = renderizar_mensagem(
+        MensagemId.PEDIR_FAIXA_FUNCIONARIOS, {"produto": "o relógio de ponto"}
+    )
     assert codigo == "PEDIR_FAIXA_FUNCIONARIOS"
-    assert "funcionários" in texto
+    assert "pessoas" in texto
+    assert "relógio de ponto" in texto

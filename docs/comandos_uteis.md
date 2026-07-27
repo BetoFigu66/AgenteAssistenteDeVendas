@@ -366,6 +366,18 @@ alembic upgrade head
 
 # Criar nova migration
 alembic revision --autogenerate -m "descricao"
+
+# Rodar todos os testes
+python -m pytest
+
+# Rodar testes de um arquivo específico
+python -m pytest tests/test_campos_pendentes.py
+
+# Rodar testes com saída detalhada (-v) e parar no primeiro erro (-x)
+python -m pytest tests/test_extracao_entidades_fase_d.py -v -x
+
+# Rodar apenas um teste específico
+python -m pytest tests/test_processador_finalizando_coleta_ativa.py::test_f4_resumo_quando_tudo_capturado -v
 ```
 
 ---

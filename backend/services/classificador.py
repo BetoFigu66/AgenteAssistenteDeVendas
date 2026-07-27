@@ -6,7 +6,8 @@ Estratégia:
 2. Se regras não tiverem confiança, usa LLM
 
 Também extrai entidades: CNPJ, CPF, data de nascimento, nome, quantidades, tipos de produto,
-software de controle de ponto, tipo de leitor mencionado e faixa de funcionários (MVP Continuidade).
+software de controle de ponto, tipo de leitor mencionado, faixa de funcionários, marca e aplicação
+(MVP Continuidade).
 """
 
 import logging
@@ -14,7 +15,7 @@ import re
 import time
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import List, Optional
+from typing import Any, Dict, List, Optional
 
 from services.cpf.validacao import extrair_cpfs, formatar_cpf, normalizar_cpf, parse_data_nascimento
 from services.llm import LLMProvider
@@ -66,8 +67,14 @@ class EntidadesExtraidas:
     emails: List[str] = field(default_factory=list)
     # MVP Continuidade (Fase D — extração passiva em Esclarecendo):
     software_ponto: Optional[str] = None  # nome normalizado, ex.: "Domínio" (CAMPO-software-ponto)
+    software_acesso: Optional[str] = None  # nome normalizado, ex.: "EVO" (CAMPO-software-acesso)
     tipo_leitor_mencionado: Optional[str] = None  # ex.: "biometria"/"facial"/"cartao"/"cartografico"/"eletronico"
     faixa_funcionarios: Optional[int] = None  # nº de funcionários mencionado (CAMPO-faixa-funcionarios)
+    marca: Optional[str] = None  # ex.: "Topdata", "Control-ID", "Intelbras", "Hikvision", "PPA"
+    aplicacao: Optional[str] = None  # aplicação/propósito mencionado pelo cliente
+    # D6: atributos genéricos extraídos da mensagem (chave -> valor). Devem
+    # coincidir com chaves de `atributos_adicionais_modelo` para resolver modelo.
+    atributos: Dict[str, str] = field(default_factory=dict)
 
 
 @dataclass
@@ -280,6 +287,16 @@ def _extrair_nome_sem_gatilho(texto: str, cpfs: List[str], cnpjs: List[str]) -> 
     return _limpar_nome(restante)
 
 
+def _normalizar_entidade_llm(valor: Any) -> Optional[str]:
+    """Converte valor vazio/None em None e string não-vazia em string limpa."""
+    if valor is None:
+        return None
+    if isinstance(valor, str):
+        valor = valor.strip()
+        return valor if valor else None
+    return None
+
+
 def _limpar_nome(bruto: str) -> Optional[str]:
     """Normaliza e capitaliza um nome extraído pelo regex.
 
@@ -308,6 +325,20 @@ _TIPOS_PRODUTO_PALAVRAS = {
     "ponto eletronico": "relogio_ponto",
     "ponto eletrônico": "relogio_ponto",
     "rep": "relogio_ponto",
+    "cancela": "cancela",
+    "cancelas": "cancela",
+    "leitor facial": "leitor_facial",
+    "leitor biometrico": "leitor_biometrico",
+    "leitor biométrico": "leitor_biometrico",
+    "camera": "camera",
+    "câmera": "camera",
+    "controle de acesso": "controle_de_acesso",
+    "controle por cartao": "controle_por_cartao",
+    "controle por cartão": "controle_por_cartao",
+    "bastao de ronda": "bastao_de_ronda",
+    "bastão de ronda": "bastao_de_ronda",
+    "roteador": "roteador",
+    "roteadores": "roteador",
 }
 
 # D3 (MVP Continuidade): softwares de controle de ponto conhecidos — pré-preenche
@@ -324,6 +355,17 @@ _SOFTWARES_PONTO_CONHECIDOS = {
     "ahgora": "Ahgora",
     "rh bravo": "RH Bravo",
 }
+
+# D3b (MVP Continuidade): softwares de controle de acesso conhecidos — pré-preenche
+# CAMPO-software-acesso quando o cliente já cita o nome espontaneamente.
+_SOFTWARES_ACESSO_CONHECIDOS = {
+    "evo": "EVO",
+    "pacto": "Pacto",
+    "sca": "SCA",
+    "panobianco": "Panobianco",
+    "sky": "Sky",
+}
+
 
 # D4 (MVP Continuidade): tecnologia de leitura mencionada espontaneamente (CAMPO-modelo).
 # É um sinal cru para a Fase F resolver depois em uma linha real do catálogo (Modelo) —
@@ -342,12 +384,91 @@ _TIPO_LEITOR_PALAVRAS = {
     "cartão": "cartao",
 }
 
+# D6: atributos genéricos do modelo detectáveis na mensagem do cliente. A chave
+# deve coincidir com `atributos_adicionais_modelo.chave` para que o processador
+# filtre modelos correspondentes.
+_ATRIBUTOS_MENSAGEM_PALAVRAS: dict[str, dict[str, str]] = {
+    "tecnologia_leitura": {
+        "biometrico": "biometria",
+        "biométrico": "biometria",
+        "biometria": "biometria",
+        "reconhecimento facial": "facial",
+        "facial": "facial",
+        "cartografico": "cartografico",
+        "cartográfico": "cartografico",
+        "eletronico": "eletronico",
+        "eletrônico": "eletronico",
+        "cartao": "cartao",
+        "cartão": "cartao",
+        "proximidade": "cartao",
+        "qr code": "qr_code",
+        "qr-code": "qr_code",
+        "qrcode": "qr_code",
+        "barras": "barras",
+        "codigo de barras": "barras",
+        "código de barras": "barras",
+    },
+}
+
 # D4: "80 funcionários" / "uns 50 colaboradores" — distinto de _REGEX_QUANTIDADE
 # (que é sobre unidades de equipamento, não pessoas).
 _REGEX_FUNCIONARIOS = re.compile(
     r"\b(\d{1,5})\s*(?:funcion[áa]rios?|colaboradores?|pessoas?|empregados?)\b",
     re.IGNORECASE,
 )
+
+# D5 (MVP Continuidade): marcas comercializadas pela Inforrel. O alias normaliza o
+# nome ao valor canônico usado no catálogo (Modelo.marca).
+_MARCAS_PALAVRAS = {
+    "topdata": "Topdata",
+    "control id": "Control-ID",
+    "control-id": "Control-ID",
+    "controlid": "Control-ID",
+    "control i d": "Control-ID",
+    "intelbras": "Intelbras",
+    "hikvision": "Hikvision",
+    "ppa": "PPA",
+}
+
+# D5 (MVP Continuidade): aplicações/propósitos de projeto. Usamos busca por frase
+# para reduzir falso-positivo em palavras soltas (ex.: "banco" de "banco de dados").
+_APLICACOES_PALAVRAS = {
+    "pedágio": "Pedágio",
+    "pedagio": "Pedágio",
+    "pequenas e médias empresas": "Pequenas e médias empresas",
+    "pequenas e medias empresas": "Pequenas e médias empresas",
+    "pme": "Pequenas e médias empresas",
+    "pequena empresa": "Pequenas e médias empresas",
+    "média empresa": "Pequenas e médias empresas",
+    "media empresa": "Pequenas e médias empresas",
+    "condomínio": "Condomínios",
+    "condominio": "Condomínios",
+    "condomínios": "Condomínios",
+    "condominios": "Condomínios",
+    "residência": "Residências",
+    "residencia": "Residências",
+    "residências": "Residências",
+    "residencias": "Residências",
+    "casa": "Residências",
+    "academia": "Academias",
+    "academias": "Academias",
+    "ginásio": "Academias",
+    "ginasio": "Academias",
+    "escritório": "Escritórios",
+    "escritorio": "Escritórios",
+    "escritórios": "Escritórios",
+    "escritorios": "Escritórios",
+    "banco": "Bancos",
+    "bancos": "Bancos",
+    "rodoviária": "Rodoviárias",
+    "rodoviaria": "Rodoviárias",
+    "rodoviárias": "Rodoviárias",
+    "rodoviarias": "Rodoviárias",
+    "grande empresa": "Grandes Empresas",
+    "grandes empresas": "Grandes Empresas",
+    "indústria": "Grandes Empresas",
+    "industria": "Grandes Empresas",
+}
 
 
 def extrair_entidades(texto: str) -> EntidadesExtraidas:
@@ -377,6 +498,12 @@ def extrair_entidades(texto: str) -> EntidadesExtraidas:
         None,
     )
 
+    # D3b: software de controle de acesso mencionado espontaneamente.
+    software_acesso = next(
+        (nome for palavra, nome in _SOFTWARES_ACESSO_CONHECIDOS.items() if palavra in texto_lower),
+        None,
+    )
+
     # D4: tecnologia de leitura mencionada espontaneamente (sinal cru para a Fase F resolver).
     tipo_leitor_mencionado = next(
         (tipo for palavra, tipo in _TIPO_LEITOR_PALAVRAS.items() if palavra in texto_lower),
@@ -386,6 +513,24 @@ def extrair_entidades(texto: str) -> EntidadesExtraidas:
     # D4: faixa de funcionários mencionada espontaneamente.
     _match_funcionarios = _REGEX_FUNCIONARIOS.search(texto)
     faixa_funcionarios = int(_match_funcionarios.group(1)) if _match_funcionarios else None
+
+    # D5: marca e aplicação mencionadas espontaneamente em Esclarecendo.
+    marca = next(
+        (nome for palavra, nome in _MARCAS_PALAVRAS.items() if palavra in texto_lower),
+        None,
+    )
+    aplicacao = next(
+        (nome for palavra, nome in _APLICACOES_PALAVRAS.items() if palavra in texto_lower),
+        None,
+    )
+
+    # D6: atributos genéricos do modelo detectados na mensagem (ex.: tecnologia_leitura).
+    atributos: Dict[str, str] = {}
+    for chave_atributo, mapeamento in _ATRIBUTOS_MENSAGEM_PALAVRAS.items():
+        for palavra, valor in mapeamento.items():
+            if palavra in texto_lower and chave_atributo not in atributos:
+                atributos[chave_atributo] = valor
+                break
 
     # Extração de nomes via gatilhos ("meu nome é X", "me chamo X", ...)
     nomes: List[str] = []
@@ -409,8 +554,12 @@ def extrair_entidades(texto: str) -> EntidadesExtraidas:
         quantidades=quantidades,
         tipos_produto=tipos_produto,
         software_ponto=software_ponto,
+        software_acesso=software_acesso,
         tipo_leitor_mencionado=tipo_leitor_mencionado,
         faixa_funcionarios=faixa_funcionarios,
+        marca=marca,
+        aplicacao=aplicacao,
+        atributos=atributos,
     )
 
 
@@ -498,7 +647,15 @@ Classifique a mensagem do cliente em UMA das intenções:
 - desconhecido: intenção não clara
 
 Extraia também entidades mencionadas: cnpjs, cpfs, datas_nascimento (yyyy-mm-dd), nomes (pessoas),
-tipos_produto (catraca, relogio_ponto), quantidades (números), emails.
+tipos_produto (catraca, relogio_ponto), quantidades (números), emails,
+software_ponto (Domínio, Alterdata, TOTVS, Senior, Secullum, Ahgora, RH Bravo),
+software_acesso (EVO, Pacto, SCA, Panobianco, Sky, outro, nenhum),
+marca (Topdata, Control-ID, Intelbras, Hikvision, PPA),
+aplicacao (Pedágio, Pequenas e médias empresas, Condomínios, Residências, Academias,
+Escritórios, Bancos, Rodoviárias, Grandes Empresas, Não se aplica) e
+atributos (objeto chave -> valor com atributos genéricos de modelos, ex.:
+{"tecnologia_leitura": "biometria"} quando o cliente citar biométrico, facial,
+cartão, cartográfico, eletrônico, QR Code, etc.).
 
 Responda APENAS com JSON neste formato:
 {
@@ -511,7 +668,12 @@ Responda APENAS com JSON neste formato:
     "nomes": [],
     "tipos_produto": [],
     "quantidades": [],
-    "emails": []
+    "emails": [],
+    "software_ponto": null,
+    "software_acesso": null,
+    "marca": null,
+    "aplicacao": null,
+    "atributos": {}
   }
 }"""
 
@@ -554,6 +716,9 @@ async def classificar_por_llm(
     confianca = float(resultado.get("confianca", 0.0))
 
     ent = resultado.get("entidades") or {}
+    atributos_llm = ent.get("atributos") or {}
+    if not isinstance(atributos_llm, dict):
+        atributos_llm = {}
     entidades = EntidadesExtraidas(
         cnpjs=[str(c) for c in ent.get("cnpjs") or []],
         cpfs=[str(c) for c in ent.get("cpfs") or []],
@@ -562,6 +727,11 @@ async def classificar_por_llm(
         tipos_produto=[str(t) for t in ent.get("tipos_produto") or []],
         quantidades=[int(q) for q in ent.get("quantidades") or [] if str(q).isdigit()],
         emails=[str(e) for e in ent.get("emails") or []],
+        software_ponto=_normalizar_entidade_llm(ent.get("software_ponto")),
+        software_acesso=_normalizar_entidade_llm(ent.get("software_acesso")),
+        marca=_normalizar_entidade_llm(ent.get("marca")),
+        aplicacao=_normalizar_entidade_llm(ent.get("aplicacao")),
+        atributos={str(k): str(v) for k, v in atributos_llm.items() if v is not None and str(v).strip()},
     )
 
     return intencao, confianca, entidades, resultado, latencia_ms
@@ -642,15 +812,20 @@ async def classificar(
         tipos_produto=list({*entidades_regra.tipos_produto, *entidades_llm.tipos_produto}),
         quantidades=entidades_regra.quantidades or entidades_llm.quantidades,
         emails=list({*entidades_regra.emails, *entidades_llm.emails}),
-        # A LLM ainda não é solicitada a extrair estas 3 (MVP Continuidade, Fase D) —
-        # só a regra as popula por enquanto, então usar sempre a da regra.
+        # Regras são determinísticas e mais confiáveis para estes campos do catálogo;
+        # mantém LLM como fallback quando a regra não encontrou nada.
         software_ponto=entidades_regra.software_ponto or entidades_llm.software_ponto,
+        software_acesso=entidades_regra.software_acesso or entidades_llm.software_acesso,
         tipo_leitor_mencionado=entidades_regra.tipo_leitor_mencionado or entidades_llm.tipo_leitor_mencionado,
         faixa_funcionarios=(
             entidades_regra.faixa_funcionarios
             if entidades_regra.faixa_funcionarios is not None
             else entidades_llm.faixa_funcionarios
         ),
+        marca=entidades_regra.marca or entidades_llm.marca,
+        aplicacao=entidades_regra.aplicacao or entidades_llm.aplicacao,
+        # D6: regras têm prioridade para atributos conhecidos; LLM preenche os demais.
+        atributos={**entidades_llm.atributos, **entidades_regra.atributos},
     )
 
     intencoes = _finalizar_intencoes([(intencao_llm, confianca_llm)], entidades_final)

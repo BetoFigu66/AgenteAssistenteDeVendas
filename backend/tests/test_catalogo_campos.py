@@ -2,7 +2,11 @@
 
 from services.conversacao.catalogo_campos import (
     CAMPO_FAIXA_FUNCIONARIOS,
+    CAMPO_HOMOLOGADO_SOFTWARE,
+    CAMPO_INTERESSE_SISTEMA_NUVEM,
     CAMPO_MODELO,
+    CAMPO_QUANTIDADE,
+    CAMPO_SOFTWARE_ACESSO,
     CAMPO_SOFTWARE_PONTO,
     DESTINO_ATENDIMENTO_INFO,
     DESTINO_ITEM_ATENDIMENTO_MODELO_ID,
@@ -15,9 +19,15 @@ def test_campos_do_produto_relogio_ponto_inclui_os_tres_campos_na_ordem():
     assert campos == [CAMPO_MODELO, CAMPO_SOFTWARE_PONTO, CAMPO_FAIXA_FUNCIONARIOS]
 
 
-def test_campos_do_produto_catraca_ainda_vazio():
-    # Catraca ainda não tem campos mapeados nesta fatia (fora do MVP — ver §9 do plano).
-    assert campos_do_produto("catraca") == []
+def test_campos_do_produto_catraca_inclui_modelo_software_acesso_interesse_faixa_homologacao_e_quantidade():
+    assert campos_do_produto("catraca") == [
+        CAMPO_MODELO,
+        CAMPO_SOFTWARE_ACESSO,
+        CAMPO_INTERESSE_SISTEMA_NUVEM,
+        CAMPO_FAIXA_FUNCIONARIOS,
+        CAMPO_HOMOLOGADO_SOFTWARE,
+        CAMPO_QUANTIDADE,
+    ]
 
 
 def test_software_ponto_se_aplica_a_relogio_ponto():
@@ -43,21 +53,33 @@ def test_software_e_faixa_funcionarios_vao_para_atendimento_info():
     assert CAMPO_FAIXA_FUNCIONARIOS.destino == DESTINO_ATENDIMENTO_INFO
 
 
-def test_faixa_funcionarios_nao_aplicavel_sem_resposta_de_software_ainda():
-    # Dependência de aplicabilidade: sem saber a resposta de software, o campo não é pendência ainda.
-    assert CAMPO_FAIXA_FUNCIONARIOS.se_aplica("relogio_ponto", {}) is False
+def test_faixa_funcionarios_aplicavel_a_relogio_ponto_sem_software():
+    assert CAMPO_FAIXA_FUNCIONARIOS.se_aplica("relogio_ponto", {"software_controle_ponto": "nenhum"}) is True
 
 
-def test_faixa_funcionarios_aplicavel_quando_software_e_nenhum():
-    valores = {"software_controle_ponto": "nenhum"}
-    assert CAMPO_FAIXA_FUNCIONARIOS.se_aplica("relogio_ponto", valores) is True
+def test_faixa_funcionarios_aplicavel_a_catraca_sem_software_com_interesse_nuvem():
+    valores = {"software_controle_acesso": "nenhum", "interesse_sistema_nuvem": "sim"}
+    assert CAMPO_FAIXA_FUNCIONARIOS.se_aplica("catraca", valores) is True
 
 
-def test_faixa_funcionarios_nao_aplicavel_quando_ha_software():
-    valores = {"software_controle_ponto": "Domínio"}
-    assert CAMPO_FAIXA_FUNCIONARIOS.se_aplica("relogio_ponto", valores) is False
+def test_faixa_funcionarios_nao_aplicavel_quando_tem_software_real():
+    assert CAMPO_FAIXA_FUNCIONARIOS.se_aplica("relogio_ponto", {"software_controle_ponto": "Domínio"}) is False
+    assert CAMPO_FAIXA_FUNCIONARIOS.se_aplica("catraca", {"software_controle_acesso": "EVO"}) is False
 
 
-def test_faixa_funcionarios_aceita_variacao_de_caixa_e_espacos_em_nenhum():
-    valores = {"software_controle_ponto": "  Nenhum  "}
-    assert CAMPO_FAIXA_FUNCIONARIOS.se_aplica("relogio_ponto", valores) is True
+def test_interesse_sistema_nuvem_aplicavel_quando_catraca_sem_software():
+    assert CAMPO_INTERESSE_SISTEMA_NUVEM.se_aplica("catraca", {"software_controle_acesso": "nenhum"}) is True
+    assert CAMPO_INTERESSE_SISTEMA_NUVEM.se_aplica("catraca", {"software_controle_acesso": "EVO"}) is False
+
+
+def test_homologado_software_aplicavel_quando_software_e_homologavel():
+    assert CAMPO_HOMOLOGADO_SOFTWARE.se_aplica("catraca", {"software_controle_acesso": "EVO"}) is True
+    assert CAMPO_HOMOLOGADO_SOFTWARE.se_aplica("catraca", {"software_controle_acesso": "outro"}) is False
+
+
+def test_quantidade_nao_aplicavel_a_relogio_ponto():
+    assert CAMPO_QUANTIDADE.se_aplica("relogio_ponto", {}) is False
+
+
+def test_quantidade_aplicavel_a_catraca():
+    assert CAMPO_QUANTIDADE.se_aplica("catraca", {}) is True

@@ -69,10 +69,21 @@ class CampoDef:
 CAMPO_MODELO = CampoDef(
     id_catalogo="CAMPO-modelo",
     chave="modelo_produto",
-    produtos_aplicaveis=frozenset({"relogio_ponto"}),
+    produtos_aplicaveis=frozenset({
+        "relogio_ponto",
+        "catraca",
+        "cancela",
+        "leitor_facial",
+        "leitor_biometrico",
+        "camera",
+        "controle_de_acesso",
+        "controle_por_cartao",
+        "bastao_de_ronda",
+        "roteador",
+    }),
     pergunta=(
-        "O relógio seria cartográfico ou eletrônico? Se eletrônico: cartão de "
-        "proximidade, cartão de barras, biometria ou reconhecimento facial?"
+        "Qual modelo ou tecnologia você prefere? "
+        "(ex.: cartográfico, eletrônico, cartão, biometria, facial, QR Code)"
     ),
     ordem=10,
     destino=DESTINO_ITEM_ATENDIMENTO_MODELO_ID,
@@ -94,36 +105,181 @@ CAMPO_SOFTWARE_PONTO = CampoDef(
 
 
 # ---------------------------------------------------------------------------
+# CAMPO-software-acesso
+# Controle de acesso: software já usado pelo cliente.
+# ---------------------------------------------------------------------------
+
+CAMPO_SOFTWARE_ACESSO = CampoDef(
+    id_catalogo="CAMPO-software-acesso",
+    chave="software_controle_acesso",
+    produtos_aplicaveis=frozenset({
+        "catraca",
+        "cancela",
+        "controle_de_acesso",
+        "controle_por_cartao",
+    }),
+    pergunta=(
+        "Vocês já usam algum software de controle de acesso? "
+        "(ex.: EVO, Pacto, SCA, Panobianco, Sky, outro, ou nenhum)"
+    ),
+    ordem=20,
+)
+
+
+# ---------------------------------------------------------------------------
+# CAMPO-interesse-sistema-nuvem
+# Quando o cliente não tem software de acesso, pergunta se quer adquirir um
+# sistema na nuvem — regra do atendente Inforrel.
+# ---------------------------------------------------------------------------
+
+def _aplicavel_interesse_sistema_nuvem(tipo_produto: str, valores: Valores) -> bool:
+    """Aplica apenas se o cliente declarou não ter software de controle de acesso."""
+    return valores.get("software_controle_acesso", "").strip().lower() == "nenhum"
+
+
+CAMPO_INTERESSE_SISTEMA_NUVEM = CampoDef(
+    id_catalogo="CAMPO-interesse-sistema-nuvem",
+    chave="interesse_sistema_nuvem",
+    produtos_aplicaveis=frozenset({
+        "catraca",
+        "cancela",
+        "controle_de_acesso",
+        "controle_por_cartao",
+    }),
+    pergunta="Têm interesse em adquirir um sistema de controle de acesso na nuvem?",
+    ordem=25,
+    aplicavel=_aplicavel_interesse_sistema_nuvem,
+)
+
+
+# ---------------------------------------------------------------------------
 # CAMPO-faixa-funcionarios
 # artefatos/analista_de_requisitos/catalogo_conversacao/campos/CAMPO-faixa-funcionarios.md
 # ---------------------------------------------------------------------------
 #
-# Só é aplicável depois que `software_controle_ponto` for respondido = "nenhum"
-# (dependência de aplicabilidade, não de ordem — ver §2 do plano: se ainda não
-# sabemos a resposta de software, o campo simplesmente não é uma pendência
-# ainda; se há software, o software já dimensiona e o campo nunca é perguntado).
+# Campo transversal: a faixa de pessoas que usarão o produto é relevante para
+# orçamento independente do tipo (relógio de ponto, catraca, leitor facial etc.).
+# Para catraca sem software e sem interesse em nuvem, a faixa não é perguntada.
 
 
 def _aplicavel_faixa_funcionarios(tipo_produto: str, valores: Valores) -> bool:
-    software = valores.get(CAMPO_SOFTWARE_PONTO.chave)
-    if software is None:
-        return False
-    return software.strip().lower() == "nenhum"
+    """Regras de negócio para perguntar a faixa de pessoas:
+
+    - Relógio de ponto sem software de ponto: sempre pergunta.
+    - Catraca/controle de acesso sem software de acesso e com interesse em
+      sistema na nuvem: pergunta faixa.
+    """
+    tipo = tipo_produto.strip().lower()
+    if tipo == "relogio_ponto":
+        return valores.get("software_controle_ponto", "").strip().lower() == "nenhum"
+
+    software_acesso = valores.get("software_controle_acesso", "").strip().lower()
+    interesse_nuvem = valores.get("interesse_sistema_nuvem", "").strip().lower()
+    return software_acesso == "nenhum" and interesse_nuvem == "sim"
 
 
 CAMPO_FAIXA_FUNCIONARIOS = CampoDef(
     id_catalogo="CAMPO-faixa-funcionarios",
     chave="faixa_funcionarios",
-    produtos_aplicaveis=frozenset({"relogio_ponto"}),
-    pergunta="Quantos funcionários vão usar o relógio de ponto?",
+    produtos_aplicaveis=frozenset({
+        "relogio_ponto",
+        "catraca",
+        "cancela",
+        "leitor_facial",
+        "leitor_biometrico",
+        "camera",
+        "controle_de_acesso",
+        "controle_por_cartao",
+        "bastao_de_ronda",
+        "roteador",
+    }),
+    pergunta="Qual a faixa de pessoas que vão usar {produto}?",
     ordem=30,
     aplicavel=_aplicavel_faixa_funcionarios,
 )
 
 
+# ---------------------------------------------------------------------------
+# CAMPO-quantidade
+# Quantidade de equipamentos. Não aplica a relógio de ponto (onde a faixa de
+# pessoas já dimensiona a necessidade).
+# ---------------------------------------------------------------------------
+
+def _aplicavel_quantidade(tipo_produto: str, valores: Valores) -> bool:
+    """Quantidade de equipamentos é perguntada para todos os produtos de acesso
+    (catraca, cancela, leitor, câmera, controle etc.). Não aplica a relógio de ponto."""
+    return tipo_produto.strip().lower() != "relogio_ponto"
+
+
+CAMPO_QUANTIDADE = CampoDef(
+    id_catalogo="CAMPO-quantidade",
+    chave="quantidade",
+    produtos_aplicaveis=frozenset({
+        "catraca",
+        "cancela",
+        "leitor_facial",
+        "leitor_biometrico",
+        "camera",
+        "controle_de_acesso",
+        "controle_por_cartao",
+        "bastao_de_ronda",
+        "roteador",
+    }),
+    pergunta="Quantas unidades você precisa?",
+    ordem=40,
+    aplicavel=_aplicavel_quantidade,
+)
+
+
+# ---------------------------------------------------------------------------
+# CAMPO-homologado-software
+# Quando o cliente já usa software EVO, Pacto, SCA, Panobianco ou Sky, pergunta
+# se a catraca/leitor precisa ser homologado para aquele software.
+# ---------------------------------------------------------------------------
+
+_SOFTWARES_ACESSO_HOMOLOGAVEIS = frozenset({
+    "evo",
+    "pacto",
+    "sca",
+    "panobianco",
+    "sky",
+})
+
+
+def _aplicavel_homologado_software(tipo_produto: str, valores: Valores) -> bool:
+    software = valores.get("software_controle_acesso", "").strip().lower()
+    return software in _SOFTWARES_ACESSO_HOMOLOGAVEIS
+
+
+CAMPO_HOMOLOGADO_SOFTWARE = CampoDef(
+    id_catalogo="CAMPO-homologado-software",
+    chave="homologado_software",
+    produtos_aplicaveis=frozenset({
+        "catraca",
+        "cancela",
+        "controle_de_acesso",
+        "controle_por_cartao",
+    }),
+    pergunta=(
+        "A catraca/leitor que está sendo adquirido precisa ser homologado "
+        "para o software que vocês já usam?"
+    ),
+    ordem=35,
+    aplicavel=_aplicavel_homologado_software,
+)
+
+
 CAMPOS: dict[str, CampoDef] = {
     campo.chave: campo
-    for campo in (CAMPO_MODELO, CAMPO_SOFTWARE_PONTO, CAMPO_FAIXA_FUNCIONARIOS)
+    for campo in (
+        CAMPO_MODELO,
+        CAMPO_SOFTWARE_PONTO,
+        CAMPO_SOFTWARE_ACESSO,
+        CAMPO_INTERESSE_SISTEMA_NUVEM,
+        CAMPO_FAIXA_FUNCIONARIOS,
+        CAMPO_QUANTIDADE,
+        CAMPO_HOMOLOGADO_SOFTWARE,
+    )
 }
 
 

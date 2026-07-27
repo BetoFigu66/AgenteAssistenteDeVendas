@@ -14,6 +14,7 @@ Fluxo:
 import logging
 import re
 import time
+import unicodedata
 from dataclasses import dataclass
 from datetime import date, datetime, timedelta
 from typing import Optional
@@ -22,6 +23,7 @@ from config import settings
 from models import (
     Atendimento,
     AtendimentoInfo,
+    AtributoAdicionalModelo,
     Contato,
     Empresa,
     FaseAtendimento,
@@ -42,6 +44,7 @@ from models import (
     TipoEventoAtendimento,
     User,
 )
+from sqlalchemy import and_
 from sqlalchemy.orm import Session
 from utils.datetime_utils import utc_now
 
@@ -51,7 +54,16 @@ from services.cnpj import ConsultaCnpjError, obter_ou_criar_empresa
 from services.cnpj.receitaws import validar_cnpj
 from services.conversacao.acoes import ContextoAcao
 from services.conversacao.campos_pendentes import campos_pendentes
-from services.conversacao.catalogo_campos import CAMPO_FAIXA_FUNCIONARIOS, CAMPO_MODELO, CAMPO_SOFTWARE_PONTO
+from services.conversacao.catalogo_campos import (
+    CAMPO_FAIXA_FUNCIONARIOS,
+    CAMPO_HOMOLOGADO_SOFTWARE,
+    CAMPO_INTERESSE_SISTEMA_NUVEM,
+    CAMPO_MODELO,
+    CAMPO_QUANTIDADE,
+    CAMPO_SOFTWARE_ACESSO,
+    CAMPO_SOFTWARE_PONTO,
+    CampoDef,
+)
 from services.conversacao.motor import resolver_e_executar
 from services.conversacao.regras_esclarecendo import REGISTRO_ESCLARECENDO
 from services.conversacao.regras_finalizando import REGISTRO_FINALIZANDO
@@ -101,7 +113,11 @@ REGISTRO_POR_FASE = {
 _MENSAGEM_ID_POR_CAMPO = {
     CAMPO_MODELO.chave: MensagemId.PEDIR_MODELO,
     CAMPO_SOFTWARE_PONTO.chave: MensagemId.PEDIR_SOFTWARE_PONTO,
+    CAMPO_SOFTWARE_ACESSO.chave: MensagemId.PEDIR_SOFTWARE_ACESSO,
+    CAMPO_INTERESSE_SISTEMA_NUVEM.chave: MensagemId.PEDIR_INTERESSE_SISTEMA_NUVEM,
     CAMPO_FAIXA_FUNCIONARIOS.chave: MensagemId.PEDIR_FAIXA_FUNCIONARIOS,
+    CAMPO_QUANTIDADE.chave: MensagemId.PEDIR_QUANTIDADE,
+    CAMPO_HOMOLOGADO_SOFTWARE.chave: MensagemId.PEDIR_HOMOLOGADO_SOFTWARE,
 }
 
 # Fase F (F2): chave de AtendimentoInfo que conta tentativas sem correspondência de
@@ -116,6 +132,8 @@ _MODELO_MAX_TENTATIVAS = 2
 # classificada é DESCONHECIDO (nenhuma regra bateu) — ver `_capturar_resposta_direta_pendente`.
 _SOFTWARE_NENHUM_REGEX = re.compile(r"\b(n[aã]o|nenhum)\b", re.IGNORECASE)
 _NUMERO_SOLTO_REGEX = re.compile(r"\b(\d{1,5})\b")
+_RESPOSTA_SIM_REGEX = re.compile(r"\b(sim|s|claro|ok|parece|interesse|quero|pode ser)\b", re.IGNORECASE)
+_RESPOSTA_NAO_REGEX = re.compile(r"\b(n[aã]o|n)\b", re.IGNORECASE)
 
 # Fase G (G1): marca que o resumo (F4) já foi apresentado — um CONFIRMAR só conclui o
 # handoff se for reply a um resumo que o cliente de fato viu; sem isso, a primeira
@@ -144,7 +162,56 @@ _CONFIANCA_BAIXA_TENTATIVA_CHAVE = "confianca_baixa_tentativas"
 _CATALOGO_TIPOS_LABEL = {
     "catraca": "catracas",
     "relogio_ponto": "relógios de ponto",
+    "cancela": "cancelas",
+    "leitor_facial": "leitores faciais",
+    "leitor_biometrico": "leitores biométricos",
+    "camera": "câmeras",
+    "controle_de_acesso": "controles de acesso",
+    "controle_por_cartao": "controles por cartão",
+    "bastao_de_ronda": "bastões de ronda",
+    "roteador": "roteadores",
 }
+
+# Label com artigo para uso direto em perguntas (ex.: "Qual a faixa de pessoas
+# que vão usar o relógio de ponto?" / "... que vão usar a catraca?").
+_LABEL_PRODUTO_PERGUNTA = {
+    "catraca": "a catraca",
+    "relogio_ponto": "o relógio de ponto",
+    "cancela": "a cancela",
+    "leitor_facial": "o leitor facial",
+    "leitor_biometrico": "o leitor biométrico",
+    "camera": "a câmera",
+    "controle_de_acesso": "o controle de acesso",
+    "controle_por_cartao": "o controle por cartão",
+    "bastao_de_ronda": "o bastão de ronda",
+    "roteador": "o roteador",
+}
+
+
+def _label_tipo_produto(tipo_produto: Optional[str]) -> str:
+    """Retorna o nome amigável de um tipo de produto para uso em mensagens."""
+    if not tipo_produto:
+        return "produto"
+    return _LABEL_PRODUTO_PERGUNTA.get(tipo_produto, tipo_produto.replace("_", " "))
+
+
+def _contexto_para_campo(campo: CampoDef, atendimento: Atendimento) -> Optional[dict]:
+    """Contexto adicional para renderizar a pergunta de um campo pendente."""
+    tipo_produto = _tipo_produto_atual(atendimento)
+    if campo.chave == CAMPO_FAIXA_FUNCIONARIOS.chave:
+        return {"produto": _label_tipo_produto(tipo_produto)}
+    if campo.chave == CAMPO_QUANTIDADE.chave:
+        return {"tipo_produto": tipo_produto.replace("_", " ") if tipo_produto else "o equipamento"}
+    return None
+
+
+def _tipo_produto_atual(atendimento: Atendimento) -> Optional[str]:
+    """Tipo de produto de interesse do atendimento, se já identificado."""
+    for info in atendimento.informacoes:
+        if info.chave == "tipos_produto" and info.valor:
+            primeiro = info.valor.split(",")[0].strip()
+            return primeiro or None
+    return None
 _CATALOGO_PARAM_POR_TIPO = {
     "catraca": "catalogo_link_catraca",
     "relogio_ponto": "catalogo_link_relogio_ponto",
@@ -184,6 +251,29 @@ class ResultadoProcessamento:
     processamento_id: Optional[int] = None
     intencao: Optional[str] = None
     origem_classificacao: Optional[str] = None
+
+
+def _normalizar_sem_acento(texto: str) -> str:
+    """Remove acentos para comparações case-insensitive em português."""
+    return "".join(
+        c for c in unicodedata.normalize("NFD", texto) if unicodedata.category(c) != "Mn"
+    ).lower()
+
+
+def _produto_ids_por_tipos(db: Session, tipos_produto: list[str]) -> list[int]:
+    """Busca produtos ativos cujo nome contenha os tokens do tipo extraído."""
+    if not tipos_produto:
+        return []
+    produtos = db.query(Produto).filter(Produto.ativo.is_(True)).all()
+    ids: set[int] = set()
+    for tipo in tipos_produto:
+        tipo_norm = _normalizar_sem_acento(tipo.replace("_", " "))
+        partes = [p for p in tipo_norm.split() if len(p) > 2]
+        for produto in produtos:
+            desc_norm = _normalizar_sem_acento(produto.descricao)
+            if tipo_norm in desc_norm or all(part in desc_norm for part in partes):
+                ids.add(produto.id)
+    return list(ids)
 
 
 class ProcessadorMensagem:
@@ -445,6 +535,7 @@ class ProcessadorMensagem:
             "quantidades": resultado_class.entidades.quantidades,
             "emails": resultado_class.entidades.emails,
             "software_ponto": resultado_class.entidades.software_ponto,
+            "software_acesso": resultado_class.entidades.software_acesso,
             "tipo_leitor_mencionado": resultado_class.entidades.tipo_leitor_mencionado,
             "faixa_funcionarios": resultado_class.entidades.faixa_funcionarios,
         }
@@ -1003,9 +1094,10 @@ class ProcessadorMensagem:
 
         campo = pendentes[0]
         mensagem_id = _MENSAGEM_ID_POR_CAMPO.get(campo.chave, MensagemId.PEDIR_TIPO_PRODUTO)
+        ctx_campo = _contexto_para_campo(campo, atendimento)
         if dlog:
             dlog.log("finalizando", f"próxima pergunta: {campo.chave} ({mensagem_id.name})")
-        return [(MensagemId.INICIAR_FINALIZANDO, None), (mensagem_id, None)]
+        return [(MensagemId.INICIAR_FINALIZANDO, None), (mensagem_id, ctx_campo)]
 
     # ------------------------------------------------------------------
     # Coleta ativa em Finalizando (Fase F)
@@ -1072,9 +1164,10 @@ class ProcessadorMensagem:
 
         campo = pendentes[0]
         mensagem_id = _MENSAGEM_ID_POR_CAMPO.get(campo.chave, MensagemId.PEDIR_TIPO_PRODUTO)
+        ctx_campo = _contexto_para_campo(campo, atendimento)
         if dlog:
             dlog.log("finalizando", f"próxima pergunta pendente: {campo.chave} ({mensagem_id.name})")
-        return await self._gerador.gerar(mensagem_id)
+        return await self._gerador.gerar(mensagem_id, ctx_campo)
 
     async def _concluir_finalizando(
         self,
@@ -1122,10 +1215,13 @@ class ProcessadorMensagem:
         atendimento: Atendimento,
         resultado_class: ResultadoClassificacao,
         dlog: Optional[DebugLogger] = None,
-    ) -> None:
+    ) -> bool:
         """F2: resolve `modelo_produto` para uma linha real de `Modelo`, ou escala para
         atendimento humano após `_MODELO_MAX_TENTATIVAS` sem correspondência — nunca aceita
         o texto do cliente como modelo (REQ-002.3B, CAMPO-modelo).
+
+        Usa tipo de produto, tecnologia de leitura, marca e aplicação extraídos da
+        conversa para desambiguar o catálogo.
 
         Retorna `True` se houve tentativa sem correspondência (mas sem escalar) — o
         chamador deve usar `MODELO_NAO_RECONHECIDO` em vez de `PEDIR_MODELO`.
@@ -1135,35 +1231,81 @@ class ProcessadorMensagem:
         if not pendentes or pendentes[0].chave != CAMPO_MODELO.chave:
             return False
 
-        tipo_leitor = resultado_class.entidades.tipo_leitor_mencionado
-        if not tipo_leitor:
-            return False  # mensagem não tentou responder o modelo — não conta tentativa
+        entidades = resultado_class.entidades
+        tipo_leitor = entidades.tipo_leitor_mencionado
+        marca = entidades.marca
+        aplicacao = entidades.aplicacao
 
-        candidato = (
-            db.query(Modelo)
-            .join(Produto, Modelo.produto_id == Produto.id)
-            .filter(
-                Produto.descricao.ilike("%ponto%"),
-                Modelo.descricao.ilike(f"%{tipo_leitor}%"),
-                Modelo.ativo.is_(True),
+        # Produto(s) alinhados ao interesse já declarado em AtendimentoInfo.
+        valores = {info.chave: info.valor for info in atendimento.informacoes}
+        tipos_produto = [t.strip() for t in (valores.get("tipos_produto") or "").split(",") if t.strip()]
+        produto_ids = _produto_ids_por_tipos(db, tipos_produto)
+
+        # D6: atributos genéricos do modelo já coletados + extraídos agora.
+        atributos_mensagem: dict[str, str] = dict(entidades.atributos)
+        if tipo_leitor:
+            atributos_mensagem.setdefault("tecnologia_leitura", tipo_leitor)
+        for chave, valor in valores.items():
+            if chave in ("marca", "aplicacao", "tipo_leitor_mencionado", "tipos_produto", "quantidades"):
+                continue
+            # Preserva valor da mensagem atual sobre valor salvo anteriormente.
+            atributos_mensagem.setdefault(chave, valor)
+
+        sinais = {k: v for k, v in {"marca": marca, "aplicacao": aplicacao, **atributos_mensagem}.items() if v}
+        if not sinais and not produto_ids:
+            return False  # mensagem não trouxe sinal para resolver modelo
+
+        query = db.query(Modelo).join(Produto, Modelo.produto_id == Produto.id).filter(Modelo.ativo.is_(True))
+        if produto_ids:
+            query = query.filter(Modelo.produto_id.in_(produto_ids))
+        if marca:
+            query = query.filter(Modelo.marca == marca)
+        if aplicacao:
+            query = query.filter(Modelo.aplicacao == aplicacao)
+
+        # D6: exige que o modelo possua todos os atributos extraídos/coletados.
+        for chave, valor in atributos_mensagem.items():
+            subquery = (
+                db.query(AtributoAdicionalModelo.modelo_id)
+                .filter(
+                    AtributoAdicionalModelo.modelo_id == Modelo.id,
+                    AtributoAdicionalModelo.chave == chave,
+                    AtributoAdicionalModelo.valor == valor,
+                    AtributoAdicionalModelo.ativo.is_(True),
+                )
+                .exists()
             )
-            .first()
-        )
+            query = query.filter(subquery)
+
+        candidato = query.first()
         if candidato:
             item = self._item_atendimento_atual(db, atendimento, candidato.produto_id)
             item.modelo_id = candidato.id
             db.commit()
             self._remover_info_atendimento(db, atendimento.id, _MODELO_TENTATIVAS_CHAVE)
             if dlog:
-                dlog.log("finalizando", f"modelo resolvido: produto_id={candidato.id} ({candidato.descricao})")
+                dlog.log(
+                    "finalizando",
+                    f"modelo resolvido: produto_id={candidato.id} ({candidato.descricao})",
+                )
             return False
 
         tentativas = int(self._info_atendimento(db, atendimento.id, _MODELO_TENTATIVAS_CHAVE) or 0) + 1
         self._salvar_info_atendimento(db, atendimento.id, _MODELO_TENTATIVAS_CHAVE, str(tentativas))
         if dlog:
+            sinais = ", ".join(
+                f"{k}={v}"
+                for k, v in {
+                    "marca": marca,
+                    "aplicacao": aplicacao,
+                    "tipo_leitor": tipo_leitor,
+                    **atributos_mensagem,
+                }.items()
+                if v
+            )
             dlog.log(
                 "finalizando",
-                f"modelo sem correspondência (tipo_leitor={tipo_leitor}) tentativa={tentativas}",
+                f"modelo sem correspondência ({sinais}) tentativa={tentativas}",
             )
 
         if tentativas >= _MODELO_MAX_TENTATIVAS:
@@ -1232,6 +1374,42 @@ class ProcessadorMensagem:
             if dlog:
                 dlog.log("finalizando", f"software_controle_ponto capturado (resposta livre): {valor}")
 
+        elif campo.chave == CAMPO_SOFTWARE_ACESSO.chave:
+            texto = conteudo.strip()
+            if not texto:
+                return
+            valor = "nenhum" if _SOFTWARE_NENHUM_REGEX.search(texto) else texto
+            self._salvar_info_atendimento(db, atendimento.id, campo.chave, valor)
+            if dlog:
+                dlog.log("finalizando", f"software_controle_acesso capturado (resposta livre): {valor}")
+
+        elif campo.chave == CAMPO_INTERESSE_SISTEMA_NUVEM.chave:
+            if _RESPOSTA_SIM_REGEX.search(conteudo):
+                self._salvar_info_atendimento(db, atendimento.id, campo.chave, "sim")
+                if dlog:
+                    dlog.log("finalizando", "interesse_sistema_nuvem capturado: sim")
+            elif _RESPOSTA_NAO_REGEX.search(conteudo):
+                self._salvar_info_atendimento(db, atendimento.id, campo.chave, "não")
+                if dlog:
+                    dlog.log("finalizando", "interesse_sistema_nuvem capturado: não")
+
+        elif campo.chave == CAMPO_QUANTIDADE.chave:
+            match = _NUMERO_SOLTO_REGEX.search(conteudo)
+            if match:
+                self._salvar_info_atendimento(db, atendimento.id, campo.chave, match.group(1))
+                if dlog:
+                    dlog.log("finalizando", f"quantidade capturada (resposta solta): {match.group(1)}")
+
+        elif campo.chave == CAMPO_HOMOLOGADO_SOFTWARE.chave:
+            if _RESPOSTA_SIM_REGEX.search(conteudo):
+                self._salvar_info_atendimento(db, atendimento.id, campo.chave, "sim")
+                if dlog:
+                    dlog.log("finalizando", "homologado_software capturado: sim")
+            elif _RESPOSTA_NAO_REGEX.search(conteudo):
+                self._salvar_info_atendimento(db, atendimento.id, campo.chave, "não")
+                if dlog:
+                    dlog.log("finalizando", "homologado_software capturado: não")
+
     async def _retomar_apos_duvida(
         self,
         db: Session,
@@ -1255,7 +1433,8 @@ class ProcessadorMensagem:
 
         campo = pendentes[0]
         mensagem_id = _MENSAGEM_ID_POR_CAMPO.get(campo.chave, MensagemId.PEDIR_TIPO_PRODUTO)
-        resposta_pergunta = await self._gerador.gerar(mensagem_id)
+        ctx_campo = _contexto_para_campo(campo, atendimento)
+        resposta_pergunta = await self._gerador.gerar(mensagem_id, ctx_campo)
         resposta_retomada = await self._gerador.gerar(
             MensagemId.RETOMAR_PERGUNTA_PENDENTE, {"pergunta": resposta_pergunta.texto}
         )
@@ -1285,10 +1464,19 @@ class ProcessadorMensagem:
         """
         valores = {info.chave: info.valor for info in atendimento.informacoes}
         item_resolvido = next((item for item in atendimento.itens if item.modelo_id is not None), None)
+        modelo = item_resolvido.modelo if item_resolvido else None
         ctx = {
-            "modelo": item_resolvido.modelo.descricao if item_resolvido and item_resolvido.modelo else None,
+            "modelo": modelo.descricao if modelo else None,
+            "marca": modelo.marca if modelo else None,
+            "aplicacao": modelo.aplicacao if modelo else None,
+            "categorias": ", ".join(c.descricao for c in modelo.categorias) if modelo else None,
+            "atributos": {a.chave: a.valor for a in modelo.atributos} if modelo else {},
             "software": valores.get(CAMPO_SOFTWARE_PONTO.chave),
+            "software_acesso": valores.get(CAMPO_SOFTWARE_ACESSO.chave),
+            "interesse_sistema_nuvem": valores.get(CAMPO_INTERESSE_SISTEMA_NUVEM.chave),
+            "homologado_software": valores.get(CAMPO_HOMOLOGADO_SOFTWARE.chave),
             "faixa_funcionarios": valores.get(CAMPO_FAIXA_FUNCIONARIOS.chave),
+            "quantidade": valores.get(CAMPO_QUANTIDADE.chave),
         }
         self._salvar_info_atendimento(db, atendimento.id, _RESUMO_APRESENTADO_CHAVE, "true")
         if dlog:
@@ -1365,13 +1553,32 @@ class ProcessadorMensagem:
             linhas.append(f"Interesse: {valores['tipos_produto'].replace('_', ' ')}")
         item_resolvido = next((item for item in atendimento.itens if item.modelo_id is not None), None)
         if item_resolvido and item_resolvido.modelo:
-            linhas.append(f"Modelo: {item_resolvido.modelo.descricao}")
+            modelo = item_resolvido.modelo
+            linhas.append(f"Modelo: {modelo.descricao}")
+            if modelo.marca:
+                linhas.append(f"Marca: {modelo.marca}")
+            if modelo.aplicacao:
+                linhas.append(f"Aplicação: {modelo.aplicacao}")
+            categorias = ", ".join(c.descricao for c in modelo.categorias)
+            if categorias:
+                linhas.append(f"Categorias: {categorias}")
+            atributos = ", ".join(f"{a.chave}: {a.valor}" for a in modelo.atributos)
+            if atributos:
+                linhas.append(f"Atributos: {atributos}")
         if valores.get(CAMPO_SOFTWARE_PONTO.chave):
             linhas.append(f"Software de ponto: {valores[CAMPO_SOFTWARE_PONTO.chave]}")
+        if valores.get(CAMPO_SOFTWARE_ACESSO.chave):
+            linhas.append(f"Software de controle de acesso: {valores[CAMPO_SOFTWARE_ACESSO.chave]}")
+        if valores.get(CAMPO_INTERESSE_SISTEMA_NUVEM.chave):
+            linhas.append(f"Interesse em sistema na nuvem: {valores[CAMPO_INTERESSE_SISTEMA_NUVEM.chave]}")
+        if valores.get(CAMPO_HOMOLOGADO_SOFTWARE.chave):
+            linhas.append(f"Homologação: {valores[CAMPO_HOMOLOGADO_SOFTWARE.chave]}")
         if valores.get(CAMPO_FAIXA_FUNCIONARIOS.chave):
             linhas.append(f"Funcionários: {valores[CAMPO_FAIXA_FUNCIONARIOS.chave]}")
+        if valores.get(CAMPO_QUANTIDADE.chave):
+            linhas.append(f"Quantidade: {valores[CAMPO_QUANTIDADE.chave]}")
         if valores.get("quantidades"):
-            linhas.append(f"Quantidade mencionada: {valores['quantidades']}")
+            linhas.append(f"Quantidade mencionada na mensagem: {valores['quantidades']}")
 
         pendentes = campos_pendentes(atendimento)
         if pendentes:
@@ -1787,6 +1994,9 @@ class ProcessadorMensagem:
         # D3: software de controle de ponto mencionado espontaneamente em Esclarecendo.
         if entidades.software_ponto:
             registros.append((CAMPO_SOFTWARE_PONTO.chave, entidades.software_ponto))
+        # D3b: software de controle de acesso mencionado espontaneamente.
+        if entidades.software_acesso:
+            registros.append((CAMPO_SOFTWARE_ACESSO.chave, entidades.software_acesso))
         # D4: tecnologia de leitor mencionada espontaneamente — sinal cru; a Fase F resolve
         # para uma linha real do catálogo (Modelo), não grava direto em modelo_produto.
         if entidades.tipo_leitor_mencionado:
@@ -1794,6 +2004,15 @@ class ProcessadorMensagem:
         # D4: faixa de funcionários mencionada espontaneamente.
         if entidades.faixa_funcionarios is not None:
             registros.append((CAMPO_FAIXA_FUNCIONARIOS.chave, str(entidades.faixa_funcionarios)))
+        # D5: marca e aplicação mencionadas espontaneamente — enriquecem a resolução de modelo.
+        if entidades.marca:
+            registros.append(("marca", entidades.marca))
+        if entidades.aplicacao:
+            registros.append(("aplicacao", entidades.aplicacao))
+        # D6: atributos genéricos do modelo extraídos da mensagem (ex.: tecnologia_leitura).
+        # Cada chave deve coincidir com `atributos_adicionais_modelo.chave` para o filtro.
+        for chave, valor in entidades.atributos.items():
+            registros.append((chave, valor))
 
         for chave, valor in registros:
             info = db.query(AtendimentoInfo).filter_by(atendimento_id=atendimento.id, chave=chave).first()

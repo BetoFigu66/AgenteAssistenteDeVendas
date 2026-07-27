@@ -60,6 +60,9 @@ class MensagemId(IntEnum):
     RAG_ESCALADO_SEM_BASE = 40
     PROJETO_COMPLEXO_ESCALADO = 41
     ESCALADO_BAIXA_CONFIANCA = 42
+    PEDIR_SOFTWARE_ACESSO = 43
+    PEDIR_INTERESSE_SISTEMA_NUVEM = 44
+    PEDIR_HOMOLOGADO_SOFTWARE = 45
 
 
 @dataclass(frozen=True)
@@ -250,7 +253,28 @@ CATALOGO: dict[int, MensagemTemplate] = {
     MensagemId.PEDIR_FAIXA_FUNCIONARIOS: MensagemTemplate(
         id=MensagemId.PEDIR_FAIXA_FUNCIONARIOS,
         codigo="PEDIR_FAIXA_FUNCIONARIOS",
-        mensagem="Quantos funcionários vão usar o relógio de ponto?",
+        mensagem="Qual a faixa de pessoas que vão usar {produto}?",
+    ),
+    MensagemId.PEDIR_SOFTWARE_ACESSO: MensagemTemplate(
+        id=MensagemId.PEDIR_SOFTWARE_ACESSO,
+        codigo="PEDIR_SOFTWARE_ACESSO",
+        mensagem=(
+            "Vocês já usam algum software de controle de acesso? "
+            "(ex.: EVO, Pacto, SCA, Panobianco, Sky, outro, ou nenhum)"
+        ),
+    ),
+    MensagemId.PEDIR_INTERESSE_SISTEMA_NUVEM: MensagemTemplate(
+        id=MensagemId.PEDIR_INTERESSE_SISTEMA_NUVEM,
+        codigo="PEDIR_INTERESSE_SISTEMA_NUVEM",
+        mensagem="Têm interesse em adquirir um sistema de controle de acesso na nuvem?",
+    ),
+    MensagemId.PEDIR_HOMOLOGADO_SOFTWARE: MensagemTemplate(
+        id=MensagemId.PEDIR_HOMOLOGADO_SOFTWARE,
+        codigo="PEDIR_HOMOLOGADO_SOFTWARE",
+        mensagem=(
+            "A catraca/leitor que está sendo adquirido precisa ser homologado "
+            "para o software que vocês já usam?"
+        ),
     ),
     MensagemId.INICIAR_FINALIZANDO: MensagemTemplate(
         id=MensagemId.INICIAR_FINALIZANDO,

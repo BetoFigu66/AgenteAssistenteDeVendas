@@ -15,7 +15,11 @@ from services.conversacao.campos_pendentes import (
 )
 from services.conversacao.catalogo_campos import (
     CAMPO_FAIXA_FUNCIONARIOS,
+    CAMPO_HOMOLOGADO_SOFTWARE,
+    CAMPO_INTERESSE_SISTEMA_NUVEM,
     CAMPO_MODELO,
+    CAMPO_QUANTIDADE,
+    CAMPO_SOFTWARE_ACESSO,
     CAMPO_SOFTWARE_PONTO,
 )
 
@@ -52,9 +56,22 @@ def test_sem_tipo_produto_identificado_nao_ha_pendentes():
 
 
 def test_relogio_ponto_recem_identificado_pendentes_sao_modelo_e_software():
-    # faixa_funcionarios ainda não é pendência: depende da resposta de software (C4).
     atendimento = _atendimento(tipo_produto="relogio_ponto")
-    assert campos_pendentes(atendimento) == [CAMPO_MODELO, CAMPO_SOFTWARE_PONTO]
+    assert campos_pendentes(atendimento) == [
+        CAMPO_MODELO,
+        CAMPO_SOFTWARE_PONTO,
+    ]
+
+
+def test_relogio_ponto_sem_software_ponto_pergunta_faixa():
+    atendimento = _atendimento(
+        tipo_produto="relogio_ponto",
+        infos=[_InfoStub(chave="software_controle_ponto", valor="nenhum")],
+    )
+    assert campos_pendentes(atendimento) == [
+        CAMPO_MODELO,
+        CAMPO_FAIXA_FUNCIONARIOS,
+    ]
 
 
 def test_proxima_pergunta_e_modelo_primeiro_na_ordem():
@@ -69,7 +86,7 @@ def test_modelo_ja_resolvido_nao_e_mais_pendente():
     assert CAMPO_SOFTWARE_PONTO in pendentes
 
 
-def test_software_ja_capturado_nao_e_mais_pendente_e_libera_faixa_funcionarios():
+def test_faixa_funcionarios_sempre_pendente_para_relogio_ponto():
     atendimento = _atendimento(
         tipo_produto="relogio_ponto",
         infos=[_InfoStub(chave="software_controle_ponto", valor="nenhum")],
@@ -80,12 +97,14 @@ def test_software_ja_capturado_nao_e_mais_pendente_e_libera_faixa_funcionarios()
     assert CAMPO_MODELO in pendentes
 
 
-def test_software_com_valor_real_nao_libera_faixa_funcionarios():
+def test_faixa_funcionarios_nao_pendente_quando_tem_software_real():
     atendimento = _atendimento(
         tipo_produto="relogio_ponto",
         infos=[_InfoStub(chave="software_controle_ponto", valor="Domínio")],
     )
-    assert CAMPO_FAIXA_FUNCIONARIOS not in campos_pendentes(atendimento)
+    pendentes = campos_pendentes(atendimento)
+    assert CAMPO_FAIXA_FUNCIONARIOS not in pendentes
+    assert CAMPO_SOFTWARE_PONTO not in pendentes
 
 
 def test_todos_os_campos_capturados_nenhuma_pendencia():
@@ -118,7 +137,50 @@ def test_nao_perguntar_de_novo_software_usa_atendimento_info():
     assert nao_perguntar_de_novo(CAMPO_SOFTWARE_PONTO, com_software) is True
 
 
-def test_produto_sem_campos_mapeados_retorna_vazio():
-    # Catraca ainda não tem campos mapeados nesta fatia (fora do MVP — ver §9 do plano).
+def test_catraca_tem_modelo_software_acesso_e_quantidade_pendentes():
     atendimento = _atendimento(tipo_produto="catraca")
-    assert campos_pendentes(atendimento) == []
+    assert campos_pendentes(atendimento) == [
+        CAMPO_MODELO,
+        CAMPO_SOFTWARE_ACESSO,
+        CAMPO_QUANTIDADE,
+    ]
+
+
+def test_catraca_sem_software_com_interesse_nuvem_pergunta_faixa_e_quantidade():
+    atendimento = _atendimento(
+        tipo_produto="catraca",
+        infos=[
+            _InfoStub(chave="software_controle_acesso", valor="nenhum"),
+            _InfoStub(chave="interesse_sistema_nuvem", valor="sim"),
+        ],
+    )
+    pendentes = campos_pendentes(atendimento)
+    assert CAMPO_SOFTWARE_ACESSO not in pendentes
+    assert CAMPO_INTERESSE_SISTEMA_NUVEM not in pendentes
+    assert CAMPO_FAIXA_FUNCIONARIOS in pendentes
+    assert CAMPO_QUANTIDADE in pendentes
+
+
+def test_catraca_sem_software_sem_interesse_nuvem_pergunta_somente_quantidade():
+    atendimento = _atendimento(
+        tipo_produto="catraca",
+        infos=[
+            _InfoStub(chave="software_controle_acesso", valor="nenhum"),
+            _InfoStub(chave="interesse_sistema_nuvem", valor="não"),
+        ],
+    )
+    pendentes = campos_pendentes(atendimento)
+    assert CAMPO_FAIXA_FUNCIONARIOS not in pendentes
+    assert CAMPO_QUANTIDADE in pendentes
+
+
+def test_catraca_com_software_homologavel_pergunta_homologacao():
+    atendimento = _atendimento(
+        tipo_produto="catraca",
+        infos=[_InfoStub(chave="software_controle_acesso", valor="EVO")],
+    )
+    pendentes = campos_pendentes(atendimento)
+    assert CAMPO_INTERESSE_SISTEMA_NUVEM not in pendentes
+    assert CAMPO_FAIXA_FUNCIONARIOS not in pendentes
+    assert CAMPO_HOMOLOGADO_SOFTWARE in pendentes
+    assert CAMPO_QUANTIDADE in pendentes

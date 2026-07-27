@@ -124,8 +124,8 @@ def test_novo_pedir_orcamento_sem_produto_ainda_pede_tipo(db_session, processado
 
 
 def test_composta_orcamento_com_software_junto_captura_no_mesmo_turno(db_session, processador):
-    """E3: 'quero orçamento, já uso o Domínio' captura software no mesmo turno da transição —
-    faixa_funcionarios não deve entrar como pendência (há software), a próxima pergunta é modelo."""
+    """E3: 'quero orçamento, já uso o Domínio' captura software no mesmo turno da transição;
+    a próxima pergunta é modelo (ainda pendente)."""
     telefone = "5511999980003"
     identificacao = ResultadoIdentificacao(status=StatusIdentificacao.NOVO, contatos=[], empresas=[])
     resultado_class = _resultado(
@@ -207,10 +207,13 @@ def test_transicao_e_idempotente_segunda_mensagem_ja_finalizando(db_session, pro
         _limpar(db_session, telefone)
 
 
-def test_mensagem_id_pedir_faixa_funcionarios_e_valida():
-    """Confirma que o template existe e renderiza (regressão de digitação no mapeamento)."""
+def test_mensagem_id_pedir_faixa_funcionarios_renderiza_com_produto():
+    """Confirma que o template de faixa renderiza com o nome do produto no contexto."""
     from services.respostas.catalogo import renderizar_mensagem
 
-    texto, codigo = renderizar_mensagem(MensagemId.PEDIR_FAIXA_FUNCIONARIOS)
+    texto, codigo = renderizar_mensagem(
+        MensagemId.PEDIR_FAIXA_FUNCIONARIOS, {"produto": "o relógio de ponto"}
+    )
     assert codigo == "PEDIR_FAIXA_FUNCIONARIOS"
-    assert "funcionários" in texto
+    assert "pessoas" in texto
+    assert "Qual a faixa de pessoas que vão usar o relógio de ponto?" == texto

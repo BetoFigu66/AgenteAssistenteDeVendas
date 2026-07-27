@@ -1,4 +1,4 @@
-"""Testes da extração passiva de software/tipo de leitor/faixa de funcionários (Fase D — D3/D4)."""
+"""Testes da extração passiva de software/tipo de leitor/faixa de funcionários/marca/aplicação (Fase D — D3/D4/D5)."""
 
 from services.classificador import extrair_entidades
 
@@ -59,3 +59,75 @@ def test_extracao_composta_software_leitor_e_faixa_juntos():
     assert e.software_ponto == "Domínio"
     assert e.tipo_leitor_mencionado == "biometria"
     assert e.faixa_funcionarios == 80
+
+
+def test_extrai_marca_topdata():
+    e = extrair_entidades("Quero uma catraca Topdata")
+    assert e.marca == "Topdata"
+
+
+def test_extrai_marca_control_id_com_hifen():
+    e = extrair_entidades("Vocês têm leitor facial Control-ID?")
+    assert e.marca == "Control-ID"
+
+
+def test_nao_extrai_marca_quando_nao_mencionada():
+    e = extrair_entidades("Quero orçamento")
+    assert e.marca is None
+
+
+def test_extrai_aplicacao_condominio():
+    e = extrair_entidades("Preciso de catraca para condomínio")
+    assert e.aplicacao == "Condomínios"
+
+
+def test_extrai_aplicacao_grande_empresa():
+    e = extrair_entidades("Somos uma grande empresa, precisamos de relógio de ponto")
+    assert e.aplicacao == "Grandes Empresas"
+
+
+def test_extrai_aplicacao_pme():
+    e = extrair_entidades("Solução para PME")
+    assert e.aplicacao == "Pequenas e médias empresas"
+
+
+def test_nao_extrai_aplicacao_quando_nao_mencionada():
+    e = extrair_entidades("Quero orçamento")
+    assert e.aplicacao is None
+
+
+def test_extrai_atributo_generico_tecnologia_leitura_biometria():
+    e = extrair_entidades("Quero uma catraca com biometria")
+    assert e.atributos.get("tecnologia_leitura") == "biometria"
+
+
+def test_extrai_atributo_generico_tecnologia_leitura_facial():
+    e = extrair_entidades("Preciso de leitor facial")
+    assert e.atributos.get("tecnologia_leitura") == "facial"
+
+
+def test_extrai_atributo_generico_tecnologia_leitura_cartao():
+    e = extrair_entidades("Quero relógio de ponto de cartão de proximidade")
+    assert e.atributos.get("tecnologia_leitura") == "cartao"
+
+
+def test_atributo_generico_persiste_tipo_leitor_mencionado():
+    # Garante que tipo_leitor_mencionado continua preenchido para compatibilidade.
+    e = extrair_entidades("Quero relógio de ponto biométrico")
+    assert e.tipo_leitor_mencionado == "biometria"
+    assert e.atributos.get("tecnologia_leitura") == "biometria"
+
+
+def test_extrai_software_acesso_evo():
+    e = extrair_entidades("Usamos o EVO para controle de acesso")
+    assert e.software_acesso == "EVO"
+
+
+def test_extrai_software_acesso_pacto():
+    e = extrair_entidades("Nosso sistema é o Pacto")
+    assert e.software_acesso == "Pacto"
+
+
+def test_nao_extrai_software_acesso_quando_nao_mencionado():
+    e = extrair_entidades("Quero orçamento de catraca")
+    assert e.software_acesso is None

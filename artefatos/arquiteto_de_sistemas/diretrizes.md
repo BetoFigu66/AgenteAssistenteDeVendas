@@ -65,6 +65,18 @@
   - ✅ Para executar o código do agente, pedir explicitamente: "rode `GerenteDeProjetos.gerar_relatorio_sprint()`".
   - ❌ Não confundir "assumir o papel" com "instanciar a classe Python".
 
+### A06 — Catálogo de produtos: campos de qualificação devem migrar para estruturas genéricas
+- **Categoria:** arquitetura / domínio
+- **Registrada em:** 2026-07-23
+- **Regra:** Campos, entidades e perguntas hardcoded para tipos específicos de produto (ex.: relógio de ponto) devem ser substituídos progressivamente por estruturas genéricas alimentadas pelo catálogo (`produto_sinonimos`, atributos de `Modelo`, `campo_qualificacao`). A transição deve ser incremental, preservando regras de negócio específicas enquanto elas ainda fizerem sentido (ex.: software de ponto, faixa de funcionários).
+- **Motivação:** reduzir retrabalho e permitir que novos produtos/modelos sejam incluídos via importação de planilha, sem alterar regras de código.
+- **Documento detalhado:** [`analise_campos_especificos_vs_genericos_catalogo.md`](./analise_campos_especificos_vs_genericos_catalogo.md) — diagnóstico das estruturas atuais, alternativas, custos e recomendação.
+- **Aplicação prática:**
+  - ✅ Criar sinônimos e atributos genéricos no banco antes de remover mapeamentos hardcoded.
+  - ✅ Generalizar `CAMPO_MODELO` para todos os produtos; manter campos específicos apenas quando houver dependência de negócio clara.
+  - ❌ Adicionar novos `_XXX_PALAVRAS` em `classificador.py` para cada novo produto.
+  - ❌ Escrever perguntas hardcoded que pressupõem um único tipo de produto.
+
 ---
 
 ## Diretrizes movidas / revogadas
@@ -78,3 +90,4 @@
 | Data | Mudança |
 |------|---------|
 | 2026-05-17 | Criação do índice consolidando os `.md` temáticos em A01-A05. Conteúdo detalhado permanece nos `.md` originais. |
+| 2026-07-23 | Adicionada A06 — migração de campos hardcoded para estruturas genéricas do catálogo. |

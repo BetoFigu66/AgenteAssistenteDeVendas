@@ -90,11 +90,31 @@ def montar_resumo_finalizando(ctx: ContextoMensagem) -> ContextoMensagem:
     """Monta a lista de itens do resumo (Fase F — F4) a partir do que foi capturado."""
     linhas: list[str] = []
     if ctx.get("modelo"):
-        linhas.append(f"- Modelo: {ctx['modelo']}")
+        detalhes = ctx["modelo"]
+        if ctx.get("marca"):
+            detalhes += f" ({ctx['marca']})"
+        linhas.append(f"- Modelo: {detalhes}")
+    if ctx.get("categorias"):
+        linhas.append(f"- Categorias: {ctx['categorias']}")
+    if ctx.get("aplicacao"):
+        linhas.append(f"- Aplicação: {ctx['aplicacao']}")
+    if ctx.get("atributos"):
+        atributos = ctx["atributos"]
+        if isinstance(atributos, dict) and atributos:
+            partes = [f"{k.replace('_', ' ')}: {v}" for k, v in atributos.items()]
+            linhas.append(f"- Atributos: {', '.join(partes)}")
     if ctx.get("software"):
         linhas.append(f"- Software de ponto: {ctx['software']}")
+    if ctx.get("software_acesso"):
+        linhas.append(f"- Software de controle de acesso: {ctx['software_acesso']}")
+    if ctx.get("interesse_sistema_nuvem"):
+        linhas.append(f"- Interesse em sistema na nuvem: {ctx['interesse_sistema_nuvem']}")
+    if ctx.get("homologado_software"):
+        linhas.append(f"- Homologação: {ctx['homologado_software']}")
     if ctx.get("faixa_funcionarios"):
         linhas.append(f"- Funcionários: {ctx['faixa_funcionarios']}")
+    if ctx.get("quantidade"):
+        linhas.append(f"- Quantidade: {ctx['quantidade']}")
     ctx["itens_resumo"] = "\n".join(linhas)
     return ctx
 

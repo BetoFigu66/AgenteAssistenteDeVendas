@@ -92,6 +92,49 @@ def _resolver_modelo_manual(db_session, atendimento):
     return modelo
 
 
+def _resolver_modelo_catraca_manual(db_session, atendimento):
+    """Simula resolução de modelo para catraca em testes."""
+    produto = db_session.query(Produto).filter_by(descricao="Catraca (teste F)").first()
+    if produto is None:
+        produto = Produto(descricao="Catraca (teste F)", ativo=True)
+        db_session.add(produto)
+        db_session.commit()
+    modelo = db_session.query(Modelo).filter_by(codigo="TESTE-CAT-F001").first()
+    if modelo is None:
+        modelo = Modelo(
+            produto_id=produto.id,
+            codigo="TESTE-CAT-F001",
+            descricao="Catraca de teste (Fase F)",
+            preco_tabela=0,
+            ativo=True,
+        )
+        db_session.add(modelo)
+        db_session.commit()
+    item = ItemAtendimento(
+        atendimento_id=atendimento.id, produto_id=produto.id, modelo_id=modelo.id, quantidade=1
+    )
+    db_session.add(item)
+    db_session.commit()
+    return modelo
+
+
+def _iniciar_finalizando_catraca(db_session, processador, telefone):
+    """Coloca um atendimento direto em Finalizando para produto catraca."""
+    identificacao = ResultadoIdentificacao(status=StatusIdentificacao.NOVO, contatos=[], empresas=[])
+    resultado = _resultado(Intencao.PEDIR_ORCAMENTO, tipos_produto=["catraca"])
+    asyncio.run(
+        processador._decidir_resposta(
+            db=db_session,
+            telefone=telefone,
+            conteudo="Quero orçamento de catraca",
+            identificacao=identificacao,
+            resultado_class=resultado,
+        )
+    )
+    contato = db_session.query(Contato).filter_by(telefone=telefone).first()
+    return contato
+
+
 def test_f1_resposta_solta_faixa_funcionarios_sem_palavra_gatilho(db_session, processador):
     """F1: "80" sozinho (sem a palavra "funcionários") deve ser capturado quando a
     pergunta pendente atual é faixa_funcionarios — os extratores D3/D4 exigem gatilho."""
@@ -123,8 +166,7 @@ def test_f1_resposta_solta_faixa_funcionarios_sem_palavra_gatilho(db_session, pr
 def test_f1_resposta_livre_software_fora_do_catalogo_conhecido(db_session, processador):
     """F1: nome de software fora de `_SOFTWARES_PONTO_CONHECIDOS` deve ser aceito como
     texto livre quando é a pergunta pendente atual (CAMPO-software-ponto não exige
-    catálogo, ao contrário de modelo). Como não é "nenhum", faixa_funcionarios nunca
-    entra como pendência (só se aplica quando não há software) — tudo capturado → resumo."""
+    catálogo, ao contrário de modelo). Quando o software é real, faixa não é perguntada."""
     telefone = "5511999981002"
     try:
         contato = _iniciar_finalizando_com_software(db_session, processador, telefone)
@@ -133,7 +175,7 @@ def test_f1_resposta_livre_software_fora_do_catalogo_conhecido(db_session, proce
 
         identificacao = ResultadoIdentificacao(status=StatusIdentificacao.SEM_EMPRESA, contatos=[contato], empresas=[])
         resultado = _resultado(Intencao.DESCONHECIDO)
-        resposta = asyncio.run(
+        resposta_software = asyncio.run(
             processador._decidir_resposta(
                 db=db_session,
                 telefone=telefone,
@@ -142,10 +184,37 @@ def test_f1_resposta_livre_software_fora_do_catalogo_conhecido(db_session, proce
                 resultado_class=resultado,
             )
         )
-        assert resposta.template_usado == "RESUMO_FINALIZANDO"
+        assert resposta_software.template_usado == "RESUMO_FINALIZANDO"
         db_session.refresh(atendimento)
         valores = {info.chave: info.valor for info in atendimento.informacoes}
         assert valores.get("software_controle_ponto") == "Ponto Certo"
+        assert "faixa_funcionarios" not in valores
+    finally:
+        _limpar(db_session, telefone)
+
+
+def test_f1_resposta_software_ponto_nenhum_pergunta_faixa(db_session, processador):
+    """F1: quando o software de ponto é 'nenhum', a faixa de pessoas deve ser perguntada."""
+    telefone = "5511999981020"
+    try:
+        contato = _iniciar_finalizando_com_software(db_session, processador, telefone)
+        atendimento = contato.atendimentos[0]
+        _resolver_modelo_manual(db_session, atendimento)
+
+        identificacao = ResultadoIdentificacao(status=StatusIdentificacao.SEM_EMPRESA, contatos=[contato], empresas=[])
+        resposta_software = asyncio.run(
+            processador._decidir_resposta(
+                db=db_session,
+                telefone=telefone,
+                conteudo="nenhum",
+                identificacao=identificacao,
+                resultado_class=_resultado(Intencao.DESCONHECIDO),
+            )
+        )
+        assert resposta_software.template_usado == "PEDIR_FAIXA_FUNCIONARIOS"
+        db_session.refresh(atendimento)
+        valores = {info.chave: info.valor for info in atendimento.informacoes}
+        assert valores.get("software_controle_ponto") == "nenhum"
     finally:
         _limpar(db_session, telefone)
 
@@ -217,7 +286,7 @@ def test_f2_modelo_escala_para_humano_apos_tentativas_sem_correspondencia(db_ses
         atendimento = contato.atendimentos[0]
         identificacao = ResultadoIdentificacao(status=StatusIdentificacao.SEM_EMPRESA, contatos=[contato], empresas=[])
 
-        resultado_1 = _resultado(Intencao.PERGUNTAR_PRODUTO, tipo_leitor_mencionado="biometria")
+        resultado_1 = _resultado(Intencao.DESCONHECIDO, tipo_leitor_mencionado="biometria_inexistente_teste")
         resposta_1 = asyncio.run(
             processador._decidir_resposta(
                 db=db_session,
@@ -228,10 +297,11 @@ def test_f2_modelo_escala_para_humano_apos_tentativas_sem_correspondencia(db_ses
             )
         )
         db_session.refresh(atendimento)
+        assert resposta_1.template_usado == "MODELO_NAO_RECONHECIDO"
         assert atendimento.modo_operacao == ModoOperacao.AGENTE
         assert atendimento.fase == FaseAtendimento.FINALIZANDO
 
-        resultado_2 = _resultado(Intencao.PERGUNTAR_PRODUTO, tipo_leitor_mencionado="biometria")
+        resultado_2 = _resultado(Intencao.DESCONHECIDO, tipo_leitor_mencionado="biometria_inexistente_teste")
         resposta_2 = asyncio.run(
             processador._decidir_resposta(
                 db=db_session,
@@ -297,7 +367,7 @@ def test_f3_duvida_em_finalizando_retoma_pergunta_pendente(db_session, processad
             )
         )
         assert resposta.template_usado.endswith("+RETOMAR_PERGUNTA_PENDENTE")
-        assert "software" in resposta.texto.lower() or "Qual software" in resposta.texto
+        assert "software" in resposta.texto.lower() or "qual software" in resposta.texto.lower()
         db_session.refresh(atendimento)
         assert atendimento.fase == FaseAtendimento.FINALIZANDO
     finally:
@@ -305,28 +375,111 @@ def test_f3_duvida_em_finalizando_retoma_pergunta_pendente(db_session, processad
 
 
 def test_f4_resumo_quando_tudo_capturado(db_session, processador):
-    """F4: quando modelo (resolvido) + software = "nenhum" (encerra a cadeia, sem exigir
-    faixa) estão completos, apresenta o resumo pedindo confirmação."""
+    """F4: quando modelo (resolvido) + software 'nenhum' + faixa estão completos, apresenta o
+    resumo pedindo confirmação."""
     telefone = "5511999981007"
     try:
-        contato = _iniciar_finalizando_com_software(db_session, processador, telefone, software="Domínio")
+        contato = _iniciar_finalizando_com_software(db_session, processador, telefone, software="nenhum")
         atendimento = contato.atendimentos[0]
         modelo = _resolver_modelo_manual(db_session, atendimento)
 
         identificacao = ResultadoIdentificacao(status=StatusIdentificacao.SEM_EMPRESA, contatos=[contato], empresas=[])
         resultado = _resultado(Intencao.DESCONHECIDO)
-        resposta = asyncio.run(
+        resposta_faixa = asyncio.run(
             processador._decidir_resposta(
                 db=db_session,
                 telefone=telefone,
-                conteudo="ok",
+                conteudo="80",
                 identificacao=identificacao,
                 resultado_class=resultado,
             )
         )
-        assert resposta.template_usado == "RESUMO_FINALIZANDO"
-        assert modelo.descricao in resposta.texto
-        assert "Domínio" in resposta.texto
-        assert "Funcionários:" not in resposta.texto
+        assert resposta_faixa.template_usado == "RESUMO_FINALIZANDO"
+        assert modelo.descricao in resposta_faixa.texto
+        assert "nenhum" in resposta_faixa.texto.lower()
+        assert "80" in resposta_faixa.texto
+    finally:
+        _limpar(db_session, telefone)
+
+
+def test_f1_resposta_livre_software_acesso(db_session, processador):
+    """F1: software de controle de acesso fora da lista curta deve ser aceito como texto livre."""
+    telefone = "5511999981010"
+    try:
+        contato = _iniciar_finalizando_catraca(db_session, processador, telefone)
+        atendimento = contato.atendimentos[0]
+        _resolver_modelo_catraca_manual(db_session, atendimento)
+
+        identificacao = ResultadoIdentificacao(status=StatusIdentificacao.SEM_EMPRESA, contatos=[contato], empresas=[])
+        resposta = asyncio.run(
+            processador._decidir_resposta(
+                db=db_session,
+                telefone=telefone,
+                conteudo="Outro Software X",
+                identificacao=identificacao,
+                resultado_class=_resultado(Intencao.DESCONHECIDO),
+            )
+        )
+        assert resposta.template_usado == "PEDIR_QUANTIDADE"
+        db_session.refresh(atendimento)
+        valores = {info.chave: info.valor for info in atendimento.informacoes}
+        assert valores.get("software_controle_acesso") == "Outro Software X"
+    finally:
+        _limpar(db_session, telefone)
+
+
+def test_f1_catraca_sem_software_interesse_nuvem_pergunta_faixa(db_session, processador):
+    """F1: catraca sem software + interesse em nuvem → pergunta faixa de pessoas e quantidade."""
+    telefone = "5511999981011"
+    try:
+        contato = _iniciar_finalizando_catraca(db_session, processador, telefone)
+        atendimento = contato.atendimentos[0]
+        _resolver_modelo_catraca_manual(db_session, atendimento)
+
+        identificacao = ResultadoIdentificacao(status=StatusIdentificacao.SEM_EMPRESA, contatos=[contato], empresas=[])
+        resposta_software = asyncio.run(
+            processador._decidir_resposta(
+                db=db_session,
+                telefone=telefone,
+                conteudo="nenhum",
+                identificacao=identificacao,
+                resultado_class=_resultado(Intencao.DESCONHECIDO),
+            )
+        )
+        assert resposta_software.template_usado == "PEDIR_INTERESSE_SISTEMA_NUVEM"
+
+        resposta_interesse = asyncio.run(
+            processador._decidir_resposta(
+                db=db_session,
+                telefone=telefone,
+                conteudo="sim",
+                identificacao=identificacao,
+                resultado_class=_resultado(Intencao.DESCONHECIDO),
+            )
+        )
+        assert resposta_interesse.template_usado == "PEDIR_FAIXA_FUNCIONARIOS"
+    finally:
+        _limpar(db_session, telefone)
+
+
+def test_f1_catraca_com_software_homologavel_pergunta_homologacao(db_session, processador):
+    """F1: catraca com software EVO/Pacto/SCA/Panobianco/Sky → pergunta homologação."""
+    telefone = "5511999981012"
+    try:
+        contato = _iniciar_finalizando_catraca(db_session, processador, telefone)
+        atendimento = contato.atendimentos[0]
+        _resolver_modelo_catraca_manual(db_session, atendimento)
+
+        identificacao = ResultadoIdentificacao(status=StatusIdentificacao.SEM_EMPRESA, contatos=[contato], empresas=[])
+        resposta_software = asyncio.run(
+            processador._decidir_resposta(
+                db=db_session,
+                telefone=telefone,
+                conteudo="EVO",
+                identificacao=identificacao,
+                resultado_class=_resultado(Intencao.DESCONHECIDO),
+            )
+        )
+        assert resposta_software.template_usado == "PEDIR_HOMOLOGADO_SOFTWARE"
     finally:
         _limpar(db_session, telefone)
