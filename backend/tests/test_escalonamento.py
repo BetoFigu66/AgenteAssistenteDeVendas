@@ -284,6 +284,8 @@ def test_confianca_baixa_escala_na_segunda_ocorrencia_consecutiva(db_session):
         p = ProcessadorMensagem(retrieval=_RetrievalFake([]), qa=_QAFake([]))
         resultado_class = _resultado(Intencao.DESCONHECIDO, confianca_nivel=NivelConfianca.BAIXA)
 
+        # 1ª mensagem: mesmo com confiança baixa, o fluxo de identificação pergunta o
+        # CNPJ primeiro (uma única vez) — não é tratado como fallback de confiança ainda.
         resposta1 = asyncio.run(
             p._decidir_resposta(
                 db=db_session,
@@ -293,11 +295,13 @@ def test_confianca_baixa_escala_na_segunda_ocorrencia_consecutiva(db_session):
                 resultado_class=resultado_class,
             )
         )
-        assert resposta1.template_usado == "NAO_ENTENDI"
+        assert resposta1.template_usado == "PERGUNTAR_CNPJ"
         db_session.commit()
         db_session.refresh(atendimento)
         assert atendimento.modo_operacao == ModoOperacao.AGENTE
 
+        # 2ª mensagem: cliente não respondeu o CNPJ — sistema não insiste (marca
+        # "recusado") e cai no fallback de confiança baixa (1ª ocorrência).
         resposta2 = asyncio.run(
             p._decidir_resposta(
                 db=db_session,
@@ -307,7 +311,22 @@ def test_confianca_baixa_escala_na_segunda_ocorrencia_consecutiva(db_session):
                 resultado_class=resultado_class,
             )
         )
-        assert resposta2.template_usado == "ESCALADO_BAIXA_CONFIANCA"
+        assert resposta2.template_usado == "NAO_ENTENDI"
+        db_session.commit()
+        db_session.refresh(atendimento)
+        assert atendimento.modo_operacao == ModoOperacao.AGENTE
+
+        # 3ª mensagem: 2ª ocorrência consecutiva de confiança baixa → escala pra humano.
+        resposta3 = asyncio.run(
+            p._decidir_resposta(
+                db=db_session,
+                telefone=telefone,
+                conteudo="mais confuso ainda kqpwoekqp",
+                identificacao=identificacao,
+                resultado_class=resultado_class,
+            )
+        )
+        assert resposta3.template_usado == "ESCALADO_BAIXA_CONFIANCA"
         db_session.commit()
         db_session.refresh(atendimento)
         assert atendimento.modo_operacao == ModoOperacao.HUMANO

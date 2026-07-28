@@ -18,6 +18,7 @@ from .catalogo_campos import (
     CampoDef,
     Valores,
     campos_do_produto,
+    chave_perguntado,
 )
 
 # Chave de AtendimentoInfo onde o tipo de produto de interesse é registrado
@@ -56,10 +57,20 @@ def nao_perguntar_de_novo(campo: CampoDef, atendimento: Atendimento) -> bool:
 
     Nome espelha o efeito `nao_perguntar_de_novo` do catálogo de conversação
     (`catalogo_conversacao/README.md`).
+
+    Campos **não obrigatórios** (`campo.obrigatorio = False`) também contam como
+    "não perguntar de novo" quando já foram perguntados uma vez
+    (`chave_perguntado`), mesmo sem valor capturado — são alertas/orientações que
+    não devem insistir nem bloquear o fluxo (ver `CampoDef.obrigatorio`).
     """
     if campo.destino == DESTINO_ITEM_ATENDIMENTO_MODELO_ID:
         return _modelo_ja_resolvido(atendimento)
-    return bool(_valores_capturados(atendimento).get(campo.chave))
+    valores = _valores_capturados(atendimento)
+    if bool(valores.get(campo.chave)):
+        return True
+    if not campo.obrigatorio and bool(valores.get(chave_perguntado(campo))):
+        return True
+    return False
 
 
 def campos_pendentes(atendimento: Atendimento) -> list[CampoDef]:

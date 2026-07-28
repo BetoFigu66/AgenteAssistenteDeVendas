@@ -62,6 +62,7 @@ from services.conversacao.catalogo_campos import (
     CAMPO_SOFTWARE_ACESSO,
     CAMPO_SOFTWARE_PONTO,
     CampoDef,
+    chave_perguntado,
 )
 from services.conversacao.motor import resolver_e_executar
 from services.conversacao.regras_esclarecendo import REGISTRO_ESCLARECENDO
@@ -201,6 +202,12 @@ def _contexto_para_campo(campo: CampoDef, atendimento: Atendimento) -> Optional[
         return {"produto": _label_tipo_produto(tipo_produto)}
     if campo.chave == CAMPO_QUANTIDADE.chave:
         return {"tipo_produto": tipo_produto.replace("_", " ") if tipo_produto else "o equipamento"}
+    if campo.chave == CAMPO_HOMOLOGADO_SOFTWARE.chave:
+        software = next(
+            (info.valor for info in atendimento.informacoes if info.chave == CAMPO_SOFTWARE_ACESSO.chave),
+            None,
+        )
+        return {"software": software or "que vocês já usam"}
     return None
 
 
@@ -1420,6 +1427,13 @@ class ProcessadorMensagem:
                 if dlog:
                     dlog.log("finalizando", "homologado_software capturado: não")
 
+        # Campos não obrigatórios (ex.: alerta de homologação — REQ-002.14C/15) só são
+        # perguntados uma vez: esta é a única tentativa de captura da resposta (acima).
+        # Marcamos como "perguntado" aqui — depois deste turno, mesmo sem resposta
+        # reconhecida, `campos_pendentes()` deixa de bloquear o fluxo por causa dele.
+        if not campo.obrigatorio:
+            self._marcar_pergunta_opcional_se_necessario(db, atendimento, campo)
+
     async def _retomar_apos_duvida(
         self,
         db: Session,
@@ -1935,6 +1949,17 @@ class ProcessadorMensagem:
     def _remover_info_atendimento(self, db: Session, atendimento_id: int, chave: str) -> None:
         db.query(AtendimentoInfo).filter_by(atendimento_id=atendimento_id, chave=chave).delete()
         db.commit()
+
+    def _marcar_pergunta_opcional_se_necessario(
+        self, db: Session, atendimento: Atendimento, campo: CampoDef
+    ) -> None:
+        """Campos não obrigatórios (`campo.obrigatorio = False`, ex.: alerta de
+        homologação — REQ-002.14C/15) só devem ser perguntados uma vez: registra o
+        marcador (`chave_perguntado`) assim que a pergunta é enviada, para que
+        `campos_pendentes()` deixe de bloquear o fluxo mesmo sem resposta do cliente."""
+        if campo.obrigatorio:
+            return
+        self._salvar_info_atendimento(db, atendimento.id, chave_perguntado(campo), "true")
 
     def _obter_user_sistema(self, db: Session) -> User:
         """`User` sentinela usado para marcar mensagens auto-aprovadas em

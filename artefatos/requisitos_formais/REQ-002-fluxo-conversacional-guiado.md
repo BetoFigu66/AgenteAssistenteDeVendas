@@ -3,8 +3,8 @@
 <!-- CLASSIFICACAO: SISTEMA-CAIXAPRETA -->
 <!-- CLASSIFICACAO: IA -->
 
-**Versão**: 1.35  
-**Data**: 2026-07-27  
+**Versão**: 1.37  
+**Data**: 2026-07-28  
 **Autor**: Kika (Analista de Requisitos)  
 **Status**: Em Elaboração  
 **Prioridade**: Alta  
@@ -278,9 +278,13 @@ O sistema deve conduzir conversas de forma estruturada, porém **adaptativa**, c
 
 - [ ] **REQ-002.14B — Catraca sem software e sem interesse em sistema na nuvem**: Para catraca, se o cliente não tiver software de controle de acesso (`CAMPO-software-acesso = nenhum`) e não quiser adquirir um sistema de controle de acesso na nuvem (`CAMPO-interesse-sistema-nuvem = não`), o sistema deve solicitar **apenas a quantidade de equipamentos** (`CAMPO-quantidade`) como resposta obrigatória.
 
-- [ ] **REQ-002.14C — Catraca com software EVO/Pacto/SCA/Panobianco/Sky: verificar homologação**: Para catraca, se o cliente já usar um software de controle de acesso do tipo EVO, Pacto, SCA, Panobianco ou Sky (`CAMPO-software-acesso` com um desses valores), o sistema deve perguntar se a catraca ou leitor sendo adquirido precisa ser **homologado** para aquele software (`CAMPO-homologado-software`). A resposta deve ser obrigatória; caso o cliente não saiba, o sistema deve registrar a dúvida e seguir o fluxo.
+- [ ] **REQ-002.14C — Catraca com software conhecido (EVO, Pacto, SCA e franquias associadas como Panobianco/Sky): alerta de homologação**: Para catraca, se o cliente já usar um software de controle de acesso conhecido (`CAMPO-software-acesso` reconhecido no catálogo, ex.: EVO, Pacto, SCA — incluindo quando o cliente citar uma franquia como Panobianco ou Sky, que tipicamente operam sobre EVO), o sistema deve perguntar se o cliente já verificou a **homologação** entre o modelo de catraca/leitor desejado e aquele software (`CAMPO-homologado-software`), reforçando que é importante confirmar isso **antes da compra** para evitar incompatibilidade.
 
-- [ ] **REQ-002.15 — Catraca com outro software existente: quantidade obrigatória**: Para catraca, se o cliente já tiver um software de controle de acesso que **não** seja EVO, Pacto, SCA, Panobianco ou Sky (incluindo "não sei"), o sistema deve solicitar a **quantidade de equipamentos** (`CAMPO-quantidade`) como resposta obrigatória. A faixa de pessoas é opcional nesse cenário e pode ser pulada se o cliente não souber ou não quiser informar.
+  Esta pergunta é **apenas um alerta/orientação ao cliente** — a resposta é opcional e **não bloqueia nem torna obrigatória** a conclusão da qualificação. O sistema deve apenas controlar que a pergunta foi feita (`CAMPO-homologado-software` = pendente/perguntado/respondida), sem exigir confirmação para avançar. Se o cliente não souber ou não responder, o sistema registra o que houver e segue o fluxo normalmente.
+
+- [ ] **REQ-002.15 — Catraca com outro software existente: quantidade obrigatória**: Para catraca, se o cliente já tiver um software de controle de acesso que **não** seja reconhecido no catálogo (ex.: não é EVO, Pacto, SCA, nem citado via franquia como Panobianco/Sky), incluindo "não sei", o sistema deve solicitar a **quantidade de equipamentos** (`CAMPO-quantidade`) como resposta obrigatória. A faixa de pessoas é opcional nesse cenário e pode ser pulada se o cliente não souber ou não quiser informar.
+
+  Assim como no REQ-002.14C, o sistema também deve exibir o **alerta/orientação de homologação** (`CAMPO-homologado-software`) neste cenário — mesmo sem reconhecer o software específico, é ainda mais importante reforçar que o cliente verifique a compatibilidade com o fornecedor do software antes da compra. A pergunta segue **opcional e não bloqueante**: o sistema só controla que o alerta foi exibido, sem exigir resposta para avançar.
 
 - [ ] **REQ-002.16 — Confirmação dos dados extraídos da mensagem inicial**: Quando o sistema extrair um ou mais dados da **mensagem inicial** do cliente (REQ-002.2), deve validar se é necessário confirmar a interpretação antes de prosseguir. A confirmação **não deve ocorrer a cada campo** nem a cada mensagem — apenas quando o risco de interpretação incorreta for relevante.
 
@@ -535,6 +539,8 @@ Cliente: "Facial."
 | 14/07/2026 | 1.33 | REQ-002.1C reescrito: (1) transição Esclarecendo→Finalizando **imediata** pela intenção (cat. 1), sem exigir modelo/quantidade antes; (2) retorno Finalizando→Esclarecendo quando cliente faz dúvida (cat. 3) durante coleta; (3) retorno automático Esclarecendo→Finalizando quando dúvida cessa. Adicionados papéis conceituais das fases (reativa vs. ativa). Alinha REQ formal com implementação MVP (plano §3/E1/F3) e visão do Beto. Decisão Kika. | Cascade |
 | 15/07/2026 | 1.34 | REQ-002.3B: adicionada regra explícita — modelo não reconhecido no catálogo **nunca** é armazenado como texto livre; sistema informa que não reconheceu e reapresenta opções; após 2 tentativas escala para humano. | Cascade |
 | 27/07/2026 | 1.35 | Regras de negócio do atendente Inforrel para catraca e relógio de ponto: uso unificado de "faixa de pessoas"; novos campos `CAMPO-software-acesso`, `CAMPO-interesse-sistema-nuvem` e `CAMPO-homologado-software`; criação de REQ-002.14A, 14B, 14C e ajuste de REQ-002.15. | Cascade |
+| 28/07/2026 | 1.36 | REQ-002.14C corrigido: a pergunta de homologação é apenas um alerta/orientação ao cliente (verificar compatibilidade antes da compra) — deixa de ser obrigatória e não bloqueia a qualificação; o sistema só controla se a pergunta foi feita. Esclarecido que Panobianco/Sky são franquias que tipicamente operam sobre EVO (não softwares próprios). REQ-002.15 ajustado para refletir a mesma terminologia e deixar explícito que não há alerta de homologação quando o software não é reconhecido. | Cascade |
+| 28/07/2026 | 1.37 | REQ-002.15 revisado: o alerta/orientação de homologação (`CAMPO-homologado-software`) passa a ser exibido **também** quando o software existente não é reconhecido no catálogo — reforço ainda mais relevante nesse caso, por não haver garantia prévia de compatibilidade. Mantém-se opcional e não bloqueante. | Cascade |
 
 ---
 

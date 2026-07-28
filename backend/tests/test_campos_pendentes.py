@@ -184,3 +184,31 @@ def test_catraca_com_software_homologavel_pergunta_homologacao():
     assert CAMPO_FAIXA_FUNCIONARIOS not in pendentes
     assert CAMPO_HOMOLOGADO_SOFTWARE in pendentes
     assert CAMPO_QUANTIDADE in pendentes
+
+
+def test_catraca_com_software_nao_reconhecido_tambem_pergunta_homologacao():
+    """REQ-002.15: o alerta de homologação também aparece para software não reconhecido
+    no catálogo (não só EVO/Pacto/SCA/Panobianco/Sky)."""
+    atendimento = _atendimento(
+        tipo_produto="catraca",
+        infos=[_InfoStub(chave="software_controle_acesso", valor="Outro Software X")],
+    )
+    pendentes = campos_pendentes(atendimento)
+    assert CAMPO_HOMOLOGADO_SOFTWARE in pendentes
+    assert CAMPO_QUANTIDADE in pendentes
+
+
+def test_homologado_software_deixa_de_ser_pendente_apos_ser_perguntado_sem_resposta():
+    """REQ-002.14C/15: a pergunta de homologação é um alerta opcional — depois de
+    perguntada uma vez (marcador `homologado_software__perguntado`), não bloqueia mais o
+    fluxo mesmo sem resposta do cliente."""
+    atendimento = _atendimento(
+        tipo_produto="catraca",
+        infos=[
+            _InfoStub(chave="software_controle_acesso", valor="EVO"),
+            _InfoStub(chave="homologado_software__perguntado", valor="true"),
+        ],
+    )
+    pendentes = campos_pendentes(atendimento)
+    assert CAMPO_HOMOLOGADO_SOFTWARE not in pendentes
+    assert CAMPO_QUANTIDADE in pendentes

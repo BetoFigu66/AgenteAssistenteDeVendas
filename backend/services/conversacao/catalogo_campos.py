@@ -46,12 +46,25 @@ class CampoDef:
       livre. Ver risco/decisão #1 em §8 do plano de MVP: `produto` (categoria) já vai
       para `ItemAtendimento`; o modelo específico segue a mesma lógica.
     """
+    obrigatorio: bool = True
+    """Se `False`, o campo é perguntado **no máximo uma vez** (marcado como
+    "perguntado" — ver `chave_perguntado()`) e, a partir daí, deixa de bloquear
+    `campos_pendentes()`/o resumo final, mesmo sem resposta do cliente. Usado para
+    perguntas de alerta/orientação que não fazem parte dos dados obrigatórios do
+    orçamento (ex.: `CAMPO_HOMOLOGADO_SOFTWARE` — REQ-002.14C/15)."""
 
     def se_aplica(self, tipo_produto: str, valores: Valores) -> bool:
         """True se o campo é relevante para `tipo_produto`, dado o que já foi capturado em `valores`."""
         if tipo_produto not in self.produtos_aplicaveis:
             return False
         return self.aplicavel(tipo_produto, valores)
+
+
+def chave_perguntado(campo: CampoDef) -> str:
+    """Chave de `AtendimentoInfo` usada para marcar que um campo **não obrigatório**
+    (`CampoDef.obrigatorio = False`) já foi perguntado ao cliente ao menos uma vez —
+    independente de ter recebido resposta. Ver `CampoDef.obrigatorio`."""
+    return f"{campo.chave}__perguntado"
 
 
 # ---------------------------------------------------------------------------
@@ -241,22 +254,22 @@ CAMPO_QUANTIDADE = CampoDef(
 
 # ---------------------------------------------------------------------------
 # CAMPO-homologado-software
-# Quando o cliente já usa software EVO, Pacto, SCA, Panobianco ou Sky, pergunta
-# se a catraca/leitor precisa ser homologado para aquele software.
+# REQ-002.14C/15: quando o cliente já usa QUALQUER software de controle de
+# acesso (reconhecido — EVO/Pacto/SCA/franquias como Panobianco/Sky — ou não),
+# o sistema exibe um alerta/orientação perguntando se o cliente já verificou a
+# homologação entre o modelo desejado e aquele software. É apenas um
+# alerta: a resposta é opcional e NÃO bloqueia a qualificação
+# (`CampoDef.obrigatorio = False`) — o sistema só controla que a pergunta foi
+# feita (ver `chave_perguntado()`), reforçando a importância de o cliente
+# confirmar a compatibilidade antes da compra.
 # ---------------------------------------------------------------------------
 
-_SOFTWARES_ACESSO_HOMOLOGAVEIS = frozenset({
-    "evo",
-    "pacto",
-    "sca",
-    "panobianco",
-    "sky",
-})
-
-
 def _aplicavel_homologado_software(tipo_produto: str, valores: Valores) -> bool:
+    """Aplica sempre que o cliente já tiver algum software de controle de acesso
+    real informado (`software_controle_acesso` diferente de vazio/"nenhum"),
+    reconhecido no catálogo ou não — REQ-002.14C (conhecido) e REQ-002.15 (outro)."""
     software = valores.get("software_controle_acesso", "").strip().lower()
-    return software in _SOFTWARES_ACESSO_HOMOLOGAVEIS
+    return bool(software) and software != "nenhum"
 
 
 CAMPO_HOMOLOGADO_SOFTWARE = CampoDef(
@@ -269,11 +282,13 @@ CAMPO_HOMOLOGADO_SOFTWARE = CampoDef(
         "controle_por_cartao",
     }),
     pergunta=(
-        "A catraca/leitor que está sendo adquirido precisa ser homologado "
-        "para o software que vocês já usam?"
+        "Antes de fechar o pedido, é importante confirmar com o fornecedor do "
+        "software {software} se o modelo de catraca/leitor que você está "
+        "adquirindo é homologado/compatível. Você já verificou isso?"
     ),
     ordem=35,
     aplicavel=_aplicavel_homologado_software,
+    obrigatorio=False,
 )
 
 
