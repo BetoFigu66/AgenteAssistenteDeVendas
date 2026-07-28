@@ -244,7 +244,10 @@ def test_tipo_produto_pode_ser_informado_apos_ja_estar_em_finalizando(db_session
                 identificacao=identificacao_2, resultado_class=resultado_2,
             )
         )
-        assert resposta_2.template_usado == "PEDIR_SOFTWARE_PONTO"
+        # "Relógio de ponto" só informa o tipo, sem tecnologia/marca/aplicação — não é
+        # sinal suficiente para resolver um modelo específico (ver correção do bug de
+        # resolução arbitrária de modelo), então o próximo campo pendente é o modelo.
+        assert resposta_2.template_usado == "PEDIR_MODELO"
         db_session.refresh(atendimento)
         valores = {info.chave: info.valor for info in atendimento.informacoes}
         assert valores.get("tipos_produto") == "relogio_ponto"

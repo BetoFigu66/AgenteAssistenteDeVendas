@@ -166,12 +166,20 @@ def _aplicavel_faixa_funcionarios(tipo_produto: str, valores: Valores) -> bool:
     """Regras de negócio para perguntar a faixa de pessoas:
 
     - Relógio de ponto sem software de ponto: sempre pergunta.
-    - Catraca/controle de acesso sem software de acesso e com interesse em
-      sistema na nuvem: pergunta faixa.
+    - Catraca/cancela/controle de acesso/controle por cartão: só pergunta se
+      não há software de acesso e há interesse em sistema na nuvem (senão o
+      software já usado ou a ausência de interesse já dimensionam o projeto).
+    - Demais produtos (leitor, câmera, bastão de ronda, roteador): sempre
+      pergunta — não têm fluxo de software/nuvem que já dimensione o projeto
+      (CAMPO_SOFTWARE_ACESSO/CAMPO_INTERESSE_SISTEMA_NUVEM não se aplicam a
+      eles), então a condição de software nunca ficaria satisfeita.
     """
     tipo = tipo_produto.strip().lower()
     if tipo == "relogio_ponto":
         return valores.get("software_controle_ponto", "").strip().lower() == "nenhum"
+
+    if tipo not in CAMPO_SOFTWARE_ACESSO.produtos_aplicaveis:
+        return True
 
     software_acesso = valores.get("software_controle_acesso", "").strip().lower()
     interesse_nuvem = valores.get("interesse_sistema_nuvem", "").strip().lower()

@@ -5,7 +5,7 @@ from tempfile import NamedTemporaryFile
 
 import pytest
 from database import Database
-from models import AtributoAdicionalModelo, Modelo
+from models import Modelo
 from scripts.importar_catalogo_csv import EstatisticasImportacao, carregar_planilha, importar
 from sqlalchemy.orm import Session
 

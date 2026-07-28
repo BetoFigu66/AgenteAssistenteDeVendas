@@ -67,6 +67,15 @@ def test_faixa_funcionarios_nao_aplicavel_quando_tem_software_real():
     assert CAMPO_FAIXA_FUNCIONARIOS.se_aplica("catraca", {"software_controle_acesso": "EVO"}) is False
 
 
+def test_faixa_funcionarios_sempre_aplicavel_a_produtos_sem_fluxo_de_software_acesso():
+    """Regressão: câmera, leitor facial/biométrico, bastão de ronda e roteador não têm
+    CAMPO_SOFTWARE_ACESSO/CAMPO_INTERESSE_SISTEMA_NUVEM (não estão em
+    `produtos_aplicaveis` desses campos) — a condição "software == nenhum" nunca seria
+    satisfeita para eles, então a faixa precisa ser sempre perguntada."""
+    for tipo in ("camera", "leitor_facial", "leitor_biometrico", "bastao_de_ronda", "roteador"):
+        assert CAMPO_FAIXA_FUNCIONARIOS.se_aplica(tipo, {}) is True
+
+
 def test_interesse_sistema_nuvem_aplicavel_quando_catraca_sem_software():
     assert CAMPO_INTERESSE_SISTEMA_NUVEM.se_aplica("catraca", {"software_controle_acesso": "nenhum"}) is True
     assert CAMPO_INTERESSE_SISTEMA_NUVEM.se_aplica("catraca", {"software_controle_acesso": "EVO"}) is False

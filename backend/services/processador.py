@@ -44,7 +44,6 @@ from models import (
     TipoEventoAtendimento,
     User,
 )
-from sqlalchemy import and_
 from sqlalchemy.orm import Session
 from utils.datetime_utils import utc_now
 
@@ -1236,10 +1235,18 @@ class ProcessadorMensagem:
         marca = entidades.marca
         aplicacao = entidades.aplicacao
 
-        # Produto(s) alinhados ao interesse já declarado em AtendimentoInfo.
+        # Produto já associado ao atendimento (MVP: item único) tem prioridade sobre
+        # o matching por texto: usar o produto_id real evita resolver um modelo de um
+        # produto diferente do item já criado (ex.: "controle de acesso" casando por
+        # substring com produtos de outro tipo). Só recorre ao matching fuzzy por
+        # tipos_produto quando ainda não existe item (primeira tentativa).
         valores = {info.chave: info.valor for info in atendimento.informacoes}
-        tipos_produto = [t.strip() for t in (valores.get("tipos_produto") or "").split(",") if t.strip()]
-        produto_ids = _produto_ids_por_tipos(db, tipos_produto)
+        item_atual = next(iter(atendimento.itens), None)
+        if item_atual is not None:
+            produto_ids = [item_atual.produto_id]
+        else:
+            tipos_produto = [t.strip() for t in (valores.get("tipos_produto") or "").split(",") if t.strip()]
+            produto_ids = _produto_ids_por_tipos(db, tipos_produto)
 
         # D6: atributos genéricos do modelo já coletados + extraídos agora.
         atributos_mensagem: dict[str, str] = dict(entidades.atributos)
@@ -1252,7 +1259,10 @@ class ProcessadorMensagem:
             atributos_mensagem.setdefault(chave, valor)
 
         sinais = {k: v for k, v in {"marca": marca, "aplicacao": aplicacao, **atributos_mensagem}.items() if v}
-        if not sinais and not produto_ids:
+        if not sinais:
+            # produto_ids sozinho não é suficiente para resolver: sem marca/aplicação/
+            # atributo, escolher `.first()` entre vários modelos do mesmo produto seria
+            # arbitrário.
             return False  # mensagem não trouxe sinal para resolver modelo
 
         query = db.query(Modelo).join(Produto, Modelo.produto_id == Produto.id).filter(Modelo.ativo.is_(True))

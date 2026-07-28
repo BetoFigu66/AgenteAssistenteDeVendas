@@ -116,7 +116,7 @@ def test_resolve_modelo_por_atributo_tecnologia_leitura(processador):
     with _session() as session:
         try:
             produto = _produto_teste(session, "Produto Teste Atributos D6")
-            modelo = _criar_modelo_teste(
+            _criar_modelo_teste(
                 session, produto, "TESTE-ATTR-001", "Modelo Teste Atributo",
                 {"tecnologia_leitura": "biometria"},
             )
@@ -146,5 +146,61 @@ def test_nao_resolve_modelo_quando_atributo_nao_casa(processador):
             res = asyncio.run(processador._tentar_resolver_modelo(session, atendimento, resultado))
             assert res is True  # True = tentou mas não resolveu
             assert atendimento.itens[0].modelo_id is None
+        finally:
+            _cleanup_telefone(session, telefone)
+
+
+def test_nao_resolve_modelo_sem_nenhum_sinal_mesmo_com_produto_ja_conhecido(processador):
+    """Regressão: sem marca/aplicação/atributo na mensagem, `_tentar_resolver_modelo` não
+    pode escolher um modelo arbitrário (`.first()`) só porque o tipo de produto já é
+    conhecido — precisa continuar pedindo esclarecimento."""
+    telefone = "55119999999003"
+    with _session() as session:
+        try:
+            produto = _produto_teste(session, "Produto Teste Sem Sinal")
+            _criar_modelo_teste(
+                session, produto, "TESTE-SEM-SINAL-001", "Modelo A",
+                {"tecnologia_leitura": "biometria"},
+            )
+            _criar_modelo_teste(
+                session, produto, "TESTE-SEM-SINAL-002", "Modelo B",
+                {"tecnologia_leitura": "facial"},
+            )
+            atendimento = _setup_atendimento(session, telefone, produto)
+            # Nenhum sinal (marca/aplicação/atributo) na entidade extraída da mensagem.
+            resultado = _resultado({})
+
+            res = asyncio.run(processador._tentar_resolver_modelo(session, atendimento, resultado))
+            assert res is False  # False = não tentou (mensagem não trouxe sinal)
+            assert atendimento.itens[0].modelo_id is None
+        finally:
+            _cleanup_telefone(session, telefone)
+
+
+def test_resolve_modelo_restrito_ao_produto_do_item_ja_criado(processador):
+    """Regressão: a resolução de modelo deve ficar restrita ao produto_id do item já
+    existente no atendimento, mesmo que outro produto do catálogo também tenha um
+    modelo com o mesmo atributo pedido (a versão anterior derivava produto_ids por
+    matching fuzzy de texto, podendo casar com o produto errado)."""
+    telefone = "55119999999004"
+    with _session() as session:
+        try:
+            produto_correto = _produto_teste(session, "Produto Teste Dup A")
+            produto_errado = _produto_teste(session, "Produto Teste Dup B")
+            modelo_correto = _criar_modelo_teste(
+                session, produto_correto, "TESTE-DUP-001", "Modelo Correto",
+                {"tecnologia_leitura": "biometria"},
+            )
+            _criar_modelo_teste(
+                session, produto_errado, "TESTE-DUP-002", "Modelo Errado",
+                {"tecnologia_leitura": "biometria"},
+            )
+            atendimento = _setup_atendimento(session, telefone, produto_correto)
+            resultado = _resultado({"tecnologia_leitura": "biometria"})
+
+            res = asyncio.run(processador._tentar_resolver_modelo(session, atendimento, resultado))
+            assert res is False  # resolvido
+            assert atendimento.itens[0].modelo_id == modelo_correto.id
+            assert atendimento.itens[0].produto_id == produto_correto.id
         finally:
             _cleanup_telefone(session, telefone)
