@@ -81,9 +81,18 @@ def test_interesse_sistema_nuvem_aplicavel_quando_catraca_sem_software():
     assert CAMPO_INTERESSE_SISTEMA_NUVEM.se_aplica("catraca", {"software_controle_acesso": "EVO"}) is False
 
 
-def test_homologado_software_aplicavel_quando_software_e_homologavel():
+def test_homologado_software_aplicavel_para_qualquer_software_real():
+    """REQ-002.14C (software conhecido) e REQ-002.15 (outro/não reconhecido): o alerta de
+    homologação aparece sempre que há um software real informado, reconhecido ou não."""
     assert CAMPO_HOMOLOGADO_SOFTWARE.se_aplica("catraca", {"software_controle_acesso": "EVO"}) is True
-    assert CAMPO_HOMOLOGADO_SOFTWARE.se_aplica("catraca", {"software_controle_acesso": "outro"}) is False
+    assert CAMPO_HOMOLOGADO_SOFTWARE.se_aplica("catraca", {"software_controle_acesso": "Outro Software X"}) is True
+    assert CAMPO_HOMOLOGADO_SOFTWARE.se_aplica("catraca", {"software_controle_acesso": "nenhum"}) is False
+    assert CAMPO_HOMOLOGADO_SOFTWARE.se_aplica("catraca", {}) is False
+
+
+def test_homologado_software_nao_e_obrigatorio():
+    """A pergunta é um alerta/orientação — não bloqueia a qualificação (REQ-002.14C/15)."""
+    assert CAMPO_HOMOLOGADO_SOFTWARE.obrigatorio is False
 
 
 def test_quantidade_nao_aplicavel_a_relogio_ponto():

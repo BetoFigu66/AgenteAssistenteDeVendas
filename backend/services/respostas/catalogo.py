@@ -272,8 +272,10 @@ CATALOGO: dict[int, MensagemTemplate] = {
         id=MensagemId.PEDIR_HOMOLOGADO_SOFTWARE,
         codigo="PEDIR_HOMOLOGADO_SOFTWARE",
         mensagem=(
-            "A catraca/leitor que está sendo adquirido precisa ser homologado "
-            "para o software que vocês já usam?"
+            "Antes de fechar o pedido, é importante confirmar com o fornecedor do "
+            "software {software} se o modelo de catraca/leitor que você está "
+            "adquirindo é homologado/compatível, para evitar problemas depois da compra. "
+            "Você já verificou isso?"
         ),
     ),
     MensagemId.INICIAR_FINALIZANDO: MensagemTemplate(

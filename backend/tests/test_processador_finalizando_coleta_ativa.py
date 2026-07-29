@@ -403,7 +403,9 @@ def test_f4_resumo_quando_tudo_capturado(db_session, processador):
 
 
 def test_f1_resposta_livre_software_acesso(db_session, processador):
-    """F1: software de controle de acesso fora da lista curta deve ser aceito como texto livre."""
+    """F1: software de controle de acesso fora da lista curta deve ser aceito como texto
+    livre. Por ser não reconhecido, REQ-002.15 também aciona o alerta de homologação
+    (opcional) antes da quantidade."""
     telefone = "5511999981010"
     try:
         contato = _iniciar_finalizando_catraca(db_session, processador, telefone)
@@ -420,10 +422,23 @@ def test_f1_resposta_livre_software_acesso(db_session, processador):
                 resultado_class=_resultado(Intencao.DESCONHECIDO),
             )
         )
-        assert resposta.template_usado == "PEDIR_QUANTIDADE"
+        assert resposta.template_usado == "PEDIR_HOMOLOGADO_SOFTWARE"
         db_session.refresh(atendimento)
         valores = {info.chave: info.valor for info in atendimento.informacoes}
         assert valores.get("software_controle_acesso") == "Outro Software X"
+
+        # Cliente não responde à pergunta de homologação (alerta opcional, sem "sim"/"não"
+        # reconhecíveis) — o sistema não insiste e avança direto para a quantidade.
+        resposta_seguinte = asyncio.run(
+            processador._decidir_resposta(
+                db=db_session,
+                telefone=telefone,
+                conteudo="ainda vou verificar isso com o pessoal",
+                identificacao=identificacao,
+                resultado_class=_resultado(Intencao.DESCONHECIDO),
+            )
+        )
+        assert resposta_seguinte.template_usado == "PEDIR_QUANTIDADE"
     finally:
         _limpar(db_session, telefone)
 
@@ -481,5 +496,20 @@ def test_f1_catraca_com_software_homologavel_pergunta_homologacao(db_session, pr
             )
         )
         assert resposta_software.template_usado == "PEDIR_HOMOLOGADO_SOFTWARE"
+
+        # Cliente responde "sim" — captura a resposta (opcional) e avança para quantidade.
+        resposta_homologacao = asyncio.run(
+            processador._decidir_resposta(
+                db=db_session,
+                telefone=telefone,
+                conteudo="sim, já verifiquei",
+                identificacao=identificacao,
+                resultado_class=_resultado(Intencao.DESCONHECIDO),
+            )
+        )
+        assert resposta_homologacao.template_usado == "PEDIR_QUANTIDADE"
+        db_session.refresh(atendimento)
+        valores = {info.chave: info.valor for info in atendimento.informacoes}
+        assert valores.get("homologado_software") == "sim"
     finally:
         _limpar(db_session, telefone)
