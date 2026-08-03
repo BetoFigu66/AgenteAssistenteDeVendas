@@ -84,15 +84,6 @@ _LABEL_PRODUTO_PERGUNTA = {
     "roteador": "o roteador",
 }
 
-def _tipo_produto_atual(atendimento: Atendimento) -> Optional[str]:
-    """Tipo de produto de interesse do atendimento, se já identificado."""
-    for info in atendimento.informacoes:
-        if info.chave == "tipos_produto" and info.valor:
-            primeiro = info.valor.split(",")[0].strip()
-            return primeiro or None
-    return None
-
-
 def _label_tipo_produto(tipo_produto: Optional[str]) -> str:
     """Retorna o nome amigável de um tipo de produto para uso em mensagens."""
     if not tipo_produto:
@@ -102,7 +93,7 @@ def _label_tipo_produto(tipo_produto: Optional[str]) -> str:
 
 def _contexto_para_campo(campo: Pergunta, atendimento: Atendimento) -> Optional[dict]:
     """Contexto adicional para renderizar a pergunta de um campo pendente."""
-    tipo_produto = _tipo_produto_atual(atendimento)
+    tipo_produto = atendimento.tipo_produto_atual()
     if campo.chave == CAMPO_FAIXA_FUNCIONARIOS.chave:
         return {"produto": _label_tipo_produto(tipo_produto)}
     if campo.chave == CAMPO_QUANTIDADE.chave:

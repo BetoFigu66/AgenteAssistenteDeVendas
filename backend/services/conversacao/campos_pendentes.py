@@ -16,39 +16,9 @@ from models import Atendimento
 from .catalogo_campos import (
     DESTINO_ITEM_ATENDIMENTO_MODELO_ID,
     Pergunta,
-    Valores,
     campos_do_produto,
     chave_perguntado,
 )
-
-# Chave de AtendimentoInfo onde o tipo de produto de interesse é registrado
-# hoje (backend/services/processador.py::_atualizar_infos_atendimento).
-# Ainda não migrado para ItemAtendimento.produto_id (ver risco/decisão #1
-# em §8 do plano de MVP) — isolado aqui para trocar depois sem afetar o resto do módulo.
-_CHAVE_TIPOS_PRODUTO = "tipos_produto"
-
-
-def _tipo_produto_atual(atendimento: Atendimento) -> Optional[str]:
-    """Tipo de produto de interesse do atendimento, se já identificado."""
-    for info in atendimento.informacoes:
-        if info.chave == _CHAVE_TIPOS_PRODUTO and info.valor:
-            primeiro = info.valor.split(",")[0].strip()
-            return primeiro or None
-    return None
-
-
-def _valores_capturados(atendimento: Atendimento) -> Valores:
-    """Snapshot chave -> valor de tudo já capturado em `AtendimentoInfo`."""
-    return {info.chave: info.valor for info in atendimento.informacoes if info.valor is not None}
-
-
-def _modelo_ja_resolvido(atendimento: Atendimento) -> bool:
-    """True se algum `ItemAtendimento` do atendimento já tem `modelo_id` (modelo) resolvido.
-
-    `modelo_produto` não passa por `AtendimentoInfo` — resolve direto para uma
-    linha real do catálogo (ver `Pergunta.destino`).
-    """
-    return any(item.modelo_id is not None for item in atendimento.itens)
 
 
 def nao_perguntar_de_novo(campo: Pergunta, atendimento: Atendimento) -> bool:
@@ -63,8 +33,8 @@ def nao_perguntar_de_novo(campo: Pergunta, atendimento: Atendimento) -> bool:
     não devem insistir nem bloquear o fluxo (ver `Pergunta.obrigatorio`).
     """
     if campo.destino == DESTINO_ITEM_ATENDIMENTO_MODELO_ID:
-        return _modelo_ja_resolvido(atendimento)
-    valores = _valores_capturados(atendimento)
+        return atendimento.modelo_ja_resolvido()
+    valores = atendimento.valores_capturados()
     if bool(valores.get(campo.chave)):
         return True
     if not campo.obrigatorio and bool(valores.get(chave_perguntado(campo))):
@@ -81,11 +51,11 @@ def campos_pendentes(atendimento: Atendimento) -> list[Pergunta]:
     quais campos pedir sem isso (isso acontece em Esclarecendo, antes da
     transição para Finalizando).
     """
-    tipo_produto = _tipo_produto_atual(atendimento)
+    tipo_produto = atendimento.tipo_produto_atual()
     if tipo_produto is None:
         return []
 
-    valores = _valores_capturados(atendimento)
+    valores = atendimento.valores_capturados()
     return [
         campo
         for campo in campos_do_produto(tipo_produto)

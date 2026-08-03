@@ -7,6 +7,7 @@ from datetime import date, datetime
 from decimal import Decimal
 from typing import List, Optional
 
+from models_comportamento import ComportamentoAtendimento
 from sqlalchemy import (
     JSON,
     Boolean,
@@ -552,10 +553,15 @@ class Pessoa(Base):
         }
 
 
-class Atendimento(Base):
+class Atendimento(Base, ComportamentoAtendimento):
     """
     Atendimento com um contato (REQ-016).
     Agrupa conversas e orçamentos de uma mesma demanda do cliente.
+
+    Comportamento derivado do próprio estado (sem I/O, sem colaboradores
+    externos) mora em `ComportamentoAtendimento` (models_comportamento.py) —
+    separado deste arquivo para que um diff aqui continue significando "mudou
+    estrutura de tabela".
     """
 
     __tablename__ = "atendimentos"

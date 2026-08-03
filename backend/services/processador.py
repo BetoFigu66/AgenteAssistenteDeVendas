@@ -344,7 +344,7 @@ class ProcessadorMensagem:
             msg_in.contato_id = contato.id
             if atendimento:
                 msg_in.atendimento_id = atendimento.id
-                self._atualizar_ultima_mensagem_at(atendimento, msg_in.timestamp)
+                atendimento.registrar_ultima_mensagem_em(msg_in.timestamp)
 
         # 9. Persiste resposta do sistema APENAS quando modo=AGENTE.
         # No modo HUMANO, o operador enviará a resposta manualmente pela UI.
@@ -1278,14 +1278,6 @@ class ProcessadorMensagem:
     # ------------------------------------------------------------------
 
     STATUS_ATIVOS = (StatusAtendimento.ATIVO,)
-
-    @staticmethod
-    def _atualizar_ultima_mensagem_at(
-        atendimento: Atendimento,
-        quando: Optional[datetime] = None,
-    ) -> None:
-        """Atualiza timestamp da última mensagem do cliente (REQ-016 T-A3)."""
-        atendimento.ultima_mensagem_at = quando or utc_now()
 
     def _atendimento_ativo(self, db: Session, contato: Contato) -> Optional[Atendimento]:
         """Retorna o atendimento ativo do contato (se houver)."""

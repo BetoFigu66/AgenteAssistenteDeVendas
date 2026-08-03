@@ -3,11 +3,14 @@
 Usa stubs leves (sem tocar o banco) em vez de instâncias reais de
 `Atendimento`/`AtendimentoInfo`/`ItemAtendimento` — as funções testadas só
 acessam `.informacoes` (chave/valor) e `.itens` (modelo_id) por duck typing.
+`_AtendimentoStub` reusa o mesmo `ComportamentoAtendimento` da entidade real
+(models_comportamento.py) — prova que o comportamento não depende de ORM.
 """
 
 from dataclasses import dataclass, field
 from typing import Optional
 
+from models_comportamento import ComportamentoAtendimento
 from services.conversacao.campos_pendentes import (
     campos_pendentes,
     nao_perguntar_de_novo,
@@ -36,7 +39,7 @@ class _ItemStub:
 
 
 @dataclass
-class _AtendimentoStub:
+class _AtendimentoStub(ComportamentoAtendimento):
     informacoes: list = field(default_factory=list)
     itens: list = field(default_factory=list)
 
