@@ -140,6 +140,7 @@ class MotivoEscalonamento(str, enum.Enum):
     BAIXA_CONFIANCA = "baixa_confianca"
     BASE_INSUFICIENTE = "base_insuficiente"
     MANUAL_VENDEDOR = "manual_vendedor"
+    MODELO_NAO_RECONHECIDO = "modelo_nao_reconhecido"
 
 
 class StatusOrcamento(str, enum.Enum):

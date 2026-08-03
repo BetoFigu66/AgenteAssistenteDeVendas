@@ -1,5 +1,5 @@
 """
-Motor de campos pendentes (MVP Continuidade, jul/2026 — Fase C).
+Motor de campos pendentes.
 
 Cruza o catálogo declarativo (`catalogo_campos.py`) com o que já foi
 capturado no atendimento (`AtendimentoInfo` + `ItemAtendimento`) para decidir
@@ -15,7 +15,7 @@ from models import Atendimento
 
 from .catalogo_campos import (
     DESTINO_ITEM_ATENDIMENTO_MODELO_ID,
-    CampoDef,
+    Pergunta,
     Valores,
     campos_do_produto,
     chave_perguntado,
@@ -24,8 +24,7 @@ from .catalogo_campos import (
 # Chave de AtendimentoInfo onde o tipo de produto de interesse é registrado
 # hoje (backend/services/processador.py::_atualizar_infos_atendimento).
 # Ainda não migrado para ItemAtendimento.produto_id (ver risco/decisão #1
-# em §8 do plano de MVP) — isolado aqui para trocar depois sem afetar o resto
-# do módulo. MVP: só relógio de ponto, então o primeiro valor da lista basta.
+# em §8 do plano de MVP) — isolado aqui para trocar depois sem afetar o resto do módulo.
 _CHAVE_TIPOS_PRODUTO = "tipos_produto"
 
 
@@ -47,12 +46,12 @@ def _modelo_ja_resolvido(atendimento: Atendimento) -> bool:
     """True se algum `ItemAtendimento` do atendimento já tem `modelo_id` (modelo) resolvido.
 
     `modelo_produto` não passa por `AtendimentoInfo` — resolve direto para uma
-    linha real do catálogo (ver `CampoDef.destino`).
+    linha real do catálogo (ver `Pergunta.destino`).
     """
     return any(item.modelo_id is not None for item in atendimento.itens)
 
 
-def nao_perguntar_de_novo(campo: CampoDef, atendimento: Atendimento) -> bool:
+def nao_perguntar_de_novo(campo: Pergunta, atendimento: Atendimento) -> bool:
     """C3 — True se `campo` já tem valor capturado (não deve ser perguntado de novo).
 
     Nome espelha o efeito `nao_perguntar_de_novo` do catálogo de conversação
@@ -61,7 +60,7 @@ def nao_perguntar_de_novo(campo: CampoDef, atendimento: Atendimento) -> bool:
     Campos **não obrigatórios** (`campo.obrigatorio = False`) também contam como
     "não perguntar de novo" quando já foram perguntados uma vez
     (`chave_perguntado`), mesmo sem valor capturado — são alertas/orientações que
-    não devem insistir nem bloquear o fluxo (ver `CampoDef.obrigatorio`).
+    não devem insistir nem bloquear o fluxo (ver `Pergunta.obrigatorio`).
     """
     if campo.destino == DESTINO_ITEM_ATENDIMENTO_MODELO_ID:
         return _modelo_ja_resolvido(atendimento)
@@ -73,7 +72,7 @@ def nao_perguntar_de_novo(campo: CampoDef, atendimento: Atendimento) -> bool:
     return False
 
 
-def campos_pendentes(atendimento: Atendimento) -> list[CampoDef]:
+def campos_pendentes(atendimento: Atendimento) -> list[Pergunta]:
     """C1 — Campos do catálogo ainda pendentes para este atendimento.
 
     Cruza o catálogo (produto + aplicabilidade, C4) com o que já foi
@@ -94,7 +93,7 @@ def campos_pendentes(atendimento: Atendimento) -> list[CampoDef]:
     ]
 
 
-def proxima_pergunta(atendimento: Atendimento) -> Optional[CampoDef]:
+def proxima_pergunta(atendimento: Atendimento) -> Optional[Pergunta]:
     """C2 — Primeiro campo pendente, na ordem de exibição sugerida do catálogo.
 
     Não é uma regra de sequência obrigatória — o cliente pode responder

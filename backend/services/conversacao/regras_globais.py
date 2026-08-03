@@ -5,6 +5,8 @@ FORNECER_CPF, FORNECER_DATA_NASCIMENTO (continuação do fluxo PF pendente), FOR
 (efeito colateral silencioso) e a resposta à pergunta de fechamento do atendimento
 (REQ-016.10, `regras_encerramento.py`). São wrappers finos em cima dos helpers já
 existentes e testados em `ProcessadorMensagem` — nenhuma lógica de negócio nova aqui.
+
+Ver `docs/arquitetura_motor_conversacao_2026-07.md` para o funcionamento geral do motor.
 """
 
 from __future__ import annotations
@@ -16,10 +18,9 @@ from services.cpf.validacao import mascarar_cpf
 from services.parametro_service import ParametroService
 from services.respostas import MensagemId
 
-from .acoes import Acao, ContextoAcao, GrupoAcoes
+from .acoes import Acao, ContextoAcao, GrupoAcoes, garantir_atendimento_dispatch
 from .motor import RegraIntencao
 from .regras_encerramento import REGISTRO_ENCERRAMENTO
-from .regras_esclarecendo import _garantir_atendimento_dispatch
 
 # REQ-004.8 (Fase 5): limiar de funcionários pra considerar "projeto complexo" — o
 # próprio requisito deixa em aberto ("a definir com o vendedor"); default aqui só serve
@@ -32,7 +33,7 @@ _QUANTIDADE_MINIMA_PROJETO_COMPLEXO = 4
 async def _executar_escalar_humano(ctx: ContextoAcao):
     """REQ-004.6: pedido explícito do cliente — escala de verdade (bug crítico
     corrigido na Fase 5: antes só respondia o template, sem setar modo humano)."""
-    atendimento = await _garantir_atendimento_dispatch(ctx)
+    atendimento = await garantir_atendimento_dispatch(ctx)
     await ctx.processador._escalar_atendimento(
         ctx.db, atendimento, MotivoEscalonamento.SOLICITADO_CLIENTE, ator="cliente", dlog=ctx.dlog
     )
@@ -44,7 +45,7 @@ async def _executar_escalar_humano(ctx: ContextoAcao):
 async def _executar_reclamar(ctx: ContextoAcao):
     """REQ-004.7: reclamação/insatisfação — escala de verdade (mesmo bug corrigido
     acima). Prioridade de pós-venda (REQ-009) só se aplica na Fase 15."""
-    atendimento = await _garantir_atendimento_dispatch(ctx)
+    atendimento = await garantir_atendimento_dispatch(ctx)
     await ctx.processador._escalar_atendimento(
         ctx.db, atendimento, MotivoEscalonamento.RECLAMACAO, ator="cliente", dlog=ctx.dlog
     )
@@ -54,7 +55,7 @@ async def _executar_reclamar(ctx: ContextoAcao):
 
 
 async def _executar_projeto_complexo(ctx: ContextoAcao):
-    atendimento = await _garantir_atendimento_dispatch(ctx)
+    atendimento = await garantir_atendimento_dispatch(ctx)
     await ctx.processador._escalar_atendimento(
         ctx.db, atendimento, MotivoEscalonamento.PROJETO_COMPLEXO, ator="sistema:projeto_complexo", dlog=ctx.dlog
     )

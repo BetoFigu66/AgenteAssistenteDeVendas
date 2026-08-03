@@ -18,8 +18,26 @@ from models import (
 )
 from services.atendimentos import proximo_numero_atendimento_cliente
 from services.classificador import EntidadesExtraidas, ResultadoClassificacao
+from services.conversacao.acoes import ContextoAcao
+from services.conversacao.estados.finalizando import FINALIZANDO
 from services.processador import ProcessadorMensagem
 from sqlalchemy.orm import Session
+
+
+def _ctx(processador: ProcessadorMensagem, session: Session, telefone: str, atendimento: Atendimento,
+         resultado: ResultadoClassificacao) -> ContextoAcao:
+    """`_tentar_resolver_modelo` virou `FinalizandoState._resolver_modelo(ctx)` (Etapa 1 do
+    redesenho State pattern) — monta um `ContextoAcao` mínimo, mesmo padrão de
+    `tests/test_motor_acoes.py::_ctx()` (identificação não é usada por este método)."""
+    return ContextoAcao(
+        db=session,
+        telefone=telefone,
+        conteudo="",
+        identificacao=object(),
+        resultado_class=resultado,
+        processador=processador,
+        atendimento=atendimento,
+    )
 
 
 @pytest.fixture
@@ -123,7 +141,8 @@ def test_resolve_modelo_por_atributo_tecnologia_leitura(processador):
             atendimento = _setup_atendimento(session, telefone, produto)
             resultado = _resultado({"tecnologia_leitura": "biometria"})
 
-            res = asyncio.run(processador._tentar_resolver_modelo(session, atendimento, resultado))
+            ctx = _ctx(processador, session, telefone, atendimento, resultado)
+            res = asyncio.run(FINALIZANDO._resolver_modelo(ctx))
             assert res is False  # False = resolvido
             assert atendimento.itens[0].modelo_id is not None
         finally:
@@ -143,7 +162,8 @@ def test_nao_resolve_modelo_quando_atributo_nao_casa(processador):
             # Atributo inexistente no catálogo de teste.
             resultado = _resultado({"tecnologia_leitura": "nao_existe_xyz"})
 
-            res = asyncio.run(processador._tentar_resolver_modelo(session, atendimento, resultado))
+            ctx = _ctx(processador, session, telefone, atendimento, resultado)
+            res = asyncio.run(FINALIZANDO._resolver_modelo(ctx))
             assert res is True  # True = tentou mas não resolveu
             assert atendimento.itens[0].modelo_id is None
         finally:
@@ -170,7 +190,8 @@ def test_nao_resolve_modelo_sem_nenhum_sinal_mesmo_com_produto_ja_conhecido(proc
             # Nenhum sinal (marca/aplicação/atributo) na entidade extraída da mensagem.
             resultado = _resultado({})
 
-            res = asyncio.run(processador._tentar_resolver_modelo(session, atendimento, resultado))
+            ctx = _ctx(processador, session, telefone, atendimento, resultado)
+            res = asyncio.run(FINALIZANDO._resolver_modelo(ctx))
             assert res is False  # False = não tentou (mensagem não trouxe sinal)
             assert atendimento.itens[0].modelo_id is None
         finally:
@@ -198,7 +219,8 @@ def test_resolve_modelo_restrito_ao_produto_do_item_ja_criado(processador):
             atendimento = _setup_atendimento(session, telefone, produto_correto)
             resultado = _resultado({"tecnologia_leitura": "biometria"})
 
-            res = asyncio.run(processador._tentar_resolver_modelo(session, atendimento, resultado))
+            ctx = _ctx(processador, session, telefone, atendimento, resultado)
+            res = asyncio.run(FINALIZANDO._resolver_modelo(ctx))
             assert res is False  # resolvido
             assert atendimento.itens[0].modelo_id == modelo_correto.id
             assert atendimento.itens[0].produto_id == produto_correto.id

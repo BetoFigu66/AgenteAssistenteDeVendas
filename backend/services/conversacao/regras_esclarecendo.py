@@ -7,13 +7,12 @@ independente de já ter fornecido CNPJ/CPF (decisão confirmada: mesma família 
 motivou esta migração — um contato novo não deveria ter menos capacidade de resposta só
 por ainda não ter mandado documento).
 
-A "ação padrão" (wildcard, registrada por último) é a peça central da correção do bug:
-só age quando nada mais respondeu nada (`ctx.fragmentos_ate_agora` vazio) — sem isso,
-qualquer pergunta de categoria 3 ganharia um pedido de CNPJ colado atrás, regredindo o D1
-(REQ-002.1B: categoria 3 nunca exige documento). Ela também é responsável pela correção
-do "documento pendente": em vez de repetir a mesma pergunta de CNPJ/CPF a cada mensagem,
-registra a recusa em `AtendimentoInfo` (chave `documento_fiscal_pendente`) e para de
-insistir, deixando a conversa seguir normalmente (fallback QA/NAO_ENTENDI).
+A "ação padrão" (wildcard, registrada por último) é a peça central da correção do bug —
+seu comportamento mora em `estados/esclarecendo.py::EsclarecendoState.tratamento_principal`
+(este módulo é a camada de ROTEAMENTO, decide SE a Ação dispara; o COMPORTAMENTO mora no
+Estado — GRASP Information Expert).
+
+Ver `docs/arquitetura_motor_conversacao_2026-07.md` para o funcionamento geral do motor.
 """
 
 from __future__ import annotations
@@ -21,14 +20,15 @@ from __future__ import annotations
 from models import FaseAtendimento
 
 from services.classificador import Intencao
+from services.conversacao.estados.esclarecendo import ESCLARECENDO
+from services.conversacao.estados.finalizando import FINALIZANDO
 from services.identificador import StatusIdentificacao
 from services.respostas import MensagemId
 
-from .acoes import Acao, ContextoAcao, GrupoAcoes
+from .acoes import Acao, ContextoAcao, GrupoAcoes, garantir_atendimento_dispatch
 from .motor import RegraIntencao
 from .regras_encerramento import CHAVE_FECHAMENTO_PENDENTE
 
-_CHAVE_DOC_PENDENTE = "documento_fiscal_pendente"
 _CHAVE_CATALOGO_PENDENTE = "catalogo_pendente"
 
 # REQ-016.10: intenções de "dúvida pura" (categoria 3) — dispara a pergunta de fechamento
@@ -38,33 +38,21 @@ _CHAVE_CATALOGO_PENDENTE = "catalogo_pendente"
 _INTENCOES_DUVIDA_PURA = frozenset({Intencao.PERGUNTAR_PRECO, Intencao.PERGUNTAR_PRODUTO, Intencao.FORA_CONTEXTO})
 
 
-async def _garantir_atendimento_dispatch(ctx: ContextoAcao):
-    """Garante que `ctx.atendimento` (e `ctx.contato`) existam, criando sob demanda — só
-    na hora em que uma Ação realmente precisa persistir algo (lazy: evita poluir a base
-    com atendimentos vazios de "oi" solto que nunca evoluem). Muta `ctx` in-place para que
-    Ações seguintes no mesmo turno enxerguem o atendimento recém-criado."""
-    if ctx.atendimento:
-        return ctx.atendimento
-    p = ctx.processador
-    atendimento = await p._garantir_contato_e_atendimento_qualificacao(
-        ctx.db, ctx.telefone, ctx.contato, ctx.resultado_class, dlog=ctx.dlog
-    )
-    ctx.atendimento = atendimento
-    ctx.contato = atendimento.contato
-    return atendimento
-
-
 async def _executar_pedir_orcamento(ctx: ContextoAcao):
     """PEDIR_ORCAMENTO transita para Finalizando e pergunta o primeiro campo pendente.
     Um contato totalmente novo (`StatusIdentificacao.NOVO`) ganha a saudação de
     boas-vindas junto (mesma composição de sempre); quem já conversava antes não precisa
-    ser cumprimentado de novo."""
+    ser cumprimentado de novo.
+
+    Builder de Esclarecendo disparando a entrada em Finalizando (`FINALIZANDO.entrar`) é
+    inerente à transição E→F, não uma violação da linha roteamento/comportamento — fica
+    aqui porque é o builder de Esclarecendo que decide disparar a transição."""
     p = ctx.processador
     era_novo = ctx.identificacao.status == StatusIdentificacao.NOVO
     entidades = ctx.resultado_class.entidades
 
-    atendimento = await _garantir_atendimento_dispatch(ctx)
-    partes_finalizando = await p._iniciar_ou_continuar_finalizando(ctx.db, atendimento, dlog=ctx.dlog)
+    await garantir_atendimento_dispatch(ctx)
+    partes_finalizando = await FINALIZANDO.entrar(ctx)
 
     if era_novo:
         if ctx.dlog:
@@ -99,7 +87,7 @@ def _builder_categoria3(intencao_categoria: Intencao):
         if ctx.fragmentos_ate_agora:
             return None
         if garante_atendimento:
-            await _garantir_atendimento_dispatch(ctx)
+            await garantir_atendimento_dispatch(ctx)
         return await ctx.processador._responder_categoria3(
             intencao_categoria, ctx.conteudo, db=ctx.db, atendimento=ctx.atendimento, dlog=ctx.dlog
         )
@@ -120,7 +108,7 @@ async def _executar_pedir_catalogo(ctx: ContextoAcao):
     quando isso se aplica, olhando `catalogo_pendente` em `AtendimentoInfo`."""
     if ctx.fragmentos_ate_agora:
         return None
-    atendimento = await _garantir_atendimento_dispatch(ctx)
+    atendimento = await garantir_atendimento_dispatch(ctx)
     p = ctx.processador
     p._remover_info_atendimento(ctx.db, atendimento.id, _CHAVE_CATALOGO_PENDENTE)
     resposta = await p._responder_pedir_catalogo(ctx.db, ctx.resultado_class, dlog=ctx.dlog)
@@ -142,81 +130,24 @@ def _builder_pedir_catalogo(ctx: ContextoAcao) -> GrupoAcoes:
 
 
 async def _executar_perguntar_prazo(ctx: ContextoAcao):
-    await _garantir_atendimento_dispatch(ctx)
+    await garantir_atendimento_dispatch(ctx)
     return await ctx.processador._gerador.gerar(
         MensagemId.PRAZO_NAO_PROMETIDO, personalizar=True, mensagem_cliente=ctx.conteudo,
     )
 
 
 async def _executar_aprovar_orcamento(ctx: ContextoAcao):
-    await _garantir_atendimento_dispatch(ctx)
+    await garantir_atendimento_dispatch(ctx)
     return (MensagemId.ORCAMENTO_APROVADO, None)
 
 
 async def _executar_reprovar_orcamento(ctx: ContextoAcao):
-    await _garantir_atendimento_dispatch(ctx)
+    await garantir_atendimento_dispatch(ctx)
     return (MensagemId.ORCAMENTO_REPROVADO, None)
 
 
 async def _executar_acao_padrao_esclarecendo(ctx: ContextoAcao):
-    """Último recurso do turno — só age se nada mais respondeu nada. Trata: (a) SAUDACAO
-    pra quem já está identificado (empresa/pessoa), respondendo com o nome; (b) fallback
-    QA/NAO_ENTENDI pra quem já está identificado e não disse "oi"; (c) o fluxo de
-    documento fiscal pendente pra quem ainda não tem empresa/pessoa vinculada.
-
-    (c) só pergunta documento **uma vez**: se `documento_fiscal_pendente` já está
-    "solicitado" e chegamos aqui de novo, é porque esta mensagem não trouxe CNPJ/CPF (se
-    tivesse, a regra global `FORNECER_CNPJ`/`FORNECER_CPF` já teria resolvido antes — nunca
-    chegaríamos até aqui) — não insiste de novo, marca "recusado" e segue a conversa
-    normalmente. Não depende de reconhecer a recusa por palavra (ex.: "não quero
-    fornecer ainda" não bate na regra `NEGAR`, que exige a mensagem inteira ser só "não")."""
-    if ctx.fragmentos_ate_agora:
-        return None
-    if ctx.atendimento and ctx.atendimento.fase != FaseAtendimento.ESCLARECENDO:
-        return None
-
-    p = ctx.processador
-
-    if ctx.empresa or ctx.pessoa:
-        nome = (ctx.contato.nome if ctx.contato else None) or (ctx.pessoa.nome if ctx.pessoa else None)
-        if Intencao.SAUDACAO in ctx.resultado_class.intencoes:
-            if nome:
-                return (MensagemId.SAUDACAO_COM_NOME, {"nome": nome})
-            return (MensagemId.PERGUNTAR_NOME, None)
-        return await p._fallback_qa_ou_nao_entendi(
-            ctx.conteudo, resultado_class=ctx.resultado_class, db=ctx.db, atendimento=ctx.atendimento, dlog=ctx.dlog
-        )
-
-    atendimento = await _garantir_atendimento_dispatch(ctx)
-    estado_doc = p._info_atendimento(ctx.db, atendimento.id, _CHAVE_DOC_PENDENTE)
-
-    if estado_doc in ("solicitado", "recusado"):
-        if estado_doc == "solicitado":
-            p._salvar_info_atendimento(ctx.db, atendimento.id, _CHAVE_DOC_PENDENTE, "recusado")
-            if ctx.dlog:
-                ctx.dlog.log(
-                    "esclarecendo",
-                    "documento pedido sem resposta → marcado 'recusado', não insiste mais",
-                )
-        elif ctx.dlog:
-            ctx.dlog.log("esclarecendo", "documento_fiscal_pendente=recusado → não repete, cai no fallback")
-        return await p._fallback_qa_ou_nao_entendi(
-            ctx.conteudo, resultado_class=ctx.resultado_class, db=ctx.db, atendimento=atendimento, dlog=ctx.dlog
-        )
-
-    p._salvar_info_atendimento(ctx.db, atendimento.id, _CHAVE_DOC_PENDENTE, "solicitado")
-
-    if ctx.identificacao.status == StatusIdentificacao.NOVO:
-        entidades = ctx.resultado_class.entidades
-        ctx_novo = {
-            "nome": entidades.nomes[0] if entidades.nomes else None,
-            "tem_documento": bool(entidades.cnpjs or entidades.cpfs),
-            "modo": "identificacao",
-        }
-        return (MensagemId.SAUDACAO_NOVO_CONTATO, ctx_novo)
-
-    nome_contato = atendimento.contato.nome if atendimento.contato else None
-    return (MensagemId.PERGUNTAR_CNPJ, {"nome": nome_contato})
+    return await ESCLARECENDO.tratamento_principal(ctx)
 
 
 async def _executar_disparar_fechamento(ctx: ContextoAcao):

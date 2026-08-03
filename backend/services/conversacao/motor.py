@@ -9,6 +9,9 @@ independente da fase efetiva do atendimento) a um builder de `GrupoAcoes`.
 o que bateu nesta mensagem, mescla as 4 listas de todas elas, e executa — `exclusivo` tem
 prioridade absoluta (se não vazio, só ele roda); senão roda `pre + processamento + pos`,
 nessa ordem.
+
+Ver `docs/arquitetura_motor_conversacao_2026-07.md` para o diagrama de fluxo completo e o
+racional de cada peça (RegraIntencao, ContextoAcao, TipoExecucao).
 """
 
 from __future__ import annotations

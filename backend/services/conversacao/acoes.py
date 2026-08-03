@@ -5,6 +5,8 @@ Substitui o antigo "a primeira intenção que bater vence" por: toda intenção 
 coletada; cada par (Intenção, Fase-do-atendimento) pode contribuir Ações, categorizadas em
 4 grupos de execução (`TipoExecucao`). Ver `motor.py` para o gerenciador que mescla e
 executa essas Ações.
+
+Ver `docs/arquitetura_motor_conversacao_2026-07.md` para o diagrama de fluxo completo.
 """
 
 from __future__ import annotations
@@ -88,3 +90,24 @@ class GrupoAcoes:
         self.pos += outro.pos
         self.exclusivo += outro.exclusivo
         return self
+
+
+async def garantir_atendimento_dispatch(ctx: ContextoAcao) -> Atendimento:
+    """Garante que `ctx.atendimento` (e `ctx.contato`) existam, criando sob demanda — só
+    na hora em que uma Ação realmente precisa persistir algo (lazy: evita poluir a base
+    com atendimentos vazios de "oi" solto que nunca evoluem). Muta `ctx` in-place para que
+    Ações seguintes no mesmo turno enxerguem o atendimento recém-criado.
+
+    Mora aqui (infra do Motor, não de uma Fase específica) porque é chamada tanto por
+    regras globais (`regras_globais.py`, fase=None) quanto por regras/Estados de
+    Esclarecendo — colocá-la em qualquer um desses módulos criaria um import circular ou
+    faria infraestrutura fase-agnóstica "pertencer" a uma fase específica."""
+    if ctx.atendimento:
+        return ctx.atendimento
+    p = ctx.processador
+    atendimento = await p._garantir_contato_e_atendimento_qualificacao(
+        ctx.db, ctx.telefone, ctx.contato, ctx.resultado_class, dlog=ctx.dlog
+    )
+    ctx.atendimento = atendimento
+    ctx.contato = atendimento.contato
+    return atendimento

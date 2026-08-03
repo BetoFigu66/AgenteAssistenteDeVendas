@@ -8,6 +8,8 @@ qualificação em aberto. Este módulo só interpreta a resposta do cliente quan
 pergunta pendente: negativa encerra o atendimento (`motivo=concluido_pelo_cliente`);
 qualquer outra coisa apenas limpa o sinalizador e deixa o resto do motor responder
 normalmente (REQ-016.10: resposta afirmativa/nova demanda mantém o atendimento `ativo`).
+
+Ver `docs/arquitetura_motor_conversacao_2026-07.md` para o funcionamento geral do motor.
 """
 
 from __future__ import annotations
