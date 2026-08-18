@@ -43,6 +43,7 @@ class Intencao(str, Enum):
     NEGAR = "negar"
     PEDIR_ORCAMENTO = "pedir_orcamento"
     PEDIR_CATALOGO = "pedir_catalogo"
+    PERGUNTAR_DISPONIBILIDADE = "perguntar_disponibilidade"
     PERGUNTAR_PRECO = "perguntar_preco"
     PERGUNTAR_PRODUTO = "perguntar_produto"
     PERGUNTAR_PRAZO = "perguntar_prazo"
@@ -165,6 +166,13 @@ _REGRAS_INTENCAO: list[tuple[Intencao, re.Pattern]] = [
         ),
     ),
     (
+        Intencao.PERGUNTAR_DISPONIBILIDADE,
+        re.compile(
+            r"\b(vende(?:m|mos)?|trabalha(?:m|mos)?(?:\s+com)?|informa[cç][aã]o|informa[cç][oõ]es)\b",
+            re.IGNORECASE,
+        ),
+    ),
+    (
         Intencao.PEDIR_ORCAMENTO,
         re.compile(
             r"\b(or[çc]amento|cota[çc][aã]o|quanto\s+sai|quanto\s+custa|pre[çc]o)\b",
@@ -187,7 +195,8 @@ _REGRAS_INTENCAO: list[tuple[Intencao, re.Pattern]] = [
     (
         Intencao.PERGUNTAR_PRODUTO,
         re.compile(
-            r"\b(catraca|rel[oó]gio\s+de\s+ponto|biom[eé]trico|cart[aã]o|facial|modelo)\b",
+            r"\b(catraca|rel[oó]gio\s+de\s+ponto|biom[eé]trico|cart[aã]o|facial|modelo"
+            r"|caracter[ií]sticas?|diferen[cç]as?)\b",
             re.IGNORECASE,
         ),
     ),
@@ -208,9 +217,26 @@ _REGRAS_INTENCAO: list[tuple[Intencao, re.Pattern]] = [
 ]
 
 
+# Sub-padrões de PEDIR_ORCAMENTO usados na guarda de produto obrigatório (DEC-008):
+# "vender"/"trabalhar com" requerem produto; orçamento/cotação/preço explícitos
+# continuam permitindo mensagem sem produto (o sistema pede o tipo depois).
+_RE_PEDIR_ORCAMENTO_EXPLICITO = re.compile(
+    r"\b(or[çc]amento|cota[çc][aã]o|quanto\s+sai|quanto\s+custa|pre[çc]o)\b",
+    re.IGNORECASE,
+)
+_RE_PERGUNTAR_DISPONIBILIDADE_VERBO = re.compile(
+    r"\b(vende(?:m|mos)?|trabalha(?:m|mos)?(?:\s+com)?|informa[cç][aã]o|informa[cç][oõ]es)\b",
+    re.IGNORECASE,
+)
+_RE_PEDIR_ORCAMENTO_VERBO = _RE_PERGUNTAR_DISPONIBILIDADE_VERBO
+
+
 _REGEX_CNPJ = re.compile(r"\b\d{2}\.?\d{3}\.?\d{3}/?\d{4}-?\d{2}\b")
 _REGEX_EMAIL = re.compile(r"\b[\w.+-]+@[\w-]+\.[\w.-]+\b")
 _REGEX_QUANTIDADE = re.compile(r"\b(\d{1,4})\s*(unidades?|un|pe[çc]as?|pcs)?\b", re.IGNORECASE)
+# Máscara usada apenas na extração de quantidades — evita que datas (ex: 28/12/1965)
+# gerem valores como 28, 12 e 1965 na entidade "quantidades".
+_REGEX_MASCARA_DATA = re.compile(r"\b\d{1,2}[/\-.]\d{1,2}[/\-.]\d{4}\b")
 
 # Captura um nome próprio após gatilhos como "meu nome é ...", "sou o/a ...", "me chamo ...".
 # O grupo de nome aceita 1 a 4 palavras iniciadas por maiúscula (ou palavras
@@ -483,8 +509,13 @@ def extrair_entidades(texto: str) -> EntidadesExtraidas:
     data_nasc = parse_data_nascimento(texto)
     datas_nascimento = [data_nasc.isoformat()] if data_nasc else []
 
-    # Quantidades (pega apenas números razoáveis: 1-9999)
-    quantidades = [int(m.group(1)) for m in _REGEX_QUANTIDADE.finditer(texto) if 1 <= int(m.group(1)) <= 9999]
+    # Quantidades: máscara de datas antes, para não confundir dia/mês/ano com unidades.
+    texto_sem_datas = _REGEX_MASCARA_DATA.sub(" ", texto)
+    quantidades = [
+        int(m.group(1))
+        for m in _REGEX_QUANTIDADE.finditer(texto_sem_datas)
+        if 1 <= int(m.group(1)) <= 9999
+    ]
 
     texto_lower = texto.lower()
     tipos_produto = []
@@ -525,12 +556,26 @@ def extrair_entidades(texto: str) -> EntidadesExtraidas:
     )
 
     # D6: atributos genéricos do modelo detectados na mensagem (ex.: tecnologia_leitura).
+    # Coleta TODOS os valores mencionados na mensagem (não só o primeiro) — guardados
+    # como string separada por vírgula — para não perder sinal quando o cliente cita
+    # mais de uma tecnologia na mesma frase (ex.: "biométrico ou facial, tanto faz").
     atributos: Dict[str, str] = {}
     for chave_atributo, mapeamento in _ATRIBUTOS_MENSAGEM_PALAVRAS.items():
+        valores_encontrados: List[str] = []
         for palavra, valor in mapeamento.items():
-            if palavra in texto_lower and chave_atributo not in atributos:
-                atributos[chave_atributo] = valor
-                break
+            if palavra in texto_lower and valor not in valores_encontrados:
+                valores_encontrados.append(valor)
+        if valores_encontrados:
+            atributos[chave_atributo] = ",".join(valores_encontrados)
+
+    # Fallback de produto: "relógio" + tecnologia de leitura implica relógio de ponto
+    # (ex.: "relógio biométrico", "relogio de cartao", "relógio facial").
+    if (
+        "relogio_ponto" not in tipos_produto
+        and any(p in texto_lower for p in ("relogio", "relógio", "relogios", "relógios"))
+        and (tipo_leitor_mencionado or atributos.get("tecnologia_leitura"))
+    ):
+        tipos_produto.append("relogio_ponto")
 
     # Extração de nomes via gatilhos ("meu nome é X", "me chamo X", ...)
     nomes: List[str] = []
@@ -620,6 +665,28 @@ def _finalizar_intencoes(
     return intencoes or [Intencao.DESCONHECIDO]
 
 
+def _pedir_orcamento_exige_produto(
+    texto: str,
+    intencao: Intencao,
+    entidades: EntidadesExtraidas,
+) -> bool:
+    """DEC-008/REQ-XXX: se PEDIR_ORCAMENTO veio de 'vender'/'trabalhar com', a mensagem
+    deve conter um tipo de produto reconhecido. Orçamento/cotação/preço
+    explícitos continuam sem essa exigência.
+
+    PERGUNTAR_DISPONIBILIDADE ("vocês vendem X?", "trabalham com X?") também
+    exige produto para não responder "Sim, vendemos" sem saber o que."""
+    if intencao not in (Intencao.PEDIR_ORCAMENTO, Intencao.PERGUNTAR_DISPONIBILIDADE):
+        return True
+    # Orçamento/cotação/preço explícito: produto não é obrigatório.
+    if intencao == Intencao.PEDIR_ORCAMENTO and _RE_PEDIR_ORCAMENTO_EXPLICITO.search(texto):
+        return True
+    # Se bateu em vender/trabalhar, produto é mandatório.
+    if _RE_PERGUNTAR_DISPONIBILIDADE_VERBO.search(texto):
+        return bool(entidades.tipos_produto)
+    return True
+
+
 # =============================================================================
 # Classificação por LLM
 # =============================================================================
@@ -634,10 +701,11 @@ Classifique a mensagem do cliente em UMA das intenções:
 - fornecer_nome: cliente informou seu nome
 - confirmar: resposta afirmativa a uma pergunta
 - negar: resposta negativa a uma pergunta
-- pedir_orcamento: solicita orçamento/cotação
+- pedir_orcamento: solicita orçamento/cotação de forma explícita ("quero orçamento", "quanto custa"). NÃO use para "vocês vendem X?".
+- perguntar_disponibilidade: pergunta se vendem/trabalham com um produto ("vocês vendem X?", "trabalham com X?", "tem X?"). SÓ use quando X for um produto do catálogo.
 - pedir_catalogo: pede o catálogo de produtos (ex: "tem catálogo?", "me manda o catálogo")
 - perguntar_preco: pergunta quanto custa
-- perguntar_produto: pergunta sobre produtos/modelos
+- perguntar_produto: pergunta sobre produtos/modelos (características, diferenças, homologação)
 - perguntar_prazo: pergunta sobre prazo de entrega
 - aprovar_orcamento: aprova orçamento já enviado
 - reprovar_orcamento: recusa orçamento
@@ -770,8 +838,12 @@ async def classificar(
         else {}
     )
     entidades_regra = extrair_entidades(texto)
-    matches_regra = classificar_por_regras(texto)
-    confianca_regra = max(c for _, c in matches_regra)
+    matches_regra = [
+        (i, c)
+        for i, c in classificar_por_regras(texto)
+        if _pedir_orcamento_exige_produto(texto, i, entidades_regra)
+    ]
+    confianca_regra = max((c for _, c in matches_regra), default=0.0)
 
     # Se regras têm alta confiança, usa direto
     if confianca_regra >= LIMITE_CONFIANCA_REGRAS:
@@ -827,6 +899,12 @@ async def classificar(
         # D6: regras têm prioridade para atributos conhecidos; LLM preenche os demais.
         atributos={**entidades_llm.atributos, **entidades_regra.atributos},
     )
+
+    # DEC-008: mesmo classificador por LLM respeita a regra de produto mandatório
+    # para "vender"/"trabalhar com".
+    if not _pedir_orcamento_exige_produto(texto, intencao_llm, entidades_final):
+        intencao_llm = Intencao.DESCONHECIDO
+        confianca_llm = 0.0
 
     intencoes = _finalizar_intencoes([(intencao_llm, confianca_llm)], entidades_final)
     logger.debug(f"[Classificador] Usando LLM: {[i.value for i in intencoes]} (confiança={confianca_llm},"

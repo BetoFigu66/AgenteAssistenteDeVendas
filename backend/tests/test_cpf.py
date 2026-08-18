@@ -60,3 +60,11 @@ def test_classificador_extrai_cpf_e_data():
     ent = extrair_entidades(texto)
     assert "52998224725" in ent.cpfs
     assert ent.datas_nascimento == ["1990-05-10"]
+
+
+def test_data_nascimento_nao_vira_quantidade():
+    """Regressão: dia/mês/ano de uma data não devem gerar entidade quantidades,
+    senão o gatilho de projeto complexo dispara em mensagens como '28/12/1965'."""
+    ent = extrair_entidades("28/12/1965")
+    assert ent.datas_nascimento == ["1965-12-28"]
+    assert ent.quantidades == []

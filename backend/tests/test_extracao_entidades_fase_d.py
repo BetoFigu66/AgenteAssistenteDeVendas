@@ -111,6 +111,12 @@ def test_extrai_atributo_generico_tecnologia_leitura_cartao():
     assert e.atributos.get("tecnologia_leitura") == "cartao"
 
 
+def test_atributo_generico_acumula_multiplas_tecnologias_na_mesma_mensagem():
+    e = extrair_entidades("Quero um relógio biométrico ou facial, tanto faz")
+    valores = set(e.atributos.get("tecnologia_leitura", "").split(","))
+    assert valores == {"biometria", "facial"}
+
+
 def test_atributo_generico_persiste_tipo_leitor_mencionado():
     # Garante que tipo_leitor_mencionado continua preenchido para compatibilidade.
     e = extrair_entidades("Quero relógio de ponto biométrico")

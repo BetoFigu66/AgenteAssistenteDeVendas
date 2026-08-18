@@ -102,6 +102,44 @@ def test_novo_pergunta_produto_registra_interesse_passivo_d2(db_session, process
         _limpar(db_session, telefone)
 
 
+def test_tecnologia_leitura_acumula_entre_mensagens_distintas(db_session, processador):
+    """D6: se o cliente mencionar "biométrico" numa mensagem e "facial" em outra depois,
+    `AtendimentoInfo` deve acumular os dois valores (união), não sobrescrever com o
+    último — perder o sinal antigo travaria `_resolver_modelo`."""
+    telefone = "5511999970004"
+    identificacao = ResultadoIdentificacao(status=StatusIdentificacao.NOVO, contatos=[], empresas=[])
+    try:
+        resultado_1 = _resultado(
+            Intencao.PERGUNTAR_PRODUTO, tipos_produto=["relogio_ponto"], atributos={"tecnologia_leitura": "biometria"},
+        )
+        asyncio.run(
+            processador._decidir_resposta(
+                db=db_session, telefone=telefone, conteudo="Quero relógio biométrico",
+                identificacao=identificacao, resultado_class=resultado_1,
+            )
+        )
+        db_session.commit()
+        contato = db_session.query(Contato).filter_by(telefone=telefone).first()
+        identificacao_2 = ResultadoIdentificacao(
+            status=StatusIdentificacao.SEM_EMPRESA, contatos=[contato], empresas=[]
+        )
+        resultado_2 = _resultado(
+            Intencao.PERGUNTAR_PRODUTO, tipos_produto=["relogio_ponto"], atributos={"tecnologia_leitura": "facial"},
+        )
+        asyncio.run(
+            processador._decidir_resposta(
+                db=db_session, telefone=telefone, conteudo="ou facial, qualquer um serve",
+                identificacao=identificacao_2, resultado_class=resultado_2,
+            )
+        )
+        db_session.commit()
+        atendimento = contato.atendimentos[0]
+        chaves_valores = {info.chave: info.valor for info in atendimento.informacoes}
+        assert set(chaves_valores.get("tecnologia_leitura", "").split(",")) == {"biometria", "facial"}
+    finally:
+        _limpar(db_session, telefone)
+
+
 def test_novo_registra_software_leitor_e_faixa_passivamente_d3_d4(db_session, processador):
     """D3/D4: software, tipo de leitor e faixa de funcionários mencionados espontaneamente
     devem ser gravados em AtendimentoInfo (mesmas chaves do catálogo — CAMPO_SOFTWARE_PONTO,

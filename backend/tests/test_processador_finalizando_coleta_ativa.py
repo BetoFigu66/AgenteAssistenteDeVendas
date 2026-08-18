@@ -269,7 +269,9 @@ def test_f3_duvida_sobre_outro_produto_nao_reescreve_tipos_produto(db_session, p
                 resultado_class=resultado,
             )
         )
-        assert resposta.template_usado.endswith("+RETOMAR_PERGUNTA_PENDENTE")
+        # RAG_PEDIR_CLARIFICACAO já é uma pergunta em aberto — não deve vir colada com
+        # RETOMAR_PERGUNTA_PENDENTE (duas perguntas contraditórias no mesmo turno).
+        assert resposta.template_usado == "RAG_PEDIR_CLARIFICACAO"
         db_session.refresh(atendimento)
         valores = {info.chave: info.valor for info in atendimento.informacoes}
         assert valores.get("tipos_produto") == "relogio_ponto"

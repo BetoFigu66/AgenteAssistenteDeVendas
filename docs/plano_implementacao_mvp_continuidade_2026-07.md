@@ -2,12 +2,12 @@
 
 <!-- CLASSIFICACAO: HISTORICO -->
 
-**Versão:** 2.4  
-**Data:** 2026-07-06 (atualizado 2026-07-15)  
+**Versão:** 2.5  
+**Data:** 2026-07-06 (atualizado 2026-07-29)  
 **Autor:** Beto + Cascade + Claude  
-**Status:** Implementado (Fases A-H concluídas) — verificação visual no navegador ainda pendente; alinhamento de REQs com a Kika (§8 item 7) concluído  
+**Status:** Implementado (Fases A-H concluídas) — verificação visual no navegador ainda pendente; alinhamento de REQs com a Kika (§8 item 7) concluído. **Escopo generalizado (2026-07-29, ver v2.5):** o motor deixou de ser específico de relógio de ponto — catraca já está implementada como segundo produto usando o mesmo motor genérico de `campos_pendentes()`  
 **Origem:** `docs/brainstorming_continuidade_2026-07.md` (cenário 1 — Laboratório OO)  
-**Escopo deste plano:** **um produto, uma jornada** — dúvida → orçamento → coleta mínima
+**Escopo deste plano:** **o padrão Esclarecendo → Finalizando genérico por produto** — dúvida → orçamento → coleta mínima (o motor de campos/fases não é mais restrito a um único produto; ver decisão v2.5)
 
 ---
 
@@ -17,19 +17,16 @@ Implementar o **primeiro fatia vertical** do modelo de fases proposto no brainst
 
 ### O que o cliente vive
 
-1. Pergunta sobre **um único produto** (relógio de ponto).
+1. Pergunta sobre **um produto** (o MVP original cobriu só relógio de ponto; desde a v2.5 o motor também cobre catraca, com o mesmo padrão de fases — ver §2).
 2. O sistema **responde a dúvida** via base de conhecimento (Q&A/RAG), **sem pedir CNPJ**.
 3. O cliente manifesta intenção de orçamento (“quero comprar”, “manda orçamento”, etc.).
-4. O sistema **transita imediatamente para Finalizando** ao reconhecer a intenção (categoria 1 do REQ-002.1) — não espera ter modelo/quantidade confirmados antes de sair de Esclarecendo. Uma vez em Finalizando, cobra **todos** os campos obrigatórios, em qualquer ordem (o cliente pode responder o que quiser primeiro):
-   - **Modelo** do relógio (resolve sempre para uma entrada real do catálogo — nunca texto livre)
-   - **Software de ponto** que a empresa usa (integração)
-   - **Faixa de funcionários** — só perguntada se a empresa **não** tiver software de ponto
+4. O sistema **transita imediatamente para Finalizando** ao reconhecer a intenção (categoria 1 do REQ-002.1) — não espera ter modelo/quantidade confirmados antes de sair de Esclarecendo. Uma vez em Finalizando, cobra **todos os campos obrigatórios do produto identificado** (`campos_do_produto()` — genérico, não hardcoded por produto), em qualquer ordem (o cliente pode responder o que quiser primeiro). Para relógio de ponto: modelo, software de ponto, faixa de funcionários (condicional). Para catraca: modelo, software de acesso, interesse em sistema na nuvem (condicional), faixa de funcionários (condicional), alerta opcional de homologação (condicional, não bloqueante), quantidade.
 5. Com os campos preenchidos, o sistema apresenta **resumo** e encaminha para o vendedor (fase Criando Orçamento — handoff mínimo).
 
 ### O que fica de fora deste MVP
 
-- Múltiplos produtos no mesmo atendimento
-- Catraca, CFTV e demais linhas
+- Múltiplos produtos **no mesmo atendimento** (um atendimento ainda cobre um único tipo de produto por vez — ver §9 item 5)
+- CFTV e demais linhas ainda não mapeadas no catálogo de campos (catraca já saiu desta lista na v2.5 — ver §2)
 - CNPJ/CPF, endereço, contato (campos existem no catálogo, mas **não** nesta fatia)
 - Inatividade / reengajamento (REQ-016.9, REQ-002.22)
 - Integração WhatsApp real (testes pelo painel admin — REQ-010)
@@ -37,9 +34,9 @@ Implementar o **primeiro fatia vertical** do modelo de fases proposto no brainst
 
 ---
 
-## 2. Produto piloto e atributo de software
+## 2. Produto piloto e generalização (v2.5)
 
-### Produto escolhido: **Relógio de Ponto**
+### Produto original do MVP: **Relógio de Ponto**
 
 | Fonte | O que diz |
 |-------|-----------|
@@ -47,13 +44,25 @@ Implementar o **primeiro fatia vertical** do modelo de fases proposto no brainst
 | `CAMPO-software-ponto` | Campo formal no catálogo — obrigatório em Finalizando para relógio de ponto |
 | `respostas_rita_v1.md` | Rita também cita que **relógios e catracas** dependem do sistema do cliente |
 
-**Decisão deste MVP:** usar **apenas Relógio de Ponto**. O software de integração é o atributo condicional documentado em `artefatos/analista_de_requisitos/catalogo_conversacao/campos/CAMPO-software-ponto.md`.
+**Decisão original do MVP (2026-07-06):** usar **apenas Relógio de Ponto** nesta primeira fatia, para manter o motor de `campos_pendentes()` simples enquanto o padrão de fases era validado. O software de integração era o único atributo condicional, documentado em `artefatos/analista_de_requisitos/catalogo_conversacao/campos/CAMPO-software-ponto.md`.
 
-**Nota para evolução:** catraca terá campo análogo (`CAMPO-software-acesso` — **pendente Kika**). Não misturar no MVP para manter o motor de `campos_pendentes()` simples.
+### Decisão de generalização (2026-07-29, v2.5)
 
-**Atualização 2026-07-09 (pull da Kika, commit `c4cd9ef`):** as fichas de campo que este plano previa criar já existem no catálogo — `CAMPO-modelo.md`, `CAMPO-faixa-funcionarios.md`, `CAMPO-quantidade.md`, `CAMPO-endereco.md`, `CAMPO-contato.md`, `CAMPO-cpf.md` (todas v0.1). **Importante:** `CAMPO-quantidade` é de **controle de acesso/catraca** (chave `quantidade_equipamentos`, mapeia para a coluna real `ItemAtendimento.quantidade`) — **não é** o campo desta fatia. Para relógio de ponto, o campo espelho é `CAMPO-faixa-funcionarios` (chave `faixa_funcionarios`, sizing por número de funcionários, não por unidades físicas do relógio).
+Com o padrão Esclarecendo → Finalizando validado e estável (Fases A-H), decidimos **manter o fluxo/motor exatamente como está** e deixar de restringi-lo a um único produto. `catalogo_campos.py` e `campos_pendentes.py` já eram desacoplados de ORM e indexados por `produtos_aplicaveis` (`CampoDef.produtos_aplicaveis`) desde a Fase B/C — não foi necessário nenhum redesenho de motor, só o mapeamento dos campos de catraca:
 
-### Campos obrigatórios nesta fatia
+| Campo | Chave técnica | Aplicabilidade |
+|-------|----------------|-----------------|
+| `CAMPO_SOFTWARE_ACESSO` | `software_controle_acesso` | Sempre, para `catraca`/produtos de acesso |
+| `CAMPO_INTERESSE_SISTEMA_NUVEM` | `interesse_sistema_nuvem` | Só se `software_controle_acesso = "nenhum"` |
+| `CAMPO_FAIXA_FUNCIONARIOS` | `faixa_funcionarios` | Só sem software de acesso **e** com interesse em nuvem confirmado |
+| `CAMPO_HOMOLOGADO_SOFTWARE` | `homologado_software` | Sempre que há software de acesso real informado (conhecido ou não — REQ-002.14C/15). **Não obrigatório** (`CampoDef.obrigatorio=False`): é um alerta/orientação, perguntado no máximo uma vez, nunca bloqueia o resumo |
+| `CAMPO_QUANTIDADE` | `quantidade_equipamentos` | Sempre, para produtos de controle de acesso |
+
+**Consequência prática:** a Fase F (`_processar_finalizando`), a Fase E (transição) e a Fase G (handoff) do processador **não mudaram** — elas já operavam sobre `campos_pendentes(atendimento)` de forma agnóstica ao produto. Só as Fases B/C ganharam novas entradas no catálogo. Ver `@c:\Kika\AgenteAssistenteDeVendas\backend\services\conversacao\catalogo_campos.py` para a lista completa de `CampoDef` por produto.
+
+**Atualização 2026-07-09 (pull da Kika, commit `c4cd9ef`):** as fichas de campo que este plano previa criar já existem no catálogo — `CAMPO-modelo.md`, `CAMPO-faixa-funcionarios.md`, `CAMPO-quantidade.md`, `CAMPO-endereco.md`, `CAMPO-contato.md`, `CAMPO-cpf.md` (todas v0.1). **Importante:** `CAMPO-quantidade` é de **controle de acesso/catraca** (chave `quantidade_equipamentos`, mapeia para a coluna real `ItemAtendimento.quantidade`) — na época, não era o campo desta fatia (só relógio de ponto). Para relógio de ponto, o campo espelho é `CAMPO-faixa-funcionarios` (chave `faixa_funcionarios`, sizing por número de funcionários, não por unidades físicas do relógio). **Nota v2.5:** `CAMPO-quantidade` já está mapeado (`CAMPO_QUANTIDADE`) e em uso para catraca — ver tabela em "Decisão de generalização" acima.
+
+### Campos obrigatórios — relógio de ponto (fatia original)
 
 | ID catálogo | Chave técnica | Quando perguntar | Já existe no código? |
 |-------------|----------------------|------------------|----------------------|
@@ -309,7 +318,7 @@ Ordem sugerida. Cada passo deve ser testável isoladamente no painel.
 ## 9. Próximas fatias (após este MVP)
 
 1. **+ CNPJ** — Finalizando para PJ (CAMPO-cnpj + REQ-001)
-2. **+ Catraca** — novo produto + `CAMPO-software-acesso` (criar ficha)
+2. ~~**+ Catraca** — novo produto + `CAMPO-software-acesso` (criar ficha)~~ — **Implementado (v2.5, 2026-07-29)**, ver §2 "Decisão de generalização"
 3. **+ Inatividade** — FASE-encerrado-por-inatividade + PERG-016-009 + PERG-016-009B (confirmação de interesses anteriores, criada 2026-07-15)
 4. **+ Endereço e contato** — campos REQ-002.3D/C restantes
 5. **+ Múltiplos produtos no mesmo atendimento** — pré-requisito de schema (discussão 2026-07-11, ver `docs/dicionario_termos.md`): `AtendimentoInfo` precisa ganhar `item_atendimento_id` opcional (FK para `ItemAtendimento`) para separar info do atendimento como um todo de info específica de um produto (ex.: software de ponto por item); unique constraint vira `(atendimento_id, item_atendimento_id, chave)`
@@ -356,3 +365,4 @@ Ordem sugerida. Cada passo deve ser testável isoladamente no painel.
 | 2.2 | 2026-07-13 | Beto + Claude | Fase G concluída — fecha a lógica de conversação do MVP (só resta H, painel/QA): **G1** `_concluir_finalizando()` transita `fase` para `em_orcamentacao` quando o cliente confirma o resumo (F4); **G2** reaproveita `modo_operacao = HUMANO` (mesmo mecanismo do escalonamento do F2) pra suprimir resposta automática dali em diante; **G3** novo `MensagemId.ORCAMENTO_ENCAMINHADO`. Bug pego em smoke test manual (não pelos testes determinísticos, que evitavam sem querer o cenário): um "ok"/"sim" solto pode vir classificado `CONFIRMAR` mesmo sendo a *primeira* mensagem depois de tudo capturado — nesse caso o cliente nunca viu o resumo, então não é confirmação dele; corrigido exigindo que o resumo já tenha sido apresentado (nova chave `resumo_finalizando_apresentado` em `AtendimentoInfo`) antes de aceitar um `CONFIRMAR` como handoff. Aproveitado pra corrigir também um efeito colateral do guard de `tipos_produto` da Fase F: ele bloqueava a gravação legítima do tipo de produto quando informado só depois de já estar em Finalizando (ex.: resposta ao fallback `PEDIR_TIPO_PRODUTO`) — trocado de "só grava se `fase != FINALIZANDO`" para "só grava se ainda não houver valor". Testado ponta a ponta via API real (fluxo completo: resumo → confirmação → handoff, com verificação de que a primeira mensagem "solta" não conclui sozinha) e via `tests/test_processador_finalizando_handoff.py` (5 casos). Suíte completa: 101/101. |
 | 2.3 | 2026-07-13 | Beto + Claude | **Fase H concluída — plano de MVP Continuidade fechado (Fases A-H, todas ✅).** **H1** `fase` passou a ser serializada em `Atendimento.to_dict()` (bug: existia desde a Fase A mas nunca era exposta pela API) e exibida como badge colorido em 3 pontos do painel (`ConversaInfo`, `AcompanhamentoPage`, `AtendimentoDetalhes`), via novo par `rotuloFase`/`classesFase` em `utils/atendimento.js`; **H2** tabela "Informações coletadas" ganhou rótulos amigáveis e pill de status (verde/amarelo) no lugar de `sim`/`não`; **H3** roteiro `RT-012-jornada-mvp-relogio-ponto.md` (jornada completa + variantes + os dois caminhos de resolução de modelo, dado que o catálogo segue sem seed); **H4** já estava satisfeito como subproduto das Fases B-G (36 testes cobrindo `campos_pendentes()` e as 3 transições de fase). Frontend verificado via `npm run build` (sem erros) e via API real (`curl` confirmando `fase` nos 3 endpoints) — não verificado em navegador (sem ferramenta de automação disponível nesta sessão) nem reconstruído o container de frontend em execução, que parece exposto publicamente via túnel Cloudflare; recomendo verificação visual antes de dar por definitivamente pronto. Suíte completa: 102/102. |
 | 2.4 | 2026-07-15 | Cascade + Kika | Revisão pós-MVP: (1) pendência de alinhamento REQ-002.1C **resolvida** — v1.33 reflete transição imediata + bidirecional Finalizando⇄Esclarecendo + mensagem composta (DEC-007); (2) §8 itens 6 e 7 atualizados (6: implementado F2, pendência só documental; 7: fechado); (3) nota de arquitetura §4 atualizada (motor `Intenção×Fase→Ações` em `motor.py` substituiu o padrão Estado/Pergunta); (4) §9 item 3 atualizado com PERG-016-009B (confirmação de interesses anteriores após reengajamento, criada na mesma data). |
+| 2.5 | 2026-07-29 | Beto + Cascade | **Decisão de generalização:** o fluxo/motor (padrão Esclarecendo → Finalizando, Fases A-H) se mantém **sem nenhuma alteração de código** — ele nunca foi de fato restrito a um único produto (`catalogo_campos.py`/`campos_pendentes.py` já indexavam por `CampoDef.produtos_aplicaveis` desde as Fases B/C). O que muda é o **escopo declarado do plano**: deixa de ser "MVP relógio de ponto" e passa a ser "motor genérico de campos por produto", refletindo que catraca já foi implementada como segundo produto (`CAMPO_SOFTWARE_ACESSO`, `CAMPO_INTERESSE_SISTEMA_NUVEM`, `CAMPO_FAIXA_FUNCIONARIOS` condicional, `CAMPO_HOMOLOGADO_SOFTWARE` opcional/REQ-002.14C-15, `CAMPO_QUANTIDADE`) em sessões de implementação posteriores a este plano. Atualizados: cabeçalho (Status/Escopo), §1 (jornada e "fora do MVP" generalizados), §2 (renomeado para "Produto piloto e generalização", nova subseção "Decisão de generalização" com tabela dos campos de catraca), §9 item 2 (catraca marcada como implementada). Histórico das Fases A-H (§5) **não foi reescrito** — permanece como registro fiel do que foi feito e decidido em cada data. |

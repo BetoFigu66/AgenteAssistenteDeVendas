@@ -73,3 +73,60 @@ def test_classificar_ponta_a_ponta_sem_llm_retorna_todas_as_intencoes():
     # intencao_principal é a de maior confiança (ambas 0.75 aqui — a primeira da lista
     # ordenada estável mantém a ordem de _REGRAS_INTENCAO, SAUDACAO vem antes)
     assert resultado.intencao_principal in resultado.intencoes
+
+
+# DEC-008: "vocês vendem/trabalham com X?" vira PERGUNTAR_DISPONIBILIDADE com produto,
+# PEDIR_ORCAMENTO só para orçamento/cotação/preço explícitos.
+
+def test_vendem_com_produto_eh_perguntar_disponibilidade():
+    assert Intencao.PERGUNTAR_DISPONIBILIDADE in {i for i, _ in classificar_por_regras("Vocês vendem relógio de ponto?")}
+
+
+def test_vendem_com_tecnologia_e_produto_eh_perguntar_disponibilidade():
+    assert Intencao.PERGUNTAR_DISPONIBILIDADE in {i for i, _ in classificar_por_regras("Vocês vendem relógio de ponto biométrico?")}
+    assert Intencao.PERGUNTAR_PRODUTO in {i for i, _ in classificar_por_regras("Vocês vendem relógio de ponto biométrico?")}
+
+
+def test_trabalham_com_produto_eh_perguntar_disponibilidade():
+    assert Intencao.PERGUNTAR_DISPONIBILIDADE in {i for i, _ in classificar_por_regras("Vocês trabalham com catraca?")}
+
+
+def test_vendem_sem_produto_nao_eh_disponibilidade_nem_orcamento():
+    """Perguntas genéricas como 'Vocês vendem para todo o Brasil?' não devem
+    ser qualificação/orçamento sem produto."""
+    resultado = asyncio.run(classificar("Vocês vendem para todo o Brasil?", llm=None))
+    assert Intencao.PERGUNTAR_DISPONIBILIDADE not in resultado.intencoes
+    assert Intencao.PEDIR_ORCAMENTO not in resultado.intencoes
+
+
+def test_trabalham_sem_produto_nao_eh_disponibilidade_nem_orcamento():
+    resultado = asyncio.run(classificar("Vocês trabalham com outras empresas?", llm=None))
+    assert Intencao.PERGUNTAR_DISPONIBILIDADE not in resultado.intencoes
+    assert Intencao.PEDIR_ORCAMENTO not in resultado.intencoes
+
+
+def test_orcamento_explicito_sem_produto_continua_pedir_orcamento():
+    """'Quanto custa?' sem produto continua sendo PEDIR_ORCAMENTO — o sistema
+    pede o produto depois, preservando o comportamento antigo."""
+    resultado = asyncio.run(classificar("Quanto custa?", llm=None))
+    assert Intencao.PEDIR_ORCAMENTO in resultado.intencoes
+
+
+def test_classificar_vendem_com_produto_eh_perguntar_disponibilidade():
+    resultado = asyncio.run(classificar("Vocês vendem relógio de ponto?", llm=None))
+    assert Intencao.PERGUNTAR_DISPONIBILIDADE in resultado.intencoes
+    assert "relogio_ponto" in resultado.entidades.tipos_produto
+
+
+def test_vendem_relogio_biometrico_sem_de_ponto_eh_perguntar_disponibilidade():
+    """DEC-008: 'relógio biométrico' sem 'de ponto' ainda é reconhecido como produto."""
+    resultado = asyncio.run(classificar("Vocês vendem relógio biométrico?", llm=None))
+    assert Intencao.PERGUNTAR_DISPONIBILIDADE in resultado.intencoes
+    assert "relogio_ponto" in resultado.entidades.tipos_produto
+
+
+def test_vendem_relogio_com_cartao_eh_perguntar_disponibilidade():
+    """DEC-008: 'relógio de cartão' (sem 'de ponto') é reconhecido como produto."""
+    resultado = asyncio.run(classificar("Vocês vendem relógio de cartão?", llm=None))
+    assert Intencao.PERGUNTAR_DISPONIBILIDADE in resultado.intencoes
+    assert "relogio_ponto" in resultado.entidades.tipos_produto

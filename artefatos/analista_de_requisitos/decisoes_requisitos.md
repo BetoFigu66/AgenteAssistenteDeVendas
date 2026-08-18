@@ -200,6 +200,57 @@ Adicionalmente, o Beto propôs que dúvidas durante a coleta devem causar **tran
 
 ---
 
+## DEC-008 — "Vocês vendem/trabalham com X?" deve ser classificado como intenção de orçamento
+
+- **Data**: 2026-08-06
+- **REQs afetados**: REQ-002.1, REQ-002.1C
+- **Status**: parcialmente superada por DEC-009 (07/08/2026) — a classificação de intenção (categoria 1, não categoria 3) e a exigência de produto continuam vigentes; a intenção específica passou de `pedir_orcamento` para `perguntar_disponibilidade`, com resposta e transição próprias antes de entrar no fluxo de orçamento.
+
+**Contexto**: durante testes do fluxo MVP (2026-08-06), a mensagem "Vocês vendem relógio de ponto biométrico?" foi classificada como categoria 3 (pergunta sobre produto) e caiu no fallback de clarificação do REQ-003.7. O cliente manifestava intenção comercial evidente, mas o sistema interpretou a frase como dúvida informativa e permaneceu em FASE-esclarecendo, exigindo depois uma nova mensagem explícita como "quero orçamento" para avançar a qualificação. O mesmo padrão se aplica a "trabalham com catraca?", "vocês vendem controle de acesso?" e outras formulações similares.
+
+**Decisão**: perguntas do tipo "Vocês vendem X?" e "Vocês trabalham com X?" — quando X for um produto, tecnologia ou marca reconhecida do catálogo — devem ser classificadas como **categoria 1** (intenção de orçamento / `pedir_orcamento`) pelo classificador do REQ-002.1. A transição Esclarecendo → Finalizando passa a ocorrer na mesma mensagem, desde que o tipo de produto seja identificado e a mensagem não contenha dúvida genuína adicional (REQ-002.1C). A definição de "intenção explícita de orçamento/compra" em REQ-002.1C passa a incluir essas formulações comerciais.
+
+**Alternativas consideradas e descartadas**:
+
+- **Criar pares Q&A para cada produto/tecnologia** (ex.: "Vocês vendem relógio de ponto?", "Vocês vendem catraca?") — descartada porque (i) a camada Q&A curada responde conteúdo, mas não muda de fase, então a qualificação não avançaria sem uma nova mensagem do cliente; (ii) a busca full-text usa `plainto_tsquery` com lógica AND, exigindo muitos pares para cobrir variações (produto + tecnologia); (iii) não aproveita as entidades já extraídas na mensagem para resolver o modelo.
+- **Apenas expandir o catálogo de respostas RAG** — descartada pelos mesmos motivos: responde dúvida, mas não inicia a qualificação.
+- **Mover para um FAQ/Curador com resposta perguntando "quer um orçamento?"** — descartada porque introduz uma etapa extra quando a intenção já é comercial; o classificador é a porta de entrada correta para tomar essa decisão (REQ-002.1).
+
+**Consequências**:
+
+- O regex de `PEDIR_ORCAMENTO` em `backend/services/classificador.py` deve incluir `vende(m|mos)?` e `trabalha(m|mos)?(?:\s+com)?`.
+- O prompt do LLM em `classificador.py` deve ser atualizado para ensinar que "vocês vendem X?" e "trabalham com X?" com produto/tecnologia marcam `pedir_orcamento`.
+- Se a mensagem já trouxer produto/tecnologia (ex.: `tipo_leitor_mencionado=biometria`), `FinalizandoState._resolver_modelo` usará as entidades da mensagem atual e evitará reperguntar o modelo/tecnologia.
+- Perguntas puramente informativas ("Vocês vendem para todo o Brasil?") podem gerar falso positivo — devem ser mitigadas pela presença de produto/tecnologia no regex e, quando persistirem, tratadas como Caso 3 (intenção + dúvida) se houver ambiguidade.
+- Roteiros de teste e casos de QA devem incluir variantes dessas frases.
+
+---
+
+## DEC-009 — "Vocês vendem X?" ganha intenção própria (`perguntar_disponibilidade`) com confirmação e marcas antes de qualificar
+
+- **Data**: 2026-08-07
+- **REQs afetados**: REQ-002.1, REQ-002.1C
+- **Status**: vigente
+
+**Contexto**: com DEC-008, "Vocês vendem relógio biométrico?" passou a classificar como `pedir_orcamento` e entrar direto em Finalizando — mas a primeira resposta do sistema era a pergunta técnica de modelo ("O relógio seria cartográfico ou eletrônico?"), sem nenhuma confirmação de que a Inforrel vende o produto. Do ponto de vista do cliente, a conversa "pulava" a parte óbvia (confirmar disponibilidade) e ia direto para um interrogatório técnico, soando pouco natural. O cliente esperava algo como "Sim, vendemos. Trabalhamos com as marcas TOPDATA e ControlID de relógio de ponto biométrico. Você conhece esses relógios? Pode me dizer a faixa de funcionários que vai utilizar?".
+
+**Decisão**: criar a intenção `perguntar_disponibilidade` (distinta de `pedir_orcamento`), disparada pelos mesmos verbos de DEC-008 ("vende(m/mos)?", "trabalha(m/mos)? (com)?") quando há produto reconhecido na mensagem. Pedidos explícitos de orçamento/cotação/preço continuam como `pedir_orcamento` e mantêm a resposta atual ("Ótimo! Vou precisar..."). `perguntar_disponibilidade` gera uma resposta nova (`DISPONIBILIDADE_PRODUTO`) que: (1) confirma "Sim, vendemos"; (2) lista as marcas ativas do catálogo para o tipo de produto/tecnologia mencionados (`Modelo.marca`, filtrando por `AtributoAdicionalModelo.tecnologia_leitura` quando aplicável); (3) já entra em Finalizando, mas com a primeira pergunta sendo a faixa de funcionários (`CAMPO_FAIXA_FUNCIONARIOS`), em vez da pergunta de modelo/tecnologia.
+
+**Alternativas consideradas e descartadas**:
+
+- **Manter tudo em `pedir_orcamento` e só trocar a primeira pergunta de Finalizando para "faixa de funcionários"** — descartada porque não resolve o problema de fundo (falta de confirmação "sim, vendemos") e misturaria dois comportamentos de mensagem bem diferentes na mesma intenção, dificultando testes e manutenção futura.
+- **Pares Q&A por produto/marca** — descartada pelo mesmo motivo de DEC-008 (não escala, não muda de fase, não aproveita entidades já extraídas).
+
+**Consequências**:
+
+- `backend/services/classificador.py`: nova intenção `Intencao.PERGUNTAR_DISPONIBILIDADE`, regra de regex própria (precede `PEDIR_ORCAMENTO` em `_REGRAS_INTENCAO`), guarda `_pedir_orcamento_exige_produto` estendida para também exigir produto em `PERGUNTAR_DISPONIBILIDADE`, prompt do LLM atualizado.
+- `backend/services/respostas/catalogo.py`: novo `MensagemId.DISPONIBILIDADE_PRODUTO` com template "Sim, vendemos. Trabalhamos com as marcas {marcas} de {produto}. Você conhece esses {produto_plural}?".
+- `backend/services/conversacao/estados/finalizando.py`: `FinalizandoState.entrar` ganha parâmetros opcionais `mensagem_abertura`, `abertura_contexto` e `primeira_pergunta`, permitindo que fluxos como este substituam a abertura e a primeira pergunta padrão do orçamento sem duplicar a lógica de `campos_pendentes()`.
+- `backend/services/conversacao/regras_esclarecendo.py`: nova ação `perguntar_disponibilidade`, busca de marcas via `Modelo`/`AtributoAdicionalModelo`, e ajuste em `_builder_disparar_fechamento` para não disparar "posso ajudar em mais alguma coisa" quando `PERGUNTAR_DISPONIBILIDADE` já abriu uma qualificação.
+- Sem marcas cadastradas para o tipo de produto, a resposta cai em "as principais marcas do mercado" (evita mensagem vazia/quebrada).
+
+---
+
 ## Histórico de revisões deste documento
 
 | Data | Alteração | Autor |
@@ -208,3 +259,5 @@ Adicionalmente, o Beto propôs que dúvidas durante a coleta devem causar **tran
 | 06/07/2026 | DEC-005 (efeito diferenciado de conversão vs. perdido no atendimento). | Cascade |
 | 12/07/2026 | DEC-006 (coluna `fase` complementa `status`, não substitui REQ-016 — passo A4 do MVP Continuidade). | Claude |
 | 14/07/2026 | DEC-007 (transição de fases: imediata pela intenção + ping-pong Finalizando⇄Esclarecendo para dúvidas). | Cascade |
+| 06/08/2026 | DEC-008 ("Vocês vendem/trabalham com X?" classificado como intenção de orçamento). | Cascade |
+| 07/08/2026 | DEC-009 (nova intenção `perguntar_disponibilidade` com confirmação de marcas antes de qualificar; parcialmente supera DEC-008). | Cascade |

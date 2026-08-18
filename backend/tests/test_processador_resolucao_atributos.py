@@ -198,6 +198,60 @@ def test_nao_resolve_modelo_sem_nenhum_sinal_mesmo_com_produto_ja_conhecido(proc
             _cleanup_telefone(session, telefone)
 
 
+def test_eletronico_isolado_nao_tenta_resolver_nem_conta_tentativa(processador):
+    """Regressão: "eletrônico" é só a pergunta guarda-chuva do template PEDIR_MODELO —
+    nunca existe como valor real de `tecnologia_leitura` no catálogo (ver
+    `scripts/importar_catalogo_csv.py::_ATRIBUTOS_POR_PALAVRA`). Sem a sub-tecnologia
+    (cartão/biometria/facial), não deve tentar resolver nem escalar."""
+    telefone = "55119999999005"
+    with _session() as session:
+        try:
+            produto = _produto_teste(session, "Produto Teste Eletronico Isolado")
+            _criar_modelo_teste(
+                session, produto, "TESTE-ELETRONICO-001", "Modelo Eletrônico Biométrico",
+                {"tecnologia_leitura": "biometria"},
+            )
+            atendimento = _setup_atendimento(session, telefone, produto)
+            resultado = _resultado({"tecnologia_leitura": "eletronico"})
+
+            ctx = _ctx(processador, session, telefone, atendimento, resultado)
+            res = asyncio.run(FINALIZANDO._resolver_modelo(ctx))
+            assert res is False  # não tentou (eletronico não é sinal usável)
+            assert atendimento.itens[0].modelo_id is None
+        finally:
+            _cleanup_telefone(session, telefone)
+
+
+def test_resolve_modelo_exige_todos_valores_acumulados_do_atributo(processador):
+    """Regressão: quando o cliente menciona mais de uma tecnologia ao longo da conversa
+    (acumulado como "biometria,facial"), o modelo candidato precisa ter TODOS os valores
+    — não basta ter só um deles."""
+    telefone = "55119999999006"
+    with _session() as session:
+        try:
+            produto = _produto_teste(session, "Produto Teste Multi Atributo")
+            _criar_modelo_teste(
+                session, produto, "TESTE-MULTI-001", "Modelo Só Biometria",
+                {"tecnologia_leitura": "biometria"},
+            )
+            modelo_duplo = _criar_modelo_teste(
+                session, produto, "TESTE-MULTI-002", "Modelo Biometria E Facial",
+                {},
+            )
+            session.add(AtributoAdicionalModelo(modelo_id=modelo_duplo.id, chave="tecnologia_leitura", valor="biometria"))
+            session.add(AtributoAdicionalModelo(modelo_id=modelo_duplo.id, chave="tecnologia_leitura", valor="facial"))
+            session.commit()
+            atendimento = _setup_atendimento(session, telefone, produto)
+            resultado = _resultado({"tecnologia_leitura": "biometria,facial"})
+
+            ctx = _ctx(processador, session, telefone, atendimento, resultado)
+            res = asyncio.run(FINALIZANDO._resolver_modelo(ctx))
+            assert res is False  # resolvido
+            assert atendimento.itens[0].modelo_id == modelo_duplo.id
+        finally:
+            _cleanup_telefone(session, telefone)
+
+
 def test_resolve_modelo_restrito_ao_produto_do_item_ja_criado(processador):
     """Regressão: a resolução de modelo deve ficar restrita ao produto_id do item já
     existente no atendimento, mesmo que outro produto do catálogo também tenha um

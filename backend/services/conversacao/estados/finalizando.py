@@ -133,7 +133,13 @@ def _produto_ids_por_tipos(db: Session, tipos_produto: list[str]) -> list[int]:
 class FinalizandoState(EstadoAtendimento):
     fase = FaseAtendimento.FINALIZANDO
 
-    async def entrar(self, ctx: ContextoAcao) -> list[tuple[MensagemId, Optional[dict]]]:
+    async def entrar(
+        self,
+        ctx: ContextoAcao,
+        mensagem_abertura: MensagemId = MensagemId.INICIAR_FINALIZANDO,
+        abertura_contexto: Optional[dict] = None,
+        primeira_pergunta: Optional[Pergunta] = None,
+    ) -> list[tuple[MensagemId, Optional[dict]]]:
         """E1+E3: transita `fase` para Finalizando (se ainda não estiver lá) e decide a
         próxima pergunta. Retorna as partes prontas para `gerar`/`gerar_composta`.
 
@@ -141,6 +147,10 @@ class FinalizandoState(EstadoAtendimento):
         `_atualizar_infos_atendimento` antes desta chamada (D2/D3/D4) — então, se ela também
         trouxe uma resposta (ex.: "quero orçamento, já uso o Domínio"), `campos_pendentes()`
         já reflete isso e não repete a pergunta correspondente (`nao_perguntar_de_novo`, C3).
+
+        `mensagem_abertura`, `abertura_contexto` e `primeira_pergunta` permitem que fluxos
+        específicos (ex.: "vocês vendem X?") substituam a abertura padrão e a primeira
+        pergunta do orçamento, sem alterar o catálogo de campos pendentes.
         """
         atendimento = ctx.atendimento
         if atendimento.fase != FaseAtendimento.FINALIZANDO:
@@ -154,12 +164,16 @@ class FinalizandoState(EstadoAtendimento):
                 ctx.dlog.log("finalizando", "sem campos pendentes ainda → PEDIR_TIPO_PRODUTO")
             return [(MensagemId.PEDIR_TIPO_PRODUTO, None)]
 
-        campo = pendentes[0]
+        if primeira_pergunta is not None:
+            campo = primeira_pergunta
+        else:
+            campo = pendentes[0]
         mensagem_id = campo.mensagem_id
         ctx_campo = _contexto_para_campo(campo, atendimento)
+        ctx_abertura = abertura_contexto if abertura_contexto is not None else ctx_campo
         if ctx.dlog:
             ctx.dlog.log("finalizando", f"próxima pergunta: {campo.chave} ({mensagem_id.name})")
-        return [(MensagemId.INICIAR_FINALIZANDO, None), (mensagem_id, ctx_campo)]
+        return [(mensagem_abertura, ctx_abertura), (mensagem_id, ctx_campo)]
 
     async def tratamento_principal(self, ctx: ContextoAcao) -> RespostaGerada:
         """F1: loop de coleta ativa — roda a cada mensagem em Finalizando, testando contra
@@ -187,6 +201,20 @@ class FinalizandoState(EstadoAtendimento):
             and resultado_class.entidades.tipo_leitor_mencionado
         )
 
+        # F2/F3: se a mensagem for uma dúvida (categoria 3) e não trouxer nenhum sinal
+        # NOVO de modelo (marca/aplicação/tecnologia), não tenta resolver modelo usando só
+        # sinais antigos já persistidos (ex.: `tecnologia_leitura` capturado numa mensagem
+        # anterior) — isso sequestrava perguntas legítimas do cliente (ex.: "pode explicar
+        # as diferenças entre as marcas?"), respondendo com MODELO_NAO_RECONHECIDO em vez de
+        # tratar a dúvida, e ainda consumia uma tentativa de `_MODELO_MAX_TENTATIVAS`.
+        entidades = resultado_class.entidades
+        tem_sinal_modelo_fresco = bool(
+            entidades.marca or entidades.aplicacao or entidades.tipo_leitor_mencionado or entidades.atributos
+        )
+        eh_duvida = resultado_class.intencao_principal.value in _INTENCOES_RAG
+        if eh_duvida and not tem_sinal_modelo_fresco:
+            return await self._retomar_apos_duvida(ctx)
+
         modelo_nao_reconhecido = await self._resolver_modelo(ctx)
         if atendimento.modo_operacao == ModoOperacao.HUMANO:
             # F2: acabou de escalar por falta de correspondência de modelo — não continua.
@@ -196,7 +224,7 @@ class FinalizandoState(EstadoAtendimento):
             # F2: modelo não existe no catálogo (1ª tentativa) — informar e reapresentar opções.
             return await p._gerador.gerar(MensagemId.MODELO_NAO_RECONHECIDO)
 
-        if resultado_class.intencao_principal.value in _INTENCOES_RAG:
+        if eh_duvida:
             return await self._retomar_apos_duvida(ctx)
 
         if not tentou_modelo:
@@ -278,6 +306,17 @@ class FinalizandoState(EstadoAtendimento):
         marca = entidades.marca
         aplicacao = entidades.aplicacao
 
+        # A mensagem ATUAL precisa trazer algum sinal novo (marca/aplicação/tecnologia) —
+        # sem isso, usar só o que já está acumulado de turnos anteriores (D6) dispararia
+        # uma tentativa de resolução em QUALQUER mensagem (mesmo uma pergunta aberta sem
+        # relação com modelo), que falha com MODELO_NAO_RECONHECIDO de forma confusa (bug
+        # real reportado em produção: "quero que você me explique..." → "Não encontrei
+        # esse modelo..."). A mensagem que completa o sinal acumulado (ex.: "facial" numa
+        # 2ª mensagem, depois de "biometria" numa 1ª) ainda traz sinal fresco, então a
+        # acumulação multi-turno continua funcionando.
+        if not (tipo_leitor or marca or aplicacao or entidades.atributos):
+            return False
+
         # Produto já associado ao atendimento (MVP: item único) tem prioridade sobre
         # o matching por texto: usar o produto_id real evita resolver um modelo de um
         # produto diferente do item já criado (ex.: "controle de acesso" casando por
@@ -291,15 +330,31 @@ class FinalizandoState(EstadoAtendimento):
             tipos_produto = [t.strip() for t in (valores.get("tipos_produto") or "").split(",") if t.strip()]
             produto_ids = _produto_ids_por_tipos(db, tipos_produto)
 
-        # D6: atributos genéricos do modelo já coletados + extraídos agora.
-        atributos_mensagem: dict[str, str] = dict(entidades.atributos)
-        if tipo_leitor:
-            atributos_mensagem.setdefault("tecnologia_leitura", tipo_leitor)
+        # D6: atributos genéricos do modelo já coletados (persistidos, já em união — ver
+        # `_atualizar_infos_atendimento`) + extraídos agora. `valores` já reflete o
+        # acumulado até esta mensagem, então é a fonte primária; `entidades.atributos` só
+        # cobre o caso raro em que o mesmo turno ainda não foi persistido.
+        atributos_mensagem: dict[str, str] = {}
         for chave, valor in valores.items():
             if chave in ("marca", "aplicacao", "tipo_leitor_mencionado", "tipos_produto", "quantidades"):
                 continue
-            # Preserva valor da mensagem atual sobre valor salvo anteriormente.
+            atributos_mensagem[chave] = valor
+        for chave, valor in entidades.atributos.items():
             atributos_mensagem.setdefault(chave, valor)
+        if tipo_leitor:
+            atributos_mensagem.setdefault("tecnologia_leitura", tipo_leitor)
+
+        # "eletronico" é só a pergunta guarda-chuva do template PEDIR_MODELO ("cartográfico
+        # ou eletrônico?") — nunca existe como valor real no catálogo (ver
+        # `scripts/importar_catalogo_csv.py::_ATRIBUTOS_POR_PALAVRA`), então usá-lo como
+        # filtro garantiria falha. Se for o único valor conhecido, remove a chave — ainda
+        # falta a sub-tecnologia (cartão/biometria/facial) para resolver o modelo.
+        if "tecnologia_leitura" in atributos_mensagem:
+            tecnologias = [v for v in atributos_mensagem["tecnologia_leitura"].split(",") if v and v != "eletronico"]
+            if tecnologias:
+                atributos_mensagem["tecnologia_leitura"] = ",".join(tecnologias)
+            else:
+                del atributos_mensagem["tecnologia_leitura"]
 
         sinais = {k: v for k, v in {"marca": marca, "aplicacao": aplicacao, **atributos_mensagem}.items() if v}
         if not sinais:
@@ -316,19 +371,25 @@ class FinalizandoState(EstadoAtendimento):
         if aplicacao:
             query = query.filter(Modelo.aplicacao == aplicacao)
 
-        # D6: exige que o modelo possua todos os atributos extraídos/coletados.
-        for chave, valor in atributos_mensagem.items():
-            subquery = (
-                db.query(AtributoAdicionalModelo.modelo_id)
-                .filter(
-                    AtributoAdicionalModelo.modelo_id == Modelo.id,
-                    AtributoAdicionalModelo.chave == chave,
-                    AtributoAdicionalModelo.valor == valor,
-                    AtributoAdicionalModelo.ativo.is_(True),
+        # D6: exige que o modelo possua todos os valores extraídos/coletados — cada chave
+        # pode acumular mais de um valor ao longo da conversa (ex.: "biometria,facial"),
+        # espelhando o catálogo real, onde um modelo pode ter várias linhas
+        # (chave, valor) — ver `scripts/importar_catalogo_csv.py`.
+        for chave, valor_bruto in atributos_mensagem.items():
+            for valor in valor_bruto.split(","):
+                if not valor:
+                    continue
+                subquery = (
+                    db.query(AtributoAdicionalModelo.modelo_id)
+                    .filter(
+                        AtributoAdicionalModelo.modelo_id == Modelo.id,
+                        AtributoAdicionalModelo.chave == chave,
+                        AtributoAdicionalModelo.valor == valor,
+                        AtributoAdicionalModelo.ativo.is_(True),
+                    )
+                    .exists()
                 )
-                .exists()
-            )
-            query = query.filter(subquery)
+                query = query.filter(subquery)
 
         candidato = query.first()
         if candidato:
@@ -485,6 +546,22 @@ class FinalizandoState(EstadoAtendimento):
         resposta_duvida = await p._responder_categoria3(
             resultado_class.intencao_principal, conteudo, db=db, atendimento=atendimento, dlog=dlog
         )
+
+        if atendimento.modo_operacao == ModoOperacao.HUMANO:
+            # A dúvida acabou de escalar para atendimento humano (base insuficiente,
+            # REQ-003.7) — continuar retomando a pergunta pendente no mesmo turno
+            # contradiria a mensagem de escalonamento que o cliente acabou de receber.
+            if dlog:
+                dlog.log("finalizando", "dúvida escalou para humano → não retoma pergunta pendente")
+            return resposta_duvida
+
+        if resposta_duvida.template_usado == MensagemId.RAG_PEDIR_CLARIFICACAO.name:
+            # A própria resposta à dúvida já é uma pergunta em aberto (REQ-003.7, 1ª
+            # tentativa de clarificação) — empilhar a retomada da pergunta pendente aqui
+            # geraria duas perguntas simultâneas e contraditórias no mesmo turno.
+            if dlog:
+                dlog.log("finalizando", "dúvida pediu clarificação → não retoma pergunta pendente no mesmo turno")
+            return resposta_duvida
 
         pendentes = campos_pendentes(atendimento)
         if not pendentes:

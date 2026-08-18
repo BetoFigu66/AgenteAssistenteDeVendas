@@ -207,6 +207,95 @@ def test_perguntar_prazo_agora_funciona_para_contato_novo(db_session, processado
         _limpar(db_session, telefone)
 
 
+def test_perguntar_disponibilidade_confirma_e_pergunta_faixa_funcionarios(db_session, processador):
+    """"Vocês vendem relógio biométrico?" deve confirmar disponibilidade (com marcas do
+    catálogo) e já perguntar a faixa de funcionários, sem pular direto para perguntas de
+    modelo/cartográfico como acontecia com PEDIR_ORCAMENTO."""
+    telefone = "5511999984008"
+    identificacao = ResultadoIdentificacao(status=StatusIdentificacao.NOVO, contatos=[], empresas=[])
+    resultado = _resultado(
+        [Intencao.PERGUNTAR_DISPONIBILIDADE, Intencao.PERGUNTAR_PRODUTO],
+        tipos_produto=["relogio_ponto"],
+        tipo_leitor_mencionado="biometria",
+    )
+    try:
+        resposta = asyncio.run(
+            processador._decidir_resposta(
+                db=db_session, telefone=telefone, conteudo="Vocês vendem relógio biométrico?",
+                identificacao=identificacao, resultado_class=resultado,
+            )
+        )
+        assert "DISPONIBILIDADE_PRODUTO" in (resposta.template_usado or "")
+        assert "PEDIR_MODELO" not in (resposta.template_usado or "")
+        assert "PEDIR_FAIXA_FUNCIONARIOS" in (resposta.template_usado or "")
+        assert "Sim, vendemos" in resposta.texto
+
+        contato = db_session.query(Contato).filter_by(telefone=telefone).first()
+        assert contato is not None
+        atendimento = contato.atendimentos[0]
+        valores = {info.chave: info.valor for info in atendimento.informacoes}
+        assert valores.get("tipos_produto") == "relogio_ponto"
+    finally:
+        _limpar(db_session, telefone)
+
+
+def test_perguntar_disponibilidade_sem_produto_nao_dispara_acao(db_session, processador):
+    """Guarda de produto obrigatório (DEC-008) também vale para PERGUNTAR_DISPONIBILIDADE
+    — sem tipo de produto extraído, a ação não deve disparar (evita "Sim, vendemos" sem
+    saber o quê)."""
+    telefone = "5511999984009"
+    identificacao = ResultadoIdentificacao(status=StatusIdentificacao.NOVO, contatos=[], empresas=[])
+    resultado = _resultado([Intencao.PERGUNTAR_DISPONIBILIDADE])
+    try:
+        resposta = asyncio.run(
+            processador._decidir_resposta(
+                db=db_session, telefone=telefone, conteudo="Vocês vendem para todo o Brasil?",
+                identificacao=identificacao, resultado_class=resultado,
+            )
+        )
+        assert "DISPONIBILIDADE_PRODUTO" not in (resposta.template_usado or "")
+    finally:
+        _limpar(db_session, telefone)
+
+
+def test_disponibilidade_seguida_de_duvida_sobre_marcas_nao_sequestra_pergunta(db_session, processador):
+    """Regressão: após "vocês vendem relógio biométrico?" (PERGUNTAR_DISPONIBILIDADE), uma
+    pergunta legítima do cliente sobre as marcas ("pode explicar as características
+    delas?") não deve ser sequestrada por uma tentativa de resolução de modelo usando o
+    sinal antigo (tecnologia_leitura=biometria) — deve responder a dúvida via RAG/Q&A e
+    retomar a pergunta pendente, não "Não encontrei esse modelo"."""
+    telefone = "5511999984010"
+    identificacao = ResultadoIdentificacao(status=StatusIdentificacao.NOVO, contatos=[], empresas=[])
+    resultado_1 = _resultado(
+        [Intencao.PERGUNTAR_DISPONIBILIDADE, Intencao.PERGUNTAR_PRODUTO],
+        tipos_produto=["relogio_ponto"],
+        tipo_leitor_mencionado="biometria",
+        atributos={"tecnologia_leitura": "biometria"},
+    )
+    try:
+        asyncio.run(
+            processador._decidir_resposta(
+                db=db_session, telefone=telefone, conteudo="Vocês vendem relógio biométrico?",
+                identificacao=identificacao, resultado_class=resultado_1,
+            )
+        )
+        contato = db_session.query(Contato).filter_by(telefone=telefone).first()
+        identificacao_2 = ResultadoIdentificacao(
+            status=StatusIdentificacao.SEM_EMPRESA, contatos=[contato], empresas=[]
+        )
+        resultado_2 = _resultado(Intencao.PERGUNTAR_PRODUTO)
+        resposta_2 = asyncio.run(
+            processador._decidir_resposta(
+                db=db_session, telefone=telefone,
+                conteudo="não conheço essas marcas, pode me explicar as principais características delas?",
+                identificacao=identificacao_2, resultado_class=resultado_2,
+            )
+        )
+        assert "MODELO_NAO_RECONHECIDO" not in (resposta_2.template_usado or "")
+    finally:
+        _limpar(db_session, telefone)
+
+
 def test_pedir_orcamento_suprime_categoria3_redundante_no_mesmo_turno(db_session, processador):
     """Regressão de smoke test manual: "Quero orçamento de relógio de ponto" bate em
     PEDIR_ORCAMENTO **e** PERGUNTAR_PRODUTO — sem a supressão, a resposta ficava tripla e

@@ -17,11 +17,17 @@ Ver `docs/arquitetura_motor_conversacao_2026-07.md` para o funcionamento geral d
 
 from __future__ import annotations
 
-from models import FaseAtendimento
+from typing import Optional
+
+from sqlalchemy import select
+from sqlalchemy.orm import Session
+
+from models import AtributoAdicionalModelo, FaseAtendimento, Modelo, Produto
 
 from services.classificador import Intencao
+from services.conversacao.catalogo_campos import CAMPO_FAIXA_FUNCIONARIOS
 from services.conversacao.estados.esclarecendo import ESCLARECENDO
-from services.conversacao.estados.finalizando import FINALIZANDO
+from services.conversacao.estados.finalizando import FINALIZANDO, _produto_ids_por_tipos
 from services.identificador import StatusIdentificacao
 from services.respostas import MensagemId
 
@@ -31,11 +37,113 @@ from .regras_encerramento import CHAVE_FECHAMENTO_PENDENTE
 
 _CHAVE_CATALOGO_PENDENTE = "catalogo_pendente"
 
+# Duplica `services.processador._RAG_CLARIFICACAO_PENDENTE_CHAVE` (import direto causaria
+# import circular: `processador.py` importa este módulo em nível de módulo). Mesmo valor —
+# se um dia o nome mudar lá, precisa mudar aqui também.
+_RAG_CLARIFICACAO_PENDENTE_CHAVE = "rag_clarificacao_pendente"
+
 # REQ-016.10: intenções de "dúvida pura" (categoria 3) — dispara a pergunta de fechamento
 # só quando NENHUMA outra intenção de qualificação (ex.: PEDIR_ORCAMENTO) bateu junto na
 # mesma mensagem, senão uma pergunta composta ("quero orçamento, mas antes...") geraria um
 # "posso ajudar em mais alguma coisa" indevido colado numa qualificação que acabou de abrir.
 _INTENCOES_DUVIDA_PURA = frozenset({Intencao.PERGUNTAR_PRECO, Intencao.PERGUNTAR_PRODUTO, Intencao.FORA_CONTEXTO})
+
+_PRODUTO_SINGULAR = {
+    "catraca": "catraca",
+    "relogio_ponto": "relógio de ponto",
+    "cancela": "cancela",
+    "leitor_facial": "leitor facial",
+    "leitor_biometrico": "leitor biométrico",
+    "camera": "câmera",
+    "controle_de_acesso": "controle de acesso",
+    "controle_por_cartao": "controle por cartão",
+    "bastao_de_ronda": "bastão de ronda",
+    "roteador": "roteador",
+}
+
+_PRODUTO_PLURAL = {
+    "catraca": "catracas",
+    "relogio_ponto": "relógios",
+    "cancela": "cancelas",
+    "leitor_facial": "leitores faciais",
+    "leitor_biometrico": "leitores biométricos",
+    "camera": "câmeras",
+    "controle_de_acesso": "controles de acesso",
+    "controle_por_cartao": "controles por cartão",
+    "bastao_de_ronda": "bastões de ronda",
+    "roteador": "roteadores",
+}
+
+_TECNOLOGIA_FRASE = {
+    ("relogio_ponto", "biometria"): "relógio de ponto biométrico",
+    ("relogio_ponto", "facial"): "relógio de ponto facial",
+    ("relogio_ponto", "cartao"): "relógio de ponto de cartão",
+    ("relogio_ponto", "cartografico"): "relógio de ponto cartográfico",
+    ("relogio_ponto", "eletronico"): "relógio de ponto eletrônico",
+    ("catraca", "biometria"): "catraca biométrica",
+    ("catraca", "facial"): "catraca facial",
+    ("catraca", "cartao"): "catraca de cartão",
+    ("leitor_biometrico", "biometria"): "leitor biométrico",
+    ("leitor_facial", "facial"): "leitor facial",
+}
+
+
+def _frase_produto(tipo_produto: str, tecnologia: Optional[str]) -> tuple[str, str]:
+    """Retorna (produto singular, produto plural) para a resposta de disponibilidade.
+
+    Ex.: ("relógio de ponto biométrico", "relógios").
+    """
+    if tecnologia:
+        frase = _TECNOLOGIA_FRASE.get((tipo_produto, tecnologia))
+        if frase:
+            return frase, _PRODUTO_PLURAL.get(tipo_produto, "produtos")
+    singular = _PRODUTO_SINGULAR.get(tipo_produto, tipo_produto.replace("_", " "))
+    plural = _PRODUTO_PLURAL.get(tipo_produto, "produtos")
+    if tecnologia:
+        singular = f"{singular} com {tecnologia}"
+    return singular, plural
+
+
+def _listar_marcas(marcas: list[str]) -> str:
+    """Junta marcas em texto legível com artigo. Ex.: ["Topdata", "Control-ID"] ->
+    "as marcas Topdata e Control-ID"."""
+    if not marcas:
+        return "as principais marcas do mercado"
+    if len(marcas) == 1:
+        return f"a marca {marcas[0]}"
+    *iniciais, ultima = marcas
+    return f"as marcas {', '.join(iniciais)} e {ultima}"
+
+
+def _buscar_marcas_produto(
+    db: Session,
+    tipos_produto: list[str],
+    tecnologia: Optional[str] = None,
+) -> list[str]:
+    """Busca marcas ativas dos modelos que casam com o tipo de produto e, opcionalmente,
+    a tecnologia de leitura (ex.: biometria)."""
+    produto_ids = _produto_ids_por_tipos(db, tipos_produto)
+    if not produto_ids:
+        return []
+
+    query = (
+        select(Modelo.marca)
+        .where(
+            Modelo.ativo.is_(True),
+            Modelo.marca.isnot(None),
+            Modelo.produto_id.in_(produto_ids),
+        )
+        .distinct()
+    )
+
+    if tecnologia:
+        query = query.join(AtributoAdicionalModelo).where(
+            AtributoAdicionalModelo.ativo.is_(True),
+            AtributoAdicionalModelo.chave == "tecnologia_leitura",
+            AtributoAdicionalModelo.valor == tecnologia,
+        )
+
+    return sorted({m[0].strip() for m in db.execute(query).all() if m[0]})
 
 
 async def _executar_pedir_orcamento(ctx: ContextoAcao):
@@ -63,6 +171,68 @@ async def _executar_pedir_orcamento(ctx: ContextoAcao):
     if len(partes_finalizando) == 1:
         return partes_finalizando[0]
     return await p._gerador.gerar_composta(partes_finalizando)
+
+
+async def _executar_perguntar_disponibilidade(ctx: ContextoAcao):
+    """PERGUNTAR_DISPONIBILIDADE: 'vocês vendem X?' / 'trabalham com X?'.
+
+    Confirma que vende, lista marcas do catálogo para o produto/tecnologia mencionados
+    e inicia a qualificação perguntando a faixa de funcionários. Aproveita a entrada em
+    Finalizando para manter o fluxo de orçamento coeso."""
+    p = ctx.processador
+    era_novo = ctx.identificacao.status == StatusIdentificacao.NOVO
+    entidades = ctx.resultado_class.entidades
+
+    await garantir_atendimento_dispatch(ctx)
+
+    # A disponibilidade respondeu com sucesso ao produto perguntado — qualquer ciclo de
+    # clarificação pendente de uma dúvida anterior (categoria 3) não relacionada a esta
+    # resposta fica obsoleto. Sem isso, uma dúvida futura sobre o MESMO produto (ex.:
+    # "pode explicar as características?") escalaria direto para humano, contando essa
+    # disponibilidade como se fosse a "1ª pergunta de clarificação" já feita (REQ-003.7).
+    if p._info_atendimento(ctx.db, ctx.atendimento.id, _RAG_CLARIFICACAO_PENDENTE_CHAVE):
+        p._remover_info_atendimento(ctx.db, ctx.atendimento.id, _RAG_CLARIFICACAO_PENDENTE_CHAVE)
+
+    tipo = entidades.tipos_produto[0] if entidades.tipos_produto else None
+    tecnologia_bruta = entidades.tipo_leitor_mencionado or entidades.atributos.get("tecnologia_leitura")
+    tecnologia = tecnologia_bruta.split(",")[0] if tecnologia_bruta else None
+
+    if tipo:
+        marcas = _buscar_marcas_produto(ctx.db, [tipo], tecnologia)
+    else:
+        marcas = []
+
+    produto, produto_plural = _frase_produto(tipo or "produto", tecnologia)
+    ctx_disponibilidade = {
+        "marcas": _listar_marcas(marcas),
+        "produto": produto,
+        "produto_plural": produto_plural,
+    }
+
+    partes_finalizando = await FINALIZANDO.entrar(
+        ctx,
+        mensagem_abertura=MensagemId.DISPONIBILIDADE_PRODUTO,
+        abertura_contexto=ctx_disponibilidade,
+        primeira_pergunta=CAMPO_FAIXA_FUNCIONARIOS,
+    )
+
+    if era_novo:
+        if ctx.dlog:
+            ctx.dlog.log("rota", "NOVO + PERGUNTAR_DISPONIBILIDADE → composta (Finalizando)")
+        ctx_novo = {"nome": entidades.nomes[0] if entidades.nomes else None, "modo": "orcamento"}
+        return await p._gerador.gerar_composta([(MensagemId.SAUDACAO_NOVO_CONTATO, ctx_novo), *partes_finalizando])
+
+    if len(partes_finalizando) == 1:
+        return partes_finalizando[0]
+    return await p._gerador.gerar_composta(partes_finalizando)
+
+
+def _builder_perguntar_disponibilidade(ctx: ContextoAcao) -> GrupoAcoes:
+    if Intencao.PERGUNTAR_DISPONIBILIDADE not in ctx.resultado_class.intencoes:
+        return GrupoAcoes()
+    if not ctx.resultado_class.entidades.tipos_produto:
+        return GrupoAcoes()
+    return GrupoAcoes(pos=[Acao("perguntar_disponibilidade", _executar_perguntar_disponibilidade)])
 
 
 # PERGUNTAR_PRECO/PERGUNTAR_PRODUTO já eram "qualificação" no roteador antigo — mesmo a
@@ -175,12 +345,20 @@ async def _executar_disparar_fechamento(ctx: ContextoAcao):
 
 def _builder_disparar_fechamento(ctx: ContextoAcao) -> GrupoAcoes:
     intencoes = set(ctx.resultado_class.intencoes)
-    if not (intencoes & _INTENCOES_DUVIDA_PURA) or Intencao.PEDIR_ORCAMENTO in intencoes:
+    if not (intencoes & _INTENCOES_DUVIDA_PURA):
+        return GrupoAcoes()
+    if Intencao.PEDIR_ORCAMENTO in intencoes or Intencao.PERGUNTAR_DISPONIBILIDADE in intencoes:
         return GrupoAcoes()
     return GrupoAcoes(pos=[Acao("disparar_fechamento_apos_duvida", _executar_disparar_fechamento)])
 
 
 REGISTRO_ESCLARECENDO: list[RegraIntencao] = [
+    RegraIntencao(
+        intencao=Intencao.PERGUNTAR_DISPONIBILIDADE,
+        fase=FaseAtendimento.ESCLARECENDO,
+        builder=_builder_perguntar_disponibilidade,
+        nome="perguntar_disponibilidade",
+    ),
     RegraIntencao(
         intencao=Intencao.PEDIR_ORCAMENTO,
         fase=FaseAtendimento.ESCLARECENDO,

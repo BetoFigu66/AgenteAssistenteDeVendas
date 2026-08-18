@@ -63,6 +63,7 @@ class MensagemId(IntEnum):
     PEDIR_SOFTWARE_ACESSO = 43
     PEDIR_INTERESSE_SISTEMA_NUVEM = 44
     PEDIR_HOMOLOGADO_SOFTWARE = 45
+    DISPONIBILIDADE_PRODUTO = 46
 
 
 @dataclass(frozen=True)
@@ -276,6 +277,14 @@ CATALOGO: dict[int, MensagemTemplate] = {
             "software {software} se o modelo de catraca/leitor que você está "
             "adquirindo é homologado/compatível, para evitar problemas depois da compra. "
             "Você já verificou isso?"
+        ),
+    ),
+    MensagemId.DISPONIBILIDADE_PRODUTO: MensagemTemplate(
+        id=MensagemId.DISPONIBILIDADE_PRODUTO,
+        codigo="DISPONIBILIDADE_PRODUTO",
+        mensagem=(
+            "Sim, vendemos. Trabalhamos com {marcas} de {produto}. "
+            "Você conhece esses {produto_plural}?"
         ),
     ),
     MensagemId.INICIAR_FINALIZANDO: MensagemTemplate(

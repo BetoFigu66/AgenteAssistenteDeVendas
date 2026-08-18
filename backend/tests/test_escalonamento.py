@@ -10,7 +10,7 @@ import pytest
 from database import Database
 from models import Contato, ModoOperacao, MotivoEscalonamento
 from services.atendimentos import obter_ou_criar_atendimento
-from services.classificador import EntidadesExtraidas, Intencao, NivelConfianca, ResultadoClassificacao
+from services.classificador import EntidadesExtraidas, Intencao, NivelConfianca, ResultadoClassificacao, classificar
 from services.dev_limpeza_telefone import apagar_dados_telefone
 from services.identificador import ResultadoIdentificacao, StatusIdentificacao, identificar_por_telefone
 from services.parametro_service import ParametroService
@@ -374,6 +374,62 @@ def test_retrofit_rag_escalado_sem_base_preenche_motivo(db_session):
         assert atendimento.modo_operacao == ModoOperacao.HUMANO
         assert atendimento.motivo_escalonamento == MotivoEscalonamento.BASE_INSUFICIENTE.value
         assert atendimento.resumo_escalonamento
+    finally:
+        _limpar(db_session, telefone)
+
+
+def test_sequencia_disponibilidade_depois_duvida_nao_escala_precipitadamente(db_session):
+    """Regressão do bug relatado pelo usuário (2026-08-07): primeira mensagem já mencionando
+    "informações sobre relógio biométrico" deve disparar PERGUNTAR_DISPONIBILIDADE (listar
+    marcas), não cair na resposta genérica de RAG. Depois, uma dúvida sobre características
+    (sem conteúdo na base de Q&A/RAG) não deve escalar de imediato usando um ciclo de
+    clarificação de uma pergunta anterior — a disponibilidade bem-sucedida invalida esse
+    ciclo. E, se escalar, não deve misturar a mensagem de escalonamento com a retomada da
+    pergunta pendente no mesmo turno."""
+    telefone = "5511999987011"
+    try:
+        p = ProcessadorMensagem(retrieval=_RetrievalFake([]), qa=_QAFake([]))
+
+        resultado_1 = asyncio.run(classificar("boa tarde, me chamo Cristina e queria informações sobre relógio biométrico"))
+        assert Intencao.PERGUNTAR_DISPONIBILIDADE in resultado_1.intencoes
+
+        identificacao_1 = ResultadoIdentificacao(status=StatusIdentificacao.NOVO, contatos=[], empresas=[])
+        resposta_1 = asyncio.run(
+            p._decidir_resposta(
+                db=db_session, telefone=telefone,
+                conteudo="boa tarde, me chamo Cristina e queria informações sobre relógio biométrico",
+                identificacao=identificacao_1, resultado_class=resultado_1,
+            )
+        )
+        db_session.commit()
+        assert "RAG_PEDIR_CLARIFICACAO" not in (resposta_1.template_usado or "")
+        assert "marca" in resposta_1.texto.lower() or "vendemos" in resposta_1.texto.lower()
+
+        identificacao_2 = identificar_por_telefone(db_session, telefone)
+        resultado_2 = _resultado(Intencao.PERGUNTAR_PRODUTO)
+        resposta_2 = asyncio.run(
+            p._decidir_resposta(
+                db=db_session, telefone=telefone,
+                conteudo="não conheço. Pode me listar as principais características deles?",
+                identificacao=identificacao_2, resultado_class=resultado_2,
+            )
+        )
+        db_session.commit()
+
+        contato = db_session.query(Contato).filter_by(telefone=telefone).first()
+        atendimento = obter_ou_criar_atendimento(db_session, contato)
+        db_session.refresh(atendimento)
+        # Não escala usando um ciclo de clarificação antigo/obsoleto — a disponibilidade
+        # bem-sucedida na mensagem 1 já limpou esse estado, então esta dúvida ganha sua
+        # própria "1ª pergunta de clarificação" (REQ-003.7), não escala de imediato.
+        assert atendimento.modo_operacao == ModoOperacao.AGENTE
+        assert "RAG_ESCALADO_SEM_BASE" not in (resposta_2.template_usado or "")
+        # Regressão real observada em produção (2026-08-17): RAG_PEDIR_CLARIFICACAO (pedido
+        # de esclarecimento) colado com RETOMAR_PERGUNTA_PENDENTE gerava duas perguntas
+        # contraditórias na mesma resposta ("pode explicar de outra forma?" + "cartográfico
+        # ou eletrônico?"). Nenhum dos dois casos (clarificação OU escalonamento) pode se
+        # misturar com a retomada da pergunta pendente no mesmo turno.
+        assert "RETOMAR_PERGUNTA_PENDENTE" not in (resposta_2.template_usado or "")
     finally:
         _limpar(db_session, telefone)
 

@@ -1460,11 +1460,19 @@ class ProcessadorMensagem:
             registros.append(("aplicacao", entidades.aplicacao))
         # D6: atributos genéricos do modelo extraídos da mensagem (ex.: tecnologia_leitura).
         # Cada chave deve coincidir com `atributos_adicionais_modelo.chave` para o filtro.
+        chaves_atributos_d6 = set(entidades.atributos.keys())
         for chave, valor in entidades.atributos.items():
             registros.append((chave, valor))
 
         for chave, valor in registros:
             info = db.query(AtendimentoInfo).filter_by(atendimento_id=atendimento.id, chave=chave).first()
+            if chave in chaves_atributos_d6 and info and info.valor:
+                # D6: acumula (união) em vez de sobrescrever — o cliente pode mencionar
+                # tecnologias diferentes em mensagens distintas (ex.: "biométrico" antes,
+                # "ou facial" depois); perder o sinal antigo travaria a resolução do modelo.
+                existentes = [v for v in info.valor.split(",") if v]
+                novos = [v for v in valor.split(",") if v]
+                valor = ",".join(sorted(set(existentes) | set(novos)))
             if info:
                 info.valor = valor
                 info.pendente = False
