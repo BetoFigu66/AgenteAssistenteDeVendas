@@ -198,6 +198,41 @@ def test_nao_resolve_modelo_sem_nenhum_sinal_mesmo_com_produto_ja_conhecido(proc
             _cleanup_telefone(session, telefone)
 
 
+def test_nao_resolve_modelo_com_sinal_persistido_mas_mensagem_atual_sem_sinal(processador):
+    """Regressão (bug real em produção 2026-08-17): `tecnologia_leitura` persistida de um
+    turno anterior (D6, `AtendimentoInfo`) não pode, por si só, disparar uma tentativa de
+    resolução de modelo quando a mensagem ATUAL não traz nenhum sinal fresco (marca/
+    aplicação/tecnologia/atributo) — ex.: uma pergunta aberta sem relação com modelo
+    ("quero que você me explique o que cada produto tem..."). Sem essa guarda, o sinal
+    velho era usado como se fosse resposta à pergunta de modelo e a tentativa falhava com
+    "Não encontrei esse modelo...", uma resposta confusa para uma pergunta legítima."""
+    telefone = "55119999999007"
+    with _session() as session:
+        try:
+            produto = _produto_teste(session, "Produto Teste Sinal Persistido")
+            _criar_modelo_teste(
+                session, produto, "TESTE-PERSISTIDO-001", "Modelo Biometria",
+                {"tecnologia_leitura": "biometria"},
+            )
+            atendimento = _setup_atendimento(session, telefone, produto)
+            session.add(
+                AtendimentoInfo(
+                    atendimento_id=atendimento.id, chave="tecnologia_leitura", valor="biometria"
+                )
+            )
+            session.commit()
+            # Mensagem atual não traz nenhum sinal (nem no `atributos`, nem em
+            # marca/aplicação/tipo_leitor_mencionado).
+            resultado = _resultado({})
+
+            ctx = _ctx(processador, session, telefone, atendimento, resultado)
+            res = asyncio.run(FINALIZANDO._resolver_modelo(ctx))
+            assert res is False  # não tentou (mensagem atual não trouxe sinal fresco)
+            assert atendimento.itens[0].modelo_id is None
+        finally:
+            _cleanup_telefone(session, telefone)
+
+
 def test_eletronico_isolado_nao_tenta_resolver_nem_conta_tentativa(processador):
     """Regressão: "eletrônico" é só a pergunta guarda-chuva do template PEDIR_MODELO —
     nunca existe como valor real de `tecnologia_leitura` no catálogo (ver

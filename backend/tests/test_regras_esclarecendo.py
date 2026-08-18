@@ -296,6 +296,44 @@ def test_disponibilidade_seguida_de_duvida_sobre_marcas_nao_sequestra_pergunta(d
         _limpar(db_session, telefone)
 
 
+def test_disponibilidade_seguida_de_mensagem_sem_sinal_nao_reapresenta_modelo(db_session, processador):
+    """Regressão (bug real em produção 2026-08-18): após PERGUNTAR_DISPONIBILIDADE pedir a
+    faixa de funcionários primeiro (fora da ordem padrão do catálogo, onde CAMPO_MODELO
+    vem antes), uma mensagem seguinte sem nenhum sinal de modelo (DESCONHECIDO, sem
+    marca/aplicação/tecnologia) não pode reapresentar "cartográfico ou eletrônico?" — esse
+    campo nunca foi de fato perguntado nesta conversa. Deve continuar com a faixa de
+    funcionários, que é o campo prioritário ainda pendente."""
+    telefone = "5511999984011"
+    identificacao = ResultadoIdentificacao(status=StatusIdentificacao.NOVO, contatos=[], empresas=[])
+    resultado_1 = _resultado(
+        [Intencao.PERGUNTAR_DISPONIBILIDADE, Intencao.PERGUNTAR_PRODUTO],
+        tipos_produto=["relogio_ponto"],
+        tipo_leitor_mencionado="biometria",
+    )
+    try:
+        asyncio.run(
+            processador._decidir_resposta(
+                db=db_session, telefone=telefone, conteudo="Vocês vendem relógio biométrico?",
+                identificacao=identificacao, resultado_class=resultado_1,
+            )
+        )
+        contato = db_session.query(Contato).filter_by(telefone=telefone).first()
+        identificacao_2 = ResultadoIdentificacao(
+            status=StatusIdentificacao.SEM_EMPRESA, contatos=[contato], empresas=[]
+        )
+        resultado_2 = _resultado(Intencao.DESCONHECIDO)
+        resposta_2 = asyncio.run(
+            processador._decidir_resposta(
+                db=db_session, telefone=telefone,
+                conteudo="quero saber as opções de produto com detalhes",
+                identificacao=identificacao_2, resultado_class=resultado_2,
+            )
+        )
+        assert resposta_2.template_usado == "PEDIR_FAIXA_FUNCIONARIOS"
+    finally:
+        _limpar(db_session, telefone)
+
+
 def test_pedir_orcamento_suprime_categoria3_redundante_no_mesmo_turno(db_session, processador):
     """Regressão de smoke test manual: "Quero orçamento de relógio de ponto" bate em
     PEDIR_ORCAMENTO **e** PERGUNTAR_PRODUTO — sem a supressão, a resposta ficava tripla e
