@@ -701,8 +701,10 @@ Classifique a mensagem do cliente em UMA das intenções:
 - fornecer_nome: cliente informou seu nome
 - confirmar: resposta afirmativa a uma pergunta
 - negar: resposta negativa a uma pergunta
-- pedir_orcamento: solicita orçamento/cotação de forma explícita ("quero orçamento", "quanto custa"). NÃO use para "vocês vendem X?".
-- perguntar_disponibilidade: pergunta se vendem/trabalham com um produto ("vocês vendem X?", "trabalham com X?", "tem X?"). SÓ use quando X for um produto do catálogo.
+- pedir_orcamento: solicita orçamento/cotação de forma explícita ("quero orçamento", "quanto custa").
+    NÃO use para "vocês vendem X?".
+- perguntar_disponibilidade: pergunta se vendem/trabalham com um produto
+    ("vocês vendem X?", "trabalham com X?", "tem X?"). SÓ use quando X for um produto do catálogo.
 - pedir_catalogo: pede o catálogo de produtos (ex: "tem catálogo?", "me manda o catálogo")
 - perguntar_preco: pergunta quanto custa
 - perguntar_produto: pergunta sobre produtos/modelos (características, diferenças, homologação)

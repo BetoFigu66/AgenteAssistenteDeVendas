@@ -238,7 +238,8 @@ def test_resolve_modelo_exige_todos_valores_acumulados_do_atributo(processador):
                 session, produto, "TESTE-MULTI-002", "Modelo Biometria E Facial",
                 {},
             )
-            session.add(AtributoAdicionalModelo(modelo_id=modelo_duplo.id, chave="tecnologia_leitura", valor="biometria"))
+            session.add(AtributoAdicionalModelo(modelo_id=modelo_duplo.id, chave="tecnologia_leitura",
+                                                valor="biometria"))
             session.add(AtributoAdicionalModelo(modelo_id=modelo_duplo.id, chave="tecnologia_leitura", valor="facial"))
             session.commit()
             atendimento = _setup_atendimento(session, telefone, produto)

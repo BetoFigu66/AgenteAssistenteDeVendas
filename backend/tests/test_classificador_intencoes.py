@@ -79,12 +79,15 @@ def test_classificar_ponta_a_ponta_sem_llm_retorna_todas_as_intencoes():
 # PEDIR_ORCAMENTO só para orçamento/cotação/preço explícitos.
 
 def test_vendem_com_produto_eh_perguntar_disponibilidade():
-    assert Intencao.PERGUNTAR_DISPONIBILIDADE in {i for i, _ in classificar_por_regras("Vocês vendem relógio de ponto?")}
+    assert Intencao.PERGUNTAR_DISPONIBILIDADE in {
+        i for i, _ in classificar_por_regras("Vocês vendem relógio de ponto?")}
 
 
 def test_vendem_com_tecnologia_e_produto_eh_perguntar_disponibilidade():
-    assert Intencao.PERGUNTAR_DISPONIBILIDADE in {i for i, _ in classificar_por_regras("Vocês vendem relógio de ponto biométrico?")}
-    assert Intencao.PERGUNTAR_PRODUTO in {i for i, _ in classificar_por_regras("Vocês vendem relógio de ponto biométrico?")}
+    assert Intencao.PERGUNTAR_DISPONIBILIDADE in {
+        i for i, _ in classificar_por_regras("Vocês vendem relógio de ponto biométrico?")}
+    assert Intencao.PERGUNTAR_PRODUTO in {
+        i for i, _ in classificar_por_regras("Vocês vendem relógio de ponto biométrico?")}
 
 
 def test_trabalham_com_produto_eh_perguntar_disponibilidade():

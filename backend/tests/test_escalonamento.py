@@ -390,7 +390,8 @@ def test_sequencia_disponibilidade_depois_duvida_nao_escala_precipitadamente(db_
     try:
         p = ProcessadorMensagem(retrieval=_RetrievalFake([]), qa=_QAFake([]))
 
-        resultado_1 = asyncio.run(classificar("boa tarde, me chamo Cristina e queria informações sobre relógio biométrico"))
+        resultado_1 = asyncio.run(
+            classificar("boa tarde, me chamo Cristina e queria informações sobre relógio biométrico"))
         assert Intencao.PERGUNTAR_DISPONIBILIDADE in resultado_1.intencoes
 
         identificacao_1 = ResultadoIdentificacao(status=StatusIdentificacao.NOVO, contatos=[], empresas=[])

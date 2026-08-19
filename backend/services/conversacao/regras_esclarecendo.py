@@ -15,14 +15,11 @@ Estado — GRASP Information Expert).
 Ver `docs/arquitetura_motor_conversacao_2026-07.md` para o funcionamento geral do motor.
 """
 
-from __future__ import annotations
-
 from typing import Optional
 
+from models import AtributoAdicionalModelo, FaseAtendimento, Modelo
 from sqlalchemy import select
 from sqlalchemy.orm import Session
-
-from models import AtributoAdicionalModelo, FaseAtendimento, Modelo, Produto
 
 from services.classificador import Intencao
 from services.conversacao.catalogo_campos import CAMPO_FAIXA_FUNCIONARIOS
