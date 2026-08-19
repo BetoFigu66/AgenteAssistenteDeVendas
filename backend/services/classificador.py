@@ -196,7 +196,9 @@ _REGRAS_INTENCAO: list[tuple[Intencao, re.Pattern]] = [
         Intencao.PERGUNTAR_PRODUTO,
         re.compile(
             r"\b(catraca|rel[oó]gio\s+de\s+ponto|biom[eé]trico|cart[aã]o|facial|modelo"
-            r"|caracter[ií]sticas?|diferen[cç]as?)\b",
+            r"|caracter[ií]sticas?|diferen[cç]as?"
+            r"|explic(?:ar|a|que)\s+(?:o\s+que|as\s+op[cç][oõ]es)"
+            r"|melhor\s+op[cç][aã]o|compar(?:ar|a[çc][aã]o)|vantagens?)\b",
             re.IGNORECASE,
         ),
     ),

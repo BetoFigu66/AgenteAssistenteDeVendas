@@ -30,7 +30,7 @@ from sqlalchemy.orm import Session
 from services import atendimentos as atendimentos_svc
 from services.classificador import Intencao
 from services.conversacao.acoes import ContextoAcao
-from services.conversacao.campos_pendentes import campos_pendentes
+from services.conversacao.campos_pendentes import PERGUNTA_PRIORITARIA_CHAVE, campos_pendentes
 from services.conversacao.catalogo_campos import (
     CAMPO_FAIXA_FUNCIONARIOS,
     CAMPO_HOMOLOGADO_SOFTWARE,
@@ -166,6 +166,9 @@ class FinalizandoState(EstadoAtendimento):
 
         if primeira_pergunta is not None:
             campo = primeira_pergunta
+            ctx.processador._salvar_info_atendimento(
+                ctx.db, atendimento.id, PERGUNTA_PRIORITARIA_CHAVE, primeira_pergunta.chave
+            )
         else:
             campo = pendentes[0]
         mensagem_id = campo.mensagem_id
