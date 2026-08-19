@@ -8,6 +8,7 @@
 #   pre-commit run --all-files
 #
 # Ver docs/comandos_uteis.md — secao "QA Engineer — checks automatizados e pre-commit"
+# e secao "Skill de code review — sincronizacao com Windsurf" (hook sync-skill-windsurf).
 
 repos:
   - repo: local
@@ -18,4 +19,11 @@ repos:
         language: system
         pass_filenames: false
         always_run: true
+        stages: [pre-commit]
+      - id: sync-skill-windsurf
+        name: Espelha .claude/skills para .windsurf/skills (Devin Desktop/Windsurf)
+        entry: bash scripts/sync_skill_windsurf.sh
+        language: system
+        pass_filenames: false
+        files: ^\.claude/skills/
         stages: [pre-commit]
