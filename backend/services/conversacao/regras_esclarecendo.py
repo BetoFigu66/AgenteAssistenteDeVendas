@@ -39,7 +39,7 @@ _CHAVE_CATALOGO_PENDENTE = "catalogo_pendente"
 # se um dia o nome mudar lá, precisa mudar aqui também.
 _RAG_CLARIFICACAO_PENDENTE_CHAVE = "rag_clarificacao_pendente"
 
-# REQ-016.10: intenções de "dúvida pura" (categoria 3) — dispara a pergunta de fechamento
+# REQ-016.10: intenções de "dúvida pura" (categoria_pergunta) — dispara a pergunta de fechamento
 # só quando NENHUMA outra intenção de qualificação (ex.: PEDIR_ORCAMENTO) bateu junto na
 # mesma mensagem, senão uma pergunta composta ("quero orçamento, mas antes...") geraria um
 # "posso ajudar em mais alguma coisa" indevido colado numa qualificação que acabou de abrir.
@@ -183,7 +183,7 @@ async def _executar_perguntar_disponibilidade(ctx: ContextoAcao):
     await garantir_atendimento_dispatch(ctx)
 
     # A disponibilidade respondeu com sucesso ao produto perguntado — qualquer ciclo de
-    # clarificação pendente de uma dúvida anterior (categoria 3) não relacionada a esta
+    # clarificação pendente de uma dúvida anterior (categoria_pergunta) não relacionada a esta
     # resposta fica obsoleto. Sem isso, uma dúvida futura sobre o MESMO produto (ex.:
     # "pode explicar as características?") escalaria direto para humano, contando essa
     # disponibilidade como se fosse a "1ª pergunta de clarificação" já feita (REQ-003.7).
@@ -236,37 +236,37 @@ def _builder_perguntar_disponibilidade(ctx: ContextoAcao) -> GrupoAcoes:
 # resposta vindo do RAG, o atendimento/contato era garantido e as entidades (tipos_produto
 # etc.) registradas como efeito colateral (D2). FORA_CONTEXTO nunca foi qualificação —
 # dúvida totalmente fora do domínio não deveria criar atendimento sozinha.
-_CATEGORIA3_GARANTE_ATENDIMENTO = frozenset({Intencao.PERGUNTAR_PRECO, Intencao.PERGUNTAR_PRODUTO})
+_CATEGORIA_PERGUNTA_GARANTE_ATENDIMENTO = frozenset({Intencao.PERGUNTAR_PRECO, Intencao.PERGUNTAR_PRODUTO})
 
 
-def _builder_categoria3(intencao_categoria: Intencao):
-    """Fábrica: uma Regra por intenção de categoria 3 (preço/produto/fora de contexto),
-    todas compartilhando o mesmo wrapper de `_responder_categoria3` (D1/REQ-002.1B —
+def _builder_categoria_pergunta(intencao_categoria: Intencao):
+    """Fábrica: uma Regra por intenção de categoria_pergunta (preço/produto/fora de contexto),
+    todas compartilhando o mesmo wrapper de `_responder_categoria_pergunta` (D1/REQ-002.1B —
     responde via Q&A/RAG imediatamente, nunca exige documento antes).
 
     Se `PEDIR_ORCAMENTO` bateu junto (registrada antes na lista `pos`) e já produziu
     fragmento, a dúvida não contribui mais nada — sem essa checagem, "Quero orçamento de
     relógio de ponto" gerava uma resposta tripla e redundante (início do orçamento +
     resposta genérica de RAG sobre o mesmo produto colada atrás)."""
-    garante_atendimento = intencao_categoria in _CATEGORIA3_GARANTE_ATENDIMENTO
+    garante_atendimento = intencao_categoria in _CATEGORIA_PERGUNTA_GARANTE_ATENDIMENTO
 
     async def _executar(ctx: ContextoAcao):
         if ctx.fragmentos_ate_agora:
             return None
         if garante_atendimento:
             await garantir_atendimento_dispatch(ctx)
-        return await ctx.processador._responder_categoria3(
+        return await ctx.processador._responder_categoria_pergunta(
             intencao_categoria, ctx.conteudo, db=ctx.db, atendimento=ctx.atendimento, dlog=ctx.dlog
         )
 
     def _builder(ctx: ContextoAcao) -> GrupoAcoes:
-        return GrupoAcoes(pos=[Acao(f"categoria3_{intencao_categoria.value}", _executar)])
+        return GrupoAcoes(pos=[Acao(f"categoria_pergunta_{intencao_categoria.value}", _executar)])
 
     return _builder
 
 
 async def _executar_pedir_catalogo(ctx: ContextoAcao):
-    """REQ-003.11 — registrada ANTES das Regras de categoria 3 em `REGISTRO_ESCLARECENDO`:
+    """REQ-003.11 — registrada ANTES das Regras de categoria_pergunta em `REGISTRO_ESCLARECENDO`:
     "catálogo de catracas" bate tanto em PEDIR_CATALOGO quanto em PERGUNTAR_PRODUTO (a
     palavra "catraca"), e o catálogo deve vencer, não a resposta genérica de dúvida.
 
@@ -371,20 +371,20 @@ REGISTRO_ESCLARECENDO: list[RegraIntencao] = [
     RegraIntencao(
         intencao=Intencao.PERGUNTAR_PRECO,
         fase=FaseAtendimento.ESCLARECENDO,
-        builder=_builder_categoria3(Intencao.PERGUNTAR_PRECO),
-        nome="categoria3_preco",
+        builder=_builder_categoria_pergunta(Intencao.PERGUNTAR_PRECO),
+        nome="categoria_pergunta_preco",
     ),
     RegraIntencao(
         intencao=Intencao.PERGUNTAR_PRODUTO,
         fase=FaseAtendimento.ESCLARECENDO,
-        builder=_builder_categoria3(Intencao.PERGUNTAR_PRODUTO),
-        nome="categoria3_produto",
+        builder=_builder_categoria_pergunta(Intencao.PERGUNTAR_PRODUTO),
+        nome="categoria_pergunta_produto",
     ),
     RegraIntencao(
         intencao=Intencao.FORA_CONTEXTO,
         fase=FaseAtendimento.ESCLARECENDO,
-        builder=_builder_categoria3(Intencao.FORA_CONTEXTO),
-        nome="categoria3_fora_contexto",
+        builder=_builder_categoria_pergunta(Intencao.FORA_CONTEXTO),
+        nome="categoria_pergunta_fora_contexto",
     ),
     RegraIntencao(
         intencao=None,

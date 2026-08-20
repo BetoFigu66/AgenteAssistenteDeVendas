@@ -3,7 +3,7 @@ Regra global de encerramento do atendimento (REQ-016.10) do motor de roteamento
 (`services/conversacao/motor.py`).
 
 O disparo da pergunta de fechamento ("Posso te ajudar em mais alguma coisa?") acontece em
-`regras_esclarecendo.py`, logo após uma dúvida (categoria 3) ser respondida sem
+`regras_esclarecendo.py`, logo após uma dúvida (categoria_pergunta) ser respondida sem
 qualificação em aberto. Este módulo só interpreta a resposta do cliente quando há uma
 pergunta pendente: negativa encerra o atendimento (`motivo=concluido_pelo_cliente`);
 qualquer outra coisa apenas limpa o sinalizador e deixa o resto do motor responder

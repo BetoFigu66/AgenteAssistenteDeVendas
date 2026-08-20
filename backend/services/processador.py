@@ -817,7 +817,7 @@ class ProcessadorMensagem:
             return None
         return ", ".join(t.strip().replace("_", " ") for t in tipos.split(",") if t.strip())
 
-    async def _responder_categoria3(
+    async def _responder_categoria_pergunta(
         self,
         intencao: Intencao,
         conteudo_cliente: str,
@@ -825,10 +825,10 @@ class ProcessadorMensagem:
         atendimento: Optional[Atendimento] = None,
         dlog: Optional[DebugLogger] = None,
     ) -> RespostaGerada:
-        """Responde intenção de categoria 3 (REQ-002.1) — dúvida sobre produto/preço/fora de
+        """Responde intenção de categoria_pergunta (REQ-002.1) — dúvida sobre produto/preço/fora de
         contexto — via Q&A/RAG.
 
-        Reaproveitado pelas Regras de categoria 3 da fase Esclarecendo
+        Reaproveitado pelas Regras de categoria_pergunta da fase Esclarecendo
         (`regras_esclarecendo.py`) e pela retomada de dúvida em Finalizando (F3,
         `_retomar_apos_duvida`) — mesmo comportamento, não importa se o CNPJ/CPF já foi
         informado.
@@ -836,32 +836,66 @@ class ProcessadorMensagem:
         `db`/`atendimento` são opcionais e usados apenas por PERGUNTAR_PRODUTO para o
         fluxo de clarificação/escalonamento (REQ-003.7) — sem eles (ex.: atendimento ainda
         não garantido), cai no fallback genérico de sempre.
+
+        Despacho por tabela (achado de review D02) em vez de if/elif — cada caso de
+        categoria_pergunta mora no próprio `_responder_categoria_pergunta_<caso>`; qualquer intenção não
+        mapeada explicitamente cai no handler de FORA_CONTEXTO, mesmo comportamento do
+        `else` implícito de antes.
         """
-        if intencao == Intencao.PERGUNTAR_PRECO:
-            # Plano v1: para perguntas de preco a resposta e sempre o template
-            # padrao de encaminhamento. Ainda assim, rodamos a RAG para
-            # registrar trechos relacionados em auditoria.
-            trechos_preco = await self._buscar_trechos_rag(conteudo_cliente, dlog=dlog)
-            resposta = await self._gerador.gerar(
-                MensagemId.PRECO_NAO_NEGOCIADO,
-                personalizar=True,
-                mensagem_cliente=conteudo_cliente,
-            )
-            _anexar_trechos_para_auditoria(resposta, trechos_preco)
-            return resposta
+        handlers = {
+            Intencao.PERGUNTAR_PRECO: self._responder_categoria_pergunta_preco,
+            Intencao.PERGUNTAR_PRODUTO: self._responder_categoria_pergunta_produto,
+        }
+        handler = handlers.get(intencao, self._responder_categoria_pergunta_fora_contexto)
+        return await handler(conteudo_cliente, db=db, atendimento=atendimento, dlog=dlog)
 
-        if intencao == Intencao.PERGUNTAR_PRODUTO:
-            if db is not None and atendimento is not None:
-                return await self._responder_produto_com_clarificacao(
-                    db, atendimento, conteudo_cliente, dlog=dlog
-                )
-            return await self._responder_com_rag(
-                conteudo_cliente=conteudo_cliente,
-                template_fallback=MensagemId.PRODUTO_SEM_CONTEXTO,
-                dlog=dlog,
-            )
+    async def _responder_categoria_pergunta_preco(
+        self,
+        conteudo_cliente: str,
+        db: Optional[Session] = None,
+        atendimento: Optional[Atendimento] = None,
+        dlog: Optional[DebugLogger] = None,
+    ) -> RespostaGerada:
+        """PERGUNTAR_PRECO (Plano v1): a resposta é sempre o template padrão de
+        encaminhamento. Ainda assim, roda a RAG para registrar trechos relacionados em
+        auditoria."""
+        trechos_preco = await self._buscar_trechos_rag(conteudo_cliente, dlog=dlog)
+        resposta = await self._gerador.gerar(
+            MensagemId.PRECO_NAO_NEGOCIADO,
+            personalizar=True,
+            mensagem_cliente=conteudo_cliente,
+        )
+        _anexar_trechos_para_auditoria(resposta, trechos_preco)
+        return resposta
 
-        # FORA_CONTEXTO
+    async def _responder_categoria_pergunta_produto(
+        self,
+        conteudo_cliente: str,
+        db: Optional[Session] = None,
+        atendimento: Optional[Atendimento] = None,
+        dlog: Optional[DebugLogger] = None,
+    ) -> RespostaGerada:
+        """PERGUNTAR_PRODUTO: com atendimento garantido, aplica clarificação/escalonamento
+        (REQ-003.7); sem ele, cai no fallback genérico de sempre."""
+        if db is not None and atendimento is not None:
+            return await self._responder_produto_com_clarificacao(
+                db, atendimento, conteudo_cliente, dlog=dlog
+            )
+        return await self._responder_com_rag(
+            conteudo_cliente=conteudo_cliente,
+            template_fallback=MensagemId.PRODUTO_SEM_CONTEXTO,
+            dlog=dlog,
+        )
+
+    async def _responder_categoria_pergunta_fora_contexto(
+        self,
+        conteudo_cliente: str,
+        db: Optional[Session] = None,
+        atendimento: Optional[Atendimento] = None,
+        dlog: Optional[DebugLogger] = None,
+    ) -> RespostaGerada:
+        """FORA_CONTEXTO — e qualquer intenção de categoria_pergunta não mapeada explicitamente
+        em `handlers` (mesmo fallback que o `else` implícito cobria antes)."""
         return await self._responder_com_rag(
             conteudo_cliente=conteudo_cliente,
             template_fallback=MensagemId.FORA_CONTEXTO,
@@ -1402,11 +1436,8 @@ class ProcessadorMensagem:
             registros.append(("consulta_credito_obs", resultado.mensagem))
 
         for chave, valor in registros:
+            atendimento.pendente = False
             self._salvar_info_atendimento(db, atendimento.id, chave, valor)
-            info = db.query(AtendimentoInfo).filter_by(atendimento_id=atendimento.id, chave=chave).first()
-            if info:
-                info.pendente = False
-                db.commit()
 
     def _promover_atendimento_empresa(
         self,

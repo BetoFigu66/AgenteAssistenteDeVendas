@@ -4,7 +4,7 @@ Todo o pipeline que antes vivia em `ProcessadorMensagem` (F1-F4/G1-G3) mora aqui
 essa era a violação de GRASP Information Expert identificada em code review: quem "sabe"
 processar Finalizando deve ser uma classe da própria fase, não o orquestrador genérico.
 Infra genuinamente cross-cutting (`GeradorRespostas`, persistência de `AtendimentoInfo`,
-`_responder_categoria3`, escalonamento) continua em `ProcessadorMensagem` — chamada aqui via
+`_responder_categoria_pergunta`, escalonamento) continua em `ProcessadorMensagem` — chamada aqui via
 `ctx.processador`, como as Regras já faziam.
 """
 
@@ -67,7 +67,7 @@ _RESPOSTA_NAO_REGEX = re.compile(r"\b(n[aã]o|n)\b", re.IGNORECASE)
 # tratada como confirmação de um resumo que nunca foi mostrado.
 _RESUMO_APRESENTADO_CHAVE = "resumo_finalizando_apresentado"
 
-# Intenções de "dúvida pura" (categoria 3) que, se batidas durante a coleta ativa, devem
+# Intenções de "dúvida pura" (categoria_pergunta) que, se batidas durante a coleta ativa, devem
 # ser respondidas via RAG/QA sem perder o progresso (F3) — ver `_retomar_apos_duvida`.
 _INTENCOES_RAG = frozenset({"perguntar_produto", "perguntar_preco", "fora_contexto"})
 
@@ -187,7 +187,7 @@ class FinalizandoState(EstadoAtendimento):
         que os extratores por palavra-gatilho reconheceram. A partir daqui: (a) tenta
         resolver `modelo_produto` contra o catálogo real (F2) — a extração de
         `tipo_leitor_mencionado` independe da intenção classificada, então roda mesmo se a
-        mensagem também parecer uma dúvida; (b) se for dúvida (categoria 3), responde via
+        mensagem também parecer uma dúvida; (b) se for dúvida (categoria_pergunta), responde via
         Q&A/RAG e retoma a pergunta pendente (F3); (c) senão, tenta uma captura solta para
         a pergunta pendente atual (F1); (d) recalcula o que falta e pergunta, fecha com o
         resumo (F4), ou — se o resumo já tinha sido apresentado e o cliente confirma —
@@ -204,7 +204,7 @@ class FinalizandoState(EstadoAtendimento):
             and resultado_class.entidades.tipo_leitor_mencionado
         )
 
-        # F2/F3: se a mensagem for uma dúvida (categoria 3) e não trouxer nenhum sinal
+        # F2/F3: se a mensagem for uma dúvida (categoria_pergunta) e não trouxer nenhum sinal
         # NOVO de modelo (marca/aplicação/tecnologia), não tenta resolver modelo usando só
         # sinais antigos já persistidos (ex.: `tecnologia_leitura` capturado numa mensagem
         # anterior) — isso sequestrava perguntas legítimas do cliente (ex.: "pode explicar
@@ -536,7 +536,7 @@ class FinalizandoState(EstadoAtendimento):
         ctx.processador._salvar_info_atendimento(ctx.db, ctx.atendimento.id, chave_perguntado(campo), "true")
 
     async def _retomar_apos_duvida(self, ctx: ContextoAcao) -> RespostaGerada:
-        """F3: se a mensagem em Finalizando for uma dúvida (categoria 3), responde via
+        """F3: se a mensagem em Finalizando for uma dúvida (categoria_pergunta), responde via
         Q&A/RAG e reapresenta a última pergunta pendente — sem perder o progresso da
         coleta (a fase continua Finalizando)."""
         db = ctx.db
@@ -546,7 +546,7 @@ class FinalizandoState(EstadoAtendimento):
         p = ctx.processador
         dlog = ctx.dlog
 
-        resposta_duvida = await p._responder_categoria3(
+        resposta_duvida = await p._responder_categoria_pergunta(
             resultado_class.intencao_principal, conteudo, db=db, atendimento=atendimento, dlog=dlog
         )
 

@@ -349,7 +349,7 @@ def test_f2_nao_conta_tentativa_quando_mensagem_nao_tenta_responder_modelo(db_se
 
 
 def test_f3_duvida_em_finalizando_retoma_pergunta_pendente(db_session, processador):
-    """F3: uma dúvida de categoria 3 (perguntar_preco) durante Finalizando é respondida
+    """F3: uma dúvida de categoria_pergunta (perguntar_preco) durante Finalizando é respondida
     e a última pergunta pendente é reapresentada, sem perder a fase/progresso."""
     telefone = "5511999981006"
     try:

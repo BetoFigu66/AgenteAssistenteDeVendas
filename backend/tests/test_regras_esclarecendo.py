@@ -334,7 +334,7 @@ def test_disponibilidade_seguida_de_mensagem_sem_sinal_nao_reapresenta_modelo(db
         _limpar(db_session, telefone)
 
 
-def test_pedir_orcamento_suprime_categoria3_redundante_no_mesmo_turno(db_session, processador):
+def test_pedir_orcamento_suprime_categoria_pergunta_redundante_no_mesmo_turno(db_session, processador):
     """Regressão de smoke test manual: "Quero orçamento de relógio de ponto" bate em
     PEDIR_ORCAMENTO **e** PERGUNTAR_PRODUTO — sem a supressão, a resposta ficava tripla e
     redundante (início do orçamento + resposta genérica de RAG sobre o mesmo produto)."""
@@ -352,6 +352,6 @@ def test_pedir_orcamento_suprime_categoria3_redundante_no_mesmo_turno(db_session
             )
         )
         assert resposta.template_usado == "SAUDACAO_NOVO_CONTATO+INICIAR_FINALIZANDO+PEDIR_MODELO"
-        assert "categoria3" not in (resposta.template_usado or "")
+        assert "categoria_pergunta" not in (resposta.template_usado or "")
     finally:
         _limpar(db_session, telefone)

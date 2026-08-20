@@ -1,7 +1,7 @@
 """Testes da transição Esclarecendo → Finalizando (Fase E — E1/E2/E3).
 
 Injeta um `ResultadoClassificacao` já pronto (mesma estratégia de
-`test_processador_categoria3_pre_identificacao.py`) — não depende do classificador
+`test_processador_categoria_pergunta_pre_identificacao.py`) — não depende do classificador
 (regra ou LLM) acertar a intenção, só verifica o comportamento de `_decidir_resposta`
 e `_iniciar_ou_continuar_finalizando` dado um `PEDIR_ORCAMENTO` já classificado.
 """

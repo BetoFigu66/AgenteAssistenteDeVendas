@@ -1,7 +1,7 @@
-"""Testes do roteamento D1 (REQ-002.1B): categoria 3 respondida via Q&A/RAG antes de pedir
+"""Testes do roteamento D1 (REQ-002.1B): categoria_pergunta respondida via Q&A/RAG antes de pedir
 documento, para telefones NOVO ou SEM_EMPRESA — independente do classificador (regra ou LLM)
 ter reconhecido a intenção corretamente, o que importa aqui é: dado um `ResultadoClassificacao`
-já pronto com intenção de categoria 3, o processador não deve mais cair no fallback genérico
+já pronto com intenção de categoria_pergunta, o processador não deve mais cair no fallback genérico
 `SAUDACAO_NOVO_CONTATO` / `PERGUNTAR_CNPJ`.
 
 Usa a base real (não mocka RAG/QA) porque `_decidir_resposta` grava Contato/Atendimento de
@@ -56,7 +56,9 @@ def _limpar(db_session, telefone):
         (Intencao.FORA_CONTEXTO, [], "5511999960003"),
     ],
 )
-def test_novo_categoria3_nao_cai_no_fallback_generico(db_session, processador, intencao, tipos_produto, telefone):
+def test_novo_categoria_pergunta_nao_cai_no_fallback_generico(
+    db_session, processador, intencao, tipos_produto, telefone
+):
     identificacao = ResultadoIdentificacao(status=StatusIdentificacao.NOVO, contatos=[], empresas=[])
     resultado_class = _resultado(intencao, tipos_produto=tipos_produto)
 

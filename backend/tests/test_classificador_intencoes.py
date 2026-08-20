@@ -138,7 +138,7 @@ def test_vendem_relogio_com_cartao_eh_perguntar_disponibilidade():
 def test_pedido_aberto_de_explicacao_sobre_produtos_eh_perguntar_produto():
     """Regressão (bug real em produção 2026-08-17): um pedido aberto de explicação/
     comparação sobre os produtos, sem palavras-chave de tipo de produto, deve ser
-    reconhecido como PERGUNTAR_PRODUTO (categoria 3) — sem isso, a mensagem cai em
+    reconhecido como PERGUNTAR_PRODUTO (categoria_pergunta) — sem isso, a mensagem cai em
     DESCONHECIDO e, durante a coleta ativa, acaba repetindo a pergunta de modelo em vez
     de responder à dúvida."""
     matches = classificar_por_regras(

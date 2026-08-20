@@ -1,7 +1,7 @@
 """Testes de escalonamento para humano (REQ-004, Fase 5) — zero cobertura antes desta
 fase. Padrão de integração real (base real via `Database()`, sem pytest-asyncio, telefone
 de teste único por caso, limpo ao final) — mesma convenção de `test_regras_esclarecendo.py`
-e `test_processador_categoria3_pre_identificacao.py`.
+e `test_processador_categoria_pergunta_pre_identificacao.py`.
 """
 
 import asyncio
