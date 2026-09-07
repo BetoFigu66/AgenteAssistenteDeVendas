@@ -43,7 +43,7 @@ from sqlalchemy.orm import Session
 from utils.datetime_utils import utc_now
 
 from services import atendimentos as atendimentos_svc
-from services.classificador import Intencao, NivelConfianca, ResultadoClassificacao, classificar
+from services.classificador import NivelConfianca, ResultadoClassificacao, classificar
 from services.cnpj import ConsultaCnpjError, obter_ou_criar_empresa
 from services.cnpj.receitaws import validar_cnpj
 from services.conversacao.acoes import ContextoAcao
@@ -74,7 +74,7 @@ from services.identificador import (
 )
 from services.llm import LLMProvider
 from services.parametro_service import ParametroService
-from services.rag import DocumentoRecuperado, ParRecuperado, QAService, RetrievalService
+from services.rag import BuscadorQA, BuscadorRag, QAServiceNulo, RetrievalServiceNulo
 from services.respostas import GeradorRespostas, MensagemId, RespostaGerada
 
 logger = logging.getLogger(__name__)
@@ -171,13 +171,13 @@ class ProcessadorMensagem:
     def __init__(
         self,
         llm: Optional[LLMProvider] = None,
-        retrieval: Optional[RetrievalService] = None,
-        qa: Optional[QAService] = None,
+        retrieval: Optional[BuscadorRag] = None,
+        qa: Optional[BuscadorQA] = None,
     ):
         self._llm = llm
         self._gerador = GeradorRespostas(llm=llm, usar_llm=llm is not None)
-        self._retrieval = retrieval
-        if self._retrieval is None and settings.RAG_ENABLED:
+        self._retrieval: BuscadorRag = retrieval or RetrievalServiceNulo()
+        if retrieval is None and settings.RAG_ENABLED:
             try:
                 from services.rag import get_retrieval_service
 
@@ -189,9 +189,8 @@ class ProcessadorMensagem:
                     "[Processador] RAG desabilitada: falha ao inicializar retrieval: %s",
                     e,
                 )
-                self._retrieval = None
-        self._qa = qa
-        if self._qa is None and settings.QA_ENABLED:
+        self._qa: BuscadorQA = qa or QAServiceNulo()
+        if qa is None and settings.QA_ENABLED:
             try:
                 from services.rag import get_qa_service
 
@@ -202,7 +201,6 @@ class ProcessadorMensagem:
                     "[Processador] QA desabilitado: falha ao inicializar QAService: %s",
                     e,
                 )
-                self._qa = None
 
     # ------------------------------------------------------------------
     # Ponto de entrada
@@ -574,7 +572,9 @@ class ProcessadorMensagem:
         escala" já usado em REQ-002.21/REQ-003.7. `resultado_class`/`db`/`atendimento`
         são opcionais (contato totalmente novo, sem atendimento ainda, simplesmente não
         rastreia o contador — não vale criar atendimento só por isso)."""
-        par = await self._buscar_resposta_qa(conteudo_cliente, dlog=dlog)
+        par = await self._qa.buscar_melhor(
+            conteudo_cliente, apenas_aprovados=settings.QA_APENAS_APROVADOS, dlog=dlog
+        )
         if par is not None:
             if db is not None and atendimento is not None:
                 self._remover_info_atendimento(db, atendimento.id, _CONFIANCA_BAIXA_TENTATIVA_CHAVE)
@@ -817,91 +817,6 @@ class ProcessadorMensagem:
             return None
         return ", ".join(t.strip().replace("_", " ") for t in tipos.split(",") if t.strip())
 
-    async def _responder_categoria_pergunta(
-        self,
-        intencao: Intencao,
-        conteudo_cliente: str,
-        db: Optional[Session] = None,
-        atendimento: Optional[Atendimento] = None,
-        dlog: Optional[DebugLogger] = None,
-    ) -> RespostaGerada:
-        """Responde intenção de categoria_pergunta (REQ-002.1) — dúvida sobre produto/preço/fora de
-        contexto — via Q&A/RAG.
-
-        Reaproveitado pelas Regras de categoria_pergunta da fase Esclarecendo
-        (`regras_esclarecendo.py`) e pela retomada de dúvida em Finalizando (F3,
-        `_retomar_apos_duvida`) — mesmo comportamento, não importa se o CNPJ/CPF já foi
-        informado.
-
-        `db`/`atendimento` são opcionais e usados apenas por PERGUNTAR_PRODUTO para o
-        fluxo de clarificação/escalonamento (REQ-003.7) — sem eles (ex.: atendimento ainda
-        não garantido), cai no fallback genérico de sempre.
-
-        Despacho por tabela (achado de review D02) em vez de if/elif — cada caso de
-        categoria_pergunta mora no próprio `_responder_categoria_pergunta_<caso>`; qualquer intenção não
-        mapeada explicitamente cai no handler de FORA_CONTEXTO, mesmo comportamento do
-        `else` implícito de antes.
-        """
-        handlers = {
-            Intencao.PERGUNTAR_PRECO: self._responder_categoria_pergunta_preco,
-            Intencao.PERGUNTAR_PRODUTO: self._responder_categoria_pergunta_produto,
-        }
-        handler = handlers.get(intencao, self._responder_categoria_pergunta_fora_contexto)
-        return await handler(conteudo_cliente, db=db, atendimento=atendimento, dlog=dlog)
-
-    async def _responder_categoria_pergunta_preco(
-        self,
-        conteudo_cliente: str,
-        db: Optional[Session] = None,
-        atendimento: Optional[Atendimento] = None,
-        dlog: Optional[DebugLogger] = None,
-    ) -> RespostaGerada:
-        """PERGUNTAR_PRECO (Plano v1): a resposta é sempre o template padrão de
-        encaminhamento. Ainda assim, roda a RAG para registrar trechos relacionados em
-        auditoria."""
-        trechos_preco = await self._buscar_trechos_rag(conteudo_cliente, dlog=dlog)
-        resposta = await self._gerador.gerar(
-            MensagemId.PRECO_NAO_NEGOCIADO,
-            personalizar=True,
-            mensagem_cliente=conteudo_cliente,
-        )
-        _anexar_trechos_para_auditoria(resposta, trechos_preco)
-        return resposta
-
-    async def _responder_categoria_pergunta_produto(
-        self,
-        conteudo_cliente: str,
-        db: Optional[Session] = None,
-        atendimento: Optional[Atendimento] = None,
-        dlog: Optional[DebugLogger] = None,
-    ) -> RespostaGerada:
-        """PERGUNTAR_PRODUTO: com atendimento garantido, aplica clarificação/escalonamento
-        (REQ-003.7); sem ele, cai no fallback genérico de sempre."""
-        if db is not None and atendimento is not None:
-            return await self._responder_produto_com_clarificacao(
-                db, atendimento, conteudo_cliente, dlog=dlog
-            )
-        return await self._responder_com_rag(
-            conteudo_cliente=conteudo_cliente,
-            template_fallback=MensagemId.PRODUTO_SEM_CONTEXTO,
-            dlog=dlog,
-        )
-
-    async def _responder_categoria_pergunta_fora_contexto(
-        self,
-        conteudo_cliente: str,
-        db: Optional[Session] = None,
-        atendimento: Optional[Atendimento] = None,
-        dlog: Optional[DebugLogger] = None,
-    ) -> RespostaGerada:
-        """FORA_CONTEXTO — e qualquer intenção de categoria_pergunta não mapeada explicitamente
-        em `handlers` (mesmo fallback que o `else` implícito cobria antes)."""
-        return await self._responder_com_rag(
-            conteudo_cliente=conteudo_cliente,
-            template_fallback=MensagemId.FORA_CONTEXTO,
-            dlog=dlog,
-        )
-
     async def _responder_produto_com_clarificacao(
         self,
         db: Session,
@@ -1082,71 +997,6 @@ class ProcessadorMensagem:
     # RAG helpers
     # ------------------------------------------------------------------
 
-    async def _buscar_resposta_qa(
-        self,
-        query: str,
-        dlog: Optional[DebugLogger] = None,
-    ) -> Optional[ParRecuperado]:
-        """Busca o melhor par Q&A para a query; retorna None se nao encontrado."""
-        if self._qa is None or not self._qa.habilitado:
-            if dlog:
-                dlog.log("qa_busca", "QA desabilitado ou servico nao inicializado")
-            return None
-        if dlog:
-            dlog.log("qa_busca", f'query="{query[:80]}" score_min={self._qa._score_minimo_padrao}')
-        try:
-            pares = await self._qa.buscar(
-                query=query,
-                apenas_aprovados=settings.QA_APENAS_APROVADOS,
-            )
-            if pares:
-                top = pares[0]
-                if dlog:
-                    dlog.log(
-                        "qa_resultado",
-                        f"hit score={top.score:.4f} id={top.id_externo} pergunta='{top.pergunta[:50]}'",
-                    )
-                return top
-            if dlog:
-                dlog.log("qa_resultado", f"sem hits (score_min={self._qa._score_minimo_padrao})")
-            return None
-        except Exception as e:
-            logger.warning("[Processador] Falha na busca QA: %s", e)
-            if dlog:
-                dlog.log("qa_erro", f"{type(e).__name__}: {str(e)[:80]}")
-            return None
-
-    async def _buscar_trechos_rag(
-        self,
-        query: str,
-        dlog: Optional[DebugLogger] = None,
-    ) -> list[DocumentoRecuperado]:
-        """Busca trechos na RAG, tolerando RAG desabilitada ou em falha."""
-        if self._retrieval is None or not self._retrieval.habilitado:
-            if dlog:
-                dlog.log("rag_busca", "RAG desabilitada ou retrieval não inicializado")
-            return []
-        score_min = self._retrieval._score_minimo_padrao
-        if dlog:
-            dlog.log("rag_busca", f'query="{query[:80]}" score_min={score_min}')
-        try:
-            trechos = await self._retrieval.buscar(query=query, tipo=None)
-            if dlog:
-                if trechos:
-                    top = trechos[0]
-                    dlog.log(
-                        "rag_resultado",
-                        f"encontrados={len(trechos)} melhor_score={top.score:.4f} titulo='{str(top.titulo)[:50]}'",
-                    )
-                else:
-                    dlog.log("rag_resultado", f"encontrados=0 (score_min={score_min})")
-            return trechos
-        except Exception as e:
-            logger.warning("[Processador] Falha na busca RAG: %s", e)
-            if dlog:
-                dlog.log("rag_erro", f"{type(e).__name__}: {str(e)[:80]}")
-            return []
-
     async def _responder_com_rag(
         self,
         conteudo_cliente: str,
@@ -1156,7 +1006,9 @@ class ProcessadorMensagem:
         """Busca pares/trechos e gera resposta; Q&A tem prioridade sobre chunks."""
         codigo_fallback = template_fallback.name
         # Camada 1: Q&A pairs curados
-        par = await self._buscar_resposta_qa(conteudo_cliente, dlog=dlog)
+        par = await self._qa.buscar_melhor(
+            conteudo_cliente, apenas_aprovados=settings.QA_APENAS_APROVADOS, dlog=dlog
+        )
         if par is not None:
             if dlog:
                 dlog.log("qa_decisao", f"hit QA → resposta curada id={par.id_externo} score={par.score:.4f}")
@@ -1169,12 +1021,12 @@ class ProcessadorMensagem:
                 rag_score_maximo=par.score,
             )
         # Camada 2: chunks de produto (RAG)
-        trechos = await self._buscar_trechos_rag(conteudo_cliente, dlog=dlog)
+        trechos = await self._retrieval.buscar_trechos(conteudo_cliente, dlog=dlog)
         if not trechos:
             if dlog:
                 dlog.log("rag_decisao", f"sem trechos → fallback template={codigo_fallback}")
             resposta = await self._gerador.gerar(template_fallback)
-            resposta.rag_utilizada = self._retrieval is not None and self._retrieval.habilitado
+            resposta.rag_utilizada = self._retrieval.habilitado
             return resposta
         if dlog:
             dlog.log("rag_decisao", f"{len(trechos)} trechos → gerando com LLM+RAG")
@@ -1388,26 +1240,28 @@ class ProcessadorMensagem:
         info = db.query(AtendimentoInfo).filter_by(atendimento_id=atendimento_id, chave=chave).first()
         return info.valor if info else None
 
-    def _salvar_info_atendimento(self, db: Session, atendimento_id: int, chave: str, valor: str) -> None:
+    def _salvar_info_atendimento(
+        self, db: Session, atendimento_id: int, chave: str, valor: str, pendente: bool = True
+    ) -> None:
         info = db.query(AtendimentoInfo).filter_by(atendimento_id=atendimento_id, chave=chave).first()
         if info:
             info.valor = valor
-            info.pendente = True
+            info.pendente = pendente
         else:
             db.add(
                 AtendimentoInfo(
                     atendimento_id=atendimento_id,
                     chave=chave,
                     valor=valor,
-                    pendente=True,
+                    pendente=pendente,
                     origem=OrigemInfo.USER,
                 )
             )
-        db.commit()
+        db.flush()
 
     def _remover_info_atendimento(self, db: Session, atendimento_id: int, chave: str) -> None:
         db.query(AtendimentoInfo).filter_by(atendimento_id=atendimento_id, chave=chave).delete()
-        db.commit()
+        db.flush()
 
     def _obter_user_sistema(self, db: Session) -> User:
         """`User` sentinela usado para marcar mensagens auto-aprovadas em
@@ -1436,8 +1290,7 @@ class ProcessadorMensagem:
             registros.append(("consulta_credito_obs", resultado.mensagem))
 
         for chave, valor in registros:
-            atendimento.pendente = False
-            self._salvar_info_atendimento(db, atendimento.id, chave, valor)
+            self._salvar_info_atendimento(db, atendimento.id, chave, valor, pendente=False)
 
     def _promover_atendimento_empresa(
         self,
@@ -1520,31 +1373,3 @@ class ProcessadorMensagem:
 
         if registros:
             db.commit()
-
-
-def _anexar_trechos_para_auditoria(
-    resposta: RespostaGerada,
-    trechos: list[DocumentoRecuperado],
-) -> None:
-    """Popula `trechos_rag` e `rag_score_maximo` sem alterar o texto da resposta.
-
-    Usado quando a RAG e acionada apenas para auditoria (ex: PERGUNTAR_PRECO),
-    mantendo o template padrao como resposta ao cliente.
-    """
-    if not trechos:
-        return
-    resumo = [
-        {
-            "id": getattr(t, "id", None),
-            "id_externo": getattr(t, "id_externo", None),
-            "tipo": getattr(t, "tipo", None),
-            "titulo": getattr(t, "titulo", None),
-            "score": float(getattr(t, "score", 0.0) or 0.0),
-            "distancia": float(getattr(t, "distancia", 0.0) or 0.0),
-            "url": (getattr(t, "metadados", None) or {}).get("url"),
-        }
-        for t in trechos
-    ]
-    resposta.rag_utilizada = True
-    resposta.trechos_rag = resumo
-    resposta.rag_score_maximo = max(r["score"] for r in resumo)

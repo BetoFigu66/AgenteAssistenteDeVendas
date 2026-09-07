@@ -130,6 +130,35 @@ export const api = {
     }
   },
 
+  // Apaga contato/atendimentos/mensagens de um telefone (endpoint de dev, só
+  // funciona com DEBUG=True no backend — ver docs/comandos_uteis.md). Não
+  // remove empresa nem pessoa vinculadas.
+  async apagarConversa(telefone) {
+    try {
+      const response = await apiFetch(`${API_URL}/api/dev/telefones/${encodeURIComponent(telefone)}`, {
+        method: 'DELETE',
+      })
+      if (!response.ok) {
+        const detail = await response.json().catch(() => null)
+        if (response.status === 403) {
+          throw new ApiError(
+            detail?.detail || 'Apagar conversa só é permitido com DEBUG=True no backend.',
+            403,
+            'server',
+          )
+        }
+        if (response.status === 404) {
+          throw new ApiError('Nenhum dado encontrado para esse telefone.', 404, 'server')
+        }
+        throw new ApiError(detail?.detail || 'Erro ao apagar conversa', response.status, 'server')
+      }
+      return response.json()
+    } catch (error) {
+      if (error instanceof ApiError) throw error
+      throw new ApiError('Backend não está respondendo', 0, 'network')
+    }
+  },
+
   async obterEmpresa(empresaId) {
     try {
       const response = await apiFetch(`${API_URL}/api/empresas/${empresaId}`)

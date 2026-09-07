@@ -10,8 +10,9 @@ from typing import Dict, List, Optional
 
 from config import settings
 from models import Atendimento, Mensagem, OrigemMensagem, StatusAtendimento
-from sqlalchemy import create_engine, select
+from sqlalchemy import create_engine, func, select
 from sqlalchemy.orm import sessionmaker
+from utils.datetime_utils import serialize_utc_datetime
 
 
 class Database:
@@ -111,16 +112,26 @@ class Database:
                 mensagens = session.scalars(stmt).all()
             return [msg.to_dict() for msg in mensagens]
 
-    def listar_telefones(self) -> List[str]:
+    def listar_telefones(self) -> List[Dict]:
         """
-        Lista todos os telefones únicos com histórico.
+        Lista telefones com histórico, cada um com o timestamp da última
+        mensagem — ordenado do mais recente para o mais antigo (a conversa
+        ativa fica sempre no topo da lista, sem precisar de scroll pra achar).
 
         Returns:
-            Lista de números de telefone
+            Lista de {"telefone": str, "ultima_mensagem_em": str ISO} por telefone.
         """
         with self.get_session() as session:
-            stmt = select(Mensagem.telefone).distinct().order_by(Mensagem.telefone)
-            return list(session.scalars(stmt).all())
+            ultima_mensagem = func.max(Mensagem.timestamp)
+            stmt = (
+                select(Mensagem.telefone, ultima_mensagem.label("ultima_mensagem_em"))
+                .group_by(Mensagem.telefone)
+                .order_by(ultima_mensagem.desc())
+            )
+            return [
+                {"telefone": telefone, "ultima_mensagem_em": serialize_utc_datetime(ultima)}
+                for telefone, ultima in session.execute(stmt).all()
+            ]
 
     def mensagem_existe(self, message_sid: str) -> bool:
         """

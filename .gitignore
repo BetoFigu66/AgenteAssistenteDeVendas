@@ -88,3 +88,7 @@ artefatos/gerente_de_projetos/*.pptx
 !artefatos/gerente_de_projetos/*template*.pptx
 list_files_to*
 
+
+# Segredos - nunca versionar (incidente 2026-08-29)
+.env
+.env_backup

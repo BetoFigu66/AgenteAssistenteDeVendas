@@ -29,6 +29,8 @@ from services.identificador import StatusIdentificacao
 from services.respostas import MensagemId
 
 from .acoes import Acao, ContextoAcao, GrupoAcoes, garantir_atendimento_dispatch
+from .categoria_pergunta import _HANDLERS as _HANDLERS_CATEGORIA_PERGUNTA
+from .categoria_pergunta import _responder_fora_contexto as _responder_categoria_pergunta_fora_contexto
 from .motor import RegraIntencao
 from .regras_encerramento import CHAVE_FECHAMENTO_PENDENTE
 
@@ -240,24 +242,28 @@ _CATEGORIA_PERGUNTA_GARANTE_ATENDIMENTO = frozenset({Intencao.PERGUNTAR_PRECO, I
 
 
 def _builder_categoria_pergunta(intencao_categoria: Intencao):
-    """Fábrica: uma Regra por intenção de categoria_pergunta (preço/produto/fora de contexto),
-    todas compartilhando o mesmo wrapper de `_responder_categoria_pergunta` (D1/REQ-002.1B —
-    responde via Q&A/RAG imediatamente, nunca exige documento antes).
+    """Fábrica: uma Regra por intenção de categoria_pergunta (preço/produto/fora de contexto).
+    D1/REQ-002.1B — responde via Q&A/RAG imediatamente, nunca exige documento antes.
+
+    Chama o handler de `categoria_pergunta.py` **direto** (`_HANDLERS_CATEGORIA_PERGUNTA`)
+    em vez de redespachar por `ctx.processador._responder_categoria_pergunta`: esta fábrica
+    já recebe `intencao_categoria` fixo por chamada (`_builder_categoria_pergunta(Intencao.
+    PERGUNTAR_PRECO)` etc., abaixo) — redespachar algo que já se sabe em tempo de registro
+    era o achado de review D04 (dispatch duplicado).
 
     Se `PEDIR_ORCAMENTO` bateu junto (registrada antes na lista `pos`) e já produziu
     fragmento, a dúvida não contribui mais nada — sem essa checagem, "Quero orçamento de
     relógio de ponto" gerava uma resposta tripla e redundante (início do orçamento +
     resposta genérica de RAG sobre o mesmo produto colada atrás)."""
     garante_atendimento = intencao_categoria in _CATEGORIA_PERGUNTA_GARANTE_ATENDIMENTO
+    handler = _HANDLERS_CATEGORIA_PERGUNTA.get(intencao_categoria, _responder_categoria_pergunta_fora_contexto)
 
     async def _executar(ctx: ContextoAcao):
         if ctx.fragmentos_ate_agora:
             return None
         if garante_atendimento:
             await garantir_atendimento_dispatch(ctx)
-        return await ctx.processador._responder_categoria_pergunta(
-            intencao_categoria, ctx.conteudo, db=ctx.db, atendimento=ctx.atendimento, dlog=ctx.dlog
-        )
+        return await handler(ctx)
 
     def _builder(ctx: ContextoAcao) -> GrupoAcoes:
         return GrupoAcoes(pos=[Acao(f"categoria_pergunta_{intencao_categoria.value}", _executar)])

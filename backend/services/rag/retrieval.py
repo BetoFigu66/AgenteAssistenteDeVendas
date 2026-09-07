@@ -17,7 +17,7 @@ from __future__ import annotations
 import logging
 from dataclasses import dataclass, field
 from functools import lru_cache
-from typing import Any, Optional, Sequence
+from typing import TYPE_CHECKING, Any, Optional, Protocol, Sequence
 
 from config import settings
 from models import DocumentoConhecimento, Vector
@@ -27,7 +27,22 @@ from sqlalchemy.orm import sessionmaker
 
 from services.embeddings import EmbeddingProvider, get_embedding_provider
 
+if TYPE_CHECKING:
+    from services.debug_log import DebugLogger
+
 logger = logging.getLogger(__name__)
+
+
+class BuscadorRag(Protocol):
+    """Forma exigida de quem busca trechos de conhecimento — `RetrievalService` (real)
+    e `RetrievalServiceNulo` (Null Object, usado quando RAG está desabilitada ou falhou
+    ao inicializar) satisfazem por duck typing, sem herança."""
+
+    habilitado: bool
+
+    async def buscar_trechos(
+        self, query: str, *, dlog: Optional["DebugLogger"] = None
+    ) -> list["DocumentoRecuperado"]: ...
 
 
 @dataclass
@@ -143,6 +158,37 @@ class RetrievalService:
             )
         return filtrados
 
+    async def buscar_trechos(
+        self, query: str, *, dlog: Optional["DebugLogger"] = None
+    ) -> list[DocumentoRecuperado]:
+        """Busca trechos para a query — lista vazia se desabilitado, sem hits ou em
+        falha. Absorve o log de auditoria (`dlog`) e a tolerância a falha que antes
+        viviam em `ProcessadorMensagem._buscar_trechos_rag` (Feature Envy: só liam
+        estado deste serviço)."""
+        if not self.habilitado:
+            if dlog:
+                dlog.log("rag_busca", "RAG desabilitada ou retrieval não inicializado")
+            return []
+        if dlog:
+            dlog.log("rag_busca", f'query="{query[:80]}" score_min={self._score_minimo_padrao}')
+        try:
+            trechos = await self.buscar(query=query, tipo=None)
+            if dlog:
+                if trechos:
+                    top = trechos[0]
+                    dlog.log(
+                        "rag_resultado",
+                        f"encontrados={len(trechos)} melhor_score={top.score:.4f} titulo='{str(top.titulo)[:50]}'",
+                    )
+                else:
+                    dlog.log("rag_resultado", f"encontrados=0 (score_min={self._score_minimo_padrao})")
+            return trechos
+        except Exception as e:
+            logger.warning("[RAG] Falha na busca: %s", e)
+            if dlog:
+                dlog.log("rag_erro", f"{type(e).__name__}: {str(e)[:80]}")
+            return []
+
     async def buscar_candidatos(
         self,
         query: str,
@@ -220,6 +266,22 @@ class RetrievalService:
                 )
             )
         return resultados
+
+
+class RetrievalServiceNulo:
+    """Null Object de `RetrievalService` — usado quando RAG está desabilitada por
+    configuração ou falhou ao inicializar (ex.: `EMBEDDING_API_KEY` ausente em dev).
+    Satisfaz `BuscadorRag`: sempre "sem trechos", sem tocar rede/banco, sem exigir
+    `embedding_provider`/`engine` reais."""
+
+    habilitado = False
+
+    async def buscar_trechos(
+        self, query: str, *, dlog: Optional["DebugLogger"] = None
+    ) -> list[DocumentoRecuperado]:
+        if dlog:
+            dlog.log("rag_busca", "RAG desabilitada ou retrieval não inicializado")
+        return []
 
 
 # ----------------------------------------------------------------------

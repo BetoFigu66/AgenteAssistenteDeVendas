@@ -1,12 +1,12 @@
 import { useState, useRef, useEffect } from 'react'
-import { Send, MessageCircle, AlertTriangle } from 'lucide-react'
+import { Send, MessageCircle, AlertTriangle, Trash2 } from 'lucide-react'
 import Message from './Message'
 import ConversaInfo from './ConversaInfo'
 import { api } from '../services/api'
 
-function ChatArea({ telefone, mensagens, dadosConversa, loading, erro, onEnviarMensagem }) {
+function ChatArea({ telefone, mensagens, dadosConversa, loading, erro, onEnviarMensagem, onApagarConversa }) {
   const [inputMensagem, setInputMensagem] = useState('')
-  const messagesEndRef = useRef(null)
+  const containerMensagensRef = useRef(null)
   const [scoreMinimo, setScoreMinimo] = useState(null)
   const [salvandoScore, setSalvandoScore] = useState(false)
 
@@ -29,12 +29,14 @@ function ChatArea({ telefone, mensagens, dadosConversa, loading, erro, onEnviarM
     finally { setSalvandoScore(false) }
   }
 
-  const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
-  }
-
   useEffect(() => {
-    scrollToBottom()
+    // Rola só o contêiner interno das mensagens — nunca a página. `scrollIntoView`
+    // sobe pela cadeia de ancestrais roláveis (inclusive o document), o que
+    // causava o salto até a lista de telefones ao mandar mensagem.
+    const container = containerMensagensRef.current
+    if (container) {
+      container.scrollTop = container.scrollHeight
+    }
   }, [mensagens])
 
   const handleSubmit = (e) => {
@@ -56,24 +58,38 @@ function ChatArea({ telefone, mensagens, dadosConversa, loading, erro, onEnviarM
               {telefone || 'Selecione um telefone'}
             </p>
           </div>
-          {scoreMinimo !== null && (
-            <div className="flex items-center gap-1.5 text-xs">
-              <span className="text-white/70">Score RAG</span>
-              <input
-                type="number"
-                min="0"
-                max="1"
-                step="0.05"
-                value={scoreMinimo}
-                onChange={handleScoreChange}
-                onBlur={handleScoreBlur}
-                onKeyDown={e => e.key === 'Enter' && e.target.blur()}
-                title="Score mínimo de similaridade para a RAG retornar resultados (0.0 a 1.0)"
-                className="w-16 text-center rounded px-1 py-0.5 bg-white/20 text-white border border-white/30 focus:outline-none focus:bg-white/30"
-              />
-              <span className={`text-xs transition-opacity ${salvandoScore ? 'opacity-100' : 'opacity-0'} text-white/60`}>✓</span>
-            </div>
-          )}
+          <div className="flex items-center gap-3">
+            {scoreMinimo !== null && (
+              <div className="flex items-center gap-1.5 text-xs">
+                <span className="text-white/70">Score RAG</span>
+                <input
+                  type="number"
+                  min="0"
+                  max="1"
+                  step="0.05"
+                  value={scoreMinimo}
+                  onChange={handleScoreChange}
+                  onBlur={handleScoreBlur}
+                  onKeyDown={e => e.key === 'Enter' && e.target.blur()}
+                  title="Score mínimo de similaridade para a RAG retornar resultados (0.0 a 1.0)"
+                  className="w-16 text-center rounded px-1 py-0.5 bg-white/20 text-white border border-white/30 focus:outline-none focus:bg-white/30"
+                />
+                <span className={`text-xs transition-opacity ${salvandoScore ? 'opacity-100' : 'opacity-0'} text-white/60`}>✓</span>
+              </div>
+            )}
+            {telefone && (
+              <button
+                type="button"
+                onClick={onApagarConversa}
+                disabled={loading}
+                title="Apaga contato, atendimentos e mensagens deste telefone (endpoint de dev — requer DEBUG=True no backend)"
+                className="flex items-center gap-1 text-xs text-white/80 hover:text-white hover:bg-white/10 rounded px-2 py-1 transition disabled:opacity-50"
+              >
+                <Trash2 size={14} />
+                Apagar conversa
+              </button>
+            )}
+          </div>
         </div>
       </div>
 
@@ -81,7 +97,7 @@ function ChatArea({ telefone, mensagens, dadosConversa, loading, erro, onEnviarM
       {telefone && dadosConversa && <ConversaInfo dados={dadosConversa} />}
 
       {/* Mensagens */}
-      <div className="flex-1 overflow-y-auto p-4 space-y-3 bg-gray-50">
+      <div ref={containerMensagensRef} className="flex-1 overflow-y-auto p-4 space-y-3 bg-gray-50">
         {!telefone ? (
           <div className="text-center text-gray-400 text-sm py-8">
             Selecione ou digite um número de telefone para iniciar
@@ -106,7 +122,6 @@ function ChatArea({ telefone, mensagens, dadosConversa, loading, erro, onEnviarM
             {mensagens.map((msg, index) => (
               <Message key={msg.id || index} mensagem={msg} />
             ))}
-            <div ref={messagesEndRef} />
           </>
         )}
       </div>

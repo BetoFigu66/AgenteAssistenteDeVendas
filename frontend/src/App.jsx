@@ -94,8 +94,8 @@ function AppLogado() {
 
   const selecionarTelefone = (telefone) => {
     setTelefoneAtual(telefone)
-    if (!telefones.includes(telefone)) {
-      setTelefones(prev => [...prev, telefone])
+    if (!telefones.some(t => t.telefone === telefone)) {
+      setTelefones(prev => [{ telefone, ultima_mensagem_em: null }, ...prev])
     }
   }
 
@@ -108,9 +108,35 @@ function AppLogado() {
       await api.enviarMensagem(telefoneAtual, mensagem)
       await carregarHistorico(telefoneAtual)
       await carregarDadosConversa(telefoneAtual)
+      // Reordena pelo backend (última mensagem desc) — a conversa que acabou
+      // de receber mensagem sobe pro topo, sem precisar rolar a lista pra achar.
+      await carregarTelefones()
     } catch (error) {
       console.error('Erro ao enviar mensagem:', error)
       setErro(error.message || 'Erro ao enviar mensagem. Tente novamente.')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const apagarConversa = async () => {
+    if (!telefoneAtual) return
+    const confirmado = window.confirm(
+      `Apagar toda a conversa de ${telefoneAtual}? Remove contato, atendimentos e mensagens — não dá pra desfazer.`,
+    )
+    if (!confirmado) return
+
+    try {
+      setLoading(true)
+      setErro(null)
+      await api.apagarConversa(telefoneAtual)
+      setTelefones(prev => prev.filter(t => t.telefone !== telefoneAtual))
+      setMensagens([])
+      setDadosConversa(null)
+      setTelefoneAtual(null)
+    } catch (error) {
+      console.error('Erro ao apagar conversa:', error)
+      setErro(error.message || 'Erro ao apagar conversa. Tente novamente.')
     } finally {
       setLoading(false)
     }
@@ -192,6 +218,7 @@ function AppLogado() {
                 loading={loading}
                 erro={erro}
                 onEnviarMensagem={enviarMensagem}
+                onApagarConversa={apagarConversa}
               />
             </div>
           </div>

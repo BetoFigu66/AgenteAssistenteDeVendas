@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { Phone, Plus } from 'lucide-react'
+import { formatDatetimeBRT } from '../utils/datetime'
 
 function PhonePanel({ telefones, telefoneAtual, onSelectTelefone }) {
   const [novoTelefone, setNovoTelefone] = useState('')
@@ -34,14 +35,15 @@ function PhonePanel({ telefones, telefoneAtual, onSelectTelefone }) {
         </button>
       </form>
 
-      {/* Lista de telefones */}
+      {/* Lista de telefones — ordenada pelo backend por última mensagem
+          (mais recente primeiro), a conversa ativa sempre fica no topo. */}
       <div className="border-t pt-4">
         <p className="text-xs text-gray-500 mb-2">Conversas anteriores:</p>
         {telefones.length === 0 ? (
           <p className="text-gray-400 text-sm italic">Nenhuma conversa</p>
         ) : (
           <ul className="space-y-1">
-            {telefones.map((tel) => (
+            {telefones.map(({ telefone: tel, ultima_mensagem_em }) => (
               <li key={tel}>
                 <button
                   onClick={() => onSelectTelefone(tel)}
@@ -51,7 +53,12 @@ function PhonePanel({ telefones, telefoneAtual, onSelectTelefone }) {
                       : 'hover:bg-gray-100 text-gray-700'
                   }`}
                 >
-                  {tel}
+                  <div>{tel}</div>
+                  {ultima_mensagem_em && (
+                    <div className={`text-xs ${tel === telefoneAtual ? 'text-white/70' : 'text-gray-400'}`}>
+                      {formatDatetimeBRT(ultima_mensagem_em)}
+                    </div>
+                  )}
                 </button>
               </li>
             ))}

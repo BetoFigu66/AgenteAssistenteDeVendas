@@ -4,8 +4,10 @@ Todo o pipeline que antes vivia em `ProcessadorMensagem` (F1-F4/G1-G3) mora aqui
 essa era a violação de GRASP Information Expert identificada em code review: quem "sabe"
 processar Finalizando deve ser uma classe da própria fase, não o orquestrador genérico.
 Infra genuinamente cross-cutting (`GeradorRespostas`, persistência de `AtendimentoInfo`,
-`_responder_categoria_pergunta`, escalonamento) continua em `ProcessadorMensagem` — chamada aqui via
-`ctx.processador`, como as Regras já faziam.
+escalonamento) continua em `ProcessadorMensagem` — chamada aqui via `ctx.processador`, como
+as Regras já faziam. Categoria_pergunta (dúvida produto/preço/fora de contexto) não é
+infra cross-cutting — mora em `categoria_pergunta.py` (achado de review D02/D03), chamada
+aqui via `responder_categoria_pergunta(intencao, ctx)`.
 """
 
 from __future__ import annotations
@@ -42,6 +44,7 @@ from services.conversacao.catalogo_campos import (
     Pergunta,
     chave_perguntado,
 )
+from services.conversacao.categoria_pergunta import responder_categoria_pergunta
 from services.respostas import MensagemId, RespostaGerada
 
 from .base import EstadoAtendimento
@@ -539,16 +542,12 @@ class FinalizandoState(EstadoAtendimento):
         """F3: se a mensagem em Finalizando for uma dúvida (categoria_pergunta), responde via
         Q&A/RAG e reapresenta a última pergunta pendente — sem perder o progresso da
         coleta (a fase continua Finalizando)."""
-        db = ctx.db
         atendimento = ctx.atendimento
-        conteudo = ctx.conteudo
         resultado_class = ctx.resultado_class
         p = ctx.processador
         dlog = ctx.dlog
 
-        resposta_duvida = await p._responder_categoria_pergunta(
-            resultado_class.intencao_principal, conteudo, db=db, atendimento=atendimento, dlog=dlog
-        )
+        resposta_duvida = await responder_categoria_pergunta(resultado_class.intencao_principal, ctx)
 
         if atendimento.modo_operacao == ModoOperacao.HUMANO:
             # A dúvida acabou de escalar para atendimento humano (base insuficiente,

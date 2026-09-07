@@ -17,7 +17,7 @@ from __future__ import annotations
 import logging
 from dataclasses import dataclass
 from functools import lru_cache
-from typing import Any, Optional
+from typing import TYPE_CHECKING, Any, Optional, Protocol
 
 from config import settings
 from models import ParQA, Vector
@@ -27,7 +27,26 @@ from sqlalchemy.orm import sessionmaker
 
 from services.embeddings import EmbeddingProvider, get_embedding_provider
 
+if TYPE_CHECKING:
+    from services.debug_log import DebugLogger
+
 logger = logging.getLogger(__name__)
+
+
+class BuscadorQA(Protocol):
+    """Forma exigida de quem busca pares Q&A — `QAService` (real) e `QAServiceNulo`
+    (Null Object, usado quando QA está desabilitada ou falhou ao inicializar) satisfazem
+    por duck typing, sem herança."""
+
+    habilitado: bool
+
+    async def buscar_melhor(
+        self,
+        query: str,
+        *,
+        apenas_aprovados: bool = True,
+        dlog: Optional["DebugLogger"] = None,
+    ) -> Optional["ParRecuperado"]: ...
 
 
 @dataclass
@@ -159,6 +178,42 @@ class QAService:
                 [(r.id_externo[:60], round(r.score, 3)) for r in filtrados[:3]],
             )
         return filtrados
+
+    async def buscar_melhor(
+        self,
+        query: str,
+        *,
+        apenas_aprovados: bool = True,
+        dlog: Optional["DebugLogger"] = None,
+    ) -> Optional[ParRecuperado]:
+        """Busca o melhor par Q&A para a query — `None` se desabilitado, sem hit ou em
+        falha. Absorve o log de auditoria (`dlog`) e a tolerância a falha que antes
+        viviam em `ProcessadorMensagem._buscar_resposta_qa` (Feature Envy: só liam
+        estado deste serviço)."""
+        if not self.habilitado:
+            if dlog:
+                dlog.log("qa_busca", "QA desabilitado ou serviço não inicializado")
+            return None
+        if dlog:
+            dlog.log("qa_busca", f'query="{query[:80]}" score_min={self._score_minimo_padrao}')
+        try:
+            pares = await self.buscar(query=query, apenas_aprovados=apenas_aprovados)
+            if pares:
+                top = pares[0]
+                if dlog:
+                    dlog.log(
+                        "qa_resultado",
+                        f"hit score={top.score:.4f} id={top.id_externo} pergunta='{top.pergunta[:50]}'",
+                    )
+                return top
+            if dlog:
+                dlog.log("qa_resultado", f"sem hits (score_min={self._score_minimo_padrao})")
+            return None
+        except Exception as e:
+            logger.warning("[QA] Falha na busca: %s", e)
+            if dlog:
+                dlog.log("qa_erro", f"{type(e).__name__}: {str(e)[:80]}")
+            return None
 
     async def buscar_candidatos(
         self,
@@ -293,6 +348,26 @@ class QAService:
                 )
             )
         return resultados
+
+
+class QAServiceNulo:
+    """Null Object de `QAService` — usado quando QA está desabilitada por configuração
+    ou falhou ao inicializar (ex.: `EMBEDDING_API_KEY` ausente em dev). Satisfaz
+    `BuscadorQA`: sempre "sem resultado", sem tocar rede/banco, sem exigir
+    `embedding_provider`/`engine` reais."""
+
+    habilitado = False
+
+    async def buscar_melhor(
+        self,
+        query: str,
+        *,
+        apenas_aprovados: bool = True,
+        dlog: Optional["DebugLogger"] = None,
+    ) -> Optional[ParRecuperado]:
+        if dlog:
+            dlog.log("qa_busca", "QA desabilitado ou serviço não inicializado")
+        return None
 
 
 # ----------------------------------------------------------------------

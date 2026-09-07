@@ -26,22 +26,20 @@ from services.respostas import MensagemId
 
 class _RetrievalFake:
     def __init__(self, resultados=None):
-        self._score_minimo_padrao = 0.70
         self.habilitado = True
         self.resultados = resultados or []
 
-    async def buscar(self, query, tipo=None, **kwargs):
+    async def buscar_trechos(self, query, dlog=None):
         return self.resultados
 
 
 class _QAFake:
     def __init__(self, resultados=None):
-        self._score_minimo_padrao = 0.80
         self.habilitado = True
         self.resultados = resultados or []
 
-    async def buscar(self, query, apenas_aprovados=True, **kwargs):
-        return self.resultados
+    async def buscar_melhor(self, query, apenas_aprovados=True, dlog=None):
+        return self.resultados[0] if self.resultados else None
 
 
 def _doc(titulo="Doc de teste", score=0.9):

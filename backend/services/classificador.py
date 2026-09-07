@@ -635,6 +635,9 @@ def classificar_por_regras(texto: str) -> list[tuple[Intencao, float]]:
         if cpfs:
             matches.append((Intencao.FORNECER_CPF, 0.9))
 
+    if parse_data_nascimento(texto):
+        matches.append((Intencao.FORNECER_DATA_NASCIMENTO, 0.9))
+
     for intencao, padrao in _REGRAS_INTENCAO:
         if padrao.search(texto):
             matches.append((intencao, 0.75))
