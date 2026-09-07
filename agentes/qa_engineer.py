@@ -555,6 +555,76 @@ def _check_ruff(raiz: Path) -> CheckResult:
     )
 
 
+@registrar_check(
+    id="mypy-type-check",
+    titulo="Checagem de tipos via mypy (backend)",
+    severidade="warning",
+    escopos=["sempre", "pre-commit"],
+)
+def _check_mypy(raiz: Path) -> CheckResult:
+    """
+    Invoca mypy sobre backend/ (mesma raiz de import usada em runtime — ver
+    CLAUDE.md, "uvicorn main:app" a partir de backend/; rodar da raiz do repo
+    degrada a inferencia de tipo pra `Any` em boa parte do codigo).
+
+    Severidade `warning` (nao bloqueia commit) de proposito: o projeto nunca rodou
+    type-checker antes, ha uma divida pre-existente relevante (140 erros/24 arquivos
+    em 2026-08-20). Endurecer para `error` e uma decisao futura, depois que essa
+    divida for equacionada — nao adicionar baseline/exclusao por modulo sem decisao
+    explicita nesse sentido.
+
+    Usa `sys.executable -m mypy` (o interprete que ja esta rodando este check —
+    `backend/venv/bin/python` quando chamado via hook) em vez de um `mypy` bruto
+    dependendo do PATH global: o hook (`run_qa_check_precommit.sh`) roda com o PATH
+    herdado do processo do `git commit`, que nao inclui `backend/venv/bin` so por
+    esse venv existir — precisa do pacote instalado no MESMO interpretador.
+    """
+    import subprocess
+    import sys
+
+    backend_dir = raiz / "backend"
+    config_file = raiz / "pyproject.toml"
+    try:
+        result = subprocess.run(
+            [sys.executable, "-m", "mypy", "--config-file", str(config_file), "."],
+            cwd=str(backend_dir),
+            capture_output=True,
+            text=True,
+            timeout=120,
+        )
+    except subprocess.TimeoutExpired:
+        return CheckResult(
+            passou=False,
+            severidade="warning",
+            mensagem="mypy timeout (120s); check ignorado.",
+        )
+
+    if result.returncode != 0 and "No module named mypy" in result.stderr:
+        return CheckResult(
+            passou=True,
+            mensagem=(
+                f"mypy nao instalado em {sys.executable}; check ignorado. "
+                "Instale no venv do projeto: cd backend && pip install mypy"
+            ),
+        )
+
+    passou = result.returncode == 0
+    findings = result.stdout.splitlines() if not passou else []
+    comandos = ["cd backend && mypy --config-file ../pyproject.toml ."] if not passou else []
+
+    return CheckResult(
+        passou=passou,
+        severidade="warning",
+        findings=findings,
+        comandos_uteis=comandos,
+        mensagem="mypy: OK" if passou else f"mypy: {len(findings)} linha(s) de saida (erros + resumo)",
+        dica_correcao=(
+            "Severidade `warning` de proposito — e so relatorio, nao bloqueia commit "
+            "(ha divida pre-existente). Rode o comando acima pra ver os erros com contexto completo."
+        ),
+    )
+
+
 # ----------------------------------------------------------------------
 # QAEngineer — agente executor da checklist
 # ----------------------------------------------------------------------

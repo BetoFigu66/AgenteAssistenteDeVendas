@@ -20,6 +20,11 @@ wheels/
 .installed.cfg
 *.egg
 
+# pytest-cov / coverage.py
+.coverage
+.coverage.*
+htmlcov/
+
 # Virtual environments
 venv/
 ENV/
@@ -46,8 +51,8 @@ Thumbs.db
 *.log
 
 # Environment variables
-.env
-.env.local
+#.env
+#.env.local
 
 # API Keys (NUNCA commitar!)
 **/secrets/
