@@ -40,6 +40,7 @@ from models import (
     User,
 )
 from sqlalchemy.orm import Session
+from sqlalchemy.orm.util import identity_key
 from utils.datetime_utils import utc_now
 
 from services import atendimentos as atendimentos_svc
@@ -1240,6 +1241,31 @@ class ProcessadorMensagem:
         info = db.query(AtendimentoInfo).filter_by(atendimento_id=atendimento_id, chave=chave).first()
         return info.valor if info else None
 
+    def _expirar_cache_infos(self, db: Session, atendimento_id: int) -> None:
+        """Invalida o cache de `Atendimento.informacoes` depois de gravar um `AtendimentoInfo`.
+
+        Os dois helpers abaixo usam `flush()` e não `commit()` de propósito — não se quer
+        commit parcial no meio do processamento de uma mensagem. Só que `commit()` também
+        expirava os objetos da sessão (`expire_on_commit`, padrão do SQLAlchemy), e era
+        isso, por acidente, que forçava a releitura do relationship `informacoes`
+        (`lazy="select"`). `flush()` grava o SQL mas **não** invalida a coleção já
+        carregada: quem chamasse `campos_pendentes()` depois de gravar lia a coleção
+        obsoleta, não via o valor recém-escrito, e o bot repetia a pergunta que o cliente
+        acabava de responder.
+
+        O conserto fica aqui, no escritor, e não em cada leitor: é o `AtendimentoInfo`
+        novo que torna a coleção obsoleta, então é aqui que o invariante se restaura. Pôr
+        a correção nos leitores significaria lembrar dela em todo leitor futuro — inclusive
+        em `models_comportamento.py`, cujo contrato proíbe tocar na sessão.
+
+        Expira só a coleção (não o objeto inteiro) e só se o atendimento já estiver na
+        sessão: a consulta ao identity map não emite SQL, então não custa nada nos fluxos
+        que apenas gravam sem ter o `Atendimento` carregado.
+        """
+        atendimento = db.identity_map.get(identity_key(Atendimento, (atendimento_id,)))
+        if atendimento is not None:
+            db.expire(atendimento, ["informacoes"])
+
     def _salvar_info_atendimento(
         self, db: Session, atendimento_id: int, chave: str, valor: str, pendente: bool = True
     ) -> None:
@@ -1258,10 +1284,14 @@ class ProcessadorMensagem:
                 )
             )
         db.flush()
+        self._expirar_cache_infos(db, atendimento_id)
 
     def _remover_info_atendimento(self, db: Session, atendimento_id: int, chave: str) -> None:
+        # `query.delete()` é bulk: passa por fora da sessão, então nem a linha some do
+        # identity map nem a coleção carregada encolhe. Mesmo motivo do expire acima.
         db.query(AtendimentoInfo).filter_by(atendimento_id=atendimento_id, chave=chave).delete()
         db.flush()
+        self._expirar_cache_infos(db, atendimento_id)
 
     def _obter_user_sistema(self, db: Session) -> User:
         """`User` sentinela usado para marcar mensagens auto-aprovadas em
