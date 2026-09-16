@@ -33,11 +33,15 @@ class EstadoAtendimento(ABC):
         ...
 
     def transicionar_para(self, ctx: ContextoAcao, nova_fase: FaseAtendimento, motivo: str) -> None:
-        """Muda `atendimento.fase`, commita e registra o evento de auditoria."""
+        """Muda `atendimento.fase` e registra o evento de auditoria — na mesma transação.
+
+        Não commita: eram dois commits para uma transição lógica, e se o segundo falhasse
+        a fase mudava sem deixar rastro na trilha de auditoria (achado B1). Quem fecha a
+        transação é o commit final de `processar()`.
+        """
         atendimento = ctx.atendimento
         fase_anterior = atendimento.fase.value
         atendimento.fase = nova_fase
-        ctx.db.commit()
         atendimentos_svc.registrar_evento_atendimento(
             ctx.db,
             atendimento,

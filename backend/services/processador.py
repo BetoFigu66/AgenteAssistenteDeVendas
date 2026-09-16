@@ -24,6 +24,7 @@ from models import (
     AtendimentoInfo,
     Contato,
     Empresa,
+    EventoAtendimento,
     FaseAtendimento,
     Mensagem,
     ModoExecucao,
@@ -39,6 +40,7 @@ from models import (
     TipoEventoAtendimento,
     User,
 )
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 from sqlalchemy.orm.util import identity_key
 from utils.datetime_utils import utc_now
@@ -287,6 +289,10 @@ class ProcessadorMensagem:
         requer_aprovacao = modo_execucao in (ModoExecucao.SIMULACAO, ModoExecucao.CONVERSA_CONTROLADA)
         dlog.log("modo_execucao", modo_execucao.value)
 
+        # A2: marca d'água para o back-fill mais abaixo — os eventos de auditoria
+        # gerados por ESTA mensagem são os criados a partir daqui.
+        ultimo_evento_id = db.query(func.max(EventoAtendimento.id)).scalar() or 0
+
         # 5. Roteia conforme estado de identificação + intenção (só no modo AGENTE)
         if modo_humano:
             resposta = RespostaGerada(texto="", template_usado=None)
@@ -336,6 +342,29 @@ class ProcessadorMensagem:
         )
 
         dlog.log("processamento_id", f"id={processamento.id} duracao={duracao_ms}ms")
+
+        # A2: vincula os eventos de auditoria desta mensagem à mensagem e ao
+        # processamento que os provocaram (`EventoAtendimento.mensagem_id` /
+        # `.processamento_id` existiam mas nenhum call site preenchia).
+        #
+        # Por que back-fill e não passar os ids adiante: o `processamento_id` só nasce
+        # aqui — `_criar_processamento` recebe a `resposta` como entrada, porque registra
+        # o resultado da decisão, então não existe antes dela. E passar o `mensagem_id`
+        # exigiria acrescentá-lo a seis assinaturas no caminho (`_escalar_atendimento`,
+        # `_reiniciar_qualificacao` e afins), onde qualquer chamador esquecido falharia em
+        # silêncio com `None`. Aqui é um lugar só.
+        #
+        # Só funciona porque os eventos ainda não foram commitados (achado B1): antes,
+        # `registrar_evento_atendimento` commitava na hora e cada evento fechava a própria
+        # transação.
+        if atendimento is not None:
+            db.query(EventoAtendimento).filter(
+                EventoAtendimento.id > ultimo_evento_id,
+                EventoAtendimento.atendimento_id == atendimento.id,
+            ).update(
+                {"mensagem_id": msg_in.id, "processamento_id": processamento.id},
+                synchronize_session=False,
+            )
 
         # 8. Vincula mensagem do cliente ao processamento/contato/atendimento
         msg_in.processamento_id = processamento.id
@@ -790,7 +819,6 @@ class ProcessadorMensagem:
             db.delete(item)
         fase_anterior = atendimento.fase.value
         atendimento.fase = FaseAtendimento.ESCLARECENDO
-        db.commit()
         atendimentos_svc.registrar_evento_atendimento(
             db,
             atendimento,
@@ -914,7 +942,6 @@ class ProcessadorMensagem:
         atendimento.escalado_por = ator
         atendimento.motivo_escalonamento = motivo.value
         atendimento.resumo_escalonamento = self._montar_resumo_escalonamento(db, atendimento, motivo)
-        db.commit()
         atendimentos_svc.registrar_evento_atendimento(
             db,
             atendimento,
@@ -1267,8 +1294,19 @@ class ProcessadorMensagem:
             db.expire(atendimento, ["informacoes"])
 
     def _salvar_info_atendimento(
-        self, db: Session, atendimento_id: int, chave: str, valor: str, pendente: bool = True
+        self,
+        db: Session,
+        atendimento_id: int,
+        chave: str,
+        valor: str,
+        pendente: bool = True,
+        origem: OrigemInfo = OrigemInfo.USER,
     ) -> None:
+        """Get-or-create de um `AtendimentoInfo`. Único ponto de escrita da tabela.
+
+        `origem` só vale na criação: uma informação dada pelo cliente não vira "inferida"
+        porque o LLM a reafirmou depois (nem o contrário).
+        """
         info = db.query(AtendimentoInfo).filter_by(atendimento_id=atendimento_id, chave=chave).first()
         if info:
             info.valor = valor
@@ -1280,7 +1318,7 @@ class ProcessadorMensagem:
                     chave=chave,
                     valor=valor,
                     pendente=pendente,
-                    origem=OrigemInfo.USER,
+                    origem=origem,
                 )
             )
         db.flush()
@@ -1378,28 +1416,23 @@ class ProcessadorMensagem:
         for chave, valor in entidades.atributos.items():
             registros.append((chave, valor))
 
+        origem = OrigemInfo.INFERIDO if resultado_class.origem == "llm" else OrigemInfo.USER
+
         for chave, valor in registros:
-            info = db.query(AtendimentoInfo).filter_by(atendimento_id=atendimento.id, chave=chave).first()
-            if chave in chaves_atributos_d6 and info and info.valor:
+            if chave in chaves_atributos_d6:
                 # D6: acumula (união) em vez de sobrescrever — o cliente pode mencionar
                 # tecnologias diferentes em mensagens distintas (ex.: "biométrico" antes,
                 # "ou facial" depois); perder o sinal antigo travaria a resolução do modelo.
-                existentes = [v for v in info.valor.split(",") if v]
-                novos = [v for v in valor.split(",") if v]
-                valor = ",".join(sorted(set(existentes) | set(novos)))
-            if info:
-                info.valor = valor
-                info.pendente = False
-            else:
-                db.add(
-                    AtendimentoInfo(
-                        atendimento_id=atendimento.id,
-                        chave=chave,
-                        valor=valor,
-                        pendente=False,
-                        origem=OrigemInfo.INFERIDO if resultado_class.origem == "llm" else OrigemInfo.USER,
-                    )
-                )
+                # A união é calculada aqui porque é regra desta rota; o helper abaixo só
+                # grava o valor final.
+                atual = self._info_atendimento(db, atendimento.id, chave)
+                if atual:
+                    existentes = [v for v in atual.split(",") if v]
+                    novos = [v for v in valor.split(",") if v]
+                    valor = ",".join(sorted(set(existentes) | set(novos)))
+            self._salvar_info_atendimento(db, atendimento.id, chave, valor, pendente=False, origem=origem)
 
-        if registros:
-            db.commit()
+        # Sem `commit()` aqui de propósito: quem fecha a transação é o commit final de
+        # `processar()` (linha ~371), e o `get_session()` ainda commita na saída normal /
+        # faz rollback em exceção. Commitar no meio da decisão deixaria meia verdade
+        # gravada se o processamento falhasse adiante (achado B2 da auditoria 2026-08).

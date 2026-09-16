@@ -2,8 +2,8 @@
 Limpeza de dados de teste por telefone (ferramenta de desenvolvimento).
 
 Remove em cascata (ordem de FKs):
-  reports → mensagens → processamentos → orçamentos/itens → eventos_atendimento →
-  atendimentos → contato
+  reports → eventos_atendimento → mensagens → processamentos → orçamentos/itens →
+  itens/infos de atendimento → atendimentos → contato
 
 Não remove empresa, pessoa nem catálogo de produtos.
 """
@@ -112,6 +112,22 @@ def apagar_dados_telefone(db: Session, telefone: str) -> dict[str, Any]:
     else:
         removidos["reports"] = 0
 
+    # REQ-005 (Fase 6): eventos_atendimento tem FK not-null pra atendimentos — bulk
+    # delete não aciona o cascade do ORM (`Atendimento.eventos`), precisa ser explícito.
+    #
+    # Tem que vir ANTES de mensagens e processamentos: desde que `mensagem_id` e
+    # `processamento_id` passaram a ser preenchidos (achado A2), essas FKs deixaram de ser
+    # sempre NULL e passaram a bloquear a remoção das mensagens. Antes disso a ordem não
+    # importava, e por isso este delete ficava lá embaixo, junto dos atendimentos.
+    if atendimento_ids:
+        removidos["eventos_atendimento"] = (
+            db.query(EventoAtendimento)
+            .filter(EventoAtendimento.atendimento_id.in_(atendimento_ids))
+            .delete(synchronize_session=False)
+        )
+    else:
+        removidos["eventos_atendimento"] = 0
+
     removidos["mensagens"] = (
         db.query(Mensagem).filter(or_(*filtros_mensagem)).delete(synchronize_session=False)
     )
@@ -149,14 +165,6 @@ def apagar_dados_telefone(db: Session, telefone: str) -> dict[str, Any]:
             .filter(AtendimentoInfo.atendimento_id.in_(atendimento_ids))
             .delete(synchronize_session=False)
         )
-        # REQ-005 (Fase 6): eventos_atendimento tem FK not-null pra atendimentos — bulk
-        # delete não aciona o cascade do ORM (`Atendimento.eventos`), precisa ser
-        # explícito aqui, antes de apagar os atendimentos.
-        removidos["eventos_atendimento"] = (
-            db.query(EventoAtendimento)
-            .filter(EventoAtendimento.atendimento_id.in_(atendimento_ids))
-            .delete(synchronize_session=False)
-        )
         removidos["atendimentos"] = (
             db.query(Atendimento)
             .filter(Atendimento.id.in_(atendimento_ids))
@@ -165,7 +173,6 @@ def apagar_dados_telefone(db: Session, telefone: str) -> dict[str, Any]:
     else:
         removidos["itens_atendimento"] = 0
         removidos["atendimento_infos"] = 0
-        removidos["eventos_atendimento"] = 0
         removidos["atendimentos"] = 0
 
     if contato_ids:

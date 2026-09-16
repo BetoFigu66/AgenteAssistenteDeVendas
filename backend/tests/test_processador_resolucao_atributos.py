@@ -316,3 +316,56 @@ def test_resolve_modelo_restrito_ao_produto_do_item_ja_criado(processador):
             assert atendimento.itens[0].produto_id == produto_correto.id
         finally:
             _cleanup_telefone(session, telefone)
+
+
+def test_atributo_d6_acumula_uniao_entre_mensagens(processador):
+    """D6: o cliente diz "biometria" num turno e "facial" noutro — o valor persistido tem
+    que ser a união, não a última menção.
+
+    Lacuna que esta suíte tinha: `test_resolve_modelo_exige_todos_valores_acumulados_do_atributo`
+    injeta o valor já acumulado e testa o consumo; o acúmulo em si, feito por
+    `_atualizar_infos_atendimento`, não era exercitado por nenhum teste (achado B2 da
+    auditoria 2026-08 avisava para "cuidar da união D6" ao refatorar)."""
+    telefone = "55119999999007"
+    with _session() as session:
+        try:
+            produto = _produto_teste(session, "Produto Teste Uniao D6")
+            atendimento = _setup_atendimento(session, telefone, produto)
+
+            asyncio.run(
+                processador._atualizar_infos_atendimento(
+                    session, atendimento, _resultado({"tecnologia_leitura": "biometria"})
+                )
+            )
+            asyncio.run(
+                processador._atualizar_infos_atendimento(
+                    session, atendimento, _resultado({"tecnologia_leitura": "facial"})
+                )
+            )
+
+            valores = {info.chave: info.valor for info in atendimento.informacoes}
+            assert valores["tecnologia_leitura"] == "biometria,facial"
+        finally:
+            _cleanup_telefone(session, telefone)
+
+
+def test_atualizar_infos_nao_commita(processador):
+    """B2: quem fecha a transação é o commit final de `processar()`. Commitar aqui deixaria
+    meia verdade gravada se o processamento falhasse adiante."""
+    telefone = "55119999999008"
+    with _session() as session:
+        try:
+            produto = _produto_teste(session, "Produto Teste Sem Commit")
+            atendimento = _setup_atendimento(session, telefone, produto)
+
+            asyncio.run(
+                processador._atualizar_infos_atendimento(
+                    session, atendimento, _resultado({"tecnologia_leitura": "biometria"})
+                )
+            )
+            session.rollback()
+
+            valores = {info.chave: info.valor for info in atendimento.informacoes}
+            assert "tecnologia_leitura" not in valores
+        finally:
+            _cleanup_telefone(session, telefone)

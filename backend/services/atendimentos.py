@@ -57,7 +57,13 @@ def registrar_evento_atendimento(
         processamento_id=processamento_id,
     )
     db.add(evento)
-    db.commit()
+    # `flush()` e nao `commit()`: o evento tem que cair na MESMA transacao da mudanca de
+    # estado que ele audita. Commitando aqui, uma falha adiante deixava o atendimento com
+    # o estado novo e sem o evento — ou, pior, em `modo_operacao=HUMANO` sem a mensagem de
+    # handoff, suprimindo toda resposta automatica sem rastro (achado B1, auditoria 2026-08).
+    # Quem fecha a transacao e o commit final de `processar()` ou o `get_session()` do
+    # endpoint. O flush mantem `evento.id` disponivel para quem usa o retorno.
+    db.flush()
     return evento
 
 

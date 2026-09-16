@@ -9,15 +9,34 @@
 
 ---
 
+## 0. Andamento
+
+Este documento é o registro da auditoria de 2026-08-29 e **não é reescrito**: os achados
+permanecem como foram redigidos. O que muda é o status, anotado abaixo e em cada achado resolvido.
+
+| Data | Item | Commit | Situação |
+|------|------|--------|----------|
+| 2026-09-15 | P0-1 | `02d66ef` | Resolvido |
+| 2026-09-16 | P0-2 | `6455022` | Resolvido |
+| 2026-09-16 | P1 #5 (B2) | *a commitar* | Resolvido |
+| 2026-09-16 | P1 #7 (A3) | *a commitar* | Resolvido |
+| 2026-09-16 | P1 #4 (B1) | *a commitar* | Resolvido |
+| 2026-09-16 | P1 #8 (A2) | *a commitar* | Resolvido (back-fill) |
+
+**Suíte:** 282 passando (eram 261 passando / 7 falhando quando a auditoria foi escrita; a diferença
+para 266 previstos no roadmap são 6 testes novos — 2 do gate de autenticação e 4 do invariante do P0-2).
+
+---
+
 ## 1. Sumário executivo — os 5 achados mais graves
 
-| # | Achado | Severidade | Esforço |
-|---|---|---|---|
-| **P0-1** | **A aplicação não sobe com o `.env` atual** — `config.py` rejeita as chaves Twilio de API Key | Bloqueante | Trivial |
-| **P0-2** | **Fluxo de qualificação quebrado** — troca `commit()`→`flush()` deixa cache do ORM obsoleto; bot repete perguntas já respondidas (7 testes falhando) | Alta | Baixo |
-| **B1** | Transição de fase/modo e evento de auditoria em **dois commits separados** — atendimento pode travar em `HUMANO` sem rastro | Alta | Médio |
-| **M1** | Memória do MVP descreve um **Template Method que não existe** no código | Alta | Trivial (corrigir memória) |
-| **T2** | Regra de negócio "desviar compatibilidade para validação técnica" **sem guarda determinística** — só instrução de prompt | Média-alta | Médio |
+| # | Achado | Severidade | Esforço | Situação |
+|---|---|---|---|---|
+| **P0-1** | **A aplicação não sobe com o `.env` atual** — `config.py` rejeita as chaves Twilio de API Key | Bloqueante | Trivial | ✅ resolvido (`02d66ef`) |
+| **P0-2** | **Fluxo de qualificação quebrado** — troca `commit()`→`flush()` deixa cache do ORM obsoleto; bot repete perguntas já respondidas (7 testes falhando) | Alta | Baixo | ✅ resolvido (`6455022`) |
+| **B1** | Transição de fase/modo e evento de auditoria em **dois commits separados** — atendimento pode travar em `HUMANO` sem rastro | Alta | Médio | aberto (P1 #4) |
+| **M1** | Memória do MVP descreve um **Template Method que não existe** no código | Alta | Trivial (corrigir memória) | aberto (P2 #11) |
+| **T2** | Regra de negócio "desviar compatibilidade para validação técnica" **sem guarda determinística** — só instrução de prompt | Média-alta | Médio | aberto (P1 #6) |
 
 **Resultado negativo relevante (e tranquilizador):** `CLAUDE.md` e `docs/arquitetura_motor_conversacao_2026-07.md` foram verificados ponto a ponto e **estão fiéis ao código**. Zero achados nos dois. As quatro convenções centrais do backend (nada de psycopg cru, ordem de rotas, import via pacote `models`, timestamps UTC) também estão íntegras de ponta a ponta. O contrato frontend↔backend não tem nenhuma rota quebrada nem cor fora dos tokens da marca.
 
@@ -36,6 +55,12 @@
 - **Correção:** declarar `TWILIO_API_KEY_SID: Optional[str] = None` e `TWILIO_API_KEY_SECRET: Optional[str] = None` em `Settings`, junto das três chaves Twilio já existentes (`config.py:12-14`).
 - **Esforço:** trivial.
 
+> **✅ Resolvido em 2026-09-15 — commit `02d66ef`.** As duas chaves declaradas em `Settings`.
+> Verificação além do óbvio: comparadas **todas** as 23 chaves do `.env` com os campos de
+> `Settings` — nenhuma sobra (o risco real não eram essas duas, era qualquer chave nova). Também
+> documentadas em `backend/.env.example`, que não as mencionava. `import main` e
+> `pytest --collect-only` (268 testes) voltaram a funcionar.
+
 #### P0-2 · `commit()`→`flush()` deixou o cache do relationship obsoleto — **ALTA**
 
 - **Mudança:** `backend/services/processador.py:1243-1264` — `_salvar_info_atendimento`/`_remover_info_atendimento` passaram de `db.commit()` para `db.flush()`, para remover commits parciais no meio do processamento (objetivo legítimo).
@@ -45,6 +70,26 @@
 - **Verificação:** `tests/test_processador_finalizando_coleta_ativa.py` — com a mudança: `7 failed, 5 passed`; revertendo só o `processador.py`: `12 passed`. Os testes estão corretos; o código é que regrediu.
 - **Correção:** manter o `flush()` (a atomicidade é desejável) e resolver a obsolescência — expirar a coleção após gravar (`db.expire(atendimento, ["informacoes"])`), ou ler os valores por query direta em vez do relationship cacheado. **A escolha entre as duas tem implicação de design** — ver roadmap.
 - **Esforço:** baixo para o fix; a decisão de qual caminho seguir é que pede cuidado.
+
+> **✅ Resolvido em 2026-09-16 — commit `6455022`.** Escolhido o **expire seletivo no escritor**.
+> O que decidiu foi o contrato no topo de `models_comportamento.py` ("só podem ler
+> atributos/relationships já carregados — nada de sessão de banco"): a alternativa de ler por query
+> direta passaria por `valores_capturados()`, que vive nesse mixin, e exigiria injetar sessão ali,
+> contrariando decisão arquitetural documentada e quebrando os stubs por duck typing de
+> `test_campos_pendentes.py`.
+>
+> A correção fica no escritor, não nos leitores: é o `AtendimentoInfo` novo que torna a coleção
+> obsoleta. Nos leitores seria preciso lembrar dela em cada leitor futuro.
+>
+> **Além do escopo descrito no achado:** `_remover_info_atendimento` tem o mesmo defeito e não
+> estava citado — `query.delete()` é bulk e passa por fora da sessão, então a linha apagada
+> continuava aparecendo na coleção carregada. Coberto também.
+>
+> Novo `backend/tests/test_processador_cache_infos.py` testa a causa direta (os 7 testes de coleta
+> ativa só pegavam o sintoma conversacional). Verificado que **2 dos 4 falham sem a correção**;
+> os outros dois são caracterização e guarda contra reverter para `commit()`.
+>
+> `test_processador_finalizando_coleta_ativa`: 7 failed/5 passed → **12 passed**. Suíte: **272 passed**.
 
 ---
 
@@ -157,21 +202,86 @@ Os 44 métodos de `services/api.js` batem com as rotas do backend; nenhuma cor f
 
 ### P0 — Desbloquear (fazer antes de qualquer outra coisa)
 
-| # | Tarefa | Arquivos | Modelo | Por quê |
+**✅ Bloco concluído em 2026-09-16.**
+
+| # | Tarefa | Arquivos | Modelo | Situação |
 |---|---|---|---|---|
-| 1 | Declarar `TWILIO_API_KEY_SID`/`TWILIO_API_KEY_SECRET` em `Settings` | `backend/config.py` | **haiku** | Duas linhas, padrão já existe ao lado (`config.py:12-14`), verificável rodando qualquer comando |
-| 2 | Corrigir a obsolescência do cache mantendo o `flush()` | `backend/services/processador.py:1243-1264`, `services/conversacao/estados/finalizando.py:203,239` | **opus** | Não é aplicar `expire()` e pronto: é decidir entre expirar seletivamente o relationship ou parar de ler estado por coleção cacheada. Escolha errada reintroduz o bug noutro caminho. Semântica de sessão do SQLAlchemy é sutil |
-| 3 | Rodar a suíte e confirmar `266 passed` | — | **haiku** | Verificação mecânica |
+| 1 | Declarar `TWILIO_API_KEY_SID`/`TWILIO_API_KEY_SECRET` em `Settings` | `backend/config.py` | **haiku** | ✅ `02d66ef` |
+| 2 | Corrigir a obsolescência do cache mantendo o `flush()` | `backend/services/processador.py:1243-1264`, `services/conversacao/estados/finalizando.py:203,239` | **opus** | ✅ `6455022` — expire seletivo no escritor |
+| 3 | Rodar a suíte e confirmar `266 passed` | — | **haiku** | ✅ **272 passed** (266 previstos + 6 testes novos) |
 
 ### P1 — Integridade e correção
 
-| # | Tarefa | Arquivos | Modelo | Por quê |
+| # | Tarefa | Arquivos | Modelo | Situação |
 |---|---|---|---|---|
-| 4 | Unificar transição de estado + evento de auditoria em uma transação | `estados/base.py:35-49`, `services/atendimentos.py:59-60`, `estados/finalizando.py:267-280,400-405` | **opus** | Transversal, mexe em fronteira transacional de vários fluxos; risco de deixar atendimento travado em `HUMANO`. Precisa de decisão sobre onde fica o commit |
-| 5 | Fazer `_atualizar_infos_atendimento` delegar ao helper | `services/processador.py:1351-1375` | **sonnet** | Localizado, spec clara (usar `_salvar_info_atendimento`), só cuidar da união D6 |
-| 6 | Rotear `COMPATIBILIDADE_SISTEMA` de forma determinística + teste | `services/respostas/catalogo.py`, `services/classificador.py`, `services/conversacao/regras_*.py` | **opus** | Exige desenhar a intenção/rota e onde ela entra no motor — decisão de produto e de arquitetura, não edição |
-| 7 | Corrigir matriz de transição de report (REQ-012.6) + testes | `backend/main.py:1133-1144` | **sonnet** | A matriz correta está escrita no REQ; é transcrever e testar |
-| 8 | Preencher `mensagem_id`/`processamento_id` nos eventos | 7 call sites de `registrar_evento_atendimento` | **sonnet** | Mecânico por site, mas exige entender o que está em escopo em cada um |
+| 4 | Unificar transição de estado + evento de auditoria em uma transação | `estados/base.py:35-49`, `services/atendimentos.py:59-60`, `estados/finalizando.py:267-280,400-405` | **opus** | ✅ resolvido — commit único; `registrar_evento_atendimento` passou a `flush()` |
+| 5 | Fazer `_atualizar_infos_atendimento` delegar ao helper | `services/processador.py:1351-1375` | **sonnet** | ✅ resolvido — delega e não commita mais; união D6 preservada e agora testada |
+| 6 | Rotear `COMPATIBILIDADE_SISTEMA` de forma determinística + teste | `services/respostas/catalogo.py`, `services/classificador.py`, `services/conversacao/regras_*.py` | **opus** | **aberto — investigado em 2026-09-16, ver nota** |
+| 7 | Corrigir matriz de transição de report (REQ-012.6) + testes | `backend/main.py:1133-1144` | **sonnet** | ✅ resolvido — 5 divergências (não 1); frontend tinha cópia da matriz errada |
+| 8 | Preencher `mensagem_id`/`processamento_id` nos eventos | 7 call sites de `registrar_evento_atendimento` | **sonnet** | ✅ resolvido — back-fill no fim de `processar()`, não nos call sites |
+
+> **Nota sobre o #8 (achado A2), descoberta em 2026-09-16.** O item é menos mecânico do que
+> parecia. `mensagem_id` está disponível (o `msg_in` é criado e flushado em
+> `processador.py:226` antes de `_decidir_resposta`), mas **`processamento_id` não existe
+> ainda** quando os eventos são gravados: `_criar_processamento` roda *depois* de
+> `_decidir_resposta` e recebe a `resposta` como entrada — ele registra o resultado da
+> decisão, então não dá para antecipá-lo.
+>
+> **Resolvido por back-fill**, aprovado em 2026-09-16: uma marca d'água antes da decisão
+> (`max(EventoAtendimento.id)`) e um `UPDATE` dos eventos deste atendimento criados depois
+> dela, logo após `_criar_processamento`. Um lugar só, em vez de acrescentar o parâmetro a
+> seis assinaturas (`_escalar_atendimento`, `_reiniciar_qualificacao` e afins), onde um
+> chamador esquecido falharia em silêncio com `None`. Só é viável **por causa do #4**: sem
+> os commits intermediários, os eventos ainda estão na transação nesse ponto.
+
+> **Nota sobre o #6, investigação de 2026-09-16 (medições no banco real).**
+>
+> A pergunta que motivou: como garantir que "funciona com ABC **V1.0.1**?" não receba a
+> resposta cadastrada para **V1.0.2**, se as duas frases são quase idênticas?
+>
+> **O mecanismo de discriminação exata já existe** e é a camada full-text do
+> `QAService.buscar()`, que roda **antes** do embedding e curto-circuita quando acerta:
+> - O parser do Postgres trata `V1.0.1` como **um token único, não stemizado**, distinto
+>   de `v1.0.2`.
+> - `plainto_tsquery` liga os termos com **AND**, então o par da V1.0.2 não é sequer
+>   candidato para uma pergunta sobre V1.0.1.
+> - Medido com dois pares reais: a consulta por V1.0.1 devolve só o par da V1.0.1,
+>   `ts_rank` 0.4571 (limiar `QA_SCORE_MINIMO_FULLTEXT` = 0.25).
+>
+> **Por que a ordem das camadas é a proteção inteira:** a similaridade de cosseno entre as
+> duas perguntas é **0.9957**, muito acima do `QA_SCORE_MINIMO` de 0.80. Pelo embedding elas
+> são indistinguíveis.
+>
+> **Onde quebra (o risco real, e o que o #6 precisa resolver):** o token tem que bater
+> exatamente. Variações que o cliente escreve geram lexemas diferentes —
+> `V1.0.1` → `'v1.0.1'`, `1.0.1` → `'1.0.1'`, `V 1.0.1` → `'v' & '1.0.1'`,
+> `V1.01` → `'v1.01'`. Qualquer uma que não case erra o full-text e **cai no embedding**,
+> que devolve com confiança a resposta da versão errada. O mesmo vale quando não há par
+> cadastrado para aquela versão. **A falha não é segura: degrada em silêncio para a camada
+> que não sabe distinguir.**
+>
+> **Desenho proposto (aguardando decisão):** a guarda não deve ser "tornar o match exato" —
+> já é, quando acerta. Deve ser: quando a pergunta contém um identificador de versão/modelo
+> (padrão tipo `\bv?\s?\d+(\.\d+)+\b`), o sistema **não pode responder pela camada
+> semântica**; se o full-text não casou com aquele token exato, roteia para validação
+> técnica. É determinístico, testável, e é a regra de negócio que o `CLAUDE.md` já declara.
+
+---
+
+## Achados descobertos durante a correção (não estavam na auditoria original)
+
+| # | Achado | Onde | Situação |
+|---|--------|------|----------|
+| **B1-bis** | Mais duas ocorrências do B1 que a auditoria não listou: `db.commit()` entre a mudança de estado e o evento em `_reiniciar_qualificacao` e em **`_escalar_atendimento`** | `services/processador.py:793,917` | ✅ corrigido junto com o #4 |
+| **A3-bis** | O frontend mantém uma **cópia própria** da matriz de transição de reports, que espelhava a versão errada | `frontend/src/constants/reports.js:30-36` | ✅ corrigido junto com o #7 |
+| **A2-bis** | Com `mensagem_id` finalmente preenchido, a FK `eventos_atendimento_mensagem_id_fkey` passou a ter efeito e a limpeza por telefone quebrou: apagava `mensagens` antes dos eventos que as referenciam | `services/dev_limpeza_telefone.py` | ✅ corrigido; ordem passou a eventos → mensagens |
+
+O `_escalar_atendimento` merece nota: era exatamente o "pior caso" descrito no B1
+(`modo_operacao=HUMANO` commitado sem o evento que o explica), só que noutra função —
+a auditoria o descreveu a partir de `concluir` e não varreu os demais escalonamentos.
+
+O A2-bis é o tipo de defeito que só aparece quando a coluna deixa de ser sempre nula: a
+FK existia desde a migration, mas nunca tinha sido exercitada.
 
 ### P2 — Documentação e memórias (barato, alto retorno)
 

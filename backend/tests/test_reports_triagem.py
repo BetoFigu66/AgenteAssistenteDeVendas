@@ -131,3 +131,85 @@ def test_filtros_autor_e_busca_textual(client, db_session):
         assert all(rep["id"] != report_id for rep in r_sem_match.json()["reports"])
     finally:
         _limpar_processamento(db_session, proc_id)
+
+
+# ---------------------------------------------------------------------------
+# REQ-012.6 — matriz de transição (achado A3 da auditoria 2026-08: divergia do
+# requisito e não tinha cobertura nenhuma)
+# ---------------------------------------------------------------------------
+
+# Transcrito de artefatos/requisitos_formais/REQ-012-...md:132-137, NÃO do código:
+# é o requisito que manda, e é contra ele que a matriz tem que ser conferida.
+_MATRIZ_DO_REQUISITO = {
+    "aberto": {"em_analise", "descartado"},
+    "em_analise": {"aguardando_fix", "resolvido", "descartado"},
+    "aguardando_fix": {"resolvido", "em_analise"},
+    "resolvido": {"em_analise"},
+    "descartado": {"em_analise"},
+}
+
+
+def test_matriz_de_transicao_espelha_o_requisito():
+    """Pino contra edição acidental da matriz. Compara por valor de string para não
+    depender do enum e deixar o diff legível quando falhar."""
+    import main
+
+    atual = {
+        origem.value: {destino.value for destino in destinos}
+        for origem, destinos in main._TRANSICOES_STATUS_REPORT.items()
+    }
+    assert atual == _MATRIZ_DO_REQUISITO
+
+
+def _reportar(client, proc_id: int) -> int:
+    r = client.post(
+        f"/api/processamentos/{proc_id}/reports",
+        json={"descricao": "Report para exercitar o workflow de status"},
+    )
+    assert r.status_code == 201, r.text
+    return r.json()["id"]
+
+
+def test_aberto_nao_pula_direto_para_aguardando_fix(client, db_session):
+    """Era permitido antes do achado A3 e pulava a etapa de análise."""
+    proc_id = _criar_processamento(db_session)
+    try:
+        report_id = _reportar(client, proc_id)
+        r = client.patch(f"/api/reports/{report_id}", json={"status": "aguardando_fix"})
+        assert r.status_code == 409, r.text
+    finally:
+        _limpar_processamento(db_session, proc_id)
+
+
+def test_resolvido_reabre_para_em_analise_e_nao_para_aberto(client, db_session):
+    """O caso que a auditoria citou: `resolvido` reaberto ia para `aberto`.
+
+    `aberto` significa "ainda não triado" (REQ-012.6) — um report que já passou por
+    análise e resolução não volta a ser não-triado."""
+    proc_id = _criar_processamento(db_session)
+    try:
+        report_id = _reportar(client, proc_id)
+        assert client.patch(f"/api/reports/{report_id}", json={"status": "em_analise"}).status_code == 200
+        assert client.patch(f"/api/reports/{report_id}", json={"status": "resolvido"}).status_code == 200
+
+        assert client.patch(f"/api/reports/{report_id}", json={"status": "aberto"}).status_code == 409
+
+        r = client.patch(f"/api/reports/{report_id}", json={"status": "em_analise"})
+        assert r.status_code == 200
+        assert r.json()["status"] == "em_analise"
+    finally:
+        _limpar_processamento(db_session, proc_id)
+
+
+def test_descartado_reabre_apenas_para_em_analise(client, db_session):
+    proc_id = _criar_processamento(db_session)
+    try:
+        report_id = _reportar(client, proc_id)
+        assert client.patch(f"/api/reports/{report_id}", json={"status": "descartado"}).status_code == 200
+
+        assert client.patch(f"/api/reports/{report_id}", json={"status": "aberto"}).status_code == 409
+
+        r = client.patch(f"/api/reports/{report_id}", json={"status": "em_analise"})
+        assert r.status_code == 200
+    finally:
+        _limpar_processamento(db_session, proc_id)

@@ -1177,20 +1177,26 @@ def _validar_enum(valor: Optional[str], enum_cls, nome: str):
 
 DESCRICAO_REPORT_MIN_CHARS = 10
 
-# REQ-012 (Fase 8): transições válidas do workflow de triagem de reports — evita
-# pular etapas por engano (ex.: aberto → resolvido sem passar por análise) e
-# permite reabertura a partir de qualquer estado terminal.
+# REQ-012.6: transições válidas do workflow de triagem de reports. Transcreve a
+# matriz do requisito linha por linha (artefatos/requisitos_formais/REQ-012...:132-137);
+# qualquer divergência aqui é bug, não licença poética. Corrigido pelo achado A3 da
+# auditoria 2026-08, que encontrou quatro transições a mais e uma com destino errado.
+#
+# `aberto` nunca é destino: ele significa "recém-criado, ainda não triado" (REQ-012.6),
+# então nada volta para lá depois de já ter sido triado uma vez — reabrir manda para
+# `em_analise`, que é onde o trabalho recomeça.
+#
+# Espelhada em `frontend/src/constants/reports.js::TRANSICOES_STATUS` (só restringe o
+# <select>; a validação de verdade é esta aqui). Mudou uma, mude a outra.
 _TRANSICOES_STATUS_REPORT: dict[StatusReport, set[StatusReport]] = {
-    StatusReport.ABERTO: {StatusReport.EM_ANALISE, StatusReport.AGUARDANDO_FIX, StatusReport.DESCARTADO},
-    StatusReport.EM_ANALISE: {
-        StatusReport.AGUARDANDO_FIX,
-        StatusReport.RESOLVIDO,
-        StatusReport.DESCARTADO,
-        StatusReport.ABERTO,
-    },
-    StatusReport.AGUARDANDO_FIX: {StatusReport.RESOLVIDO, StatusReport.DESCARTADO, StatusReport.EM_ANALISE},
-    StatusReport.RESOLVIDO: {StatusReport.ABERTO},
-    StatusReport.DESCARTADO: {StatusReport.ABERTO},
+    StatusReport.ABERTO: {StatusReport.EM_ANALISE, StatusReport.DESCARTADO},
+    StatusReport.EM_ANALISE: {StatusReport.AGUARDANDO_FIX, StatusReport.RESOLVIDO, StatusReport.DESCARTADO},
+    # reabertura
+    StatusReport.AGUARDANDO_FIX: {StatusReport.RESOLVIDO, StatusReport.EM_ANALISE},
+    # apenas em correção explícita
+    StatusReport.RESOLVIDO: {StatusReport.EM_ANALISE},
+    # terminal: apenas correção explícita o reabre
+    StatusReport.DESCARTADO: {StatusReport.EM_ANALISE},
 }
 
 

@@ -29,11 +29,11 @@ export const STATUS_ABERTOS = ['aberto', 'em_analise', 'aguardando_fix']
 // para restringir as opções do <select> de status na UI; a validação de
 // verdade é sempre feita no backend em `PATCH /api/reports/{id}`.
 export const TRANSICOES_STATUS = {
-  aberto: ['em_analise', 'aguardando_fix', 'descartado'],
-  em_analise: ['aguardando_fix', 'resolvido', 'descartado', 'aberto'],
-  aguardando_fix: ['resolvido', 'descartado', 'em_analise'],
-  resolvido: ['aberto'],
-  descartado: ['aberto'],
+  aberto: ['em_analise', 'descartado'],
+  em_analise: ['aguardando_fix', 'resolvido', 'descartado'],
+  aguardando_fix: ['resolvido', 'em_analise'],
+  resolvido: ['em_analise'],
+  descartado: ['em_analise'],
 }
 
 export const statusPermitidos = (statusAtual) => [

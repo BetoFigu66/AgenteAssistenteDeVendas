@@ -268,7 +268,9 @@ class FinalizandoState(EstadoAtendimento):
 
         modo_anterior = atendimento.modo_operacao.value
         atendimento.modo_operacao = ModoOperacao.HUMANO
-        ctx.db.commit()
+        # Sem commit entre a mudança de modo e o evento: era o pior caso do B1 —
+        # `modo_operacao=HUMANO` commitado sozinho suprime toda resposta automática
+        # futura, e sem o evento ninguém descobre por quê. Atendimento travado em silêncio.
         atendimentos_svc.registrar_evento_atendimento(
             ctx.db,
             atendimento,
@@ -401,7 +403,8 @@ class FinalizandoState(EstadoAtendimento):
         if candidato:
             item = self._item_atendimento_atual(ctx, candidato.produto_id)
             item.modelo_id = candidato.id
-            db.commit()
+            # Era a única função que misturava as duas estratégias: `commit()` aqui e
+            # `flush()` na linha seguinte, dentro do helper (achado B1).
             p._remover_info_atendimento(db, atendimento.id, _MODELO_TENTATIVAS_CHAVE)
             if dlog:
                 dlog.log(
