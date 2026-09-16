@@ -3,6 +3,7 @@ de `/api/*`, e definição de senha. Zero cobertura antes desta fase.
 """
 
 import pytest
+from config import settings
 from database import Database
 from fastapi.testclient import TestClient
 from models import User
@@ -184,3 +185,41 @@ def test_criar_user_com_login_duplicado_conflito(db_session):
     finally:
         _limpar_usuario(db_session, login)
         _limpar_usuario(db_session, login_admin)
+
+
+def test_auth_desabilitado_libera_api_e_assume_usuario(monkeypatch, db_session):
+    """`AUTH_ENABLED=false`: `/api/*` responde sem sessão e o sistema assume um
+    usuário real, para os endpoints que gravam "quem aprovou" continuarem
+    funcionando."""
+    import main
+
+    login = "teste_auth_bypass"
+    try:
+        user = User(nome="Teste Bypass", login=login, senha_hash=auth_svc.hash_senha("x"))
+        db_session.add(user)
+        db_session.commit()
+
+        monkeypatch.setattr(settings, "AUTH_ENABLED", False)
+        monkeypatch.setattr(settings, "AUTH_USUARIO_PADRAO", login)
+
+        with TestClient(main.app) as c:
+            assert c.get("/api/atendimentos/ativas").status_code == 200
+
+            r_me = c.get("/api/auth/me")
+            assert r_me.status_code == 200
+            assert r_me.json()["login"] == login
+    finally:
+        _limpar_usuario(db_session, login)
+
+
+def test_auth_desabilitado_com_usuario_padrao_inexistente_nao_quebra(monkeypatch):
+    """Login configurado que não existe: cai para o primeiro usuário com login
+    em vez de derrubar a requisição."""
+    import main
+
+    monkeypatch.setattr(settings, "AUTH_ENABLED", False)
+    monkeypatch.setattr(settings, "AUTH_USUARIO_PADRAO", "nao_existe_esse_login")
+
+    with TestClient(main.app) as c:
+        assert c.get("/api/atendimentos/ativas").status_code == 200
+        assert c.get("/api/auth/me").status_code == 200

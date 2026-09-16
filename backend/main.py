@@ -81,6 +81,14 @@ async def lifespan(app: FastAPI):
     db = Database()
     logger.info("Banco de dados inicializado com SQLAlchemy")
 
+    # WARNING de propósito (LOG_LEVEL padrão é WARNING): com o gate desligado o
+    # aviso tem que aparecer em `docker logs`, senão alguém esquece assim ligado.
+    if not settings.AUTH_ENABLED:
+        logger.warning(
+            "AUTH_ENABLED=false — /api/* liberado SEM login. "
+            "Uso temporário de dev/QA; não deixar assim com dado real de cliente."
+        )
+
     # Executa migrations pendentes automaticamente
     try:
         from alembic import command
@@ -132,15 +140,57 @@ app.include_router(pares_qa_router)
 _CAMINHOS_PUBLICOS = {"/health", "/webhook", "/api/auth/login"}
 
 
+def _usuario_assumido_sem_auth(session) -> Optional[User]:
+    """Usuário que o sistema assume quando `AUTH_ENABLED=false`.
+
+    Sem sessão não há como saber quem está agindo, mas `aprovar`/`reprovar`/
+    `mensagens-manuais` continuam gravando um `aprovador_id` — sem alguém aqui
+    esses endpoints quebrariam com `AttributeError`. Preferimos um usuário real
+    (rastreável, ainda que impreciso) a um id inventado.
+    """
+    candidatos = session.query(User).filter(User.login.isnot(None))
+
+    configurado = (settings.AUTH_USUARIO_PADRAO or "").strip().lower()
+    if configurado:
+        usuario = candidatos.filter(User.login == configurado).first()
+        if usuario:
+            return usuario
+        logger.warning(
+            "AUTH_USUARIO_PADRAO='%s' não existe — caindo para o primeiro usuário com login.",
+            configurado,
+        )
+
+    return candidatos.order_by(User.id.asc()).first()
+
+
 @app.middleware("http")
 async def gate_autenticacao(request: Request, call_next):
     """Bloqueia qualquer `/api/*` sem sessão válida (REQ-010.1/010.2).
 
     Resolve o `User` uma única vez aqui e guarda em `request.state.usuario`
     para os endpoints que precisam da identidade não repetirem a consulta.
+
+    Com `AUTH_ENABLED=false` o bloqueio é desligado (escape hatch de dev/QA) e
+    o usuário assumido é resolvido por `_usuario_assumido_sem_auth`.
     """
     path = request.url.path
     if request.method == "OPTIONS" or path in _CAMINHOS_PUBLICOS or not path.startswith("/api/"):
+        return await call_next(request)
+
+    if not settings.AUTH_ENABLED:
+        with db.get_session() as session:
+            usuario = _usuario_assumido_sem_auth(session)
+            if usuario:
+                request.state.usuario = usuario.to_dict()
+                request.state.usuario_id = usuario.id
+                request.state.usuario_nome = usuario.nome
+            else:
+                # Sem nenhum usuário cadastrado, leitura funciona e os endpoints
+                # que gravam "quem aprovou" vão falhar — melhor deixar explícito.
+                logger.warning(
+                    "AUTH_ENABLED=false e nenhum usuário com login cadastrado: "
+                    "endpoints de aprovação vão falhar até criar um."
+                )
         return await call_next(request)
 
     user_id = request.session.get("user_id")

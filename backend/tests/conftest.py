@@ -6,6 +6,7 @@ fixture `client` já loga com um usuário de teste dedicado antes de entregar o
 """
 
 import pytest
+from config import settings
 from database import Database
 from fastapi.testclient import TestClient
 from models import User
@@ -13,6 +14,20 @@ from services import auth as auth_svc
 
 _LOGIN_TESTE = "pytest_runner"
 _SENHA_TESTE = "pytest_senha_123"
+
+
+@pytest.fixture(autouse=True)
+def gate_autenticacao_ligado(monkeypatch):
+    """Roda toda a suíte com o gate de sessão LIGADO, ignorando o `.env` da
+    máquina.
+
+    `AUTH_ENABLED=false` (escape hatch de dev/QA) substitui a identidade da
+    sessão por um usuário fixo — e vários testes dependem de agir como o
+    `pytest_runner` do fixture `client` (ex.: filtro de reports por autor).
+    Sem isto a suíte falharia num ambiente com o gate desligado, sem nada estar
+    quebrado. O teste do próprio bypass desliga o flag explicitamente.
+    """
+    monkeypatch.setattr(settings, "AUTH_ENABLED", True)
 
 
 def _garantir_usuario_teste() -> None:
