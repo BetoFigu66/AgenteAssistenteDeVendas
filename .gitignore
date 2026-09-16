@@ -92,3 +92,8 @@ list_files_to*
 # Segredos - nunca versionar (incidente 2026-08-29)
 .env
 .env_backup
+
+# Sanity check - credenciais locais e logs do monitoramento
+sanity_check.conf
+logs/sanity_check*.log
+logs/.sanity_estado.json

@@ -1,0 +1,13 @@
+# Normaliza finais de linha no repositorio: LF no repo e na working tree.
+* text=auto eol=lf
+
+# Excecoes: cmd.exe quebra em blocos if/else multilinha com LF puro.
+*.bat text eol=crlf
+*.cmd text eol=crlf
+
+# Binarios - nunca tratar como texto.
+*.png binary
+*.jpg binary
+*.ico binary
+*.pptx binary
+*.pdf binary
