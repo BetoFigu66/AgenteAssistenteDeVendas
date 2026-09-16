@@ -326,6 +326,151 @@ Alternativa sem Vite: use o frontend Docker em http://localhost:3000 (Nginx já 
 
 ---
 
+## Sanity check e monitoramento
+
+### Verificar tudo de uma vez
+
+`sanity_check.sh` (raiz do projeto) confere a pilha inteira de QA numa tacada: containers,
+Postgres, backend, frontend, proxy Nginx, túnel Cloudflare, URL pública, login, a API que
+alimenta a aba Acompanhamento, o `/webhook` e as credenciais da Twilio.
+
+```bash
+cd /mnt/c/Beto/Pessoal/Python/git/AgenteAssistenteDeVendas
+./sanity_check.sh                # saída legível
+./sanity_check.sh --silencioso   # só falhas (para cron/monitor)
+./sanity_check.sh --json         # uma linha JSON por check + resumo
+./sanity_check.sh --profundo     # inclui mensagem real pelo /webhook (cria e apaga o dado)
+./sanity_check.sh --ajuda
+```
+
+Saída: `0` tudo ok · `1` alguma falha · `2` só avisos.
+
+Cada falha vem com a dica do que fazer. Duas leituras que economizam tempo:
+
+| Sintoma | Significado |
+|---------|-------------|
+| Container **Up** mas backend HTTP `000`/`502` | uvicorn em crash-loop. O Docker publica a porta mesmo assim. Ver `docker logs`. |
+| `502` na URL pública, front local `200` | túnel e Nginx ok, backend fora. |
+| `530`/`1033` na URL pública | túnel fora do ar (`cloudflared`). |
+
+**Tela branca no painel (título carrega, conteúdo some):** erro de JavaScript em runtime
+derrubando a árvore do React, quase sempre por **imagem do frontend desatualizada**. O bundle
+é estático, copiado no `docker build`; ele responde `200` normalmente enquanto chama uma API
+cujo contrato já mudou. Aconteceu em 13/09/2026: a imagem era de 15/07, 53 dias e oito commits
+de `frontend/src` atrás, sem `AuthProvider` nem `/api/auth/me`. Correção:
+`docker-compose up -d --build frontend`, depois **Ctrl+Shift+R** no navegador (o Nginx marca
+os assets como `immutable` por 1 ano). O sanity check compara a data da imagem com o último
+commit de `frontend/src` justamente por causa disso.
+
+**Causa recorrente do crash-loop:** dependência nova em `backend/requirements.txt` sem rebuild
+da imagem (aconteceu em 12/09/2026 com o `bcrypt`). Correção: `docker-compose up -d --build backend`.
+
+**Hostnames do túnel (bloco "Ingress do tunel"):** para um hostname funcionar, três coisas
+precisam estar alinhadas, e editar só uma não basta:
+
+1. o `ingress` no `config.yml`;
+2. o registro DNS na Cloudflare (`cloudflared tunnel route dns <tunel> <hostname>`);
+3. o processo local que atende a porta.
+
+O serviço do Windows roda com
+`--config C:\Windows\System32\config\systemprofile\.cloudflared\config.yml`, e **não** com o
+`%USERPROFILE%\.cloudflared\config.yml` que você costuma editar. Hoje os dois estão com o mesmo
+conteúdo; mantenha assim, porque editar só o do perfil não muda nada no serviço. Confira o caminho
+com `Get-CimInstance Win32_Service -Filter "Name like '%cloudflared%'" | Select PathName`. O sanity
+check compara o **conteúdo** dos dois (não o caminho) e só reclama se divergirem.
+
+Cuidado com rodar `cloudflared tunnel run` num terminal **sem parar o serviço**: os dois conectores
+atendem o mesmo túnel e a Cloudflare distribui entre eles. Enquanto as configs forem iguais não dá
+problema, mas se divergirem a falha aparece intermitente, em parte das requisições. O sanity check
+avisa quando há mais de um conector saindo do mesmo IP de origem.
+
+**Não diagnostique hostname de túnel por um 404 em `/`.** O 404 pode vir do pega-tudo do
+`cloudflared` ou simplesmente da origem não ter rota em `/` (o receptor do spike só expõe
+`/webhook` e `/docs`). O sanity check compara o código que a origem local devolve com o que o
+hostname público devolve, no mesmo caminho: iguais significa caminho íntegro.
+
+**Credenciais:** por padrão o script loga como `testador_conversas`. Para mudar, criar
+`sanity_check.conf` na raiz (já no `.gitignore`):
+
+```bash
+SANITY_LOGIN=beto
+SANITY_SENHA=...
+SANITY_URL_PUBLICA=https://app.auxvendas.com
+```
+
+**O que o check da Twilio prova e o que não prova:** valida credencial e alcance da API
+(leitura). Não envia mensagem, porque a conta é trial e o Sandbox recusa texto livre
+(erro 21654) e porque o backend ainda não tem cliente REST da Twilio — o único caminho de
+saída hoje é o TwiML síncrono do `/webhook`, esse sim coberto. Ver
+`AnotacoesPessoais/Beto/spike_twilio/STATUS.md`.
+
+**Limite do check da aba Acompanhamento:** não há navegador headless aqui, então o script
+verifica o que a tela consome (bundle JS carrega + `/api/atendimentos/ativas` devolve linhas).
+Não substitui abrir a tela.
+
+### Desligar temporariamente o login do painel
+
+`AUTH_ENABLED` no `backend/.env` liga/desliga o gate de sessão em `/api/*`
+(`backend/main.py::gate_autenticacao`). Serve para destravar dev/QA quando o login
+atrapalha; **não** é configuração de produção.
+
+```bash
+# backend/.env
+AUTH_ENABLED=false        # libera /api/* sem login (default no código: true)
+AUTH_USUARIO_PADRAO=beto  # quem o sistema assume; vazio = 1o usuario com login
+```
+
+Reiniciar o backend depois (`docker restart agenteassistentedevendas-backend-1`).
+O startup grava um `WARNING` em `docker logs` enquanto estiver desligado, e o
+`sanity_check.sh` passa a emitir um `[AVISO]` (saída `2`) — os dois de propósito,
+para não ficar esquecido assim.
+
+**Por que existe `AUTH_USUARIO_PADRAO`:** sem sessão não há como saber quem está
+agindo, mas `aprovar`/`reprovar`/`mensagens-manuais` continuam gravando um
+`aprovador_id`. Sem alguém ali esses endpoints quebrariam. O efeito colateral é que
+**toda aprovação fica registrada nesse usuário** — a trilha de auditoria do REQ-011
+perde precisão enquanto o gate estiver aberto.
+
+A suíte de testes ignora esse flag (fixture `gate_autenticacao_ligado` em
+`backend/tests/conftest.py`): ela sempre roda com o gate ligado, senão os testes que
+dependem de agir como `pytest_runner` falhariam sem nada estar quebrado.
+
+### Monitoramento automático (Windows)
+
+Tarefa agendada que roda o sanity check a cada 15 minutos e notifica no Windows quando cai.
+
+```powershell
+cd C:\Beto\Pessoal\Python\git\AgenteAssistenteDeVendas
+
+# Instalar (não precisa de admin)
+powershell -ExecutionPolicy Bypass -File scripts\instalar_monitor_sanity.ps1
+
+# Outro intervalo
+powershell -ExecutionPolicy Bypass -File scripts\instalar_monitor_sanity.ps1 -IntervaloMinutos 5
+
+# Conferir se o alerta aparece
+powershell -ExecutionPolicy Bypass -File scripts\monitor_sanity.ps1 -Teste
+
+# Rodar na hora / ver estado / pausar / remover
+Start-ScheduledTask -TaskName 'SanityCheck-AssistenteVendas'
+Get-ScheduledTask  -TaskName 'SanityCheck-AssistenteVendas' | Get-ScheduledTaskInfo
+Disable-ScheduledTask -TaskName 'SanityCheck-AssistenteVendas'
+powershell -ExecutionPolicy Bypass -File scripts\instalar_monitor_sanity.ps1 -Remover
+```
+
+Histórico em `logs/sanity_check.log` (rotaciona em 5 MB, não versionado).
+
+**Não notifica a cada execução:** só na mudança de estado (caiu / voltou) e um lembrete a cada
+60 min enquanto o problema persistir — senão o alerta de 15 em 15 minutos vira ruído. Ajustar
+com `-RepetirAvisoMin`. Avisos (sem falha) só vão para o log; use `-NotificarAvisos` para
+notificar também.
+
+**Por que no Windows e não no cron do WSL:** o Docker Desktop e o `cloudflared` já rodam no
+Windows, e o WSL se desliga sozinho quando nenhuma sessão está aberta — um cron lá pararia em
+silêncio. A tarefa roda como `LogonType Interactive`, condição para o toast aparecer.
+
+---
+
 ## Backend (Python)
 
 ```bash
@@ -379,6 +524,24 @@ python -m pytest tests/test_extracao_entidades_fase_d.py -v -x
 # Rodar apenas um teste específico
 python -m pytest tests/test_processador_finalizando_coleta_ativa.py::test_f4_resumo_quando_tudo_capturado -v
 ```
+
+### Cobertura de testes (`pytest-cov`, desde 2026-08-21)
+
+`pytest-cov` está em `requirements.txt` da raiz (mesmo setup do pre-commit — ver seção "QA Engineer" abaixo). Rodar de dentro de `backend/`, com o venv ativo:
+
+```bash
+# Cobertura completa (inclui tests/, alembic/versions/, scripts/ — infla o número)
+python -m pytest --cov=. --cov-report=term-missing
+
+# Só o código de aplicação (exclui o que não faz sentido medir) — número mais honesto
+python -m pytest --cov=. --cov-report= -q && \
+  python -m coverage report --omit="alembic/versions/*,tests/*,scripts/*,venv/*"
+
+# Cobertura de um módulo específico (ex.: ao endereçar uma área de cada vez)
+python -m pytest --cov=services.conversacao.regras_globais --cov-report=term-missing
+```
+
+Panorama de 2026-08-21 (ponto de partida): 74% no código de aplicação. Áreas mais fracas então: `services/cnpj/persistencia.py` (14%), `services/curador/pacote_analise.py` (0%), `services/cnpj/receitaws.py` (20%), `services/cpf/persistencia.py` (30%) — candidatas a próximas rodadas.
 
 ---
 
@@ -690,6 +853,44 @@ def _check_meu(raiz: Path) -> CheckResult:
 ```powershell
 pre-commit run --all-files
 ```
+
+### mypy — checagem de tipos (report-only, 2026-08-20)
+
+Check `mypy-type-check` em `agentes/qa_engineer.py`, mesmo registry do `ruff-lint` acima. Roda sobre `backend/` (não a raiz do repo — `main.py`/`services/...` importam a partir de `backend/` em runtime; rodar da raiz degrada boa parte da inferência de tipo pra `Any`). Config em `pyproject.toml` (`[tool.mypy]`), passada via `--config-file` porque o mypy não busca config fora do diretório corrente.
+
+**Severidade `warning` de propósito** — o projeto nunca rodou type-checker antes; havia 140 erros pré-existentes em 24 arquivos quando o check foi criado. Só relatório por ora (não bloqueia commit); endurecer para `error` é decisão futura, depois de equacionar essa dívida — não criar baseline/exclusão por módulo sem decisão explícita nesse sentido.
+
+**Diferença importante em relação ao `ruff-lint`:** o check chama `sys.executable -m mypy` (o interpretador que já está rodando o `qa_check.py` — `backend/venv/bin/python` quando disparado pelo hook), não um `mypy` bruto via PATH. O hook (`run_qa_check_precommit.sh`) roda com o PATH herdado do processo do `git commit`, que **não** inclui `backend/venv/bin` só porque esse venv existe no disco — teria o mesmo problema do `ruff-lint` (que hoje só "funciona" porque o Ruff do Beto está instalado global via conda, não no venv do projeto). Por isso `mypy` está em `requirements.txt` da raiz (instalado em `backend/venv` pelo setup padrão da seção anterior) — sem isso, o check reporta "não instalado" e é ignorado (não quebra nada, só não checa nada).
+
+```bash
+# Rodar manualmente (venv do projeto ativo)
+cd backend && mypy --config-file ../pyproject.toml .
+
+# Ou via qa_check.py (mesmo comando que o hook usa)
+python scripts/qa_check.py --check mypy-type-check
+```
+
+---
+
+### Skill de code review — sincronização com Windsurf
+
+A Kika usa o Devin Desktop/Windsurf (PowerShell) pra codar; o Beto usa o Claude Code (WSL). Os dois suportam o mesmo formato **"Agent Skills"** (`SKILL.md` com frontmatter YAML) — por isso o skill `revisao-codigo` funciona nas duas ferramentas sem adaptar conteúdo.
+
+**Fonte da verdade:** `.claude/skills/revisao-codigo/` (SKILL.md + `diretrizes.md`). **Nunca editar** `.windsurf/skills/revisao-codigo/` direto — é um espelho gerado.
+
+O hook `sync-skill-windsurf` (`.pre-commit-config.yaml`, script `scripts/sync_skill_windsurf.py`) copia `.claude/skills/*/` → `.windsurf/skills/*/` sempre que um commit tocar `.claude/skills/`. Se houver diferença, o hook atualiza o espelho, re-adiciona ao índice (`git add`) e **falha de propósito** (mesmo padrão de hooks que reformatam, ex. black/isort) — rode `git commit` de novo e ele passa, já incluindo o espelho atualizado no commit.
+
+Como os dois diretórios ficam commitados no git, o `git pull` da Kika já traz o espelho atualizado — **não precisa rodar nada do lado dela**, nem symlink (que exigiria Modo de Desenvolvedor no Windows para funcionar com git).
+
+**Rodar o sync manualmente (ex.: pra testar antes de commitar):**
+```bash
+python scripts/sync_skill_windsurf.py
+```
+```powershell
+python scripts\sync_skill_windsurf.py
+```
+
+**Autoria de diretrizes (D0X):** mesmo rodando no Windsurf, uma diretriz nova só entra em `diretrizes.md` depois do Beto validar o critério — ver `SKILL.md` § "Depois da revisão — loop de aprendizado".
 
 ---
 
