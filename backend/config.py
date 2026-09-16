@@ -12,6 +12,9 @@ class Settings(BaseSettings):
     TWILIO_ACCOUNT_SID: Optional[str] = None
     TWILIO_AUTH_TOKEN: Optional[str] = None
     TWILIO_WHATSAPP_NUMBER: Optional[str] = None
+    # API Key (alternativa ao Auth Token; ver AnotacoesPessoais/Beto/spike_twilio/STATUS.md)
+    TWILIO_API_KEY_SID: Optional[str] = None
+    TWILIO_API_KEY_SECRET: Optional[str] = None
 
     # Database
     DATABASE_URL: str = "postgresql+psycopg://inforrel:inforrel_dev@192.168.0.34:5433/assistente_vendas"
@@ -27,6 +30,16 @@ class Settings(BaseSettings):
     # para dev local; sobrescrever via .env em qualquer ambiente compartilhado/produção.
     SESSION_SECRET_KEY: str = "dev-secret-key-troque-em-producao"
     SESSION_MAX_AGE_SEGUNDOS: int = 8 * 60 * 60
+
+    # Liga/desliga o gate de sessão em `/api/*`. `false` libera TUDO sem login —
+    # é escape hatch de dev/QA para destravar o painel, não configuração de
+    # produção: nunca usar em ambiente com dado real de cliente (ADR-006).
+    # O default fica `True` de propósito: quem quiser abrir tem que declarar.
+    AUTH_ENABLED: bool = True
+    # Com `AUTH_ENABLED=false` não há sessão, mas os endpoints de aprovação
+    # continuam registrando *quem* aprovou. Este é o login assumido nesse caso.
+    # Vazio = primeiro usuário com login cadastrado (menor id).
+    AUTH_USUARIO_PADRAO: Optional[str] = None
 
     # LLM
     LLM_PROVIDER: str = "groq"
