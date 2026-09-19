@@ -64,6 +64,27 @@ _NUMERO_SOLTO_REGEX = re.compile(r"\b(\d{1,5})\b")
 _RESPOSTA_SIM_REGEX = re.compile(r"\b(sim|s|claro|ok|parece|interesse|quero|pode ser)\b", re.IGNORECASE)
 _RESPOSTA_NAO_REGEX = re.compile(r"\b(n[aã]o|n)\b", re.IGNORECASE)
 
+# Quais intenções, ALÉM de DESCONHECIDO, podem ser a resposta à pergunta pendente.
+#
+# O gate original aceitava só DESCONHECIDO, com um motivo legítimo: não deixar uma intenção
+# reconhecida ("quero orçamento" repetido) ser sequestrada como se fosse resposta. Só que o
+# classificador reconhece "sim" isolado como CONFIRMAR e "não" isolado como NEGAR
+# (`classificador.py`, regras ancoradas em `^...$`), que é exatamente a forma da resposta a
+# um campo sim/não. O gate grosso descartava essas respostas em silêncio, e o bot repetia a
+# pergunta que o cliente acabara de responder.
+#
+# A regra passa a ser por campo: cada pergunta declara que tipo de resposta espera. É a
+# versão mínima do "poder discriminante" do tratador — quando a pilha de perguntas pendentes
+# entrar, este mapa morre e vira atributo do tratador de cada campo.
+_INTENCOES_RESPOSTA_POR_CAMPO: dict[str, frozenset[Intencao]] = {
+    CAMPO_INTERESSE_SISTEMA_NUVEM.chave: frozenset({Intencao.CONFIRMAR, Intencao.NEGAR}),
+    CAMPO_HOMOLOGADO_SOFTWARE.chave: frozenset({Intencao.CONFIRMAR, Intencao.NEGAR}),
+    # "não" para "qual software vocês usam?" é a resposta "não temos". O ramo do campo já
+    # sabia traduzir a negação para "nenhum"; a mensagem é que não chegava até ele.
+    CAMPO_SOFTWARE_PONTO.chave: frozenset({Intencao.NEGAR}),
+    CAMPO_SOFTWARE_ACESSO.chave: frozenset({Intencao.NEGAR}),
+}
+
 # Fase G (G1): marca que o resumo (F4) já foi apresentado — um CONFIRMAR só conclui o
 # handoff se for reply a um resumo que o cliente de fato viu; sem isso, a primeira
 # mensagem "solta" a chegar depois de tudo capturado (ex.: um "ok" de preenchimento) seria
@@ -458,14 +479,15 @@ class FinalizandoState(EstadoAtendimento):
         reconhecem sozinhos — ex.: "80" sozinho para faixa de funcionários, ou um nome de
         software fora de `_SOFTWARES_PONTO_CONHECIDOS` (aceito livremente, ao contrário de
         modelo — CAMPO-software-ponto não exige catálogo). Só atua sobre a pergunta
-        pendente atual (a que acabamos de fazer), e só quando a mensagem não bateu em
-        nenhuma regra de intenção conhecida (DESCONHECIDO) — uma intenção reconhecida (ex.:
-        "quero orçamento" repetido) não deve ser sequestrada como se fosse resposta.
+        pendente atual (a que acabamos de fazer).
+
+        Uma intenção reconhecida (ex.: "quero orçamento" repetido) não deve ser sequestrada
+        como se fosse resposta, mas "só DESCONHECIDO" era grosso demais: "sim" e "não"
+        isolados são classificados como CONFIRMAR/NEGAR e são justamente a forma da resposta
+        a um campo sim/não. Quem decide agora é o campo pendente, via
+        `_INTENCOES_RESPOSTA_POR_CAMPO`.
         """
         resultado_class = ctx.resultado_class
-        if resultado_class.intencao_principal != Intencao.DESCONHECIDO:
-            return
-
         atendimento = ctx.atendimento
         conteudo = ctx.conteudo
         p = ctx.processador
@@ -476,6 +498,14 @@ class FinalizandoState(EstadoAtendimento):
         if not pendentes:
             return
         campo = pendentes[0]
+
+        intencao = resultado_class.intencao_principal
+        if intencao != Intencao.DESCONHECIDO and intencao not in _INTENCOES_RESPOSTA_POR_CAMPO.get(
+            campo.chave, frozenset()
+        ):
+            if dlog:
+                dlog.log("finalizando", f"intenção {intencao.value} não responde a {campo.chave} — captura ignorada")
+            return
 
         if campo.chave == CAMPO_FAIXA_FUNCIONARIOS.chave:
             match = _NUMERO_SOLTO_REGEX.search(conteudo)
@@ -503,14 +533,11 @@ class FinalizandoState(EstadoAtendimento):
                 dlog.log("finalizando", f"software_controle_acesso capturado (resposta livre): {valor}")
 
         elif campo.chave == CAMPO_INTERESSE_SISTEMA_NUVEM.chave:
-            if _RESPOSTA_SIM_REGEX.search(conteudo):
-                p._salvar_info_atendimento(db, atendimento.id, campo.chave, "sim")
+            valor = self._ler_sim_nao(conteudo, intencao)
+            if valor:
+                p._salvar_info_atendimento(db, atendimento.id, campo.chave, valor)
                 if dlog:
-                    dlog.log("finalizando", "interesse_sistema_nuvem capturado: sim")
-            elif _RESPOSTA_NAO_REGEX.search(conteudo):
-                p._salvar_info_atendimento(db, atendimento.id, campo.chave, "não")
-                if dlog:
-                    dlog.log("finalizando", "interesse_sistema_nuvem capturado: não")
+                    dlog.log("finalizando", f"interesse_sistema_nuvem capturado: {valor}")
 
         elif campo.chave == CAMPO_QUANTIDADE.chave:
             match = _NUMERO_SOLTO_REGEX.search(conteudo)
@@ -520,14 +547,11 @@ class FinalizandoState(EstadoAtendimento):
                     dlog.log("finalizando", f"quantidade capturada (resposta solta): {match.group(1)}")
 
         elif campo.chave == CAMPO_HOMOLOGADO_SOFTWARE.chave:
-            if _RESPOSTA_SIM_REGEX.search(conteudo):
-                p._salvar_info_atendimento(db, atendimento.id, campo.chave, "sim")
+            valor = self._ler_sim_nao(conteudo, intencao)
+            if valor:
+                p._salvar_info_atendimento(db, atendimento.id, campo.chave, valor)
                 if dlog:
-                    dlog.log("finalizando", "homologado_software capturado: sim")
-            elif _RESPOSTA_NAO_REGEX.search(conteudo):
-                p._salvar_info_atendimento(db, atendimento.id, campo.chave, "não")
-                if dlog:
-                    dlog.log("finalizando", "homologado_software capturado: não")
+                    dlog.log("finalizando", f"homologado_software capturado: {valor}")
 
         # Campos não obrigatórios (ex.: alerta de homologação — REQ-002.14C/15) só são
         # perguntados uma vez: esta é a única tentativa de captura da resposta (acima).
@@ -535,6 +559,29 @@ class FinalizandoState(EstadoAtendimento):
         # reconhecida, `campos_pendentes()` deixa de bloquear o fluxo por causa dele.
         if not campo.obrigatorio:
             self._marcar_pergunta_opcional_se_necessario(ctx, campo)
+
+    @staticmethod
+    def _ler_sim_nao(conteudo: str, intencao: Intencao) -> Optional[str]:
+        """Lê uma resposta sim/não, usando a intenção classificada como evidência primária.
+
+        O classificador já reconhece as formas isoladas ("sim", "ok", "isso mesmo", "não")
+        com regras ancoradas; desprezar isso e reprocessar o texto por regex aqui seria
+        refazer, pior, o trabalho dele. Os regexes locais ficam como segunda linha, para as
+        formas embutidas numa frase maior ("sim, temos interesse"), que o classificador
+        deixa como DESCONHECIDO.
+
+        A negação é avaliada antes do afirmativo de propósito: `_RESPOSTA_SIM_REGEX` contém
+        "quero", então testar o sim primeiro fazia "não quero" ser lido como "sim".
+        """
+        if intencao == Intencao.NEGAR:
+            return "não"
+        if intencao == Intencao.CONFIRMAR:
+            return "sim"
+        if _RESPOSTA_NAO_REGEX.search(conteudo):
+            return "não"
+        if _RESPOSTA_SIM_REGEX.search(conteudo):
+            return "sim"
+        return None
 
     def _marcar_pergunta_opcional_se_necessario(self, ctx: ContextoAcao, campo: Pergunta) -> None:
         if campo.obrigatorio:
