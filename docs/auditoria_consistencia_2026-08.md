@@ -32,12 +32,14 @@ permanecem como foram redigidos. O que muda é o status, anotado abaixo e em cad
 | 2026-09-19 | P3 #15 (A4) | `6ea5d09` | Resolvido (REQ-012.8, com migração) |
 | 2026-09-19 | P3 #18 (T1) | `6ea5d09` | Resolvido (8 testes do envio manual) |
 | 2026-09-19 | P4 F1/F2/F3/F4 | `866be8d` | Resolvidos |
-| 2026-09-19 | C8 (achado novo) | — | Aberto: `/webhook` recusa mensagem sem texto |
+| 2026-09-19 | C8 (achado novo) | `57b87a3` | Resolvido: mensagem sem texto é registrada, sem resposta automática |
+| 2026-09-19 | D2 (achado novo) | `a94e996` | Resolvido: rótulo de auditoria estourava `String(30)` e derrubava o turno |
+| 2026-09-19 | D3 (achado novo) | — | Aberto (decisão de produto): pergunta de modelo fala de relógio para qualquer produto, e se repete sem limite |
 | 2026-09-19 | B4 (achado novo) | — | Aberto: limpeza por telefone deixa `empresas` órfã |
 | 2026-09-19 | D1 (achado novo) | `175ab15` | Resolvido: "sim"/"não" descartados como resposta |
 | 2026-09-19 | T3 | `55f4e4a` | **Obsoleto**: o gap que o `xfail` iria nomear foi fechado pelo canal de saída (REQ-008, Fase 10) |
 
-**Suíte:** 329 passando em 2026-09-19 (eram 261 passando / 7 falhando quando a auditoria foi
+**Suíte:** 338 passando e 2 `xfail` em 2026-09-19 (eram 261 passando / 7 falhando quando a auditoria foi
 escrita, e 282 depois do bloco P0). O crescimento veio dos testes escritos junto de cada correção:
 canal de saída e reply-to, envio manual, histórico de report e a resposta "sim"/"não".
 
@@ -339,6 +341,8 @@ Os 44 métodos de `services/api.js` batem com as rotas do backend; nenhuma cor f
 | **B4** (eixo B) | `apagar_dados_telefone` limpa contato, atendimento e mensagens, mas **não** as `empresas` criadas pela consulta de CNPJ, nem `atividades_empresa`/`socios_empresa`. A empresa sobrevive à limpeza e à rodada seguinte, então um cenário de "CNPJ novo" passa a exercitar, sem avisar, o caminho de "empresa já conhecida" | `backend/services/dev_limpeza_telefone.py` | aberto em 2026-09-19 |
 | **T4** (testes) | Os cenários do testador e a suíte de pytest compartilham o mesmo banco e usavam o **mesmo CNPJ** (`11222333000181`). A bateria de 2026-09-19 gravou a empresa e quebrou `test_regras_globais::test_fornecer_cnpj_cria_atendimento_vinculado_a_empresa_existente` com violação de unicidade. Agravante: o CNPJ "fictício" é de uma entidade **real**, e a consulta à Receita trouxe os dados dela para o banco | `testador_conversas/cenarios_exportados/cnpj_sem_pontuacao_com_nome_junto.yaml` × `backend/tests/test_regras_globais.py` | ✅ corrigido em 2026-09-19: CNPJ do cenário trocado, registro removido do banco |
 | **D1** (defeito de comportamento) | A captura de resposta em Finalizando exigia intenção `DESCONHECIDO`, mas o classificador reconhece `"sim"` isolado como `CONFIRMAR` e `"não"` como `NEGAR`. Responder "sim" para a pergunta de nuvem, ou "não" para a de software, **não gravava nada e o bot repetia a pergunta**. Os 12 testes de coleta ativa não pegavam porque todos injetam `DESCONHECIDO` fabricada, inclusive para o conteúdo `"sim"` | `services/conversacao/estados/finalizando.py:466` × `services/classificador.py:205-217` | ✅ corrigido em 2026-09-19 (`175ab15`) |
+| **D2** (defeito de comportamento) | O rótulo `"nao_entendi_aguardando_confirmacao"` (34 caracteres) não cabia em `ProcessamentoMensagem.resultado_fallback`, que é `String(30)`. O INSERT de auditoria estourava e derrubava `processar()` inteiro, e o webhook traduzia isso na resposta de erro genérica ao cliente. Contraintuitivo: quem quebrava o turno era a **gravação da auditoria**, não a decisão da resposta, que já estava tomada. Pior, o caminho atingido é o da 1ª ocorrência de confiança baixa (REQ-004.9): justamente quando o sistema está inseguro é que ele falhava por completo | `services/processador.py:738` × `models/processamento.py` (coluna `String(30)`) | ✅ corrigido em 2026-09-19 (`a94e996`) |
+| **D3** (decisão de produto) | Dois defeitos no mesmo sintoma, "pergunta de modelo para catraca fala de relógio de ponto e se repete a cada turno": (a) `MensagemId.PEDIR_MODELO` tem texto fixo de relógio de ponto, mas `CAMPO_MODELO` vale para 10 tipos de produto; (b) nada limita quantas vezes uma pergunta obrigatória sem resposta é reapresentada, porque `_MODELO_MAX_TENTATIVAS` só conta turnos **com** sinal de modelo. Diagnosticado e deliberadamente não corrigido: as duas correções mexem no texto que vai ao cliente e na política de insistência | `services/respostas/catalogo.py` (PEDIR_MODELO), `services/conversacao/estados/finalizando.py` (`_MODELO_MAX_TENTATIVAS`) | aberto; nomeado por dois `xfail(strict=True)` em `tests/test_processador_divergencias_bateria_cenarios.py` |
 
 O `_escalar_atendimento` merece nota: era exatamente o "pior caso" descrito no B1
 (`modo_operacao=HUMANO` commitado sem o evento que o explica), só que noutra função —
