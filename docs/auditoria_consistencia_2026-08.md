@@ -22,17 +22,24 @@ permanecem como foram redigidos. O que muda é o status, anotado abaixo e em cad
 | 2026-09-16 | P1 #7 (A3) | `544ac96` | Resolvido |
 | 2026-09-16 | P1 #4 (B1) | `544ac96` | Resolvido |
 | 2026-09-16 | P1 #8 (A2) | `544ac96` | Resolvido (back-fill) |
-| 2026-09-19 | P2 #9 (C1) | *a commitar* | Resolvido |
-| 2026-09-19 | P2 #10 (C2) | *a commitar* | Resolvido |
-| 2026-09-19 | P2 #11 (M1) | *a commitar* | Resolvido (memória) |
-| 2026-09-19 | P2 #12 (M2) | *a commitar* | Resolvido (memória) |
-| 2026-09-19 | P2 #13 (C3/C4/C5) | *a commitar* | Resolvido |
-| 2026-09-19 | C6 (achado novo) | *a commitar* | Resolvido nos documentos; código não tocado |
-| 2026-09-19 | C7 (achado novo) | — | Registrado; correção com outra frente |
+| 2026-09-19 | P2 #9 (C1) | `90b5986` | Resolvido |
+| 2026-09-19 | P2 #10 (C2) | `90b5986` | Resolvido |
+| 2026-09-19 | P2 #11 (M1) | fora do repo | Resolvido (memória) |
+| 2026-09-19 | P2 #12 (M2) | fora do repo | Resolvido (memória) |
+| 2026-09-19 | P2 #13 (C3/C4/C5) | `90b5986` | Resolvido |
+| 2026-09-19 | C6 (achado novo) | `90b5986` | Resolvido nos documentos; código não tocado |
+| 2026-09-19 | C7 (achado novo) | `866be8d` | Resolvido: config de ESLint criada, `npm run lint` passa limpo |
+| 2026-09-19 | P3 #15 (A4) | `6ea5d09` | Resolvido (REQ-012.8, com migração) |
+| 2026-09-19 | P3 #18 (T1) | `6ea5d09` | Resolvido (8 testes do envio manual) |
+| 2026-09-19 | P4 F1/F2/F3/F4 | `866be8d` | Resolvidos |
+| 2026-09-19 | C8 (achado novo) | — | Aberto: `/webhook` recusa mensagem sem texto |
+| 2026-09-19 | B4 (achado novo) | — | Aberto: limpeza por telefone deixa `empresas` órfã |
+| 2026-09-19 | D1 (achado novo) | `175ab15` | Resolvido: "sim"/"não" descartados como resposta |
 | 2026-09-19 | T3 | `55f4e4a` | **Obsoleto**: o gap que o `xfail` iria nomear foi fechado pelo canal de saída (REQ-008, Fase 10) |
 
-**Suíte:** 282 passando (eram 261 passando / 7 falhando quando a auditoria foi escrita; a diferença
-para 266 previstos no roadmap são 6 testes novos — 2 do gate de autenticação e 4 do invariante do P0-2).
+**Suíte:** 329 passando em 2026-09-19 (eram 261 passando / 7 falhando quando a auditoria foi
+escrita, e 282 depois do bloco P0). O crescimento veio dos testes escritos junto de cada correção:
+canal de saída e reply-to, envio manual, histórico de report e a resposta "sim"/"não".
 
 ---
 
@@ -328,6 +335,10 @@ Os 44 métodos de `services/api.js` batem com as rotas do backend; nenhuma cor f
 | **A2-bis** | Com `mensagem_id` finalmente preenchido, a FK `eventos_atendimento_mensagem_id_fkey` passou a ter efeito e a limpeza por telefone quebrou: apagava `mensagens` antes dos eventos que as referenciam | `services/dev_limpeza_telefone.py` | ✅ corrigido; ordem passou a eventos → mensagens |
 | **C6** (eixo C) | `settings.QA_SCORE_MINIMO_FULLTEXT = 0.25` está **morto** (zero consumidores); o limiar que governa o filtro vem da tabela `parametros`, chave `qa_fulltext_responde_min`, valor real **0.30**. Dois documentos citavam 0,25 como se valesse | `backend/config.py:94` (definição), `backend/services/rag/qa_service.py:336` (uso real), `backend/services/parametro_service.py:213`; docs afetados: `docs/auditoria_consistencia_2026-08.md:249`, `docs/arquitetura_avaliacao_rag_2026-07.md:30,71` | ✅ documentos corrigidos em 2026-09-19; **o código não foi tocado** |
 | **C7** (eixo C) | `npm run lint` **nunca funcionou** neste projeto: até 2026-09-19 não havia nenhuma config de ESLint em `frontend/` (nem `.eslintrc*`, nem `eslint.config.js`) e, sem `.eslintignore`, o ESLint 8 ainda varreria `frontend/dist/`. O comando está documentado no `CLAUDE.md` como comando do projeto | `frontend/package.json:10` (script), `CLAUDE.md` (seção Frontend), ausência de config em `frontend/` | registrado em 2026-09-19; correção em andamento por outra frente (setup do ESLint) |
+| **C8** (eixo C) | `POST /webhook` recusa mensagem **sem texto**: `Body: str = Form(...)` faz o FastAPI tratar string vazia como campo ausente e devolver **HTTP 422**. É o caso da mensagem só com mídia (`NumMedia>0`), que a conversa real de cliente em `docs/` mostra ser comum (foto e áudio). A mensagem do cliente se perde sem registro nenhum. Confirmado empiricamente em 2026-09-19 | `backend/main.py` (assinatura de `webhook_twilio`) | aberto em 2026-09-19 |
+| **B4** (eixo B) | `apagar_dados_telefone` limpa contato, atendimento e mensagens, mas **não** as `empresas` criadas pela consulta de CNPJ, nem `atividades_empresa`/`socios_empresa`. A empresa sobrevive à limpeza e à rodada seguinte, então um cenário de "CNPJ novo" passa a exercitar, sem avisar, o caminho de "empresa já conhecida" | `backend/services/dev_limpeza_telefone.py` | aberto em 2026-09-19 |
+| **T4** (testes) | Os cenários do testador e a suíte de pytest compartilham o mesmo banco e usavam o **mesmo CNPJ** (`11222333000181`). A bateria de 2026-09-19 gravou a empresa e quebrou `test_regras_globais::test_fornecer_cnpj_cria_atendimento_vinculado_a_empresa_existente` com violação de unicidade. Agravante: o CNPJ "fictício" é de uma entidade **real**, e a consulta à Receita trouxe os dados dela para o banco | `testador_conversas/cenarios_exportados/cnpj_sem_pontuacao_com_nome_junto.yaml` × `backend/tests/test_regras_globais.py` | ✅ corrigido em 2026-09-19: CNPJ do cenário trocado, registro removido do banco |
+| **D1** (defeito de comportamento) | A captura de resposta em Finalizando exigia intenção `DESCONHECIDO`, mas o classificador reconhece `"sim"` isolado como `CONFIRMAR` e `"não"` como `NEGAR`. Responder "sim" para a pergunta de nuvem, ou "não" para a de software, **não gravava nada e o bot repetia a pergunta**. Os 12 testes de coleta ativa não pegavam porque todos injetam `DESCONHECIDO` fabricada, inclusive para o conteúdo `"sim"` | `services/conversacao/estados/finalizando.py:466` × `services/classificador.py:205-217` | ✅ corrigido em 2026-09-19 (`175ab15`) |
 
 O `_escalar_atendimento` merece nota: era exatamente o "pior caso" descrito no B1
 (`modo_operacao=HUMANO` commitado sem o evento que o explica), só que noutra função —
