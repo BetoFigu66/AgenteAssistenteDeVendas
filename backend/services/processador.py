@@ -735,7 +735,13 @@ class ProcessadorMensagem:
                 )
                 return resposta
             self._salvar_info_atendimento(db, atendimento.id, _CONFIANCA_BAIXA_TENTATIVA_CHAVE, "1")
-            resultado_fallback = "nao_entendi_aguardando_confirmacao"
+            # O valor cabe em `ProcessamentoMensagem.resultado_fallback`, que é
+            # `String(30)`: o rótulo anterior ("nao_entendi_aguardando_confirmacao", 34
+            # caracteres) estourava a coluna e derrubava o INSERT de auditoria, fazendo
+            # `processar()` inteiro levantar e o webhook devolver a resposta de erro
+            # genérica. Nenhuma linha chegou a ser gravada com o rótulo longo, então
+            # encurtar não deixa histórico órfão.
+            resultado_fallback = "nao_entendi_aguardando_2a"
             justificativa_curta = (
                 "Confiança baixa (1ª ocorrência) — respondendo NAO_ENTENDI e aguardando "
                 "2ª ocorrência antes de escalar (REQ-004.9)."
