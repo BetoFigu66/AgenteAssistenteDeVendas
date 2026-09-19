@@ -5,7 +5,7 @@ import EmpresaDetalhes from './EmpresaDetalhes'
 import AtendimentoDetalhes from './AtendimentoDetalhes'
 import { api } from '../services/api'
 
-import { numeroAtendimentoExibicao, rotuloAtendimento, rotuloFase, classesFase } from '../utils/atendimento'
+import { rotuloAtendimento, rotuloFase, classesFase } from '../utils/atendimento'
 
 function CamposPendentesBadge({ atendimentoId }) {
   const [campos, setCampos] = useState([])

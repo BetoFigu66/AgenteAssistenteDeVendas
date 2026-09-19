@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { AlertTriangle, History } from 'lucide-react'
+import { AlertTriangle, Archive, History, RotateCcw } from 'lucide-react'
 import { api } from '../services/api'
 import { formatDatetimeBRT } from '../utils/datetime'
 import {
@@ -8,6 +8,7 @@ import {
   rotuloFase,
   classesFase,
   labelMotivoEscalonamento,
+  labelMotivoEncerramento,
 } from '../utils/atendimento'
 
 // Rótulos amigáveis para os tipos de EventoAtendimento (REQ-005, Fase 6) — tipos sem
@@ -201,6 +202,42 @@ function AtendimentoDetalhes({ atendimentoId }) {
           {atendimento.resumo_escalonamento && (
             <pre className="text-xs text-gray-700 bg-white border border-orange-100 rounded p-2 mt-2 whitespace-pre-wrap font-sans">
               {atendimento.resumo_escalonamento}
+            </pre>
+          )}
+        </div>
+      )}
+
+      {/* Encerramento (REQ-016) — só aparece em atendimento já encerrado. */}
+      {(atendimento.encerrado_em || atendimento.motivo_encerramento) && (
+        <div className="p-3 bg-gray-50 border border-gray-200 rounded-md">
+          <h3 className="text-sm font-semibold text-gray-700 mb-1 flex items-center gap-1.5">
+            <Archive size={14} /> Encerramento
+          </h3>
+          {atendimento.motivo_encerramento && (
+            <p className="text-sm text-gray-800">
+              {labelMotivoEncerramento(atendimento.motivo_encerramento)}
+            </p>
+          )}
+          <p className="text-xs text-gray-500 mt-1">
+            {formatDatetimeBRT(atendimento.encerrado_em)}
+            {atendimento.encerrado_por && ` · por ${atendimento.encerrado_por}`}
+          </p>
+        </div>
+      )}
+
+      {/* Reabertura (REQ-016) — atendimento encerrado que voltou a ficar ativo. */}
+      {(atendimento.reaberto_em || atendimento.reabertura_justificativa) && (
+        <div className="p-3 bg-inforrel-secondary/5 border border-inforrel-secondary/30 rounded-md">
+          <h3 className="text-sm font-semibold text-inforrel-secondary mb-1 flex items-center gap-1.5">
+            <RotateCcw size={14} /> Reabertura
+          </h3>
+          <p className="text-xs text-gray-500">
+            {formatDatetimeBRT(atendimento.reaberto_em)}
+            {atendimento.reaberto_por && ` · por ${atendimento.reaberto_por}`}
+          </p>
+          {atendimento.reabertura_justificativa && (
+            <pre className="text-xs text-gray-700 bg-white border border-inforrel-secondary/20 rounded p-2 mt-2 whitespace-pre-wrap font-sans">
+              {atendimento.reabertura_justificativa}
             </pre>
           )}
         </div>

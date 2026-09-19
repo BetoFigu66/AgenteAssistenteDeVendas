@@ -40,10 +40,30 @@ const MOTIVO_ESCALONAMENTO_LABELS = {
   baixa_confianca: 'Baixa confiança do classificador (mensagens repetidamente ambíguas)',
   base_insuficiente: 'Base de conhecimento sem conteúdo suficiente',
   manual_vendedor: 'Assumido manualmente pelo vendedor',
+  modelo_nao_reconhecido: 'Modelo informado não encontrado no catálogo (tentativas esgotadas)',
 }
 
 /** Rótulo legível do motivo de escalonamento (REQ-004, Fase 5). */
 export function labelMotivoEscalonamento(motivo) {
   if (!motivo) return 'Em modo humano'
   return MOTIVO_ESCALONAMENTO_LABELS[motivo] || motivo
+}
+
+// Espelha `MotivoEncerramento` (backend/models/atendimento.py, REQ-016.4). Os três
+// últimos são valores legados, que só aparecem em registros antigos.
+const MOTIVO_ENCERRAMENTO_LABELS = {
+  concluido_pelo_cliente: 'Concluído pelo cliente',
+  concluido_conversao: 'Concluído com conversão',
+  abandono: 'Abandono (cliente parou de responder)',
+  desistencia: 'Desistência do cliente',
+  manual_vendedor: 'Encerrado manualmente pelo vendedor',
+  inatividade: 'Inatividade (legado)',
+  ganha_legado: 'Ganha (legado)',
+  perdida_legado: 'Perdida (legado)',
+}
+
+/** Rótulo legível do motivo de encerramento (REQ-016). */
+export function labelMotivoEncerramento(motivo) {
+  if (!motivo) return null
+  return MOTIVO_ENCERRAMENTO_LABELS[motivo] || motivo
 }

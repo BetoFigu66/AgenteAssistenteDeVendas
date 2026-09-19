@@ -45,6 +45,9 @@ export function AuthProvider({ children }) {
   )
 }
 
+// O hook mora junto do provider de propósito (um único ponto de import na app);
+// custo: o fast refresh recarrega o módulo inteiro ao editar este arquivo.
+// eslint-disable-next-line react-refresh/only-export-components
 export function useAuth() {
   const ctx = useContext(AuthContext)
   if (!ctx) throw new Error('useAuth precisa ser usado dentro de <AuthProvider>')

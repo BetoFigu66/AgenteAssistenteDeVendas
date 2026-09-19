@@ -530,12 +530,12 @@ function QABasePage() {
                   {similaresEncontrados.map((c) => (
                     <li key={c.id} className="border-l-2 border-amber-300 pl-2">
                       <span className="font-mono text-amber-600">{Math.round(c.score * 100)}%</span>{' '}
-                      <span className="italic">"{c.pergunta}"</span>
+                      <span className="italic">&quot;{c.pergunta}&quot;</span>
                       {!c.aprovado && <span className="text-amber-500"> (rascunho)</span>}
                     </li>
                   ))}
                 </ul>
-                <p>Clique em "Criar mesmo assim" para prosseguir ou ajuste a pergunta acima.</p>
+                <p>Clique em &quot;Criar mesmo assim&quot; para prosseguir ou ajuste a pergunta acima.</p>
               </div>
             )}
 

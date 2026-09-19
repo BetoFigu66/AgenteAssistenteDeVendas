@@ -404,7 +404,7 @@ function ReportsPage({ onVoltar, onAbrirAtendimento }) {
               {r.mensagem && (
                 <div className="text-xs text-gray-600 bg-gray-50 rounded px-2 py-1 border-l-2 border-inforrel-secondary">
                   <span className="text-gray-500">💬 {r.mensagem.telefone}:</span>{' '}
-                  <span className="italic">"{r.mensagem.conteudo}"</span>
+                  <span className="italic">&quot;{r.mensagem.conteudo}&quot;</span>
                 </div>
               )}
               {r.processamento && (

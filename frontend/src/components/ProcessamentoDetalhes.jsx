@@ -455,7 +455,7 @@ function ProcessamentoDetalhes({ processamentoId }) {
       <Secao titulo="Controle">
         <div className="grid grid-cols-2 gap-3">
           <Campo label="Duração total (ms)" valor={proc.duracao_ms} />
-          <Campo label="Registrado em" valor={proc.created_at} />
+          <Campo label="Registrado em" valor={formatDatetimeBRT(proc.created_at)} />
         </div>
         {proc.erro && (
           <div className="mt-2 bg-red-50 border border-red-200 text-red-700 text-sm rounded p-2">

@@ -9,6 +9,7 @@ import {
   Brain,
   ExternalLink,
   BookOpen,
+  History,
 } from 'lucide-react'
 import { api } from '../services/api'
 import DetalheModal from './DetalheModal'
@@ -20,13 +21,39 @@ import {
   CATEGORIAS,
   SEVERIDADES,
   STATUS,
-  corStatus,
   corSeveridade,
+  corStatus,
   labelCategoria,
-  labelStatus,
   labelSeveridade,
+  labelStatus,
   statusPermitidos,
 } from '../constants/reports'
+
+// O histórico do report deixou de ser só de status (REQ-012.8): a mesma lista traz agora
+// alterações de categoria e severidade, distinguidas pelo campo `campo`. As chaves
+// `status_anterior`/`status_novo` continuam vindo do backend por compatibilidade, mas são
+// nulas fora das linhas de status, então quem renderiza lê `valor_anterior`/`valor_novo`.
+const LABELS_CAMPO_HISTORICO = {
+  status: 'Status',
+  categoria: 'Categoria',
+  severidade: 'Severidade',
+}
+
+const labelCampoHistorico = (campo) => LABELS_CAMPO_HISTORICO[campo] || campo
+
+const labelValorHistorico = (campo, valor) => {
+  if (!valor) return '—'
+  if (campo === 'categoria') return labelCategoria(valor)
+  if (campo === 'severidade') return labelSeveridade(valor)
+  return labelStatus(valor)
+}
+
+const badgeHistorico = (campo, valor) => {
+  const base = 'text-xs px-2 py-0.5 rounded-full'
+  if (campo === 'severidade') return `${base} ${corSeveridade(valor)}`
+  if (campo === 'categoria') return `${base} bg-gray-100 text-gray-700`
+  return `${base} ${corStatus(valor)}`
+}
 
 function ReportDetalhe({ reportId, onClose, onAtualizado, onAbrirAtendimento }) {
   const { usuario } = useAuth()
@@ -88,6 +115,13 @@ function ReportDetalhe({ reportId, onClose, onAtualizado, onAbrirAtendimento }) 
         resolucao: resolucao.trim() || null,
       })
       setCtx((prev) => (prev ? { ...prev, report: atualizado } : prev))
+      // O histórico muda junto com o status; recarrega só ele, sem piscar a tela.
+      api
+        .obterContextoReport(reportId)
+        .then((d) =>
+          setCtx((prev) => (prev ? { ...prev, historico_status: d.historico_status || [] } : prev))
+        )
+        .catch(() => {})
       setSucessoSave(true)
       setTimeout(() => setSucessoSave(false), 2500)
       onAtualizado?.(atualizado)
@@ -113,6 +147,7 @@ function ReportDetalhe({ reportId, onClose, onAtualizado, onAbrirAtendimento }) 
   const report = ctx?.report
   const proc = ctx?.processamento
   const msgs = ctx?.contexto_mensagens || []
+  const historicoStatus = ctx?.historico_status || []
   const telefone =
     ctx?.telefone || msgs.find((m) => m.telefone)?.telefone || null
   const msgReportadaId = proc?.id ? msgs.find((m) => m.processamento_id === proc.id)?.id : null
@@ -516,6 +551,41 @@ function ReportDetalhe({ reportId, onClose, onAtualizado, onAbrirAtendimento }) 
               </button>
             </div>
           </div>
+
+          {/* Histórico de status (REQ-012, Fase 8) — vem do backend em ordem decrescente. */}
+          {historicoStatus.length > 0 && (
+            <div className="border-t pt-4">
+              <h3 className="text-sm font-semibold text-inforrel-primary mb-2 flex items-center gap-1.5">
+                <History size={14} /> Histórico de alterações
+              </h3>
+              <ul className="space-y-2">
+                {historicoStatus.map((h) => (
+                  <li key={h.id} className="border-l-2 border-inforrel-secondary pl-3 text-sm">
+                    <div className="flex items-center justify-between flex-wrap gap-1">
+                      <span className="flex items-center gap-1.5 flex-wrap">
+                        {h.campo !== 'status' && (
+                          <span className="text-xs text-gray-500">{labelCampoHistorico(h.campo)}:</span>
+                        )}
+                        {h.valor_anterior && (
+                          <>
+                            <span className={badgeHistorico(h.campo, h.valor_anterior)}>
+                              {labelValorHistorico(h.campo, h.valor_anterior)}
+                            </span>
+                            <span className="text-xs text-gray-400">→</span>
+                          </>
+                        )}
+                        <span className={badgeHistorico(h.campo, h.valor_novo)}>
+                          {labelValorHistorico(h.campo, h.valor_novo)}
+                        </span>
+                      </span>
+                      <span className="text-xs text-gray-500">{formatDatetimeBRT(h.timestamp)}</span>
+                    </div>
+                    <p className="text-xs text-gray-500 mt-0.5">por {h.ator}</p>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
         </div>
       )}
 

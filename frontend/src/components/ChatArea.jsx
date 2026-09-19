@@ -28,7 +28,9 @@ function ChatArea({ telefone, mensagens, dadosConversa, loading, erro, onEnviarM
     setSalvandoScore(true)
     try {
       await api.patchConfigRag({ rag_score_minimo: val })
-    } catch (_) {}
+    } catch {
+      // Falha ao salvar o score é silenciosa: o valor volta no próximo carregamento.
+    }
     finally { setSalvandoScore(false) }
   }
 

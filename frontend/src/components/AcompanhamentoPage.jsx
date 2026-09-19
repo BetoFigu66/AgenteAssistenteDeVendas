@@ -118,6 +118,9 @@ function AcompanhamentoPage({ atendimentoIdInicial, onAtendimentoIdInicialConsum
       setPendentesQA([])
       setConfirmandoPendentesQA(false)
     }
+    // Só reage à abertura do modal: incluir `mensagensAtendimento` nas dependências
+    // reescreveria o formulário a cada nova mensagem carregada.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mensagemReprovando])
 
   const fecharModalReprovacao = () => {
@@ -821,7 +824,7 @@ function AcompanhamentoPage({ atendimentoIdInicial, onAtendimentoIdInicialConsum
                         </li>
                       ))}
                     </ul>
-                    <p className="text-xs text-orange-700 mt-2">Clique em "Reprovar" novamente para confirmar mesmo assim.</p>
+                    <p className="text-xs text-orange-700 mt-2">Clique em &quot;Reprovar&quot; novamente para confirmar mesmo assim.</p>
                   </div>
                 )}
               </div>
