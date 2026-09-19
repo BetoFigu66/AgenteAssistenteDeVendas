@@ -397,11 +397,111 @@ def _entregar_resposta_do_webhook(mensagem_saida_id: Optional[int], texto: str, 
     return _TWIML_VAZIO
 
 
+def _quantidade_de_midias(num_media: Optional[str]) -> int:
+    """Quantos anexos a Twilio diz ter entregue nesta mensagem.
+
+    `NumMedia` chega como string no formulário e pode faltar ou vir com lixo (o
+    testador de conversas e o simulador web sequer mandam o campo). Qualquer coisa
+    que não seja inteiro conta como "nenhuma mídia".
+    """
+    try:
+        return max(0, int((num_media or "0").strip()))
+    except (AttributeError, TypeError, ValueError):
+        return 0
+
+
+def _registrar_mensagem_sem_texto(
+    telefone: str,
+    quantidade_midias: int,
+    message_sid: Optional[str],
+    responde_a_message_sid: Optional[str],
+) -> int:
+    """Grava no histórico uma mensagem do cliente que chegou sem nenhum texto.
+
+    É o caso da mensagem só com mídia: a Twilio manda `NumMedia>0` com `Body` vazio
+    (foto, áudio, documento). Antes disso virar tratamento explícito, o `Body` era
+    obrigatório na assinatura do endpoint e o FastAPI devolvia 422 para a Twilio: a
+    mensagem do cliente sumia, sem registro e sem resposta.
+
+    Três decisões, todas conscientes:
+
+    1. **Registra sempre.** Sem a linha no banco o histórico mentiria, dando a
+       entender que o cliente ficou calado quando ele mandou uma foto.
+    2. **Não passa pelo cérebro.** Não há texto para classificar. Mandar string vazia
+       ao classificador cairia na LLM (`classificar` só tem as regras e a LLM como
+       saídas), que inventaria uma intenção a partir de nada, e a resposta construída
+       em cima dela seria adivinhação. `NumMedia` é o que permite separar "só mídia"
+       de "mensagem vazia de verdade", e essa distinção fica gravada no marcador.
+    3. **Não gera resposta automática.** O sistema não leu a mídia e não pode fingir
+       que leu (nenhum template do catálogo fala de anexo, e inventar um afirmaria o
+       que não sabemos). Quem decide o que responder a uma foto ou a um áudio é o
+       operador, pelo painel: o webhook devolve TwiML vazio, o mesmo caminho já
+       existente de quando o atendimento está em `ModoOperacao.HUMANO`. Responder
+       daqui exigiria replicar em `main.py` as regras de aprovação do REQ-011 e a
+       checagem de modo de operação, que vivem no processador.
+
+    Devolve o id da mensagem registrada.
+    """
+    telefone_norm = normalizar_telefone(telefone)
+    # Entre colchetes de propósito: quem lê a conversa precisa ver que é anotação do
+    # sistema, não texto que o cliente digitou.
+    conteudo = (
+        f"[mídia recebida sem texto: {quantidade_midias} anexo(s)]"
+        if quantidade_midias > 0
+        else "[mensagem recebida sem conteúdo]"
+    )
+
+    with db.get_session() as session:
+        mensagem = Mensagem(
+            telefone=telefone_norm,
+            conteudo=conteudo,
+            origem=OrigemMensagem.USER,
+            message_sid=message_sid,
+            resposta_a_message_sid=responde_a_message_sid,
+            # Reusa a resolução do processador em vez de repetir a consulta: além de
+            # ser a fonte única da regra, é ela que filtra pelo telefone da conversa,
+            # o que impede um SID forjado de apontar para a mensagem de outro cliente.
+            resposta_a_mensagem_id=ProcessadorMensagem._resolver_resposta_a(
+                session,
+                telefone_norm,
+                responde_a_message_sid=responde_a_message_sid,
+                responde_a_mensagem_id=None,
+            ),
+        )
+        session.add(mensagem)
+        session.flush()
+
+        # Vincula ao contato/atendimento ativo quando já existem, para a mensagem
+        # aparecer dentro do atendimento e não só no histórico por telefone. Contato
+        # novo não é criado aqui: abrir cadastro a partir de uma mídia que não sabemos
+        # ler seria decidir demais com informação de menos.
+        contato = identificar_por_telefone(session, telefone_norm).contato
+        if contato:
+            mensagem.contato_id = contato.id
+            atendimento = atendimentos_svc.atendimento_ativo(session, contato)
+            if atendimento:
+                mensagem.atendimento_id = atendimento.id
+                atendimento.registrar_ultima_mensagem_em(mensagem.timestamp)
+
+        session.commit()
+        mensagem_id = mensagem.id
+
+    logger.info(
+        "[Webhook] Mensagem sem texto registrada (mensagem_id=%s, anexos=%s) — sem resposta automática.",
+        mensagem_id,
+        quantidade_midias,
+    )
+    return mensagem_id
+
+
 @app.post("/webhook", response_class=PlainTextResponse)
 async def webhook_twilio(
     request: Request,
     From: str = Form(...),
-    Body: str = Form(...),
+    # `Form("")` e não `Form(...)`: o FastAPI trata campo de formulário vazio como
+    # ausente, e mensagem só com mídia chega da Twilio com `Body` vazio. Enquanto era
+    # obrigatório, essas mensagens voltavam 422 e o que o cliente mandou se perdia.
+    Body: str = Form(""),
     MessageSid: Optional[str] = Form(None),
     AccountSid: Optional[str] = Form(None),
     To: Optional[str] = Form(None),
@@ -417,14 +517,31 @@ async def webhook_twilio(
     `OriginalRepliedMessageSid` só vem quando o cliente usou o "Responder" do WhatsApp
     citando uma mensagem nossa. Vem acompanhado de `OriginalRepliedMessageSender`, que
     não usamos: o remetente já é conhecido pelo `From`.
+
+    Mensagem sem texto (só mídia) tem caminho próprio, sem passar pelo cérebro: ver
+    `_registrar_mensagem_sem_texto`.
     """
     await _exigir_assinatura_twilio(request)
 
     telefone = From.replace("whatsapp:", "")
     # O testador de conversas e o simulador mandam só `From`/`Body`. A Twilio sempre
-    # manda `AccountSid`, então a ausência dele é o sinal de que a requisição é local —
+    # manda `AccountSid`, então a ausência dele é o sinal de que a requisição é local:
     # é o que impede o TwiML de virar entrega real quando o canal está simulado.
     veio_da_twilio = bool(AccountSid)
+
+    # Mensagem sem texto (tipicamente só mídia): registra e devolve TwiML vazio, sem
+    # acionar o cérebro. Ver `_registrar_mensagem_sem_texto` para o porquê de cada
+    # parte. Vale igual para chamada local e para a Twilio: o testador não tem o que
+    # ler no TwiML porque não há resposta gerada, e não porque a entrega foi suprimida.
+    texto = (Body or "").strip()
+    if not texto:
+        _registrar_mensagem_sem_texto(
+            telefone,
+            _quantidade_de_midias(NumMedia),
+            MessageSid,
+            OriginalRepliedMessageSid,
+        )
+        return PlainTextResponse(content=_TWIML_VAZIO, media_type="application/xml")
 
     try:
         resultado = await _processar_via_cerebro(
