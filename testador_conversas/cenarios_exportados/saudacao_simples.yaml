@@ -1,0 +1,14 @@
+nome: saudacao_simples
+descricao: Cliente novo diz oi.
+ativo: true
+turnos:
+- ordem: 1
+  mensagem_enviada: oi
+  observacoes: null
+  respostas_aceitas:
+  - texto: 'Olá! 👋 Sou o assistente da Inforrel.
+
+      Para te atender melhor, poderia me informar o seu nome e o CNPJ da sua empresa
+      ou seu CPF?'
+    ativo: true
+    criado_por: revisao_manual_cli
