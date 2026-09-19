@@ -1420,6 +1420,74 @@ suportado.
 
 ---
 
+## Testador de conversas — bateria de cenários
+
+Sistema separado (`testador_conversas/`, venv próprio) que conversa com o backend pelo
+`POST /webhook`, como um cliente de WhatsApp faria, e compara a resposta com o catálogo de
+respostas já aceitas. Não é gate automático de passa/não passa: quando a resposta não bate
+com nenhuma aceita, ele para e pergunta. Aceitar grava a nova redação no catálogo.
+
+Detalhes de setup e de modelagem estão em `testador_conversas/README.md`. Aqui fica só a
+rotina de uso.
+
+### Pré-requisitos que quebram a bateria se faltarem
+
+| Requisito | Por quê |
+|---|---|
+| `alembic upgrade head` rodado antes do `bootstrap_usuario.py` | o bootstrap faz SELECT em `users`, tabela do backend |
+| `DEBUG=true` no `.env` do backend | sem isso `DELETE /api/dev/telefones` dá 403 e toda execução falha na limpeza |
+| **sem** `GROQ_API_KEY` | com LLM a resposta varia a cada rodada e todo turno vira revisão manual |
+| `ModoExecucao = EXECUCAO_NORMAL` | é o caminho testado: a resposta volta no TwiML. Nos modos com aprovação ela fica pendente no painel |
+| porta certa | o testador aponta para 8001 (dev) por padrão; o docker/QA responde na 8000 |
+
+### Rotina
+
+```bash
+# Backend de dev na 8001 (o QA/docker usa 8000)
+cd backend && source venv/bin/activate && uvicorn main:app --host 0.0.0.0 --port 8001 --reload
+
+# Em outra aba
+cd testador_conversas && source venv/bin/activate
+python cli.py importar                    # carrega os YAMLs de cenarios_exportados/
+python cli.py cenarios-listar             # confere o que entrou, com os inativos marcados
+
+# 1ª passada: varre tudo e diz o que diverge, sem parar para perguntar
+python cli.py rodar-todos --nao-interativo
+
+# 2ª passada: revisão humana, um cenário por vez
+python cli.py rodar prazo_entrega_pergunta_direta
+
+# Fotografa no git o que passou a ser aceito
+python cli.py exportar && git add testador_conversas/cenarios_exportados/
+```
+
+Para rodar contra o docker/QA: `TESTADOR_BACKEND_BASE_URL=http://localhost:8000 python cli.py ...`
+
+O critério de aceite de cada turno está no campo `observacoes` do YAML, no formato
+`PRECISA: ... | NÃO PODE: ... | exercita: ...`. O CLI ainda não imprime isso na tela, então
+deixe o arquivo do cenário aberto ao lado durante a revisão.
+
+### Armadilhas conhecidas
+
+- **Telefone preso.** Se um cenário morrer no meio, o número fica em `EM_USO`:
+  `python cli.py numeros-liberar 5511999900001`.
+- **Poucos números no pool serializam a bateria.** Cadastre uns quatro
+  (`cli.py numeros-adicionar`) se for rodar muita coisa.
+- **Empresa sobrevive à limpeza (achado B4).** `apagar_dados_telefone` remove contato,
+  atendimento e mensagens, mas não a `empresa` criada pela consulta de CNPJ. Na rodada
+  seguinte, um cenário de "CNPJ novo" passa a exercitar o caminho de "empresa já conhecida"
+  sem avisar. Enquanto não for corrigido, apague a empresa à mão ao repetir esses cenários.
+- **CNPJ válido não é CNPJ fictício (achado T4).** Todo CNPJ com dígito verificador correto
+  pertence, ou pode pertencer, a uma entidade real, e a consulta à Receita traz os dados
+  dela para o banco. Ao criar cenário novo, confira também que o CNPJ escolhido não é usado
+  por `backend/tests/` — o testador e a suíte dividem o mesmo banco, e a colisão quebra os
+  dois lados.
+- **Cenário de rede externa.** `cnpj_valido_mas_inexistente_na_receita` bate na ReceitaWS de
+  verdade e nasce inativo, para não estourar o limite do plano gratuito na rodada em lote.
+
+---
+
+
 ## Atividades Periódicas
 
 Config: `artefatos/gerente_de_projetos/atividades_periodicas.yaml`
