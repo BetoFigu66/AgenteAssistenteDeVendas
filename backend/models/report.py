@@ -129,13 +129,26 @@ class ReportProblema(Base):
         }
 
 
+# `campo` guarda o nome do atributo alterado em `ReportProblema` ("status",
+# "categoria", "severidade", ...). String solta em vez de enum porque a lista cresce
+# junto com o que a triagem pode editar, e o histórico é append-only: uma linha antiga
+# precisa continuar legível mesmo se o campo sumir do modelo um dia.
+CAMPO_STATUS = "status"
+
+
 class HistoricoStatusReport(Base):
-    """Log de transições de status de um `ReportProblema` (REQ-012, Fase 8).
+    """Log de alterações de um `ReportProblema` (REQ-012, Fase 8; REQ-012.8).
 
     Tabela dedicada e simplificada — mesmo padrão de `HistoricoModoExecucao`/
     `HistoricoConfiguracao`, não a `EventoAtendimento` da Fase 6 (que exige
     `atendimento_id` not-null; um report nem sempre resolve a um atendimento,
     ex. reports manuais sem mensagem vinculada).
+
+    Nasceu registrando só transição de status; o REQ-012.8 exige o mesmo para
+    categoria e severidade, então as colunas viraram genéricas (`campo`,
+    `valor_anterior`, `valor_novo`), uma linha por alteração, como já era.
+    O nome da classe/tabela ficou por compatibilidade: renomear obrigaria a mexer
+    em `models/__init__.py` e na chave `historico_status` da API sem ganho real.
     """
 
     __tablename__ = "historico_status_report"
@@ -144,17 +157,24 @@ class HistoricoStatusReport(Base):
     report_id: Mapped[int] = mapped_column(
         ForeignKey("reports_problema.id", ondelete="CASCADE"), nullable=False, index=True
     )
-    status_anterior: Mapped[Optional[str]] = mapped_column(String(30), nullable=True)
-    status_novo: Mapped[str] = mapped_column(String(30), nullable=False)
+    campo: Mapped[str] = mapped_column(String(30), nullable=False, default=CAMPO_STATUS)
+    valor_anterior: Mapped[Optional[str]] = mapped_column(String(30), nullable=True)
+    valor_novo: Mapped[str] = mapped_column(String(30), nullable=False)
     ator: Mapped[str] = mapped_column(String(50), nullable=False)
     timestamp: Mapped[datetime] = mapped_column(UTCDateTime, default=utc_now, nullable=False, index=True)
 
     def to_dict(self) -> dict:
+        eh_status = self.campo == CAMPO_STATUS
         return {
             "id": self.id,
             "report_id": self.report_id,
-            "status_anterior": self.status_anterior,
-            "status_novo": self.status_novo,
+            "campo": self.campo,
+            "valor_anterior": self.valor_anterior,
+            "valor_novo": self.valor_novo,
+            # Chaves antigas, mantidas para quem já lê o histórico de status. Ficam
+            # nulas numa linha de categoria/severidade: ali nenhum status mudou.
+            "status_anterior": self.valor_anterior if eh_status else None,
+            "status_novo": self.valor_novo if eh_status else None,
             "ator": self.ator,
             "timestamp": serialize_utc_datetime(self.timestamp),
         }

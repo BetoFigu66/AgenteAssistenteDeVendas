@@ -1465,13 +1465,36 @@ async def criar_report_problema(
         return report.to_dict()
 
 
+def _registrar_alteracao_report(session, report, campo, valor_anterior, valor_novo, ator):
+    """Anota no histórico do report que `campo` mudou (REQ-012.8).
+
+    Só `add` + `flush`: o commit é de quem chamou, para que a alteração e o registro
+    dela caiam na mesma transação. Estado e evento de auditoria em dois commits
+    separados abrem a janela em que um existe sem o outro.
+    """
+    session.add(
+        HistoricoStatusReport(
+            report_id=report.id,
+            campo=campo,
+            valor_anterior=valor_anterior,
+            valor_novo=valor_novo,
+            ator=ator,
+        )
+    )
+    session.flush()
+
+
 @app.patch("/api/reports/{report_id}")
 async def atualizar_report(
     report_id: int,
     payload: AtualizarReportRequest,
     resolvido_por: str = Depends(usuario_nome_atual),
 ):
-    """Atualiza um report (triagem/resolução)."""
+    """Atualiza um report (triagem/resolução).
+
+    Toda alteração de status, categoria ou severidade vira uma linha de histórico
+    (REQ-012.8), na mesma transação da alteração.
+    """
     status_novo = _validar_enum(payload.status, StatusReport, "status")
     categoria = _validar_enum(payload.categoria, CategoriaReport, "categoria")
     severidade = _validar_enum(payload.severidade, SeveridadeReport, "severidade")
@@ -1493,13 +1516,13 @@ async def atualizar_report(
                     ),
                 )
 
-            session.add(
-                HistoricoStatusReport(
-                    report_id=report.id,
-                    status_anterior=report.status.value,
-                    status_novo=status_novo.value,
-                    ator=resolvido_por,
-                )
+            _registrar_alteracao_report(
+                session,
+                report,
+                campo="status",
+                valor_anterior=report.status.value,
+                valor_novo=status_novo.value,
+                ator=resolvido_por,
             )
 
             report.status = status_novo
@@ -1511,10 +1534,25 @@ async def atualizar_report(
                 report.resolvido_em = None
                 report.resolvido_por = None
 
-        if categoria is not None:
-            report.categoria = categoria
-        if severidade is not None:
-            report.severidade = severidade
+        # `campo` é o nome do atributo em `ReportProblema`, como o modelo documenta.
+        # Só registra o que mudou de fato: reenviar o mesmo valor (a tela manda o
+        # formulário inteiro) não é alteração e não polui o histórico.
+        for campo, valor_novo in (("categoria", categoria), ("severidade", severidade)):
+            if valor_novo is None:
+                continue
+            valor_atual = getattr(report, campo)
+            if valor_novo == valor_atual:
+                continue
+            _registrar_alteracao_report(
+                session,
+                report,
+                campo=campo,
+                valor_anterior=valor_atual.value if valor_atual else None,
+                valor_novo=valor_novo.value,
+                ator=resolvido_por,
+            )
+            setattr(report, campo, valor_novo)
+
         if payload.resolucao is not None:
             report.resolucao = payload.resolucao or None
 
