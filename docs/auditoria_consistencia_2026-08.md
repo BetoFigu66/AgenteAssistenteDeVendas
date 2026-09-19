@@ -18,10 +18,18 @@ permanecem como foram redigidos. O que muda é o status, anotado abaixo e em cad
 |------|------|--------|----------|
 | 2026-09-15 | P0-1 | `02d66ef` | Resolvido |
 | 2026-09-16 | P0-2 | `6455022` | Resolvido |
-| 2026-09-16 | P1 #5 (B2) | *a commitar* | Resolvido |
-| 2026-09-16 | P1 #7 (A3) | *a commitar* | Resolvido |
-| 2026-09-16 | P1 #4 (B1) | *a commitar* | Resolvido |
-| 2026-09-16 | P1 #8 (A2) | *a commitar* | Resolvido (back-fill) |
+| 2026-09-16 | P1 #5 (B2) | `544ac96` | Resolvido |
+| 2026-09-16 | P1 #7 (A3) | `544ac96` | Resolvido |
+| 2026-09-16 | P1 #4 (B1) | `544ac96` | Resolvido |
+| 2026-09-16 | P1 #8 (A2) | `544ac96` | Resolvido (back-fill) |
+| 2026-09-19 | P2 #9 (C1) | *a commitar* | Resolvido |
+| 2026-09-19 | P2 #10 (C2) | *a commitar* | Resolvido |
+| 2026-09-19 | P2 #11 (M1) | *a commitar* | Resolvido (memória) |
+| 2026-09-19 | P2 #12 (M2) | *a commitar* | Resolvido (memória) |
+| 2026-09-19 | P2 #13 (C3/C4/C5) | *a commitar* | Resolvido |
+| 2026-09-19 | C6 (achado novo) | *a commitar* | Resolvido nos documentos; código não tocado |
+| 2026-09-19 | C7 (achado novo) | — | Registrado; correção com outra frente |
+| 2026-09-19 | T3 | `55f4e4a` | **Obsoleto**: o gap que o `xfail` iria nomear foi fechado pelo canal de saída (REQ-008, Fase 10) |
 
 **Suíte:** 282 passando (eram 261 passando / 7 falhando quando a auditoria foi escrita; a diferença
 para 266 previstos no roadmap são 6 testes novos — 2 do gate de autenticação e 4 do invariante do P0-2).
@@ -34,8 +42,8 @@ para 266 previstos no roadmap são 6 testes novos — 2 do gate de autenticaçã
 |---|---|---|---|---|
 | **P0-1** | **A aplicação não sobe com o `.env` atual** — `config.py` rejeita as chaves Twilio de API Key | Bloqueante | Trivial | ✅ resolvido (`02d66ef`) |
 | **P0-2** | **Fluxo de qualificação quebrado** — troca `commit()`→`flush()` deixa cache do ORM obsoleto; bot repete perguntas já respondidas (7 testes falhando) | Alta | Baixo | ✅ resolvido (`6455022`) |
-| **B1** | Transição de fase/modo e evento de auditoria em **dois commits separados** — atendimento pode travar em `HUMANO` sem rastro | Alta | Médio | aberto (P1 #4) |
-| **M1** | Memória do MVP descreve um **Template Method que não existe** no código | Alta | Trivial (corrigir memória) | aberto (P2 #11) |
+| **B1** | Transição de fase/modo e evento de auditoria em **dois commits separados** — atendimento pode travar em `HUMANO` sem rastro | Alta | Médio | ✅ resolvido (`544ac96`) |
+| **M1** | Memória do MVP descreve um **Template Method que não existe** no código | Alta | Trivial (corrigir memória) | ✅ resolvido 2026-09-19 (memória) |
 | **T2** | Regra de negócio "desviar compatibilidade para validação técnica" **sem guarda determinística** — só instrução de prompt | Média-alta | Médio | aberto (P1 #6) |
 
 **Resultado negativo relevante (e tranquilizador):** `CLAUDE.md` e `docs/arquitetura_motor_conversacao_2026-07.md` foram verificados ponto a ponto e **estão fiéis ao código**. Zero achados nos dois. As quatro convenções centrais do backend (nada de psycopg cru, ordem de rotas, import via pacote `models`, timestamps UTC) também estão íntegras de ponta a ponta. O contrato frontend↔backend não tem nenhuma rota quebrada nem cor fora dos tokens da marca.
@@ -100,21 +108,47 @@ para 266 previstos no roadmap são 6 testes novos — 2 do gate de autenticaçã
 - **CÓDIGO:** os scripts vivem em `backend/scripts/base_conhecimento/`; `backend/scripts/` contém apenas `criar_usuario_admin.py` e `importar_catalogo_csv.py`.
 - **Impacto:** os quatro comandos, como documentados, **falham**. Argumentos e caminhos de saída estão corretos — falta só o segmento `base_conhecimento\`.
 
+> **✅ Resolvido em 2026-09-19.** O segmento foi inserido nas **8** linhas de comando (as
+> quatro seções têm duas cada: a forma básica e a com argumentos explícitos), hoje
+> `docs/comandos_uteis.md:626,629,638,641,653,656,668,671`. Verificado que os quatro
+> scripts existem em `backend/scripts/base_conhecimento/`.
+
 #### C2 · Lista de tabelas da limpeza de telefone desatualizada — **MÉDIA / trivial**
 - **DOC:** `docs/comandos_uteis.md:580` cita `itens_negociacao`.
 - **CÓDIGO:** `backend/services/dev_limpeza_telefone.py:141-169` usa `itens_atendimento` (`ItemAtendimento`, `models/atendimento.py:287`). `ItemNegociacao` não existe mais — foi renomeado. O doc também omite `eventos_atendimento`, que o código remove.
+
+> **✅ Resolvido em 2026-09-19.** A lista foi reescrita a partir do código, na ordem real de
+> remoção (`reports`, `eventos_atendimento`, `mensagens`, `processamentos`,
+> `itens_orcamento`, `orcamentos`, `itens_atendimento`, `atendimento_infos`,
+> `atendimentos`, `contatos`), com a explicação de por que `eventos_atendimento` precisa
+> vir antes de `mensagens` (achado A2-bis). A menção genérica mais abaixo no mesmo doc
+> também foi corrigida: omitia eventos e itens.
 
 #### C3 · Hook de sync atribuído ao `.py`, pulando o wrapper — **BAIXA / trivial**
 - **DOC:** `docs/comandos_uteis.md:736` — "script `scripts/sync_skill_windsurf.py`".
 - **CÓDIGO:** `.pre-commit-config.yaml` chama `bash scripts/sync_skill_windsurf.sh`, que invoca o `.py`.
 
+> **✅ Resolvido em 2026-09-19.** O doc passou a descrever a cadeia inteira: o hook roda o
+> `.sh`, um launcher que escolhe `python3` ou `python` e executa o `.py`.
+
 #### C4 · `artefatos/planejador_negocios/` não existe — **BAIXA / trivial**
 - **DOC:** `AGENTS.md:55` roteia o `[planejador]` para esse diretório.
 - **REALIDADE:** `agentes/planejador_negocios.md` existe; o diretório de artefatos, não.
 
+> **✅ Resolvido em 2026-09-19.** O nome do diretório foi **mantido** e marcado com nota de
+> rodapé como "a ser criado no primeiro uso". Manter é a opção honesta: o `[planejador]`
+> (precificação, marketing, concorrência) é um agente distinto do `[auxiliar]` (MVP,
+> roadmap, mercado), então apontar um para o diretório do outro misturaria artefatos de
+> dois papéis. E o próprio `AGENTS.md` já diz que não se cria diretório vazio só para
+> satisfazer a tabela. **De passagem:** `artefatos/auxiliar_negocios/` está no mesmo caso
+> (existe só como diretório vazio local, não rastreado pelo git) e recebeu a mesma nota.
+
 #### C5 · Exemplo de arquivo inexistente — **BAIXA / trivial**
 - **DOC:** `AGENTS.md:140` cita `questionario_pos_venda.md`.
 - **REALIDADE:** o arquivo é `questionario_rita_v1.md`.
+
+> **✅ Resolvido em 2026-09-19.** Exemplo trocado em `AGENTS.md`. Os outros três nomes de
+> arquivo citados na mesma tabela foram conferidos e existem.
 
 #### Verificados e fiéis (sem achado)
 - **`CLAUDE.md`** — todas as afirmações checáveis conferem: pipeline do `processar()`, rotas, ordem QA→RAG→templates, `ModoExecucao`/`ModoOperacao`, factories, modelo de domínio, componentes do frontend, cores do Tailwind, `testador_conversas/`.
@@ -172,8 +206,16 @@ Nenhum `psycopg` cru fora de `services/` · ordem estático-antes-de-dinâmico c
 - **Classificação:** código divergiu da decisão original, de forma deliberada e justificada — mas **nenhuma memória registrou a reversão**.
 - **Impacto:** quem ler só a memória procura um método que não existe. **A correção é na memória, não no código.**
 
+> **✅ Resolvido em 2026-09-19.** O item 5 da memória foi reescrito em três parágrafos: o
+> que foi decidido em 2026-07-09, o que o código faz hoje (State puro, `tratamento_principal`
+> abstrato, `transicionar_para` como único concreto, pré/pós a cargo do motor de Ações) e
+> por que reverteu, citando `docs/arquitetura_motor_conversacao_2026-07.md:195-203`. A
+> decisão original ficou preservada: quem ler entende que houve escolha, não esquecimento.
+
 #### M2 · Nome de símbolo desatualizado — **BAIXA / trivial**
 - **MEMÓRIA** `project_motor_intencao_fase_acoes.md` cita `_builder_categoria3`; o código renomeou para `_builder_categoria_pergunta` (`regras_esclarecendo.py:244`, commit `5f2e68f`). Comportamento intacto (`ctx.fragmentos_ate_agora` continua na linha 262). Correção na memória.
+
+> **✅ Resolvido em 2026-09-19.** Rename aplicado na memória.
 
 #### Confirmado fiel
 A regra "nunca voltar a um if/elif central de intenção em `processador.py`" está sendo respeitada — **zero ocorrências de `Intencao.` no arquivo inteiro**. `_gerar_resposta_por_intencao` continua removido. Renomeação Produto/Modelo, `create_all()` removido, `AtendimentoInfo` ainda EAV sem `item_atendimento_id` (limitação registrada, ainda real).
@@ -186,6 +228,12 @@ A regra "nunca voltar a um if/elif central de intenção em `processador.py`" es
 - **T1 · `POST /api/atendimentos/{id}/mensagens-manuais` (`main.py:778`) sem nenhum teste** — é o caminho de resposta manual em `ModoOperacao.HUMANO`, citado no `CLAUDE.md` como parte do pipeline. Nem o comportamento atual ("só grava, não envia") está coberto. **Média / pequeno.**
 - **T2 · `MensagemId.COMPATIBILIDADE_SISTEMA` definido e nunca roteado** — `services/respostas/catalogo.py:176-181` define o template; **nenhum outro ponto do código o referencia**. A regra de negócio do `CLAUDE.md` ("sempre deferir compatibilidade para validação técnica") depende hoje só de instrução solta no prompt (`services/respostas/gerador.py:50,66-67`), sem rota determinística nem teste. **Média-alta / médio.**
 - **T3 · O gap de "aprovar não entrega" não tem sinal executável** — existe só como texto no `CLAUDE.md`; um teste `xfail` nomeando a lacuna evitaria que ela seja esquecida. **Baixa / trivial.**
+  - **⊘ Obsoleto em 2026-09-19.** Não foi resolvido como estava escrito, deixou de fazer
+    sentido: o gap que o `xfail` iria nomear foi **fechado** pelo commit `55f4e4a`
+    (canal de saída + `services/envio.py`, REQ-008 Fase 10). Aprovar agora entrega de
+    verdade quando `CANAL_SAIDA=twilio`. Um teste marcando a lacuna como esperada passaria
+    a documentar algo falso. O que faz sentido no lugar é teste **normal** do caminho de
+    entrega, e isso é escopo do REQ-008, não desta auditoria.
 - Sem testes tautológicos, sem mocks substituindo a unidade sob teste.
 
 ---
@@ -246,7 +294,10 @@ Os 44 métodos de `services/api.js` batem com as rotas do backend; nenhuma cor f
 > - `plainto_tsquery` liga os termos com **AND**, então o par da V1.0.2 não é sequer
 >   candidato para uma pergunta sobre V1.0.1.
 > - Medido com dois pares reais: a consulta por V1.0.1 devolve só o par da V1.0.1,
->   `ts_rank` 0.4571 (limiar `QA_SCORE_MINIMO_FULLTEXT` = 0.25).
+>   `ts_rank` 0.4571 (limiar de full-text **0.30**, chave `qa_fulltext_responde_min` da
+>   tabela `parametros`). *Correção de 2026-09-19: o texto original desta auditoria dizia
+>   `QA_SCORE_MINIMO_FULLTEXT` = 0.25; esse campo está morto, ver achado C6 abaixo. A
+>   conclusão não muda, porque 0.4571 passa nos dois valores.*
 >
 > **Por que a ordem das camadas é a proteção inteira:** a similaridade de cosseno entre as
 > duas perguntas é **0.9957**, muito acima do `QA_SCORE_MINIMO` de 0.80. Pelo embedding elas
@@ -275,6 +326,8 @@ Os 44 métodos de `services/api.js` batem com as rotas do backend; nenhuma cor f
 | **B1-bis** | Mais duas ocorrências do B1 que a auditoria não listou: `db.commit()` entre a mudança de estado e o evento em `_reiniciar_qualificacao` e em **`_escalar_atendimento`** | `services/processador.py:793,917` | ✅ corrigido junto com o #4 |
 | **A3-bis** | O frontend mantém uma **cópia própria** da matriz de transição de reports, que espelhava a versão errada | `frontend/src/constants/reports.js:30-36` | ✅ corrigido junto com o #7 |
 | **A2-bis** | Com `mensagem_id` finalmente preenchido, a FK `eventos_atendimento_mensagem_id_fkey` passou a ter efeito e a limpeza por telefone quebrou: apagava `mensagens` antes dos eventos que as referenciam | `services/dev_limpeza_telefone.py` | ✅ corrigido; ordem passou a eventos → mensagens |
+| **C6** (eixo C) | `settings.QA_SCORE_MINIMO_FULLTEXT = 0.25` está **morto** (zero consumidores); o limiar que governa o filtro vem da tabela `parametros`, chave `qa_fulltext_responde_min`, valor real **0.30**. Dois documentos citavam 0,25 como se valesse | `backend/config.py:94` (definição), `backend/services/rag/qa_service.py:336` (uso real), `backend/services/parametro_service.py:213`; docs afetados: `docs/auditoria_consistencia_2026-08.md:249`, `docs/arquitetura_avaliacao_rag_2026-07.md:30,71` | ✅ documentos corrigidos em 2026-09-19; **o código não foi tocado** |
+| **C7** (eixo C) | `npm run lint` **nunca funcionou** neste projeto: até 2026-09-19 não havia nenhuma config de ESLint em `frontend/` (nem `.eslintrc*`, nem `eslint.config.js`) e, sem `.eslintignore`, o ESLint 8 ainda varreria `frontend/dist/`. O comando está documentado no `CLAUDE.md` como comando do projeto | `frontend/package.json:10` (script), `CLAUDE.md` (seção Frontend), ausência de config em `frontend/` | registrado em 2026-09-19; correção em andamento por outra frente (setup do ESLint) |
 
 O `_escalar_atendimento` merece nota: era exatamente o "pior caso" descrito no B1
 (`modo_operacao=HUMANO` commitado sem o evento que o explica), só que noutra função —
@@ -282,6 +335,21 @@ a auditoria o descreveu a partir de `concluir` e não varreu os demais escalonam
 
 O A2-bis é o tipo de defeito que só aparece quando a coluna deixa de ser sempre nula: a
 FK existia desde a migration, mas nunca tinha sido exercitada.
+
+O **C6** é do mesmo tipo dos achados originais do eixo C, só que encontrado agora: um valor
+documentado em dois lugares que nunca governou nada. Vale registrar a consequência operacional,
+porque ela sobrevive à correção dos documentos: `POST /api/config/rag/reset`
+(`backend/main.py:1942`) restaura `qa_embedding_responde_min` a partir de
+`settings.QA_SCORE_MINIMO`, mas **não restaura nenhum limiar de full-text**. Quem apertar
+"resetar" achando que volta tudo ao default continua com o `qa_fulltext_responde_min` que
+estiver no banco. Ajustá-lo hoje só é possível pelo `PATCH /api/parametros/{nome}` genérico.
+Decidir se o campo morto sai do `Settings` ou se vira a fonte do reset é mudança de código,
+fora do escopo desta passada de documentação.
+
+O **C7** é um caso de comando documentado que nunca rodou. Foi registrado aqui e deixado para
+a frente que montou o setup do ESLint na mesma data (`frontend/.eslintrc.cjs` e
+`frontend/.eslintignore` apareceram no working tree durante esta passada); esta frente não
+tocou `frontend/`. Confirmar que `npm run lint` passa faz parte daquele trabalho, não deste.
 
 ### P2 — Documentação e memórias (barato, alto retorno)
 

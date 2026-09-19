@@ -623,10 +623,10 @@ API keys belong to projects to help you manage usage limits, team access, and da
 
 ```powershell
 # Gera o inventario das fontes raw usadas pela RAG
-python backend\scripts\inventariar_fontes_rag.py
+python backend\scripts\base_conhecimento\inventariar_fontes_rag.py
 
 # Gerar em outro caminho, se necessario
-python backend\scripts\inventariar_fontes_rag.py --saida backend\data\rag\inventario_fontes.json
+python backend\scripts\base_conhecimento\inventariar_fontes_rag.py --saida backend\data\rag\inventario_fontes.json
 ```
 
 Saida padrao: `backend/data/rag/inventario_fontes.json`.
@@ -635,10 +635,10 @@ Saida padrao: `backend/data/rag/inventario_fontes.json`.
 
 ```powershell
 # Gera documentos normalizados em JSONL a partir do inventario
-python backend\scripts\preprocessar_conhecimento_rag.py
+python backend\scripts\base_conhecimento\preprocessar_conhecimento_rag.py
 
 # Informar caminhos explicitamente, se necessario
-python backend\scripts\preprocessar_conhecimento_rag.py --inventario backend\data\rag\inventario_fontes.json --saida backend\data\rag\documentos_normalizados.jsonl --resumo backend\data\rag\preprocessamento_resumo.json
+python backend\scripts\base_conhecimento\preprocessar_conhecimento_rag.py --inventario backend\data\rag\inventario_fontes.json --saida backend\data\rag\documentos_normalizados.jsonl --resumo backend\data\rag\preprocessamento_resumo.json
 ```
 
 Saidas padrao:
@@ -650,10 +650,10 @@ Saidas padrao:
 
 ```powershell
 # Deduplica documentos normalizados e gera a base consolidada
-python backend\scripts\consolidar_conhecimento_rag.py
+python backend\scripts\base_conhecimento\consolidar_conhecimento_rag.py
 
 # Ajustar o limiar para marcar documentos similares, se necessario
-python backend\scripts\consolidar_conhecimento_rag.py --similaridade-minima 0.82
+python backend\scripts\base_conhecimento\consolidar_conhecimento_rag.py --similaridade-minima 0.82
 ```
 
 Saidas padrao:
@@ -665,10 +665,10 @@ Saidas padrao:
 
 ```powershell
 # Gera chunks a partir dos documentos consolidados
-python backend\scripts\gerar_chunks_rag.py
+python backend\scripts\base_conhecimento\gerar_chunks_rag.py
 
 # Ajustar tamanhos, se necessario
-python backend\scripts\gerar_chunks_rag.py --alvo-tokens 700 --max-tokens 900 --overlap-tokens 100
+python backend\scripts\base_conhecimento\gerar_chunks_rag.py --alvo-tokens 700 --max-tokens 900 --overlap-tokens 100
 ```
 
 Saidas padrao:
@@ -722,7 +722,9 @@ No Cursor, após salvar o YAML:
 ---
 ### Limpeza de dados de telefone da base
 
-Limpa dados relacionados a um telefone (reports, mensagens, processamentos, itens_orcamento, orcamentos, itens_negociacao, atendimento_infos, atendimentos, contatos).
+Limpa dados relacionados a um telefone, nesta ordem: `reports`, `eventos_atendimento`, `mensagens`, `processamentos`, `itens_orcamento`, `orcamentos`, `itens_atendimento`, `atendimento_infos`, `atendimentos`, `contatos`.
+
+A ordem importa: `eventos_atendimento` precisa sair **antes** de `mensagens` e `processamentos`, porque as FKs `mensagem_id`/`processamento_id` do evento deixaram de ser sempre nulas e passaram a bloquear a remoção. Fonte da verdade: `backend/services/dev_limpeza_telefone.py`.
 
 ```powershell
 curl.exe -X DELETE "http://localhost:8000/api/dev/telefones/198765412365"
@@ -736,7 +738,7 @@ No Cursor, após salvar o YAML:
 ---
 ### Dev — apagar dados de teste por telefone
 
-Remove contato, atendimentos, mensagens, processamentos, reports e orçamentos vinculados ao número. **Não** remove empresa nem pessoa. Requer `DEBUG=True` no backend.
+Remove contato, atendimentos, eventos de atendimento, mensagens, processamentos, reports, orçamentos e os itens de orçamento/atendimento vinculados ao número (lista completa e ordem na seção "Limpeza de dados de telefone da base", acima). **Não** remove empresa nem pessoa. Requer `DEBUG=True` no backend.
 
 ```powershell
 # PowerShell: usar curl.exe (curl sozinho é alias do Invoke-WebRequest)
@@ -878,7 +880,7 @@ A Kika usa o Devin Desktop/Windsurf (PowerShell) pra codar; o Beto usa o Claude 
 
 **Fonte da verdade:** `.claude/skills/revisao-codigo/` (SKILL.md + `diretrizes.md`). **Nunca editar** `.windsurf/skills/revisao-codigo/` direto — é um espelho gerado.
 
-O hook `sync-skill-windsurf` (`.pre-commit-config.yaml`, script `scripts/sync_skill_windsurf.py`) copia `.claude/skills/*/` → `.windsurf/skills/*/` sempre que um commit tocar `.claude/skills/`. Se houver diferença, o hook atualiza o espelho, re-adiciona ao índice (`git add`) e **falha de propósito** (mesmo padrão de hooks que reformatam, ex. black/isort) — rode `git commit` de novo e ele passa, já incluindo o espelho atualizado no commit.
+O hook `sync-skill-windsurf` (`.pre-commit-config.yaml`) roda `bash scripts/sync_skill_windsurf.sh`, um launcher fino que localiza o Python disponível (`python3`, senão `python`) e executa `scripts/sync_skill_windsurf.py`: é o `.py` que copia `.claude/skills/*/` → `.windsurf/skills/*/` sempre que um commit tocar `.claude/skills/`. Se houver diferença, o hook atualiza o espelho, re-adiciona ao índice (`git add`) e **falha de propósito** (mesmo padrão de hooks que reformatam, ex. black/isort) — rode `git commit` de novo e ele passa, já incluindo o espelho atualizado no commit.
 
 Como os dois diretórios ficam commitados no git, o `git pull` da Kika já traz o espelho atualizado — **não precisa rodar nada do lado dela**, nem symlink (que exigiria Modo de Desenvolvedor no Windows para funcionar com git).
 

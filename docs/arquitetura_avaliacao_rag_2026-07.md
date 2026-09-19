@@ -27,7 +27,7 @@ Tabela `pares_qa` (`backend/models.py`): pergunta, resposta, `contexto` (catraca
 
 `QAService.buscar()` (`services/rag/qa_service.py`) busca em **duas etapas, por custo**:
 
-1. **Full-text nativo do Postgres** (`plainto_tsquery('portuguese_unaccent', ...)` sobre `pergunta_tsv`, GIN). Se algum resultado atinge o limiar (default 0.25), retorna **sem chamar a API de embeddings**.
+1. **Full-text nativo do Postgres** (`plainto_tsquery('portuguese_unaccent', ...)` sobre `pergunta_tsv`, GIN). Se algum resultado atinge o limiar, retorna **sem chamar a API de embeddings**. O limiar em vigor é **0.30**: vem da tabela `parametros`, chave `qa_fulltext_responde_min` (`ParametroService.limiares_zona_cinza()`, aplicado em `qa_service.py:336`), com o mesmo 0.30 no seed da migration e no fallback do código. **Não** vem de `settings.QA_SCORE_MINIMO_FULLTEXT` (ver a nota na seção 5).
 2. **Embedding/cosseno**, só se a etapa 1 não encontrar nada. Mesmo operador `<=>` do pgvector, score = `1 - distância`, limiar default 0.80.
 
 Quando há hit, a resposta do par é usada **literalmente**, sem passar pelo LLM (`template_usado="qa_pair"`). Gestão via `frontend/QABasePage.jsx` + router `backend/routers/pares_qa.py`: criação de rascunho sem embedding, aprovação gera o embedding, detecção de duplicata client-side (`GET /pares-qa/similares`), estatísticas de uso dos pares mais acessados.
@@ -68,9 +68,11 @@ Defaults em `backend/config.py`:
 | `QA_ENABLED` | `True` |
 | `QA_TOP_K` | `3` |
 | `QA_SCORE_MINIMO` | `0.80` |
-| `QA_SCORE_MINIMO_FULLTEXT` | `0.25` |
+| ~~`QA_SCORE_MINIMO_FULLTEXT`~~ | `0.25` (**morto**, ver nota) |
 
 Todos ajustáveis **sem restart** via `PATCH /api/config/rag` (persistido em `parametros` + histórico em `historico_configuracao`, com validação atômica de todos os campos antes de aplicar qualquer um) e via `PATCH /api/parametros/{nome}` genérico. Há também `POST /api/config/rag/reset` e `GET /api/config/historico`.
+
+> **Nota sobre o limiar de full-text (verificado em 2026-09-19).** `settings.QA_SCORE_MINIMO_FULLTEXT = 0.25` (`backend/config.py:94`) está **morto**: a definição é a única ocorrência do símbolo no código, nenhum consumidor o lê. Quem governa o filtro é `qa_fulltext_responde_min` na tabela `parametros`, valor real **0.30**, lido por `ParametroService.limiares_zona_cinza()` e aplicado em `qa_service.py:336`. Consequência prática: `PATCH /api/config/rag` e `POST /api/config/rag/reset` (`backend/main.py:1942`) mexem apenas em `qa_embedding_responde_min` (a partir de `settings.QA_SCORE_MINIMO`) e **não tocam nenhum limiar de full-text** — o reset não o restaura. Para ajustar o de full-text, use o `PATCH /api/parametros/{nome}` genérico.
 
 ## 6. Auditoria
 

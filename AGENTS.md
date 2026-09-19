@@ -50,14 +50,16 @@ O projeto tem varios agentes especializados em `agentes/` (cada um com seu propr
 | Prefixo | Agente | Arquivo | Diretorio de artefatos | Responsabilidade principal |
 |---------|--------|---------|------------------------|----------------------------|
 | `[analista]` | Analista de Requisitos | `agentes/analista_requisitos.md` + `.py` | `artefatos/requisitos_formais/` (REQs) + `artefatos/analista_de_requisitos/` (rascunhos) | Requisitos formais (REQ-XXX), historias de usuario, questionarios, entrevistas com cliente |
-| `[auxiliar]` | Auxiliar de Negocios | `agentes/auxiliar_negocios.md` | `artefatos/auxiliar_negocios/` | MVP, roadmap, ideias de produto, analise de mercado |
+| `[auxiliar]` | Auxiliar de Negocios | `agentes/auxiliar_negocios.md` | `artefatos/auxiliar_negocios/` ¹ | MVP, roadmap, ideias de produto, analise de mercado |
 | `[arquiteto]` | Arquiteto de Sistemas | `agentes/arquiteto_sistemas.md` | `artefatos/arquiteto_de_sistemas/` | Decisoes arquiteturais (ADRs), diagramas, politica de branches, deploy |
-| `[planejador]` | Planejador de Negocios | `agentes/planejador_negocios.md` | `artefatos/planejador_negocios/` | Precificacao, marketing, concorrencia, projecoes financeiras |
+| `[planejador]` | Planejador de Negocios | `agentes/planejador_negocios.md` | `artefatos/planejador_negocios/` ¹ | Precificacao, marketing, concorrencia, projecoes financeiras |
 | `[qa]` | QA Engineer | `agentes/qa_engineer.py` | `artefatos/qa/` | Testes, cobertura, revisao de PRs, qualidade de processo |
 | `[implementador]` | Implementador | `agentes/implementador.md` + `.py` | `artefatos/implementador/` | Codificacao de backend/frontend, migrations, fixes, diretrizes de implementacao |
 | `[gerente]` | Gerente de Projetos | `agentes/gerente_de_projetos.md` + `.py` | `artefatos/gerente_de_projetos/` | Coordenacao, relatorios de sprint, acompanhamento de pendencias, atas |
 | `[ia_expert]` | Especialista em IA | `agentes/ia_expert.md` | `artefatos/ia_expert/` | Governanca de IA, revisao de prompts/harness, tendencias, benchmark interno de uso de IA |
 | `[curador_conhecimento]` | Curador de Conhecimento | `agentes/curador_conhecimento.md` | `artefatos/curador_conhecimento/` (+ co-local com pacote YAML em `AnotacoesPessoais/`) | Evolucao da base Q&A/RAG a partir de reports (REQ-012); proposta `report_XXX_proposta.md` no mesmo dir do pacote |
+
+¹ Diretorio ainda **nao existe** no repositorio: estes dois agentes nunca produziram artefato. O caminho acima e o nome correto a usar, a ser **criado no primeiro uso** (mesma regra da secao "Convencao: dois arquivos por agente": nao se cria diretorio vazio so para satisfazer a tabela). Verificado em 2026-09-19.
 
 ### Como usar
 
@@ -137,6 +139,6 @@ O Analista de Requisitos usa **dois diretorios** com responsabilidades distintas
 | Diretorio | Conteudo | Exemplos |
 |-----------|----------|----------|
 | `artefatos/requisitos_formais/` | REQs numerados, versionados, com historico de alteracoes interno | `REQ-001-integracao-receita-federal.md`, `REQ-009-tratamento-reclamacoes-pos-venda.md` |
-| `artefatos/analista_de_requisitos/` | Rascunhos, entrevistas, questionarios, respostas do cliente | `respostas_rita_v1.md`, `questionario_pos_venda.md` |
+| `artefatos/analista_de_requisitos/` | Rascunhos, entrevistas, questionarios, respostas do cliente | `respostas_rita_v1.md`, `questionario_rita_v1.md` |
 
 Quando o pedido for **"crie/atualize um requisito formal"**, salvar em `requisitos_formais/`. Quando for **"transcreva a entrevista com a Rita"** ou **"faca um rascunho preliminar"**, salvar em `analista_de_requisitos/`.
