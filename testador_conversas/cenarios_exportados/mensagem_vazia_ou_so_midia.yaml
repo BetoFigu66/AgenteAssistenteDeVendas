@@ -1,0 +1,19 @@
+nome: mensagem_vazia_ou_so_midia
+descricao: 'Mensagem sem texto (o caso real é a foto sem legenda). Nasce INATIVO: ver o turno 1.'
+ativo: false
+turnos:
+- ordem: 1
+  mensagem_enviada: ''
+  observacoes: 'PRECISA: responder HTTP 200 com TwiML válido e tratar como mensagem sem conteúdo | NÃO
+    PODE: devolver 422 ou 500 | exercita: REQ-008, entrada degenerada. VERIFICADO em 19/09/2026 contra
+    o backend: ''Body: str = Form(...)'' em main.py trata string vazia como campo ausente e a chamada
+    devolve 422 (''Body: Field required''), então o testador aborta no raise_for_status. Cenário nasce
+    inativo até o backend aceitar Body vazio, que é exatamente o que a Twilio envia numa mensagem só de
+    mídia (NumMedia>0).'
+  respostas_aceitas: []
+- ordem: 2
+  mensagem_enviada: mandei uma foto do equipamento que tenho hoje, é compatível?
+  observacoes: 'PRECISA: deferir a compatibilidade para validação técnica | NÃO PODE: dizer que analisou
+    a foto nem afirmar ou negar compatibilidade | exercita: regra de negócio ''compatibilidade sempre
+    vai para validação técnica'''
+  respostas_aceitas: []

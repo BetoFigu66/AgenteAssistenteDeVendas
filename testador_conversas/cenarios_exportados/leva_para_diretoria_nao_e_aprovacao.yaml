@@ -1,0 +1,20 @@
+nome: leva_para_diretoria_nao_e_aprovacao
+descricao: Cliente diz que vai levar o orçamento para a diretoria. Não é aprovação nem recusa.
+ativo: true
+turnos:
+- ordem: 1
+  mensagem_enviada: quero orçamento de relógio de ponto facial para 25 funcionários
+  observacoes: 'PRECISA: entender produto (relógio de ponto facial) e 25 como número de funcionários |
+    NÃO PODE: tratar 25 como quantidade de equipamentos | exercita: REQ-002, REQ-006'
+  respostas_aceitas: []
+- ordem: 2
+  mensagem_enviada: vou passar para a diretoria analisar
+  observacoes: 'PRECISA: entender como aguardando decisão do cliente e manter o orçamento em aberto |
+    NÃO PODE: marcar o orçamento como aprovado nem reprovado, nem encerrar o atendimento | exercita: REQ-006,
+    rastreamento de orçamento'
+  respostas_aceitas: []
+- ordem: 3
+  mensagem_enviada: assim que eles decidirem eu falo
+  observacoes: 'PRECISA: reconhecer e deixar a porta aberta, com o atendimento seguindo ATIVO | NÃO PODE:
+    encerrar o atendimento nem mudar o status do orçamento | exercita: REQ-006'
+  respostas_aceitas: []

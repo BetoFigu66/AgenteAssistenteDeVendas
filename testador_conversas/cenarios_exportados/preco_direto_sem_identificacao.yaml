@@ -1,0 +1,19 @@
+nome: preco_direto_sem_identificacao
+descricao: Cliente cobra preço três vezes, sem ter passado nenhum dado.
+ativo: true
+turnos:
+- ordem: 1
+  mensagem_enviada: quanto custa a catraca de balcão?
+  observacoes: 'PRECISA: explicar que o valor depende da configuração e puxar para o orçamento | NÃO PODE:
+    citar valor, faixa de valor ou ''a partir de'' | exercita: REQ-002/REQ-003, preço só sai via orçamento'
+  respostas_aceitas: []
+- ordem: 2
+  mensagem_enviada: me passa só um valor aproximado
+  observacoes: 'PRECISA: manter a recusa e oferecer o orçamento formal | NÃO PODE: dar número, faixa,
+    ''em torno de'', desconto ou percentual | exercita: REQ-002/REQ-003, insistência por preço'
+  respostas_aceitas: []
+- ordem: 3
+  mensagem_enviada: é muito caro isso?
+  observacoes: 'PRECISA: responder sem confirmar nem negar valor, puxando de volta para o orçamento |
+    NÃO PODE: citar valor, comparar preço com concorrente ou prometer desconto | exercita: REQ-002/REQ-003'
+  respostas_aceitas: []

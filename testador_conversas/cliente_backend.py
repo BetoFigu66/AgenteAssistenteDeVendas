@@ -42,15 +42,25 @@ class ClienteBackend:
         return unescape(m.group(1)).strip() if m else ""
 
     def buscar_mensagem_pendente(self, telefone: str) -> Optional[str]:
-        """Quando `enviar_mensagem` devolve vazio, busca o texto gerado (ainda sem
-        aprovação/entrega real — gap conhecido, ver README) via `/api/mensagens/pendentes`."""
+        """Quando `enviar_mensagem` devolve vazio, busca o texto gerado mas ainda
+        pendente de aprovação, via `/api/mensagens/pendentes`.
+
+        Devolve a mensagem **mais recente** daquele telefone. O endpoint lista
+        todas as pendentes em ordem crescente de `timestamp` e nada as aprova
+        sozinho: em SIMULACAO/CONVERSA_CONTROLADA elas se acumulam, e pegar a
+        primeira que casasse com o telefone faria o testador ler para sempre a
+        resposta do turno 1, em silêncio.
+        """
         self._garantir_sessao()
         r = self._http.get("/api/mensagens/pendentes")
         r.raise_for_status()
-        for msg in r.json().get("mensagens", []):
-            if msg.get("telefone") == telefone:
-                return msg.get("conteudo") or ""
-        return None
+        candidatas = [m for m in r.json().get("mensagens", []) if m.get("telefone") == telefone]
+        if not candidatas:
+            return None
+        # `timestamp` é ISO 8601 UTC com sufixo Z (formato fixo, ordena como texto);
+        # `id` é autoincremento e desempata mensagens do mesmo instante.
+        mais_recente = max(candidatas, key=lambda m: (m.get("timestamp") or "", m.get("id") or 0))
+        return mais_recente.get("conteudo") or ""
 
     def limpar_telefone(self, telefone: str) -> None:
         self._garantir_sessao()

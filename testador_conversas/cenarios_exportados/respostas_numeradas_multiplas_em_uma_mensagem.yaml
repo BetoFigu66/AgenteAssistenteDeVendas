@@ -1,0 +1,24 @@
+nome: respostas_numeradas_multiplas_em_uma_mensagem
+descricao: Cliente responde três perguntas de uma vez, numeradas, na mesma mensagem.
+ativo: true
+turnos:
+- ordem: 1
+  mensagem_enviada: oi
+  observacoes: 'PRECISA: saudação de contato novo e a primeira pergunta do fluxo guiado | NÃO PODE: responder
+    NAO_ENTENDI nem pular direto para orçamento | exercita: REQ-002 (fluxo conversacional guiado)'
+  respostas_aceitas: []
+- ordem: 2
+  mensagem_enviada: Bom dia! Tudo bem e você?
+  observacoes: 'PRECISA: responder à cortesia e seguir de onde parou | NÃO PODE: repetir a apresentação
+    de contato novo nem responder NAO_ENTENDI a uma cortesia | exercita: REQ-002'
+  respostas_aceitas: []
+- ordem: 3
+  mensagem_enviada: |-
+    1) Biometria
+    2) Para instalar
+    3) Não tenho, 20 - 25 funcionários
+  observacoes: 'PRECISA: extrair os três dados da mesma mensagem (tipo=biometria, é para instalar, não
+    tem software de ponto e a faixa é de 20 a 25 funcionários) e, em seguida, perguntar um campo ainda
+    NÃO respondido | NÃO PODE: repetir a pergunta de software de ponto nem a de faixa de funcionários
+    | exercita: REQ-002, extração multi-campo numa única mensagem'
+  respostas_aceitas: []

@@ -1,0 +1,21 @@
+nome: cnpj_sem_pontuacao_com_nome_junto
+descricao: Nome e CNPJ sem pontuação na mesma mensagem. Dados fictícios.
+ativo: true
+turnos:
+- ordem: 1
+  mensagem_enviada: oi
+  observacoes: 'PRECISA: saudação de contato novo e pedido de identificação | NÃO PODE: responder NAO_ENTENDI
+    | exercita: REQ-002'
+  respostas_aceitas: []
+- ordem: 2
+  mensagem_enviada: sou a Ana, meu cnpj é 99887766000105
+  observacoes: 'PRECISA: extrair nome (Ana) e CNPJ da mesma mensagem | NÃO PODE: pedir de novo nome ou
+    CNPJ, nem tratar o número como quantidade | exercita: REQ-001, REQ-002 (CNPJ fictício com DV válido;
+    bate em rede externa, ReceitaWS, e provavelmente não será encontrado: o que se julga aqui é a extração
+    e o tratamento do ''não encontrado'', não o cadastro da empresa)'
+  respostas_aceitas: []
+- ordem: 3
+  mensagem_enviada: isso mesmo
+  observacoes: 'PRECISA: tomar como confirmação do que foi perguntado no turno anterior e avançar | NÃO
+    PODE: responder NAO_ENTENDI nem pedir a confirmação de novo | exercita: REQ-001, REQ-002'
+  respostas_aceitas: []

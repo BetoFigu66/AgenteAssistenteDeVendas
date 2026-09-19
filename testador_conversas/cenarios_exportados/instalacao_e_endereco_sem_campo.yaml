@@ -1,0 +1,21 @@
+nome: instalacao_e_endereco_sem_campo
+descricao: Cliente pede instalação e manda o endereço, que hoje não tem campo no catálogo.
+ativo: true
+turnos:
+- ordem: 1
+  mensagem_enviada: preciso de um relógio de ponto facial
+  observacoes: 'PRECISA: reconhecer o produto e seguir a coleta de campos | NÃO PODE: responder NAO_ENTENDI
+    nem citar preço | exercita: REQ-002'
+  respostas_aceitas: []
+- ordem: 2
+  mensagem_enviada: é para instalar, não é retirada
+  observacoes: 'PRECISA: registrar que é com instalação e seguir para o próximo campo | NÃO PODE: ignorar
+    a informação e perguntar de novo retirada ou instalação | exercita: REQ-002 (gap conhecido: não existe
+    campo de instalação no catálogo)'
+  respostas_aceitas: []
+- ordem: 3
+  mensagem_enviada: Rua das Acácias, 120 - Sala 3, Centro, Campinas
+  observacoes: 'PRECISA: aceitar o endereço como informação útil e seguir o fluxo | NÃO PODE: responder
+    NAO_ENTENDI ao endereço nem prometer data de instalação | exercita: REQ-002 (gap conhecido: endereço
+    de instalação não tem campo; o que se verifica aqui é que ao menos não quebra o fluxo)'
+  respostas_aceitas: []

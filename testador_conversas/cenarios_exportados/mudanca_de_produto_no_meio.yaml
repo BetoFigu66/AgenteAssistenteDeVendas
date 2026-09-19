@@ -1,0 +1,25 @@
+nome: mudanca_de_produto_no_meio
+descricao: Cliente desiste do produto no meio da coleta e troca por outro.
+ativo: true
+turnos:
+- ordem: 1
+  mensagem_enviada: preciso de relógio de ponto
+  observacoes: 'PRECISA: reconhecer o produto e começar a coleta | NÃO PODE: responder NAO_ENTENDI nem
+    citar preço | exercita: REQ-002'
+  respostas_aceitas: []
+- ordem: 2
+  mensagem_enviada: biometria
+  observacoes: 'PRECISA: registrar o tipo como resposta do campo perguntado e seguir | NÃO PODE: responder
+    NAO_ENTENDI nem repetir a mesma pergunta | exercita: REQ-002'
+  respostas_aceitas: []
+- ordem: 3
+  mensagem_enviada: na verdade esquece, o que eu preciso é catraca
+  observacoes: 'PRECISA: trocar o produto do atendimento para catraca e passar a perguntar os campos da
+    catraca | NÃO PODE: continuar no fluxo do relógio de ponto nem tratar a troca como NAO_ENTENDI | exercita:
+    REQ-002, troca de produto no meio do fluxo'
+  respostas_aceitas: []
+- ordem: 4
+  mensagem_enviada: pra portaria de condomínio
+  observacoes: 'PRECISA: usar o contexto (portaria de condomínio) como dado da catraca e seguir | NÃO
+    PODE: voltar a perguntar campos do produto anterior | exercita: REQ-002'
+  respostas_aceitas: []

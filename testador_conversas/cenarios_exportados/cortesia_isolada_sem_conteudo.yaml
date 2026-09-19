@@ -1,0 +1,24 @@
+nome: cortesia_isolada_sem_conteudo
+descricao: Quatro mensagens de cortesia pura, sem nenhum dado, como no fim de uma conversa real.
+ativo: true
+turnos:
+- ordem: 1
+  mensagem_enviada: Bom dia! Tudo bem e você?
+  observacoes: 'PRECISA: responder à cortesia e seguir o fluxo | NÃO PODE: responder NAO_ENTENDI | exercita:
+    REQ-002, cortesia isolada'
+  respostas_aceitas: []
+- ordem: 2
+  mensagem_enviada: Sim, é verdade
+  observacoes: 'PRECISA: reconhecer como concordância genérica | NÃO PODE: responder NAO_ENTENDI nem tomar
+    como confirmação de um campo do orçamento | exercita: REQ-002, confirmação ambígua'
+  respostas_aceitas: []
+- ordem: 3
+  mensagem_enviada: Eu quem agradeço
+  observacoes: 'PRECISA: responder à cortesia | NÃO PODE: responder NAO_ENTENDI nem reiniciar o questionário
+    | exercita: REQ-002, cortesia isolada'
+  respostas_aceitas: []
+- ordem: 4
+  mensagem_enviada: Obrigada! Bom dia
+  observacoes: 'PRECISA: encerrar de forma cordial, uma vez só | NÃO PODE: responder NAO_ENTENDI nem disparar
+    a mensagem de encerramento duas vezes | exercita: REQ-002, encerramento'
+  respostas_aceitas: []

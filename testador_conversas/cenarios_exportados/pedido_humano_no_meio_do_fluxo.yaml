@@ -1,0 +1,20 @@
+nome: pedido_humano_no_meio_do_fluxo
+descricao: Cliente pede um vendedor humano no meio da coleta de campos.
+ativo: true
+turnos:
+- ordem: 1
+  mensagem_enviada: quero orçamento de catraca
+  observacoes: 'PRECISA: iniciar o fluxo de coleta do orçamento | NÃO PODE: responder NAO_ENTENDI nem
+    citar preço | exercita: REQ-002'
+  respostas_aceitas: []
+- ordem: 2
+  mensagem_enviada: prefiro falar com um vendedor
+  observacoes: 'PRECISA: escalar para humano e avisar que alguém da equipe vai assumir | NÃO PODE: continuar
+    perguntando campos do orçamento | exercita: REQ-004, Intencao.ESCALAR_HUMANO'
+  respostas_aceitas: []
+- ordem: 3
+  mensagem_enviada: alô? tem alguém aí?
+  observacoes: 'PRECISA: nenhuma resposta automática depois de escalado (resposta vazia é o resultado
+    esperado se o atendimento já está em ModoOperacao.HUMANO) | NÃO PODE: voltar a perguntar campos do
+    orçamento nem gerar resposta automática | exercita: REQ-004.10, modo HUMANO suprime a geração'
+  respostas_aceitas: []

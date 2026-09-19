@@ -1,0 +1,16 @@
+nome: faixa_funcionarios_vira_quantidade
+descricao: Número de funcionários e quantidade de equipamentos na mesma frase, e depois corrigidos.
+ativo: true
+turnos:
+- ordem: 1
+  mensagem_enviada: quero 2 relógios de ponto para 45 funcionários
+  observacoes: 'PRECISA: entender quantidade=2 equipamentos e 45 como número de funcionários | NÃO PODE:
+    tratar 45 como unidades nem orçar 45 equipamentos | exercita: REQ-002, desambiguação entre quantidade
+    e faixa de funcionários'
+  respostas_aceitas: []
+- ordem: 2
+  mensagem_enviada: na verdade são 20 - 25 funcionários
+  observacoes: 'PRECISA: corrigir a faixa para 20 a 25 e manter a quantidade em 2 | NÃO PODE: mudar a
+    quantidade de equipamentos nem pedir a quantidade de novo | exercita: REQ-002, correção de dado já
+    coletado'
+  respostas_aceitas: []

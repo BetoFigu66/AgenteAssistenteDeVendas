@@ -1,0 +1,18 @@
+nome: cnpj_valido_mas_inexistente_na_receita
+descricao: 'CNPJ com dígito verificador válido que não existe na Receita. Nasce INATIVO: bate em rede
+  externa (ReceitaWS) e conta rate limit, então não deve entrar na rodada em lote.'
+ativo: false
+turnos:
+- ordem: 1
+  mensagem_enviada: meu cnpj é 45870220000104
+  observacoes: 'PRECISA: avisar em linguagem de cliente que não localizou o CNPJ e oferecer um caminho
+    (conferir o número, ou seguir com atendimento humano) | NÃO PODE: expor stacktrace, timeout cru ou
+    nome de API externa, nem travar o atendimento | exercita: REQ-001, tratamento de erro de consulta
+    externa (cenário inativo de propósito: rede externa)'
+  respostas_aceitas: []
+- ordem: 2
+  mensagem_enviada: tá certo sim, confere de novo
+  observacoes: 'PRECISA: repetir a consulta ou escalar, com saída clara | NÃO PODE: entrar em loop de
+    ''informe o CNPJ'', expor erro técnico ou deixar o atendimento sem saída | exercita: REQ-001, segunda
+    tentativa (cenário inativo de propósito: rede externa)'
+  respostas_aceitas: []

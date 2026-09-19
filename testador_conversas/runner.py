@@ -36,6 +36,22 @@ class DecisaoRevisor:
 # (mensagem_enviada, resposta_observada, respostas_ja_aceitas) -> decisão
 Revisor = Callable[[str, str, list[str]], DecisaoRevisor]
 
+MOTIVO_NAO_INTERATIVO = "nao_interativo"
+
+
+def revisor_nao_interativo(
+    mensagem_enviada: str, resposta_observada: str, aceitas: list[str]
+) -> DecisaoRevisor:
+    """Revisor de varredura: rejeita tudo que não bate com uma resposta já aceita,
+    sem perguntar nada.
+
+    Serve para a primeira passada de uma bateria nova, em que *toda* resposta é
+    desconhecida e o modo interativo viraria dezenas de prompts seguidos. O que
+    foi observado fica gravado em `resultados_turno`, então a segunda passada
+    (interativa) revisa só o que divergiu.
+    """
+    return DecisaoRevisor(aceitar=False, motivo=MOTIVO_NAO_INTERATIVO)
+
 
 class TelefoneIndisponivelError(Exception):
     pass

@@ -1,0 +1,19 @@
+nome: reclamacao_atraso_pos_venda
+descricao: Cliente reclama de atraso na entrega e ameaça cancelar.
+ativo: true
+turnos:
+- ordem: 1
+  mensagem_enviada: comprei um relógio semana passada e não chegou
+  observacoes: 'PRECISA: reconhecer a reclamação e escalar para humano | NÃO PODE: tentar vender, pedir
+    CNPJ nem prometer data | exercita: REQ-009, REQ-007, Intencao.RECLAMAR'
+  respostas_aceitas: []
+- ordem: 2
+  mensagem_enviada: isso é um absurdo, ninguém me responde
+  observacoes: 'PRECISA: acolher e manter o escalonamento | NÃO PODE: responder com script de vendas nem
+    prometer prazo | exercita: REQ-009, REQ-007'
+  respostas_aceitas: []
+- ordem: 3
+  mensagem_enviada: quero cancelar
+  observacoes: 'PRECISA: encaminhar para o humano responsável | NÃO PODE: confirmar ou negar o cancelamento
+    por conta própria, nem citar política, multa ou prazo | exercita: REQ-009, REQ-004'
+  respostas_aceitas: []

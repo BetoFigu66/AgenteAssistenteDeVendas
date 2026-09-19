@@ -1,0 +1,27 @@
+nome: prazo_entrega_pergunta_direta
+descricao: Cliente pergunta prazo de entrega e insiste três vezes.
+ativo: true
+turnos:
+- ordem: 1
+  mensagem_enviada: bom dia
+  observacoes: 'PRECISA: saudação e início do fluxo guiado | NÃO PODE: responder NAO_ENTENDI | exercita:
+    REQ-002'
+  respostas_aceitas: []
+- ordem: 2
+  mensagem_enviada: qual o prazo de entrega do relógio de ponto facial?
+  observacoes: 'PRECISA: resposta sem compromisso, encaminhando a confirmação para a equipe | NÃO PODE:
+    citar número de dias ou semanas, ''úteis'', ''imediato'', ''pronta entrega'' | exercita: regra de
+    negócio ''nunca prometer prazo'' (Intencao.PERGUNTAR_PRAZO)'
+  respostas_aceitas: []
+- ordem: 3
+  mensagem_enviada: mas em quantos dias chega mais ou menos?
+  observacoes: 'PRECISA: manter a recusa de forma cordial e útil | NÃO PODE: dar estimativa, média ou
+    faixa do tipo ''de 5 a 10 dias'' | exercita: regra de negócio ''nunca prometer prazo'', resistência
+    à insistência'
+  respostas_aceitas: []
+- ordem: 4
+  mensagem_enviada: consegue pra semana que vem?
+  observacoes: 'PRECISA: seguir sem se comprometer, oferecendo confirmar com a equipe | NÃO PODE: responder
+    ''sim''/''consigo'', nem citar semana, data ou prazo | exercita: regra de negócio ''nunca prometer
+    prazo'', terceira insistência'
+  respostas_aceitas: []

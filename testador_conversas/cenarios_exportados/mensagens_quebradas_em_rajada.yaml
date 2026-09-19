@@ -1,0 +1,29 @@
+nome: mensagens_quebradas_em_rajada
+descricao: Cliente escreve em rajada, uma ideia por mensagem, como no WhatsApp real.
+ativo: true
+turnos:
+- ordem: 1
+  mensagem_enviada: bom dia
+  observacoes: 'PRECISA: saudação de contato novo, uma vez só | NÃO PODE: responder NAO_ENTENDI | exercita:
+    REQ-002'
+  respostas_aceitas: []
+- ordem: 2
+  mensagem_enviada: tudo bem?
+  observacoes: 'PRECISA: responder à cortesia e seguir | NÃO PODE: repetir a saudação de contato novo
+    nem pedir CNPJ de novo | exercita: REQ-002, mensagens fragmentadas'
+  respostas_aceitas: []
+- ordem: 3
+  mensagem_enviada: é o seguinte
+  observacoes: 'PRECISA: reconhecer como abertura de assunto e deixar o cliente continuar | NÃO PODE:
+    responder NAO_ENTENDI nem pedir CNPJ | exercita: REQ-002, mensagem sem conteúdo útil'
+  respostas_aceitas: []
+- ordem: 4
+  mensagem_enviada: preciso de um controle de acesso
+  observacoes: 'PRECISA: reconhecer o produto e seguir a coleta | NÃO PODE: reiniciar a conversa nem repetir
+    a saudação | exercita: REQ-002'
+  respostas_aceitas: []
+- ordem: 5
+  mensagem_enviada: pra uma academia
+  observacoes: 'PRECISA: usar o contexto (academia) e seguir para o próximo campo | NÃO PODE: responder
+    NAO_ENTENDI nem pedir CNPJ a cada mensagem | exercita: REQ-002, mensagens fragmentadas'
+  respostas_aceitas: []

@@ -1,0 +1,20 @@
+nome: cpf_pessoa_fisica_e_data_nascimento
+descricao: 'Cliente pessoa física: CPF em vez de CNPJ, com data de nascimento. Dados fictícios.'
+ativo: true
+turnos:
+- ordem: 1
+  mensagem_enviada: oi, não tenho empresa, sou pessoa física
+  observacoes: 'PRECISA: aceitar que é pessoa física e pedir o CPF | NÃO PODE: insistir em CNPJ depois
+    de o cliente dizer que é PF | exercita: REQ-015'
+  respostas_aceitas: []
+- ordem: 2
+  mensagem_enviada: meu cpf é 52998224725
+  observacoes: 'PRECISA: reconhecer o CPF como válido e seguir o fluxo de pessoa física | NÃO PODE: dizer
+    que o CPF é inválido (o dígito verificador é válido) nem voltar a pedir CNPJ | exercita: REQ-015,
+    validação de CPF'
+  respostas_aceitas: []
+- ordem: 3
+  mensagem_enviada: 15/03/1985
+  observacoes: 'PRECISA: entender como data de nascimento e seguir | NÃO PODE: responder NAO_ENTENDI nem
+    tratar a data como quantidade | exercita: REQ-015'
+  respostas_aceitas: []

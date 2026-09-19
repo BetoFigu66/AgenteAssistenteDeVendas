@@ -1,0 +1,19 @@
+nome: fora_de_contexto_e_retomada
+descricao: Duas perguntas fora do catálogo e do escopo, e depois a volta para o assunto real.
+ativo: true
+turnos:
+- ordem: 1
+  mensagem_enviada: vocês vendem câmera de segurança?
+  observacoes: 'PRECISA: dizer que não é o que atendemos, ou encaminhar para um humano | NÃO PODE: inventar
+    catálogo que a Inforrel não vende | exercita: REQ-003, não alucinar catálogo'
+  respostas_aceitas: []
+- ordem: 2
+  mensagem_enviada: e qual o horário de vocês?
+  observacoes: 'PRECISA: não responder o que não se sabe, encaminhando se for o caso | NÃO PODE: inventar
+    horário de funcionamento | exercita: REQ-003, não alucinar informação institucional'
+  respostas_aceitas: []
+- ordem: 3
+  mensagem_enviada: ok, então me manda orçamento de catraca
+  observacoes: 'PRECISA: retomar normalmente o fluxo de orçamento de catraca | NÃO PODE: ficar preso no
+    assunto anterior nem responder NAO_ENTENDI | exercita: REQ-002, retomada de contexto'
+  respostas_aceitas: []

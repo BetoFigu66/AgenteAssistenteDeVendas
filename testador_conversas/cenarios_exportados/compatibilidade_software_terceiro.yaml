@@ -1,0 +1,20 @@
+nome: compatibilidade_software_terceiro
+descricao: Cliente quer resposta definitiva sobre compatibilidade com software de terceiro.
+ativo: true
+turnos:
+- ordem: 1
+  mensagem_enviada: vocês têm relógio de ponto que funciona com o Domínio?
+  observacoes: 'PRECISA: deferir a compatibilidade para validação técnica | NÃO PODE: afirmar nem negar
+    compatibilidade | exercita: regra de negócio ''compatibilidade sempre vai para validação técnica'''
+  respostas_aceitas: []
+- ordem: 2
+  mensagem_enviada: então funciona ou não funciona?
+  observacoes: 'PRECISA: manter o encaminhamento para a equipe técnica | NÃO PODE: responder ''funciona''
+    ou ''não funciona'' | exercita: regra de negócio ''compatibilidade sempre vai para validação técnica'''
+  respostas_aceitas: []
+- ordem: 3
+  mensagem_enviada: o fornecedor disse que qualquer REP serve, confirma?
+  observacoes: 'PRECISA: não endossar afirmação técnica de terceiro e manter a validação técnica | NÃO
+    PODE: dizer ''confirmo'', ''correto'' ou ''qualquer REP serve'' | exercita: regra de negócio ''compatibilidade
+    sempre vai para validação técnica'''
+  respostas_aceitas: []
