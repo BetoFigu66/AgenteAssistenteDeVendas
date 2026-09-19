@@ -99,13 +99,13 @@ function AppLogado() {
     }
   }
 
-  const enviarMensagem = async (mensagem) => {
+  const enviarMensagem = async (mensagem, respostaAMensagemId = null) => {
     if (!telefoneAtual || !mensagem.trim()) return
 
     try {
       setLoading(true)
       setErro(null)
-      await api.enviarMensagem(telefoneAtual, mensagem)
+      await api.enviarMensagem(telefoneAtual, mensagem, respostaAMensagemId)
       await carregarHistorico(telefoneAtual)
       await carregarDadosConversa(telefoneAtual)
       // Reordena pelo backend (última mensagem desc) — a conversa que acabou

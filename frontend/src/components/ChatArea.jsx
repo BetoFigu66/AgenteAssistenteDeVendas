@@ -1,11 +1,14 @@
-import { useState, useRef, useEffect } from 'react'
-import { Send, MessageCircle, AlertTriangle, Trash2 } from 'lucide-react'
+import { useState, useRef, useEffect, useMemo } from 'react'
+import { Send, MessageCircle, AlertTriangle, Trash2, Reply, X } from 'lucide-react'
 import Message from './Message'
 import ConversaInfo from './ConversaInfo'
 import { api } from '../services/api'
 
 function ChatArea({ telefone, mensagens, dadosConversa, loading, erro, onEnviarMensagem, onApagarConversa }) {
   const [inputMensagem, setInputMensagem] = useState('')
+  // Mensagem que o próximo envio vai citar — equivalente ao "Responder" do WhatsApp
+  // para quando a conversa só existe aqui na web (CANAL_SAIDA=simulado).
+  const [citando, setCitando] = useState(null)
   const containerMensagensRef = useRef(null)
   const [scoreMinimo, setScoreMinimo] = useState(null)
   const [salvandoScore, setSalvandoScore] = useState(false)
@@ -39,11 +42,26 @@ function ChatArea({ telefone, mensagens, dadosConversa, loading, erro, onEnviarM
     }
   }, [mensagens])
 
+  // Trocar de conversa invalida a citação: ela aponta para um id da conversa anterior.
+  useEffect(() => {
+    setCitando(null)
+  }, [telefone])
+
+  // Índice id -> mensagem, para o balão resolver a citação sem varrer a lista por item.
+  const mensagensPorId = useMemo(() => {
+    const indice = new Map()
+    for (const msg of mensagens) {
+      if (msg.id != null) indice.set(msg.id, msg)
+    }
+    return indice
+  }, [mensagens])
+
   const handleSubmit = (e) => {
     e.preventDefault()
     if (inputMensagem.trim() && telefone) {
-      onEnviarMensagem(inputMensagem.trim())
+      onEnviarMensagem(inputMensagem.trim(), citando?.id ?? null)
       setInputMensagem('')
+      setCitando(null)
     }
   }
 
@@ -120,7 +138,12 @@ function ChatArea({ telefone, mensagens, dadosConversa, loading, erro, onEnviarM
         ) : (
           <>
             {mensagens.map((msg, index) => (
-              <Message key={msg.id || index} mensagem={msg} />
+              <Message
+                key={msg.id || index}
+                mensagem={msg}
+                mensagemCitada={mensagensPorId.get(msg.resposta_a_mensagem_id)}
+                onResponder={setCitando}
+              />
             ))}
           </>
         )}
@@ -128,6 +151,24 @@ function ChatArea({ telefone, mensagens, dadosConversa, loading, erro, onEnviarM
 
       {/* Input de mensagem */}
       <div className="p-4 border-t">
+        {citando && (
+          <div className="mb-2 flex items-start gap-2 rounded-lg border-l-2 border-inforrel-accent bg-gray-50 px-3 py-2">
+            <Reply size={14} className="mt-0.5 shrink-0 text-inforrel-accent" />
+            <div className="min-w-0 flex-1">
+              <p className="text-[11px] font-medium text-gray-500">Respondendo ao Assistente</p>
+              <p className="truncate text-xs italic text-gray-600">{citando.conteudo}</p>
+            </div>
+            <button
+              type="button"
+              onClick={() => setCitando(null)}
+              className="text-gray-400 transition hover:text-gray-700"
+              title="Cancelar citação"
+              aria-label="Cancelar citação"
+            >
+              <X size={14} />
+            </button>
+          </div>
+        )}
         <form onSubmit={handleSubmit} className="flex gap-2">
           <input
             type="text"

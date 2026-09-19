@@ -95,14 +95,20 @@ export const api = {
     }
   },
 
-  async enviarMensagem(telefone, mensagem) {
+  // `respostaAMensagemId` é o equivalente web do "Responder" do WhatsApp: diz a qual
+  // mensagem da conversa esta responde. Null quando é uma mensagem solta.
+  async enviarMensagem(telefone, mensagem, respostaAMensagemId = null) {
     try {
       const response = await apiFetch(`${API_URL}/api/mensagem`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ telefone, mensagem }),
+        body: JSON.stringify({
+          telefone,
+          mensagem,
+          resposta_a_mensagem_id: respostaAMensagemId,
+        }),
       })
       if (!response.ok) {
         if (response.status === 500) {

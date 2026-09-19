@@ -1345,6 +1345,79 @@ cloudflared tunnel info auxvendas-dev
 
 ---
 
+## WhatsApp via Twilio (REQ-008, Fase 10)
+
+Duas variáveis do `backend/.env` decidem se alguma coisa chega mesmo ao cliente. Elas são
+**independentes** do modo de execução (simulação / conversa controlada / execução normal), que só
+decide se a resposta precisa de aprovação humana antes de sair.
+
+| `CANAL_SAIDA` | `TWILIO_MODO_ENVIO` | O que acontece |
+|---|---|---|
+| `simulado` (default) | ignorado | Nada é entregue. Mensagens ficam gravadas e visíveis na interface. É o comportamento histórico do sistema. |
+| `twilio` | `twiml` | Entrega de verdade. A resposta automática sai na própria resposta do webhook. **Único modo que funciona em conta trial.** |
+| `twilio` | `rest` | Entrega de verdade pela API. Devolve o SID na hora, mas **exige conta paga** (a trial recusa texto livre, erro 21654). |
+
+Aprovar uma mensagem e responder manualmente usam **sempre** a API REST, nos dois modos: nesses
+caminhos não existe webhook aberto para responder por TwiML. Ou seja, **em conta trial esses dois
+caminhos ainda não entregam nada** — só o webhook entrega.
+
+```bash
+# Conferir o que está valendo agora (sem abrir o .env)
+curl -s localhost:8001/api/config/execucao | python3 -m json.tool
+# -> "canal_saida": "simulado", "entrega_real": false
+```
+
+### Como testar ponta a ponta com o Sandbox
+
+Pré-requisitos e armadilhas (números de erro, pegadinhas do console, sessão do Sandbox) estão em
+`AnotacoesPessoais/Beto/spike_twilio/STATUS.md` — ler antes de perder tempo com sintoma conhecido.
+
+```bash
+# 1. backend/.env
+CANAL_SAIDA=twilio
+TWILIO_MODO_ENVIO=twiml
+APP_URL_PUBLICA=https://app.auxvendas.com     # o hostname público, não o localhost
+TWILIO_VALIDAR_ASSINATURA=true                # usa o Auth Token, não a API Key
+
+# 2. subir o backend e conferir o túnel
+./sanity_check.sh
+
+# 3. no console da Twilio, apontar "When a message comes in" para
+#    https://app.auxvendas.com/webhook   (POST)
+
+# 4. mandar uma mensagem do celular e acompanhar
+tail -f backend/logs/*.log | grep -E "StatusCallback|CanalTwilio"
+```
+
+O sinal de que funcionou é a mensagem de saída ficar com `message_sid` preenchido:
+
+```sql
+SELECT id, origem, message_sid, timestamp_envio, erro_envio, resposta_a_mensagem_id
+FROM mensagens WHERE telefone = '5519991931173' ORDER BY id DESC LIMIT 10;
+```
+
+`message_sid` nulo numa mensagem `system` significa que o `statusCallback` não chegou — quase sempre
+`APP_URL_PUBLICA` errada, ou o túnel fora do ar. A mensagem foi entregue mesmo assim; o que se perde
+é o reply-to daquela pergunta.
+
+### Reply-to ("Responder" citando uma mensagem)
+
+Funciona nos dois canais e grava na mesma coluna (`mensagens.resposta_a_mensagem_id`):
+
+- **WhatsApp:** o cliente usa o "Responder" citando uma mensagem nossa. Depende do `message_sid`
+  de saída já estar gravado — ver acima.
+- **Interface web:** botão de responder que aparece ao passar o mouse sobre um balão do assistente.
+  Não depende de Twilio nenhum, e é o jeito de exercitar o mecanismo com `CANAL_SAIDA=simulado`.
+
+### Quando a entrega falha
+
+Falha de envio **não** derruba a aprovação: a mensagem fica aprovada, `erro_envio` é preenchido e o
+balão mostra o motivo. O caso mais comum é o erro **63016** — mais de 24h desde a última mensagem do
+cliente, e o WhatsApp só aceita template a partir daí. Reabrir a conversa com template ainda não é
+suportado.
+
+---
+
 ## Atividades Periódicas
 
 Config: `artefatos/gerente_de_projetos/atividades_periodicas.yaml`

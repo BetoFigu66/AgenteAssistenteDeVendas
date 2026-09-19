@@ -166,6 +166,11 @@ class ResultadoProcessamento:
     processamento_id: Optional[int] = None
     intencao: Optional[str] = None
     origem_classificacao: Optional[str] = None
+    # Id da `Mensagem` de saída (origem=SYSTEM) persistida neste turno, ou `None`
+    # quando nada foi gerado (modo HUMANO, ou resposta vazia). O webhook precisa dele
+    # para montar a URL de `statusCallback` e para marcar o envio — só existe depois do
+    # commit aqui dentro, então tem que subir junto com a resposta.
+    mensagem_saida_id: Optional[int] = None
 
 
 class ProcessadorMensagem:
@@ -215,10 +220,17 @@ class ProcessadorMensagem:
         telefone: str,
         conteudo: str,
         message_sid: Optional[str] = None,
+        responde_a_message_sid: Optional[str] = None,
+        responde_a_mensagem_id: Optional[int] = None,
     ) -> ResultadoProcessamento:
         """
         Processa uma mensagem recebida e retorna a resposta a enviar.
         Registra todas as decisões em ProcessamentoMensagem para auditoria.
+
+        `responde_a_message_sid` chega do WhatsApp (`OriginalRepliedMessageSid`, o
+        "Responder" citando uma mensagem nossa) e `responde_a_mensagem_id`, da interface
+        web. Os dois desembocam em `Mensagem.resposta_a_mensagem_id` — ver
+        `_resolver_resposta_a`.
         """
         telefone_norm = normalizar_telefone(telefone)
         inicio_ms = time.monotonic()
@@ -230,6 +242,13 @@ class ProcessadorMensagem:
             conteudo=conteudo,
             origem=OrigemMensagem.USER,
             message_sid=message_sid,
+            resposta_a_message_sid=responde_a_message_sid,
+            resposta_a_mensagem_id=self._resolver_resposta_a(
+                db,
+                telefone_norm,
+                responde_a_message_sid=responde_a_message_sid,
+                responde_a_mensagem_id=responde_a_mensagem_id,
+            ),
         )
         db.add(msg_in)
         db.commit()
@@ -237,6 +256,12 @@ class ProcessadorMensagem:
         # Logger de debug vinculado a esta mensagem (prefixo para grep por telefone:msg_id)
         dlog = DebugLogger(telefone=telefone_norm, msg_id=msg_in.id)
         dlog.log("entrada", f'msg="{conteudo.replace(chr(10), " ")}"')
+        if responde_a_message_sid or responde_a_mensagem_id:
+            dlog.log(
+                "reply_to",
+                f"citou mensagem_id={msg_in.resposta_a_mensagem_id or 'não resolvida'}"
+                + (f" sid={responde_a_message_sid}" if responde_a_message_sid else ""),
+            )
 
         # 2. Identifica remetente
         identificacao = identificar_por_telefone(db, telefone_norm)
@@ -398,6 +423,7 @@ class ProcessadorMensagem:
                 msg_out.timestamp_aprovacao = utc_now()
             db.add(msg_out)
         db.commit()
+        mensagem_saida_id = msg_out.id if not modo_humano and resposta.texto else None
 
         # REQ-011.5/011.10: em simulacao/conversa_controlada, a resposta gerada fica
         # pendente no painel — não sai automaticamente pelo canal (webhook Twilio ou
@@ -418,7 +444,62 @@ class ProcessadorMensagem:
             processamento_id=processamento.id,
             intencao=resultado_class.intencao_principal.value,
             origem_classificacao=resultado_class.origem,
+            mensagem_saida_id=mensagem_saida_id,
         )
+
+    @staticmethod
+    def _resolver_resposta_a(
+        db: Session,
+        telefone_norm: str,
+        *,
+        responde_a_message_sid: Optional[str],
+        responde_a_mensagem_id: Optional[int],
+    ) -> Optional[int]:
+        """Descobre a qual `Mensagem` nossa esta mensagem do cliente está respondendo.
+
+        Duas entradas, um resultado: o `OriginalRepliedMessageSid` do WhatsApp resolve
+        por `message_sid`; a interface web já manda o id direto.
+
+        Os dois são filtrados pelo telefone da conversa, e não é paranoia: o id vem do
+        navegador e o SID, de um POST público. Sem esse filtro, apontar para a mensagem
+        de outro cliente seria só uma questão de trocar um número.
+
+        Devolve `None` quando não resolve — e isso é normal, não erro. O SID de saída só
+        existe se o `statusCallback` tiver chegado, e o cliente pode citar uma mensagem
+        anterior à ligação do canal real. `resposta_a_message_sid` guarda o valor cru
+        justamente para distinguir "não citou" de "citou algo que não conhecemos".
+        """
+        if responde_a_mensagem_id is not None:
+            existe = (
+                db.query(Mensagem.id)
+                .filter(Mensagem.id == responde_a_mensagem_id, Mensagem.telefone == telefone_norm)
+                .first()
+            )
+            if existe:
+                return responde_a_mensagem_id
+            logger.warning(
+                "[Processador] resposta_a_mensagem_id=%s não existe nesta conversa (%s) — ignorado.",
+                responde_a_mensagem_id,
+                telefone_norm,
+            )
+            return None
+
+        if responde_a_message_sid:
+            citada = (
+                db.query(Mensagem.id)
+                .filter(Mensagem.message_sid == responde_a_message_sid, Mensagem.telefone == telefone_norm)
+                .first()
+            )
+            if citada:
+                return citada[0]
+            logger.info(
+                "[Processador] SID citado %s não corresponde a nenhuma mensagem conhecida de %s "
+                "(statusCallback perdido, ou mensagem anterior à integração).",
+                responde_a_message_sid,
+                telefone_norm,
+            )
+
+        return None
 
     # ------------------------------------------------------------------
     # Registro de processamento (auditoria)

@@ -16,6 +16,35 @@ class Settings(BaseSettings):
     TWILIO_API_KEY_SID: Optional[str] = None
     TWILIO_API_KEY_SECRET: Optional[str] = None
 
+    # Canal de saída (REQ-008, Fase 10): por onde a resposta chega ao cliente.
+    # Eixo INDEPENDENTE do `ModoExecucao` (`models/parametro.py`), que decide *se* a
+    # resposta precisa de aprovação humana antes de sair. Este decide *por onde* sai
+    # depois que já pode sair. Fica no `.env` de propósito: é trava de ambiente, não
+    # configuração de operação — trocar o modo de execução pela UI nunca deve, sozinho,
+    # começar a mandar mensagem de verdade para o cliente.
+    #   simulado: grava a mensagem no banco e não entrega nada (default)
+    #   twilio:   entrega de fato pelo WhatsApp
+    CANAL_SAIDA: str = "simulado"
+
+    # Como o canal Twilio entrega a resposta *síncrona* do webhook:
+    #   twiml: responde o próprio POST do webhook com <Message>. Único caminho que
+    #          funciona em conta trial/Sandbox (a API recusa texto livre, erro 21654).
+    #          Não devolve o SID na hora — ele chega depois pelo `statusCallback`.
+    #   rest:  webhook devolve TwiML vazio e a mensagem sai pela API. SID na hora,
+    #          um caminho de envio só, mas exige conta paga.
+    # Aprovação e resposta manual usam SEMPRE REST: não há webhook aberto para responder.
+    TWILIO_MODO_ENVIO: str = "twiml"
+
+    # Base pública desta aplicação (túnel Cloudflare), usada para montar a URL de
+    # `statusCallback`. Sem ela o modo `twiml` envia normalmente, mas nunca descobrimos
+    # o SID de saída e o reply-to do WhatsApp fica sem como resolver.
+    APP_URL_PUBLICA: Optional[str] = None
+
+    # Valida a assinatura `X-Twilio-Signature` nos endpoints públicos `/webhook` e
+    # `/webhook/status`. Default `False` porque em `simulado` o webhook é chamado pelo
+    # testador de conversas, que não assina nada. Ligar junto com `CANAL_SAIDA=twilio`.
+    TWILIO_VALIDAR_ASSINATURA: bool = False
+
     # Database
     DATABASE_URL: str = "postgresql+psycopg://inforrel:inforrel_dev@192.168.0.34:5433/assistente_vendas"
 

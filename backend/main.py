@@ -7,6 +7,7 @@ import traceback
 from contextlib import asynccontextmanager
 from datetime import datetime
 from typing import Optional
+from xml.sax.saxutils import escape, quoteattr
 
 import uvicorn
 from config import settings
@@ -45,13 +46,15 @@ from pydantic import BaseModel
 from routers.pares_qa import router as pares_qa_router
 from services import atendimentos as atendimentos_svc
 from services import auth as auth_svc
+from services.canal import obter_canal
 from services.conversacao.campos_pendentes import campos_pendentes
 from services.cpf.validacao import mascarar_cpf
 from services.dev_limpeza_telefone import apagar_dados_telefone
+from services.envio import entregar_mensagem, marcar_entregue_por_twiml
 from services.identificador import identificar_por_telefone, normalizar_telefone
 from services.llm import get_llm_provider
 from services.parametro_service import MODO_EXECUCAO, ParametroService
-from services.processador import ProcessadorMensagem
+from services.processador import ProcessadorMensagem, ResultadoProcessamento
 from sqlalchemy import func
 from sqlalchemy import or_ as sa_or
 from starlette.middleware.sessions import SessionMiddleware
@@ -134,10 +137,49 @@ app.include_router(pares_qa_router)
 # Autenticação (REQ-010, Fase 4) — gate mínimo por sessão (cookie assinado)
 # ============================================================================
 
-# Caminhos que não exigem sessão: webhook (validação própria do Twilio, fora
-# de escopo desta fase), health check, e o próprio login (senão ninguém
-# consegue logar).
-_CAMINHOS_PUBLICOS = {"/health", "/webhook", "/api/auth/login"}
+# Caminhos que não exigem sessão: os dois webhooks da Twilio (que têm validação
+# própria, por `X-Twilio-Signature` — ver `_exigir_assinatura_twilio`), health check,
+# e o próprio login (senão ninguém consegue logar).
+_CAMINHOS_PUBLICOS = {"/health", "/webhook", "/webhook/status", "/api/auth/login"}
+
+
+async def _exigir_assinatura_twilio(request: Request) -> None:
+    """Rejeita requisições que não venham mesmo da Twilio (REQ-008).
+
+    Os dois endpoints de webhook são públicos por necessidade (a Twilio não faz login)
+    e escrevem no banco. `/webhook/status` é o mais sensível dos dois: sem assinatura,
+    qualquer um pode carimbar um `message_sid` arbitrário numa mensagem nossa e, com
+    isso, forjar a qual pergunta uma resposta futura será associada.
+
+    Desligado por default (`TWILIO_VALIDAR_ASSINATURA=false`) porque em `CANAL_SAIDA=
+    simulado` quem chama `/webhook` é o testador de conversas, que não assina nada.
+    Ligar junto com `CANAL_SAIDA=twilio`.
+    """
+    if not settings.TWILIO_VALIDAR_ASSINATURA:
+        return
+
+    token = settings.TWILIO_AUTH_TOKEN
+    if not token:
+        # A validação usa o Auth Token da conta; API Key não serve para isso. Sem ele
+        # não há como validar, e seguir em frente seria fingir que validamos.
+        logger.error("TWILIO_VALIDAR_ASSINATURA=true sem TWILIO_AUTH_TOKEN — requisição recusada.")
+        raise HTTPException(status_code=503, detail="Validação de assinatura mal configurada")
+
+    from twilio.request_validator import RequestValidator
+
+    assinatura = request.headers.get("X-Twilio-Signature", "")
+    # A URL tem que ser a PÚBLICA, exatamente como a Twilio a chamou: a assinatura é
+    # calculada sobre ela. Atrás do túnel, `request.url` traz o host interno e a
+    # validação falha sempre.
+    base = (settings.APP_URL_PUBLICA or "").rstrip("/")
+    url = f"{base}{request.url.path}" if base else str(request.url)
+    if request.url.query:
+        url = f"{url}?{request.url.query}"
+
+    form = dict(await request.form())
+    if not RequestValidator(token).validate(url, form, assinatura):
+        logger.warning("Assinatura Twilio inválida para %s", url)
+        raise HTTPException(status_code=403, detail="Assinatura Twilio inválida")
 
 
 def _usuario_assumido_sem_auth(session) -> Optional[User]:
@@ -275,58 +317,202 @@ async def global_exception_handler(request: Request, exc: Exception):
 RESPOSTA_FALLBACK = "Desculpe, tive um problema ao processar sua mensagem. Pode tentar novamente?"
 
 
-async def _processar_via_cerebro(telefone: str, conteudo: str, message_sid: Optional[str]) -> str:
+_TWIML_VAZIO = '<?xml version="1.0" encoding="UTF-8"?>\n<Response></Response>'
+
+
+def _twiml(texto: str, status_callback: Optional[str] = None) -> str:
+    """Monta a resposta TwiML com uma única tag `<Message>`.
+
+    Uma tag só, de propósito: cada `<Message>` vira uma mensagem separada no WhatsApp,
+    e mensagens separadas são citáveis separadamente. Enquanto a resposta é uma só, o
+    "Responder" do cliente aponta para algo inequívoco. Se um dia compusermos várias
+    perguntas num turno, é aqui que o desempate do reply-to começa a ficar ambíguo.
+    """
+    atributos = f" statusCallback={quoteattr(status_callback)}" if status_callback else ""
+    return (
+        '<?xml version="1.0" encoding="UTF-8"?>\n<Response>\n'
+        f"    <Message{atributos}>{escape(texto)}</Message>\n</Response>"
+    )
+
+
+async def _processar_via_cerebro(
+    telefone: str,
+    conteudo: str,
+    message_sid: Optional[str],
+    responde_a_message_sid: Optional[str] = None,
+    responde_a_mensagem_id: Optional[int] = None,
+) -> ResultadoProcessamento:
     """Executa o processador dentro de uma sessão de banco."""
     with db.get_session() as session:
-        resultado = await processador.processar(
+        return await processador.processar(
             db=session,
             telefone=telefone,
             conteudo=conteudo,
             message_sid=message_sid,
+            responde_a_message_sid=responde_a_message_sid,
+            responde_a_mensagem_id=responde_a_mensagem_id,
         )
-    return resultado.resposta
+
+
+def _entregar_resposta_do_webhook(mensagem_saida_id: Optional[int], texto: str, veio_da_twilio: bool) -> str:
+    """Decide como a resposta automática chega ao cliente e devolve o TwiML a responder.
+
+    Quatro situações, nesta ordem:
+
+    1. **Não veio da Twilio** (testador de conversas, curl, simulador): devolve o texto
+       no TwiML. É o canal de leitura desses clientes — `testador_conversas` lê
+       exatamente essa resposta — e nada sai para WhatsApp nenhum.
+    2. **Canal simulado**: TwiML vazio. É a trava do `CANAL_SAIDA=simulado` valendo
+       também aqui: a mensagem fica gravada, e o cliente real não recebe nada.
+    3. **Canal Twilio, modo twiml**: o texto sai na própria resposta, com
+       `statusCallback` para capturarmos o SID depois (único caminho que a conta trial
+       aceita).
+    4. **Canal Twilio, modo rest**: envia pela API e devolve TwiML vazio.
+    """
+    canal = obter_canal()
+
+    if not veio_da_twilio:
+        return _twiml(texto)
+
+    if not canal.entrega_real:
+        logger.info("[Webhook] CANAL_SAIDA=simulado — resposta gravada, não entregue ao WhatsApp.")
+        return _TWIML_VAZIO
+
+    with db.get_session() as session:
+        msg_out = session.query(Mensagem).filter_by(id=mensagem_saida_id).first() if mensagem_saida_id else None
+        if msg_out is None:
+            # Resposta gerada mas sem linha correspondente não deveria acontecer.
+            # Entregar sem conseguir registrar o envio deixaria o painel mentindo.
+            logger.error("[Webhook] Resposta sem mensagem de saída persistida — não entregue.")
+            return _TWIML_VAZIO
+
+        if canal.entrega_na_resposta_do_webhook():
+            marcar_entregue_por_twiml(msg_out)
+            callback = canal.url_status_callback(msg_out.id)
+            session.commit()
+            return _twiml(texto, status_callback=callback)
+
+        entregar_mensagem(session, msg_out, canal=canal)
+        session.commit()
+    return _TWIML_VAZIO
 
 
 @app.post("/webhook", response_class=PlainTextResponse)
 async def webhook_twilio(
+    request: Request,
     From: str = Form(...),
     Body: str = Form(...),
     MessageSid: Optional[str] = Form(None),
     AccountSid: Optional[str] = Form(None),
     To: Optional[str] = Form(None),
     NumMedia: Optional[str] = Form("0"),
+    OriginalRepliedMessageSid: Optional[str] = Form(None),
 ):
     """
     Webhook para receber mensagens do Twilio WhatsApp.
 
     Processa a mensagem pelo cérebro (identificação + classificação + geração)
-    e retorna a resposta em formato TwiML.
+    e decide como a resposta chega ao cliente (ver `_entregar_resposta_do_webhook`).
+
+    `OriginalRepliedMessageSid` só vem quando o cliente usou o "Responder" do WhatsApp
+    citando uma mensagem nossa. Vem acompanhado de `OriginalRepliedMessageSender`, que
+    não usamos: o remetente já é conhecido pelo `From`.
     """
+    await _exigir_assinatura_twilio(request)
+
     telefone = From.replace("whatsapp:", "")
+    # O testador de conversas e o simulador mandam só `From`/`Body`. A Twilio sempre
+    # manda `AccountSid`, então a ausência dele é o sinal de que a requisição é local —
+    # é o que impede o TwiML de virar entrega real quando o canal está simulado.
+    veio_da_twilio = bool(AccountSid)
 
     try:
-        resposta = await _processar_via_cerebro(telefone, Body, MessageSid)
+        resultado = await _processar_via_cerebro(
+            telefone,
+            Body,
+            MessageSid,
+            responde_a_message_sid=OriginalRepliedMessageSid,
+        )
+        resposta = resultado.resposta
+        mensagem_saida_id = resultado.mensagem_saida_id
     except Exception as e:
         logger.exception(f"Erro ao processar webhook: {e}")
         resposta = RESPOSTA_FALLBACK
+        mensagem_saida_id = None
 
-    # Se não há resposta (ex.: atendimento em modo HUMANO), devolve TwiML vazio
-    # — o Twilio não envia nada para o cliente e o operador responderá pela UI.
+    # Sem resposta (modo HUMANO, ou pendente de aprovação): TwiML vazio — nada sai para
+    # o cliente e um humano responde pela UI.
     if not resposta:
-        twiml_response = """<?xml version="1.0" encoding="UTF-8"?>
-<Response></Response>"""
-    else:
-        twiml_response = f"""<?xml version="1.0" encoding="UTF-8"?>
-<Response>
-    <Message>{resposta}</Message>
-</Response>"""
+        return PlainTextResponse(content=_TWIML_VAZIO, media_type="application/xml")
 
+    twiml_response = _entregar_resposta_do_webhook(mensagem_saida_id, resposta, veio_da_twilio)
     return PlainTextResponse(content=twiml_response, media_type="application/xml")
+
+
+@app.post("/webhook/status")
+async def webhook_status_twilio(
+    request: Request,
+    mensagem_id: int,
+    MessageSid: Optional[str] = Form(None),
+    SmsSid: Optional[str] = Form(None),
+    MessageStatus: Optional[str] = Form(None),
+    ErrorCode: Optional[str] = Form(None),
+    ErrorMessage: Optional[str] = Form(None),
+):
+    """Recebe da Twilio o SID e o status de entrega de uma mensagem que enviamos.
+
+    É a única forma de descobrir o SID de algo enviado por TwiML: a resposta do webhook
+    não devolve SID nenhum. Sem esse SID não há como casar o `OriginalRepliedMessageSid`
+    de uma resposta citada com a pergunta que a originou — é o elo que o spike provou
+    (`AnotacoesPessoais/Beto/spike_twilio/STATUS.md`).
+
+    A Twilio chama várias vezes por mensagem (queued, sent, delivered, read). O SID é o
+    mesmo em todas, então só a primeira grava; as demais só atualizam o erro, se houver.
+    """
+    await _exigir_assinatura_twilio(request)
+
+    sid = MessageSid or SmsSid
+    if not sid:
+        return {"status": "ignorado", "motivo": "callback sem MessageSid"}
+
+    with db.get_session() as session:
+        mensagem = session.query(Mensagem).filter_by(id=mensagem_id).first()
+        if not mensagem:
+            logger.warning("[StatusCallback] mensagem_id=%s não existe — SID %s descartado.", mensagem_id, sid)
+            return {"status": "ignorado", "motivo": "mensagem não encontrada"}
+
+        if mensagem.message_sid and mensagem.message_sid != sid:
+            # `message_sid` é unique: sobrescrever aqui trocaria a identidade de uma
+            # mensagem já registrada e poderia colidir com outra linha.
+            logger.warning(
+                "[StatusCallback] mensagem_id=%s já tem SID %s — recebido %s, ignorado.",
+                mensagem_id,
+                mensagem.message_sid,
+                sid,
+            )
+        elif not mensagem.message_sid:
+            mensagem.message_sid = sid
+            logger.info("[StatusCallback] mensagem_id=%s → SID %s", mensagem_id, sid)
+
+        # `failed`/`undelivered` são o desfecho real de uma entrega que o TwiML já tinha
+        # dado como feita. Corrige o otimismo de `marcar_entregue_por_twiml`.
+        if (MessageStatus or "").lower() in ("failed", "undelivered"):
+            detalhe = ErrorMessage or "sem detalhe"
+            mensagem.erro_envio = f"[Twilio {ErrorCode or '?'}] {detalhe}"
+            mensagem.timestamp_envio = None
+            logger.warning("[StatusCallback] mensagem_id=%s falhou: %s", mensagem_id, mensagem.erro_envio)
+
+        session.commit()
+
+    return {"status": "ok"}
 
 
 class MensagemRequest(BaseModel):
     telefone: str
     mensagem: str
+    # Equivalente na interface web ao "Responder" do WhatsApp: qual mensagem da conversa
+    # está sendo respondida. O WhatsApp manda um SID; aqui o navegador já sabe o id.
+    resposta_a_mensagem_id: Optional[int] = None
 
 
 class MensagemResponse(BaseModel):
@@ -343,11 +529,13 @@ async def enviar_mensagem(request: MensagemRequest):
     Processa pelo cérebro completo (identificação + classificação + resposta).
     """
     try:
-        resposta = await _processar_via_cerebro(
+        resultado = await _processar_via_cerebro(
             telefone=request.telefone,
             conteudo=request.mensagem,
             message_sid=None,
+            responde_a_mensagem_id=request.resposta_a_mensagem_id,
         )
+        resposta = resultado.resposta
     except Exception as e:
         logger.exception(f"Erro ao processar mensagem: {e}")
         resposta = RESPOSTA_FALLBACK
@@ -835,7 +1023,10 @@ async def enviar_mensagem_manual(
     Registra uma mensagem enviada manualmente pelo operador (modo HUMANO).
 
     A mensagem é salva com origem=SYSTEM e já considerada aprovada (o operador
-    logado é o próprio autor). No futuro, integrar com Twilio para envio efetivo ao cliente.
+    logado é o próprio autor) e entregue pelo canal de saída configurado (REQ-008.5).
+
+    Com `CANAL_SAIDA=simulado` nada chega ao cliente — o registro fica no banco e
+    aparece na conversa, que é o comportamento de sempre, agora explícito.
     """
     conteudo = (payload.conteudo or "").strip()
     if not conteudo:
@@ -865,8 +1056,14 @@ async def enviar_mensagem_manual(
         )
         session.add(mensagem)
         session.flush()
+
+        resultado_envio = entregar_mensagem(session, mensagem)
+
         session.refresh(mensagem)
-        return mensagem.to_dict()
+        corpo = mensagem.to_dict()
+        corpo["entregue"] = resultado_envio.entregue
+        corpo["erro_envio"] = resultado_envio.erro
+        return corpo
 
 
 @app.get("/api/processamentos/{processamento_id}")
@@ -1076,8 +1273,21 @@ async def aprovar_mensagem(
             feedback = payload.feedback.strip()
             mensagem.feedback_aprovacao = feedback or None
         session.flush()
+
+        # REQ-011.11: aprovar é o que autoriza a entrega. Até a Fase 10 isto só virava
+        # um campo no banco e nada chegava ao cliente.
+        #
+        # A falha de entrega NÃO derruba a aprovação: fica registrada em `erro_envio` e
+        # devolvida no corpo. O caso concreto é a janela de 24h do WhatsApp (erro 63016),
+        # em que uma resposta aprovada tarde demais é recusada — a decisão do humano
+        # aconteceu e precisa ficar gravada, com o motivo de não ter saído à vista.
+        resultado_envio = entregar_mensagem(session, mensagem)
+
         session.refresh(mensagem)
-        return mensagem.to_dict()
+        corpo = mensagem.to_dict()
+        corpo["entregue"] = resultado_envio.entregue
+        corpo["erro_envio"] = resultado_envio.erro
+        return corpo
 
 
 class ReprovarMensagemRequest(BaseModel):
@@ -1799,10 +2009,16 @@ async def get_config_execucao():
             .limit(20)
             .all()
         )
+        canal = obter_canal()
         return {
             "modo_execucao": svc.modo_execucao().value,
             "sla_aprovacao_minutos": svc.sla_aprovacao_minutos(),
             "historico": [h.to_dict() for h in historico],
+            # Eixo do `.env`, só leitura: o painel precisa mostrar se aprovar uma
+            # mensagem manda algo para um cliente de verdade ou não (REQ-008). Não é
+            # editável por aqui de propósito — é trava de ambiente, não de operação.
+            "canal_saida": canal.nome,
+            "entrega_real": canal.entrega_real,
         }
 
 

@@ -17,6 +17,9 @@ psycopg2-binary==2.9.9
 # HTTP / APIs externas
 httpx==0.26.0
 
+# WhatsApp (REQ-008, Fase 10) — canal de saída real e validação de assinatura do webhook
+twilio==9.11.0
+
 # LLM
 groq==0.11.0
 
