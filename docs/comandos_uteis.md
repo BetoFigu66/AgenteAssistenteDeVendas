@@ -970,6 +970,36 @@ npm run dev
 # 4. No navegador: Ctrl+Shift+R (force refresh)
 ```
 
+### Ajuda contextual das telas (botão `?`)
+
+Cada tela do painel tem um botão de ajuda ao lado do título, que abre um modal com a
+explicação da funcionalidade. Os textos ficam em `frontend/src/ajuda/<contexto>.md` —
+Markdown puro, versionado no git (não há edição pelo painel).
+
+```bash
+# Onde ficam os textos
+frontend/src/ajuda/geral.md          # fallback
+frontend/src/ajuda/acompanhamento.md # uma tela por arquivo
+```
+
+Para adicionar ajuda a uma tela nova: criar o `.md` e montar o botão ao lado do título.
+
+```jsx
+import BotaoAjuda from './BotaoAjuda'
+
+<BotaoAjuda contexto="orcamentos" />
+// em fundo escuro:
+<BotaoAjuda contexto="chat" className="text-white/70 hover:text-white transition" />
+```
+
+O arquivo é carregado automaticamente (`import.meta.glob`), sem registro manual. O
+contexto aceita hierarquia: `reports.detalhe` cai para `reports.md` e depois
+`geral.md` se o arquivo específico não existir.
+
+**Ao mudar uma tela de forma visível para o usuário, revisar o `.md` correspondente no
+mesmo PR** — é o principal risco desse formato. Detalhes em
+`frontend/src/ajuda/README.md`.
+
 ---
 
 ## WSL (Windows Subsystem for Linux)

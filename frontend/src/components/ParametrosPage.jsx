@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { RefreshCw, Settings, Save, CheckCircle } from 'lucide-react'
 import { api } from '../services/api'
+import BotaoAjuda from './BotaoAjuda'
 import { formatDatetimeBRT } from '../utils/datetime'
 
 function ParametrosPage() {
@@ -69,6 +70,7 @@ function ParametrosPage() {
           <div className="flex items-center gap-3">
             <Settings size={20} className="text-inforrel-primary" />
             <h2 className="text-lg font-semibold text-inforrel-primary">Parâmetros</h2>
+            <BotaoAjuda contexto="parametros" />
             <span className="text-sm text-gray-500">{parametros.length} registro(s)</span>
           </div>
           <button

@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Flag, RefreshCw, AlertTriangle, Loader2 } from 'lucide-react'
 import { api } from '../services/api'
+import BotaoAjuda from './BotaoAjuda'
 import { formatDatetimeBRT } from '../utils/datetime'
 import {
   CATEGORIAS,
@@ -149,6 +150,7 @@ function ReportsPage({ onVoltar, onAbrirAtendimento }) {
           <h1 className="text-xl font-semibold text-inforrel-primary">
             Triagem de Reports
           </h1>
+          <BotaoAjuda contexto="reports" />
         </div>
         <div className="flex items-center gap-2">
           <button

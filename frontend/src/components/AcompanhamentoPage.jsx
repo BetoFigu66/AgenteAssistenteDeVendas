@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { Eye, CheckCircle, XCircle, Send, RefreshCw, Bot, User, Brain, Flag, Clipboard } from 'lucide-react'
 import { api } from '../services/api'
 import DetalheModal from './DetalheModal'
+import BotaoAjuda from './BotaoAjuda'
 import ProcessamentoDetalhes from './ProcessamentoDetalhes'
 import { formatDatetimeBRT } from '../utils/datetime'
 import {
@@ -333,9 +334,12 @@ function AcompanhamentoPage({ atendimentoIdInicial, onAtendimentoIdInicialConsum
       <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 mb-4">
         <div className="flex flex-wrap items-center justify-between gap-4">
           <div className="flex items-center gap-4">
-            <h2 className="text-lg font-semibold text-inforrel-primary">
-              Acompanhamento de Atendimentos
-            </h2>
+            <div className="flex items-center gap-1.5">
+              <h2 className="text-lg font-semibold text-inforrel-primary">
+                Acompanhamento de Atendimentos
+              </h2>
+              <BotaoAjuda contexto="acompanhamento" />
+            </div>
             <button
               onClick={carregarAtendimentos}
               className="flex items-center gap-1.5 px-3 py-1.5 text-sm text-gray-600 hover:text-inforrel-primary transition"

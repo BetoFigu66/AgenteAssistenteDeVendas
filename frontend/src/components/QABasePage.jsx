@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { RefreshCw, CheckCircle, Edit2, Trash2, Plus, Search, Filter, BookOpen, Flame, AlertTriangle } from 'lucide-react'
 import { api } from '../services/api'
 import DetalheModal from './DetalheModal'
+import BotaoAjuda from './BotaoAjuda'
 import { CONTEXTOS_QA as CONTEXTOS } from '../constants/qa'
 
 const BADGE_CONTEXTO = {
@@ -205,6 +206,7 @@ function QABasePage() {
           <div className="flex items-center gap-3">
             <BookOpen size={20} className="text-inforrel-primary" />
             <h2 className="text-lg font-semibold text-inforrel-primary">Base Q&A</h2>
+            <BotaoAjuda contexto="qa-base" />
             <span className="text-sm text-gray-500">{total} par(es) total</span>
             {pendentesCount > 0 && (
               <span className="px-2 py-0.5 bg-orange-100 text-orange-800 text-xs font-medium rounded-full">
