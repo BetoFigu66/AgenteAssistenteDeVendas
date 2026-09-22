@@ -65,6 +65,34 @@ Dois documentos, sempre:
 O plano da semana é para **ele**, não para você: comando literal, critério de julgamento explícito,
 e um lugar para ele escrever o que achou. Nada de "verificar se está tudo certo".
 
+## Ritmo da quota ao longo da semana
+
+A sexta sozinha **não** consome a quota semanal: a janela bate no limite de 5 horas antes
+disso. Em 19/09/2026 sobraram 20% da quota da semana por esse motivo. Então o consumo é
+distribuído, e a sexta deixa de ser a única oportunidade.
+
+Metas de uso **acumulado** da quota semanal, definidas pelo Beto:
+
+| Dia | Acumulado |
+|---|---|
+| Segunda | 15% |
+| Terça | 35% |
+| Quarta | 50% |
+| Quinta | 70% |
+| Sexta | 90% |
+
+**Como agir:** ao entrar numa sessão em qualquer dia, comparar o consumo atual com a meta do
+dia. Se estiver **abaixo**, não encerrar a sessão com a quota parada: puxar trabalho do
+backlog (o doc da janela mais recente em `artefatos/gerente_de_projetos/janelas/` tem a
+seção "Backlog para a próxima janela"), disparar análises, ou fazer a revisão de código
+prevista para a semana. O objetivo é chegar em sexta com trabalho acumulado para decidir, e
+não com quota acumulada para gastar.
+
+Quando a quota estourar no meio de uma frente, verificar o trabalho parcial antes de
+descartar: em 19/09 as duas frentes interrompidas tinham entregue a tarefa mais valiosa e o
+parcial valia commit. Por isso, **ordenar as tarefas dentro de cada frente da mais valiosa
+para a menos**, e dizer isso ao subagente.
+
 ## Regras que valem sempre nesta rotina
 
 - **O maior uso de IA fica na janela.** Se uma tarefa pode ser feita por IA agora, não a adie para

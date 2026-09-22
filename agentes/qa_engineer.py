@@ -556,6 +556,85 @@ def _check_ruff(raiz: Path) -> CheckResult:
 
 
 @registrar_check(
+    id="eslint-frontend",
+    titulo="Lint do frontend via ESLint",
+    severidade="error",
+    escopos=["sempre", "pre-commit"],
+)
+def _check_eslint_frontend(raiz: Path) -> CheckResult:
+    """
+    Invoca o script `lint` do frontend (ESLint, config em frontend/.eslintrc.cjs).
+
+    Existe para fechar a assimetria apontada em `artefatos/qa/pendencia_lint_frontend.md`:
+    o backend tem Ruff e mypy no pre-commit, e o frontend nao tinha verificacao estatica
+    nenhuma. O ganho concreto e `eslint-plugin-react-hooks`, que pega a classe de bug mais
+    comum deste frontend (useEffect com dependencia faltando, tela que nao atualiza).
+
+    Chama `npm run lint` em vez de `npx eslint` de proposito: as flags vivem no
+    package.json (`--max-warnings 0`), e duplica-las aqui criaria duas fontes da verdade
+    que divergem no primeiro ajuste.
+
+    Degrada com aviso, sem bloquear, quando o ambiente nao tem como rodar: Node fora do
+    PATH (o hook do pre-commit nem sempre herda o nvm) ou `node_modules` ausente. Um
+    commit de backend nao pode falhar porque a maquina nao instalou o frontend.
+    """
+    import subprocess
+
+    frontend = raiz / "frontend"
+    if not (frontend / "package.json").exists():
+        return CheckResult(passou=True, mensagem="frontend/ ausente; check ignorado.")
+
+    if not (frontend / "node_modules" / ".bin" / "eslint").exists():
+        return CheckResult(
+            passou=True,
+            severidade="warning",
+            mensagem="ESLint nao instalado no frontend; check ignorado.",
+            dica_correcao="Rode `cd frontend && npm install` para o lint do frontend entrar no QA.",
+            comandos_uteis=["cd frontend && npm install"],
+        )
+
+    try:
+        result = subprocess.run(
+            ["npm", "run", "lint", "--silent"],
+            cwd=str(frontend),
+            capture_output=True,
+            text=True,
+            timeout=180,
+        )
+    except FileNotFoundError:
+        return CheckResult(
+            passou=True,
+            severidade="warning",
+            mensagem="npm nao encontrado no PATH; check do frontend ignorado.",
+            dica_correcao="Rode o commit de um shell com Node no PATH para o lint do frontend valer.",
+        )
+    except subprocess.TimeoutExpired:
+        return CheckResult(
+            passou=False,
+            severidade="warning",
+            mensagem="ESLint timeout (180s); check ignorado.",
+        )
+
+    if result.returncode == 0:
+        return CheckResult(passou=True, severidade="error", mensagem="ESLint: OK")
+
+    # O ESLint escreve os apontamentos no stdout; o stderr costuma trazer so o ruido do
+    # npm ("ELIFECYCLE"), que nao ajuda quem vai corrigir.
+    findings = [linha for linha in result.stdout.splitlines() if linha.strip()]
+    if not findings:
+        findings = [linha for linha in result.stderr.splitlines() if linha.strip()]
+
+    return CheckResult(
+        passou=False,
+        severidade="error",
+        findings=findings,
+        comandos_uteis=["cd frontend && npm run lint"],
+        mensagem=f"ESLint: {len(findings)} linha(s) de apontamento",
+        dica_correcao="Rode `cd frontend && npm run lint` para ver com contexto.",
+    )
+
+
+@registrar_check(
     id="mypy-type-check",
     titulo="Checagem de tipos via mypy (backend)",
     severidade="warning",

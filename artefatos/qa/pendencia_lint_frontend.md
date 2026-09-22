@@ -11,7 +11,34 @@
 
 ---
 
-## Situação
+## ✅ Encerrada em 2026-09-22
+
+**Os três pontos levantados aqui já estão resolvidos.** O diagnóstico abaixo foi escrito a
+partir de um clone anterior ao commit `866be8d` (sábado, 19/09), que já havia criado a
+configuração. Fica registrado na íntegra, porque o raciocínio e o caminho sugerido estavam
+certos e um deles ainda não tinha sido feito.
+
+| Ponto levantado | Situação |
+|---|---|
+| Falta config do ESLint | resolvido em `866be8d` (19/09): `frontend/.eslintrc.cjs` e `.eslintignore` |
+| Passivo de apontamentos | resolvido no mesmo commit: eram 92 erros e 2 avisos, todos corrigidos ou justificados. `react/prop-types` ficou desligada com comentário, por ser 78 deles num projeto que nunca usou PropTypes nem TypeScript |
+| Integrar ao fluxo de QA (item 4 do caminho sugerido) | **era a parte que faltava**, feita agora: check `eslint-frontend` em `agentes/qa_engineer.py`, escopos `sempre` e `pre-commit`, severidade `error` |
+| Bug do `App.jsx` (`telefones.includes`) | já corrigido antes, no commit `458ce49`: hoje a linha usa `telefones.some(t => t.telefone === telefone)` e insere objeto, não string |
+
+Sobre o check novo: ele chama `npm run lint` em vez de reimplementar as flags, para não criar
+duas fontes da verdade. E degrada com **aviso**, sem bloquear, quando `node_modules` não está
+instalado ou o Node não está no PATH: um commit de backend não pode falhar porque a máquina
+não instalou o frontend. Verificado nos dois caminhos, com o lint limpo e com um erro
+plantado de propósito.
+
+**Nota de processo, que vale mais que o item em si:** esta pendência descreve como aberto algo
+que estava fechado havia três dias, porque a análise rodou sobre um clone desatualizado. Antes
+de abrir pendência, vale um `git fetch && git log --oneline origin/develop -20` para conferir
+contra o que está no remoto, e não só contra a cópia local.
+
+---
+
+## Situação (registro original, de 2026-09-22)
 
 O script existe em `frontend/package.json`:
 

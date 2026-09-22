@@ -1583,6 +1583,25 @@ Saída:
 
 > Rode sempre da **raiz do projeto** — o script ajusta `sys.path` automaticamente.
 
+### Lint do frontend dentro do QA (`eslint-frontend`)
+
+Desde 2026-09-22 o ESLint do frontend roda junto dos checks do backend, inclusive no
+pre-commit, fechando a assimetria de o backend ter Ruff e mypy e o frontend não ter nada.
+
+O check chama `npm run lint` (não reimplementa as flags: elas moram no `package.json`) e
+trata o ambiente com cuidado:
+
+| Situação | Resultado |
+|---|---|
+| Lint limpo | passa |
+| Lint com apontamento | **bloqueia o commit**, mostrando as linhas |
+| `frontend/node_modules` ausente | passa com **aviso**, sugerindo `npm install` |
+| `npm` fora do PATH (comum quando o hook não herda o nvm) | passa com **aviso** |
+
+Os dois últimos casos são deliberados: um commit só de backend não pode falhar porque a
+máquina não instalou o frontend. Em compensação, quem commita sem Node no PATH não está
+sendo verificado, então vale rodar `npm run lint` à mão antes de um PR de frontend.
+
 ---
 
 ## Ruff (Lint e Imports)
