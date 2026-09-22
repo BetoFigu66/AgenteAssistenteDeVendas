@@ -2,6 +2,7 @@ import { useState, useRef, useEffect, useMemo } from 'react'
 import { Send, MessageCircle, AlertTriangle, Trash2, Reply, X } from 'lucide-react'
 import Message from './Message'
 import ConversaInfo from './ConversaInfo'
+import BotaoAjuda from './BotaoAjuda'
 import { api } from '../services/api'
 
 function ChatArea({ telefone, mensagens, dadosConversa, loading, erro, onEnviarMensagem, onApagarConversa }) {
@@ -77,6 +78,8 @@ function ChatArea({ telefone, mensagens, dadosConversa, loading, erro, onEnviarM
             <p className="font-medium">
               {telefone || 'Selecione um telefone'}
             </p>
+            {/* Fundo escuro: sobrescreve as cores padrao do botao de ajuda. */}
+            <BotaoAjuda contexto="chat" className="text-white/70 hover:text-white transition" />
           </div>
           <div className="flex items-center gap-3">
             {scoreMinimo !== null && (
