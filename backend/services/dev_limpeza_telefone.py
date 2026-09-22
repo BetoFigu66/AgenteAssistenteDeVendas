@@ -3,9 +3,14 @@ Limpeza de dados de teste por telefone (ferramenta de desenvolvimento).
 
 Remove em cascata (ordem de FKs):
   reports → eventos_atendimento → mensagens → processamentos → orçamentos/itens →
-  itens/infos de atendimento → atendimentos → contato
+  itens/infos de atendimento → atendimentos → contato →
+  (atividades_empresa, socios_empresa, empresa) quando a empresa ficou órfã
 
-Não remove empresa, pessoa nem catálogo de produtos.
+A empresa criada pela consulta de CNPJ é removida de forma CONDICIONAL (achado B4,
+auditoria 2026-08): só quando, depois da limpeza, nenhum outro contato, atendimento ou
+processamento ainda apontar para ela. Ver `_remover_empresas_orfas`.
+
+Não remove pessoa (PF) nem catálogo de produtos.
 """
 
 from __future__ import annotations
@@ -15,7 +20,9 @@ from typing import Any
 from models import (
     Atendimento,
     AtendimentoInfo,
+    AtividadeEmpresa,
     Contato,
+    Empresa,
     EventoAtendimento,
     ItemAtendimento,
     ItemOrcamento,
@@ -23,6 +30,7 @@ from models import (
     Orcamento,
     ProcessamentoMensagem,
     ReportProblema,
+    SocioEmpresa,
 )
 from sqlalchemy import or_
 from sqlalchemy.orm import Session
@@ -48,6 +56,113 @@ def _coletar_variantes_telefone(contatos: list[Contato], telefone: str) -> set[s
     variantes = {tel_norm, telefone.strip()}
     variantes.update(c.telefone for c in contatos)
     return variantes
+
+
+def _coletar_empresas_candidatas(
+    db: Session,
+    contato_ids: list[int],
+    atendimento_ids: list[int],
+    processamento_ids: set[int],
+) -> set[int]:
+    """Empresas que ESTE telefone tocou, coletadas antes dos deletes.
+
+    Só candidatas: quem decide a remoção é `_remover_empresas_orfas`, depois que as
+    linhas do telefone já sairam. Inclui os processamentos porque a consulta de CNPJ
+    pode gravar `empresa_id_identificada` num turno que não chegou a vincular a empresa
+    ao atendimento.
+    """
+    candidatas: set[int] = set()
+
+    if contato_ids:
+        candidatas.update(
+            row[0]
+            for row in db.query(Contato.empresa_id)
+            .filter(Contato.id.in_(contato_ids), Contato.empresa_id.isnot(None))
+            .all()
+        )
+    if atendimento_ids:
+        candidatas.update(
+            row[0]
+            for row in db.query(Atendimento.empresa_id)
+            .filter(Atendimento.id.in_(atendimento_ids), Atendimento.empresa_id.isnot(None))
+            .all()
+        )
+    if processamento_ids:
+        candidatas.update(
+            row[0]
+            for row in db.query(ProcessamentoMensagem.empresa_id_identificada)
+            .filter(
+                ProcessamentoMensagem.id.in_(list(processamento_ids)),
+                ProcessamentoMensagem.empresa_id_identificada.isnot(None),
+            )
+            .all()
+        )
+
+    return candidatas
+
+
+def _remover_empresas_orfas(
+    db: Session,
+    empresa_ids: set[int],
+    removidos: dict[str, int],
+) -> tuple[list[int], list[int]]:
+    """Remove as empresas que ficaram sem nenhum referenciador (achado B4).
+
+    Por que condicional e não incondicional: uma `Empresa` não é simétrica a um
+    `Contato`. O mesmo CNPJ pode estar ligado a contatos, atendimentos e processamentos
+    de OUTROS telefones (dois funcionários da mesma empresa escrevendo de celulares
+    diferentes é o caso comum). Apagar a empresa junto com um telefone destruiria dado de
+    outra conversa, e este utilitário roda contra o mesmo banco da suíte e do painel.
+    Então cada candidata só sai quando nada mais aponta para ela.
+
+    Chamar SÓ depois dos deletes de contatos/atendimentos/processamentos: as contagens
+    abaixo precisam enxergar o banco já limpo (os bulk deletes valem dentro da transação
+    corrente, mesmo antes do commit).
+
+    Ordem obrigatória: `atividades_empresa` e `socios_empresa` têm FK not-null para
+    `empresas`, então saem antes da empresa.
+
+    Returns:
+        (ids removidos, ids preservados por ainda terem referências).
+    """
+    removidos.setdefault("atividades_empresa", 0)
+    removidos.setdefault("socios_empresa", 0)
+    removidos.setdefault("empresas", 0)
+
+    orfas: list[int] = []
+    preservadas: list[int] = []
+
+    for empresa_id in sorted(empresa_ids):
+        # `first()` e não `count()`: basta saber se sobrou alguma referência.
+        ainda_referenciada = (
+            db.query(Contato.id).filter(Contato.empresa_id == empresa_id).first() is not None
+            or db.query(Atendimento.id).filter(Atendimento.empresa_id == empresa_id).first() is not None
+            or db.query(ProcessamentoMensagem.id)
+            .filter(ProcessamentoMensagem.empresa_id_identificada == empresa_id)
+            .first()
+            is not None
+        )
+        if ainda_referenciada:
+            preservadas.append(empresa_id)
+        else:
+            orfas.append(empresa_id)
+
+    if orfas:
+        removidos["atividades_empresa"] = (
+            db.query(AtividadeEmpresa)
+            .filter(AtividadeEmpresa.empresa_id.in_(orfas))
+            .delete(synchronize_session=False)
+        )
+        removidos["socios_empresa"] = (
+            db.query(SocioEmpresa)
+            .filter(SocioEmpresa.empresa_id.in_(orfas))
+            .delete(synchronize_session=False)
+        )
+        removidos["empresas"] = (
+            db.query(Empresa).filter(Empresa.id.in_(orfas)).delete(synchronize_session=False)
+        )
+
+    return orfas, preservadas
 
 
 def apagar_dados_telefone(db: Session, telefone: str) -> dict[str, Any]:
@@ -97,6 +212,12 @@ def apagar_dados_telefone(db: Session, telefone: str) -> dict[str, Any]:
         .filter(Orcamento.atendimento_id.in_(atendimento_ids))
         .all()
     ] if atendimento_ids else []
+
+    # Coletado ANTES dos deletes: depois que contatos/atendimentos/processamentos saem,
+    # não há mais como saber que empresa este telefone tocou (achado B4).
+    empresas_candidatas = _coletar_empresas_candidatas(
+        db, contato_ids, atendimento_ids, processamento_ids
+    )
 
     removidos: dict[str, int] = {}
 
@@ -182,10 +303,21 @@ def apagar_dados_telefone(db: Session, telefone: str) -> dict[str, Any]:
     else:
         removidos["contatos"] = 0
 
+    # Por último: a empresa só pode ser avaliada depois que as linhas deste telefone já
+    # sairam, senão ela pareceria sempre referenciada por si mesma (achado B4).
+    empresas_removidas, empresas_preservadas = _remover_empresas_orfas(
+        db, empresas_candidatas, removidos
+    )
+
     return {
         "telefone": telefone,
         "telefone_normalizado": normalizar_telefone(telefone),
         "contato_ids": contato_ids,
         "atendimento_ids": atendimento_ids,
+        "empresa_ids_removidas": empresas_removidas,
+        # Compartilhadas com outro contato/atendimento/processamento: ficaram de pé de
+        # propósito, e quem chamou precisa saber disso para não achar que o banco ficou
+        # virgem para aquele CNPJ.
+        "empresa_ids_preservadas": empresas_preservadas,
         "removidos": removidos,
     }

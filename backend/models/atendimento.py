@@ -59,6 +59,13 @@ class TipoEventoAtendimento(str, enum.Enum):
     ESCALADO = "escalado"
     MODO_OPERACAO_ALTERADO = "modo_operacao_alterado"
     FASE_ALTERADA = "fase_alterada"
+    # REQ-016.17: as perguntas de continuação (PERG-016-009) e de fechamento
+    # (PERG-016-010) também são eventos auditáveis, para análise posterior de UX.
+    # Diferente dos tipos acima, não registram mudança de estado do atendimento: são
+    # "o sistema perguntou X", e `estado_anterior`/`estado_novo` ficam nulos.
+    # Os valores cabem em `eventos_atendimento.tipo`, que é `String(30)`.
+    PERGUNTA_CONTINUACAO = "pergunta_continuacao"
+    PERGUNTA_FECHAMENTO = "pergunta_fechamento"
 
 
 class MotivoEscalonamento(str, enum.Enum):

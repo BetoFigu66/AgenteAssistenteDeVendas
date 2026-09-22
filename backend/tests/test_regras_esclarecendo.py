@@ -170,6 +170,10 @@ def test_saudacao_identificado_com_empresa_usa_nome(db_session, processador):
     empresa = Empresa(cnpj="00.000.000/0001-99", nome="Empresa Teste Esclarecendo")
     db_session.add(empresa)
     db_session.commit()
+    # Guardado antes: `apagar_dados_telefone` passou a remover a empresa que ficou órfã
+    # (achado B4), então no `finally` o objeto pode já não existir e ler `empresa.id` ali
+    # dispararia um refresh de linha apagada.
+    empresa_id = empresa.id
     contato = criar_contato(db_session, telefone, empresa=empresa, nome="Carlos")
 
     identificacao = ResultadoIdentificacao(status=StatusIdentificacao.UNICO, contatos=[contato], empresas=[empresa])
@@ -183,8 +187,10 @@ def test_saudacao_identificado_com_empresa_usa_nome(db_session, processador):
         assert resposta.template_usado == "SAUDACAO_COM_NOME"
         assert "Carlos" in resposta.texto
     finally:
+        # A limpeza por telefone já remove a empresa quando ela fica sem nenhum
+        # referenciador; o delete abaixo é rede de segurança para o caso contrário.
         _limpar(db_session, telefone)
-        db_session.query(Empresa).filter_by(id=empresa.id).delete()
+        db_session.query(Empresa).filter_by(id=empresa_id).delete()
         db_session.commit()
 
 

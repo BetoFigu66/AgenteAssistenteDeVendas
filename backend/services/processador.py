@@ -802,6 +802,17 @@ class ProcessadorMensagem:
             return await self._processar_resposta_continuacao(db, ultimo, conteudo, dlog=dlog)
 
         self._salvar_info_atendimento(db, ultimo.id, _CONTINUACAO_PENDENTE_CHAVE, "aguardando")
+        # REQ-016.17: até aqui a pergunta só deixava rastro no log em arquivo, que não
+        # serve para análise de UX (quantas vezes perguntamos, e o que o cliente
+        # respondeu). O evento entra na mesma transação do sinalizador `aguardando` que
+        # ele explica, e quem fecha a transação é o commit final de `processar()`.
+        atendimentos_svc.registrar_evento_atendimento(
+            db,
+            ultimo,
+            tipo=TipoEventoAtendimento.PERGUNTA_CONTINUACAO,
+            ator="sistema:processador",
+            motivo=f"PERG-016-009: atendimento encerrado (motivo={ultimo.motivo_encerramento})",
+        )
         if dlog:
             dlog.log(
                 "continuacao",
