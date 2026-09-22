@@ -568,6 +568,22 @@ export const api = {
     }
   },
 
+  // REQ-011.18: indicadores que embasam a promoção para execucao_normal. Endpoint
+  // separado do getConfigExecucao de propósito: só é chamado no diálogo de
+  // confirmação, não no mount do cabeçalho.
+  async getIndicadoresExecucao(dias = 7) {
+    try {
+      const response = await apiFetch(`${API_URL}/api/config/execucao/indicadores?dias=${dias}`)
+      if (!response.ok) {
+        throw new ApiError('Erro ao buscar indicadores de execução', response.status, 'server')
+      }
+      return response.json()
+    } catch (error) {
+      if (error instanceof ApiError) throw error
+      throw new ApiError('Backend não está respondendo', 0, 'network')
+    }
+  },
+
   async patchConfigExecucao(modoExecucao) {
     try {
       const response = await apiFetch(`${API_URL}/api/config/execucao`, {

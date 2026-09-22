@@ -5,7 +5,7 @@ Assistente de Vendas via WhatsApp com IA - Backend FastAPI
 import logging
 import traceback
 from contextlib import asynccontextmanager
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Optional
 from xml.sax.saxutils import escape, quoteattr
 
@@ -48,12 +48,23 @@ from services import atendimentos as atendimentos_svc
 from services import auth as auth_svc
 from services.canal import obter_canal
 from services.conversacao.campos_pendentes import campos_pendentes
+from services.conversacao.catalogo_campos import (
+    DESTINO_ITEM_ATENDIMENTO_MODELO_ID,
+    campos_do_produto,
+)
 from services.cpf.validacao import mascarar_cpf
 from services.dev_limpeza_telefone import apagar_dados_telefone
 from services.envio import entregar_mensagem, marcar_entregue_por_twiml
 from services.identificador import identificar_por_telefone, normalizar_telefone
 from services.llm import get_llm_provider
 from services.parametro_service import MODO_EXECUCAO, ParametroService
+
+# `_USER_SISTEMA_NOME` é importado apesar do underscore: é o nome do usuário
+# sentinela que o processador grava em `aprovador_id` ao auto-aprovar em
+# `execucao_normal`, e os indicadores do REQ-011.18 precisam justamente separar
+# esse carimbo automático da decisão humana. Repetir o literal aqui deixaria os
+# dois lados divergirem em silêncio no dia em que o nome mudar.
+from services.processador import _USER_SISTEMA_NOME as USER_SISTEMA_NOME
 from services.processador import ProcessadorMensagem, ResultadoProcessamento
 from sqlalchemy import func
 from sqlalchemy import or_ as sa_or
@@ -752,6 +763,53 @@ async def apagar_dados_dev_telefone(telefone: str):
 STATUS_ATENDIMENTO_ATIVOS = [StatusAtendimento.ATIVO.value]
 
 
+def _campos_capturados(atendimento: Atendimento) -> list[dict]:
+    """REQ-010.7B: campos de qualificação já capturados, para o topo da conversa.
+
+    Filtro por **lista de permissão**, não por lista de proibição: só sai daqui o que
+    está declarado no catálogo (`services/conversacao/catalogo_campos.py`) e se aplica
+    ao tipo de produto do atendimento. `AtendimentoInfo` é chave-valor livre e guarda
+    muita coisa que é estado interno do motor (marcadores `<chave>__perguntado`,
+    `pergunta_prioritaria_chave`, contadores de tentativa, resultado de consulta de
+    crédito). Uma lista de proibição por padrão de nome esqueceria a próxima chave
+    interna que alguém criar; pelo catálogo, uma chave nova só aparece na tela se
+    alguém a declarar como campo de negócio.
+
+    `modelo_produto` é o caso fora da curva: seu valor não mora em `AtendimentoInfo` e
+    sim em `ItemAtendimento.modelo_id`, resolvido contra o catálogo de modelos (ver
+    `Pergunta.destino`). Por isso vem da descrição do `Modelo`, não do chave-valor.
+
+    Não aplica `se_aplica()` aqui, ao contrário de `campos_pendentes()`: um valor já
+    capturado é um fato da conversa e continua valendo mesmo que o campo tenha deixado
+    de ser perguntável depois (ex.: o cliente respondeu e depois trocou de produto).
+    """
+    tipo_produto = atendimento.tipo_produto_atual()
+    if not tipo_produto:
+        return []
+
+    valores = atendimento.valores_capturados()
+    capturados = []
+    for campo in campos_do_produto(tipo_produto):
+        if campo.destino == DESTINO_ITEM_ATENDIMENTO_MODELO_ID:
+            item = next((i for i in atendimento.itens if i.modelo_id is not None), None)
+            valor = item.modelo.descricao if item and item.modelo else None
+        else:
+            valor = (valores.get(campo.chave) or "").strip() or None
+        if not valor:
+            continue
+        capturados.append(
+            {
+                "chave": campo.chave,
+                "id_catalogo": campo.id_catalogo,
+                "valor": valor,
+                # A pergunta original serve de tooltip: é o texto que o cliente viu.
+                "pergunta": campo.pergunta,
+            }
+        )
+    return capturados
+
+
+
 @app.get("/api/conversa/{telefone}")
 async def obter_dados_conversa(telefone: str):
     """
@@ -822,6 +880,9 @@ async def obter_dados_conversa(telefone: str):
                 "status": atendimento.status.value if atendimento.status else None,
                 "modo_operacao": (atendimento.modo_operacao.value if atendimento.modo_operacao else None),
                 "fase": atendimento.fase.value if atendimento.fase else None,
+                # REQ-010.7B: o que já foi coletado, para o atendente não repetir
+                # pergunta ao cliente sem abrir o modal de detalhes.
+                "campos_capturados": _campos_capturados(atendimento),
             }
             if atendimento
             else None,
@@ -2174,6 +2235,98 @@ async def get_config_execucao():
             # editável por aqui de propósito — é trava de ambiente, não de operação.
             "canal_saida": canal.nome,
             "entrega_real": canal.entrega_real,
+        }
+
+
+# REQ-011.18: janela padrão dos indicadores de promoção. Sete dias é o exemplo do
+# próprio requisito ("últimos 100 ou últimos 7 dias") e cobre uma semana de operação
+# supervisionada sem arrastar decisões antigas para dentro do julgamento.
+INDICADORES_EXECUCAO_DIAS_PADRAO = 7
+INDICADORES_EXECUCAO_DIAS_MAX = 365
+
+
+@app.get("/api/config/execucao/indicadores")
+async def get_indicadores_execucao(dias: int = INDICADORES_EXECUCAO_DIAS_PADRAO):
+    """REQ-011.18: indicadores que embasam a promoção para `execucao_normal`.
+
+    Endpoint separado do `GET /api/config/execucao` de propósito. Aquele é lido no
+    mount do cabeçalho, ou seja, em toda tela do painel, e só precisa do modo vigente;
+    este faz quatro agregações sobre `mensagens` (uma delas com subconsulta em
+    `reports_problema`) e só interessa no instante do diálogo de confirmação. Além
+    disso recebe `dias`, parâmetro que não cabe num GET de configuração.
+
+    Recorte: a janela filtra por `Mensagem.timestamp`, isto é, **quando o agente
+    gerou** a resposta, não quando alguém decidiu sobre ela. Assim os quatro baldes
+    (pendente, auto-aprovada, aprovada, reprovada) particionam exatamente a mesma
+    coorte de mensagens, e `total_geradas` fecha com a soma.
+
+    O que cada número significa, que é o ponto do indicador:
+
+    - `auto_aprovadas_pelo_sistema`: em `execucao_normal` o próprio sistema carimba
+      `aprovador_id` com um usuário sentinela (`processador.py::_obter_user_sistema`).
+      Contar isso como aprovação transformaria "o agente acertou" em "o agente
+      respondeu", justo no número usado para decidir se ele pode responder sozinho.
+      Por isso fica num balde à parte e fora da taxa.
+    - `aprovadas_por_humano` / `reprovadas_por_humano`: a decisão humana não tem
+      coluna própria. Aprovar e reprovar gravam os mesmos `aprovador_id` e
+      `timestamp_aprovacao`; o que distingue os dois é o `ReportProblema` de categoria
+      `resposta_inadequada` que a reprovação cria (mesmo critério já usado no 409 de
+      `POST /api/mensagens/{id}/aprovar`). Daí `aprovadas = decididas - reprovadas`:
+      uma classificação errada move a mensagem de balde, em vez de inventar volume.
+      Ambiguidade residual, assumida: um report retroativo (REQ-011.17) arquivado
+      nessa mesma categoria contra uma mensagem aprovada aparece como reprovação.
+    """
+    if dias < 1 or dias > INDICADORES_EXECUCAO_DIAS_MAX:
+        raise HTTPException(
+            status_code=400,
+            detail=f"dias deve estar entre 1 e {INDICADORES_EXECUCAO_DIAS_MAX}",
+        )
+
+    desde = utc_now() - timedelta(days=dias)
+
+    with db.get_session() as session:
+        # Pode não existir ainda: nenhum turno rodou em `execucao_normal` neste banco.
+        # Nesse caso não há carimbo automático para separar e o balde fica zerado.
+        user_sistema_id = session.query(User.id).filter(User.nome == USER_SISTEMA_NOME).scalar()
+
+        geradas = (
+            session.query(Mensagem)
+            .filter(Mensagem.origem == OrigemMensagem.SYSTEM)
+            .filter(Mensagem.timestamp >= desde)
+        )
+
+        pendentes = geradas.filter(Mensagem.aprovador_id.is_(None)).count()
+
+        decididas = geradas.filter(Mensagem.aprovador_id.isnot(None))
+        if user_sistema_id is not None:
+            auto_aprovadas = decididas.filter(Mensagem.aprovador_id == user_sistema_id).count()
+            humanas = decididas.filter(Mensagem.aprovador_id != user_sistema_id)
+        else:
+            auto_aprovadas = 0
+            humanas = decididas
+
+        decididas_por_humano = humanas.count()
+        reprovadas = humanas.filter(
+            Mensagem.id.in_(
+                session.query(ReportProblema.mensagem_id)
+                .filter(ReportProblema.mensagem_id.isnot(None))
+                .filter(ReportProblema.categoria == CategoriaReport.RESPOSTA_INADEQUADA)
+            )
+        ).count()
+        aprovadas = decididas_por_humano - reprovadas
+
+        return {
+            "dias": dias,
+            "desde": serialize_utc_datetime(desde),
+            "total_geradas": pendentes + auto_aprovadas + decididas_por_humano,
+            "pendentes": pendentes,
+            "auto_aprovadas_pelo_sistema": auto_aprovadas,
+            "decididas_por_humano": decididas_por_humano,
+            "aprovadas_por_humano": aprovadas,
+            "reprovadas_por_humano": reprovadas,
+            # `None` quando ninguém decidiu nada: sem base humana não existe taxa, e
+            # devolver 0 ou 100% aqui seria exatamente o número tranquilizador errado.
+            "taxa_aprovacao_humana": (round(aprovadas / decididas_por_humano, 4) if decididas_por_humano else None),
         }
 
 

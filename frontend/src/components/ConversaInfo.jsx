@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Building2, Contact, User, Briefcase, ListChecks } from 'lucide-react'
+import { Building2, Contact, User, Briefcase, ListChecks, CheckCircle2 } from 'lucide-react'
 import DetalheModal from './DetalheModal'
 import EmpresaDetalhes from './EmpresaDetalhes'
 import AtendimentoDetalhes from './AtendimentoDetalhes'
@@ -7,7 +7,25 @@ import { api } from '../services/api'
 
 import { rotuloAtendimento, rotuloFase, classesFase } from '../utils/atendimento'
 
-function CamposPendentesBadge({ atendimentoId }) {
+// Rótulos curtos dos campos do catálogo de qualificação
+// (backend/services/conversacao/catalogo_campos.py). O catálogo só tem a pergunta
+// inteira, longa demais para um pill; a pergunta vai no title. Chave sem entrada aqui
+// cai na própria chave técnica, que é feio mas não esconde informação.
+const ROTULO_CAMPO = {
+  modelo_produto: 'Modelo',
+  software_controle_ponto: 'Software de ponto',
+  software_controle_acesso: 'Software de acesso',
+  interesse_sistema_nuvem: 'Sistema na nuvem',
+  faixa_funcionarios: 'Faixa de pessoas',
+  quantidade: 'Quantidade',
+  homologado_software: 'Homologação verificada',
+}
+
+function rotuloCampo(chave) {
+  return ROTULO_CAMPO[chave] || chave
+}
+
+function CamposPendentesBadge({ atendimentoId, temCapturados }) {
   const [campos, setCampos] = useState([])
 
   useEffect(() => {
@@ -25,7 +43,18 @@ function CamposPendentesBadge({ atendimentoId }) {
     }
   }, [atendimentoId])
 
-  if (campos.length === 0) return null
+  // REQ-010.7B: nada pendente com algo já coletado é "coleta completa". Sem nenhum
+  // campo capturado não há o que comemorar — é só uma conversa que ainda nem começou
+  // a qualificar.
+  if (campos.length === 0) {
+    if (!temCapturados) return null
+    return (
+      <span className="flex items-center gap-1 px-2 py-0.5 text-xs rounded-full font-medium bg-green-100 text-green-700">
+        <CheckCircle2 size={12} />
+        Pronto para orçamento
+      </span>
+    )
+  }
 
   return (
     <span
@@ -35,6 +64,30 @@ function CamposPendentesBadge({ atendimentoId }) {
       <ListChecks size={12} />
       {campos.length} pendente{campos.length > 1 ? 's' : ''}
     </span>
+  )
+}
+
+/**
+ * REQ-010.7B: o que já foi coletado, visível sem abrir modal, para o atendente não
+ * repetir pergunta que o cliente já respondeu. A lista vem filtrada pelo catálogo de
+ * campos no backend — chave de controle interno do motor não chega aqui.
+ */
+function CamposCapturados({ campos }) {
+  if (!campos || campos.length === 0) return null
+
+  return (
+    <div className="flex flex-wrap items-center gap-1.5 mt-1">
+      <span className="text-xs text-gray-500">Já coletado:</span>
+      {campos.map((campo) => (
+        <span
+          key={campo.chave}
+          className="px-2 py-0.5 text-xs rounded-full bg-inforrel-secondary/10 text-inforrel-secondary cursor-help"
+          title={campo.pergunta}
+        >
+          {rotuloCampo(campo.chave)}: <strong className="font-medium">{campo.valor}</strong>
+        </span>
+      ))}
+    </div>
   )
 }
 
@@ -111,9 +164,16 @@ function ConversaInfo({ dados }) {
               {rotuloFase(atendimento.fase)}
             </span>
           )}
-          {atendimento && <CamposPendentesBadge atendimentoId={atendimento.id} />}
+          {atendimento && (
+            <CamposPendentesBadge
+              atendimentoId={atendimento.id}
+              temCapturados={(atendimento.campos_capturados || []).length > 0}
+            />
+          )}
         </div>
       </div>
+
+      {atendimento && <CamposCapturados campos={atendimento.campos_capturados} />}
 
       {modal === 'empresa' && empresa && (
         <DetalheModal titulo={`Empresa: ${empresa.nome}`} onClose={() => setModal(null)}>
