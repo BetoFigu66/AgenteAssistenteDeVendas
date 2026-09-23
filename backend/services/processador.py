@@ -112,6 +112,26 @@ _RAG_CLARIFICACAO_PENDENTE_CHAVE = "rag_clarificacao_pendente"
 # escala para humano — mesmo padrão de "1 tentativa extra, depois escala" acima.
 _CONFIANCA_BAIXA_TENTATIVA_CHAVE = "confianca_baixa_tentativas"
 
+# Rótulos gravados em `ProcessamentoMensagem.resultado_fallback`, que é `String(30)`.
+# Ficam aqui, num lugar só, porque o valor já derrubou o turno do cliente duas vezes:
+# um rótulo mais longo que a coluna faz o INSERT de auditoria estourar e `processar()`
+# inteiro levantar. `ROTULOS_FALLBACK` é o que o teste-guarda percorre, então acrescentar
+# um rótulo novo só aqui basta para ele passar a ser verificado contra o tamanho real da
+# coluna — a lista escrita à mão no teste não cobria rótulo novo nenhum.
+ROTULO_FALLBACK_QA_ENCONTRADO = "qa_encontrado"
+ROTULO_FALLBACK_ESCALADO_BAIXA_CONFIANCA = "escalado_baixa_confianca"
+ROTULO_FALLBACK_NAO_ENTENDI_AGUARDANDO_2A = "nao_entendi_aguardando_2a"
+ROTULO_FALLBACK_NAO_ENTENDI = "nao_entendi"
+
+ROTULOS_FALLBACK: frozenset[str] = frozenset(
+    {
+        ROTULO_FALLBACK_QA_ENCONTRADO,
+        ROTULO_FALLBACK_ESCALADO_BAIXA_CONFIANCA,
+        ROTULO_FALLBACK_NAO_ENTENDI_AGUARDANDO_2A,
+        ROTULO_FALLBACK_NAO_ENTENDI,
+    }
+)
+
 # REQ-003.11: tipos de produto com catálogo próprio, e o nome do Parametro (tabela
 # `parametros`) que guarda o link público correspondente — configurável sem deploy.
 _CATALOGO_TIPOS_LABEL = {
@@ -393,11 +413,9 @@ class ProcessadorMensagem:
 
         # 8. Vincula mensagem do cliente ao processamento/contato/atendimento
         msg_in.processamento_id = processamento.id
-        if contato:
-            msg_in.contato_id = contato.id
-            if atendimento:
-                msg_in.atendimento_id = atendimento.id
-                atendimento.registrar_ultima_mensagem_em(msg_in.timestamp)
+        # O vínculo contato/atendimento sai daqui de propósito: o webhook repete a mesma
+        # regra ao registrar mensagem sem texto, e duas cópias divergem calada (B5).
+        atendimentos_svc.vincular_mensagem_ao_atendimento(db, msg_in, contato, atendimento)
 
         # 9. Persiste resposta do sistema APENAS quando modo=AGENTE.
         # No modo HUMANO, o operador enviará a resposta manualmente pela UI.
@@ -702,14 +720,14 @@ class ProcessadorMensagem:
                 trechos_rag=[par.to_dict()],
                 rag_score_maximo=par.score,
                 fallback_req003=True,
-                resultado_fallback="qa_encontrado",
+                resultado_fallback=ROTULO_FALLBACK_QA_ENCONTRADO,
                 justificativa_curta=(
                     f"Nenhuma ação do motor respondeu; par Q&A encontrado no fallback "
                     f"(score={par.score:.2f})."
                 ),
             )
 
-        resultado_fallback = "nao_entendi"
+        resultado_fallback = ROTULO_FALLBACK_NAO_ENTENDI
         justificativa_curta = "Nenhuma ação do motor, QA ou escalonamento respondeu — fallback genérico."
 
         if (
@@ -728,20 +746,19 @@ class ProcessadorMensagem:
                     dlog.log("rota", "confiança baixa 2x seguidas → escalar_humano (REQ-004.9)")
                 resposta = await self._gerador.gerar(MensagemId.ESCALADO_BAIXA_CONFIANCA)
                 resposta.fallback_req003 = True
-                resposta.resultado_fallback = "escalado_baixa_confianca"
+                resposta.resultado_fallback = ROTULO_FALLBACK_ESCALADO_BAIXA_CONFIANCA
                 resposta.justificativa_curta = (
                     "Confiança baixa 2 mensagens seguidas sem nenhuma ação resolver — "
                     "escalado para humano (REQ-004.9)."
                 )
                 return resposta
             self._salvar_info_atendimento(db, atendimento.id, _CONFIANCA_BAIXA_TENTATIVA_CHAVE, "1")
-            # O valor cabe em `ProcessamentoMensagem.resultado_fallback`, que é
-            # `String(30)`: o rótulo anterior ("nao_entendi_aguardando_confirmacao", 34
-            # caracteres) estourava a coluna e derrubava o INSERT de auditoria, fazendo
-            # `processar()` inteiro levantar e o webhook devolver a resposta de erro
-            # genérica. Nenhuma linha chegou a ser gravada com o rótulo longo, então
-            # encurtar não deixa histórico órfão.
-            resultado_fallback = "nao_entendi_aguardando_2a"
+            # Rótulo curto de propósito: o anterior ("nao_entendi_aguardando_confirmacao",
+            # 34 caracteres) estourava a coluna `String(30)` e derrubava o INSERT de
+            # auditoria, fazendo `processar()` inteiro levantar e o webhook devolver a
+            # resposta de erro genérica. Nenhuma linha chegou a ser gravada com o rótulo
+            # longo, então encurtar não deixou histórico órfão. Ver `ROTULOS_FALLBACK`.
+            resultado_fallback = ROTULO_FALLBACK_NAO_ENTENDI_AGUARDANDO_2A
             justificativa_curta = (
                 "Confiança baixa (1ª ocorrência) — respondendo NAO_ENTENDI e aguardando "
                 "2ª ocorrência antes de escalar (REQ-004.9)."

@@ -15,6 +15,7 @@ from models import (
     Empresa,
     EventoAtendimento,
     FaseAtendimento,
+    Mensagem,
     MotivoEncerramento,
     Pessoa,
     StatusAtendimento,
@@ -76,6 +77,45 @@ def atendimento_ativo(db: Session, contato: Contato) -> Optional[Atendimento]:
         .order_by(Atendimento.created_at.desc())
         .first()
     )
+
+
+def vincular_mensagem_ao_atendimento(
+    db: Session,
+    mensagem: Mensagem,
+    contato: Optional[Contato],
+    atendimento: Optional[Atendimento] = None,
+) -> Optional[Atendimento]:
+    """Vincula uma mensagem recebida ao contato e ao atendimento ativo dele.
+
+    Regra única para os dois caminhos de entrada: o cérebro
+    (`services/processador.py::processar`) e o registro de mensagem sem texto do webhook
+    (`main.py::_registrar_mensagem_sem_texto`). Antes eram dois blocos iguais escritos
+    por frentes diferentes; mudar um lado (passar a tratar `MULTIPLO`, criar atendimento,
+    marcar continuação) deixava o outro divergir sem nada acusar, que é a fronteira que já
+    provocou incidente neste projeto.
+
+    Sem contato não há o que vincular: a mensagem fica só no histórico por telefone. Sem
+    atendimento ativo, idem — nenhum dos dois caminhos cria contato ou atendimento aqui,
+    porque isso é decisão de quem já leu a mensagem.
+
+    `atendimento` existe para quem já resolveu o ativo antes (o processador usa o mesmo
+    objeto na auditoria); omitido, a função resolve.
+
+    Devolve o atendimento vinculado, ou `None`.
+    """
+    if contato is None:
+        return None
+
+    mensagem.contato_id = contato.id
+
+    if atendimento is None:
+        atendimento = atendimento_ativo(db, contato)
+    if atendimento is None:
+        return None
+
+    mensagem.atendimento_id = atendimento.id
+    atendimento.registrar_ultima_mensagem_em(mensagem.timestamp)
+    return atendimento
 
 
 def atendimento_mais_recente(db: Session, contato: Contato) -> Optional[Atendimento]:

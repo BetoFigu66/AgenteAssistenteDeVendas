@@ -485,14 +485,10 @@ def _registrar_mensagem_sem_texto(
         # Vincula ao contato/atendimento ativo quando já existem, para a mensagem
         # aparecer dentro do atendimento e não só no histórico por telefone. Contato
         # novo não é criado aqui: abrir cadastro a partir de uma mídia que não sabemos
-        # ler seria decidir demais com informação de menos.
+        # ler seria decidir demais com informação de menos. A regra em si mora no
+        # serviço, e não aqui, porque o cérebro faz exatamente o mesmo vínculo (B5).
         contato = identificar_por_telefone(session, telefone_norm).contato
-        if contato:
-            mensagem.contato_id = contato.id
-            atendimento = atendimentos_svc.atendimento_ativo(session, contato)
-            if atendimento:
-                mensagem.atendimento_id = atendimento.id
-                atendimento.registrar_ultima_mensagem_em(mensagem.timestamp)
+        atendimentos_svc.vincular_mensagem_ao_atendimento(session, mensagem, contato)
 
         session.commit()
         mensagem_id = mensagem.id
@@ -546,12 +542,21 @@ async def webhook_twilio(
     # ler no TwiML porque não há resposta gerada, e não porque a entrega foi suprimida.
     texto = (Body or "").strip()
     if not texto:
-        _registrar_mensagem_sem_texto(
-            telefone,
-            _quantidade_de_midias(NumMedia),
-            MessageSid,
-            OriginalRepliedMessageSid,
-        )
+        # O `try` não é zelo genérico: registrar é o único efeito deste caminho, e uma
+        # falha aqui (banco fora do ar, constraint, sessão) subiria como HTTP 500 para a
+        # Twilio. A Twilio não reentrega webhook por padrão, só anota o erro 11200: a
+        # mensagem do cliente sumiria em silêncio de novo, que é exatamente o sintoma que
+        # este caminho existe para evitar. Devolver 200 com TwiML vazio é a mesma
+        # degradação já usada no modo HUMANO, e não convida a Twilio a tratar como erro.
+        try:
+            _registrar_mensagem_sem_texto(
+                telefone,
+                _quantidade_de_midias(NumMedia),
+                MessageSid,
+                OriginalRepliedMessageSid,
+            )
+        except Exception as e:
+            logger.exception(f"Erro ao registrar mensagem sem texto: {e}")
         return PlainTextResponse(content=_TWIML_VAZIO, media_type="application/xml")
 
     try:

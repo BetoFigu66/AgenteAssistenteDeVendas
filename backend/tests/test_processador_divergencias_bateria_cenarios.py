@@ -28,7 +28,7 @@ from database import Database
 from models import Atendimento, Contato, ModoOperacao, ProcessamentoMensagem
 from services.classificador import classificar
 from services.dev_limpeza_telefone import apagar_dados_telefone
-from services.processador import ProcessadorMensagem
+from services.processador import ROTULOS_FALLBACK, ProcessadorMensagem
 
 
 @pytest.fixture
@@ -74,10 +74,17 @@ def _ultimo_processamento(db_session, telefone):
 
 
 def test_rotulos_de_resultado_fallback_cabem_na_coluna():
-    """Guarda barata contra a classe do bug: qualquer rótulo novo precisa caber na
-    coluna, senão o INSERT de auditoria derruba o turno inteiro do cliente."""
+    """Guarda contra a classe do bug: qualquer rótulo novo precisa caber na coluna,
+    senão o INSERT de auditoria derruba o turno inteiro do cliente.
+
+    Os dois lados vêm do código de produção de propósito: os rótulos de
+    `ROTULOS_FALLBACK` (não uma tupla copiada à mão, que deixaria rótulo novo de fora e
+    continuaria verde) e o tamanho declarado no modelo (não um 30 escrito aqui, que
+    mentiria no dia em que a coluna mudar).
+    """
     limite = ProcessamentoMensagem.__table__.c.resultado_fallback.type.length
-    for rotulo in ("qa_encontrado", "escalado_baixa_confianca", "nao_entendi_aguardando_2a", "nao_entendi"):
+    assert ROTULOS_FALLBACK, "a constante ficou vazia — o teste deixaria de verificar qualquer coisa"
+    for rotulo in sorted(ROTULOS_FALLBACK):
         assert len(rotulo) <= limite, f"{rotulo!r} não cabe em String({limite})"
 
 
