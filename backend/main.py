@@ -2,10 +2,12 @@
 Assistente de Vendas via WhatsApp com IA - Backend FastAPI
 """
 
+import json
 import logging
 import traceback
 from contextlib import asynccontextmanager
 from datetime import datetime, timedelta
+from pathlib import Path
 from typing import Optional
 from xml.sax.saxutils import escape, quoteattr
 
@@ -152,6 +154,44 @@ app.include_router(pares_qa_router)
 # própria, por `X-Twilio-Signature` — ver `_exigir_assinatura_twilio`), health check,
 # e o próprio login (senão ninguém consegue logar).
 _CAMINHOS_PUBLICOS = {"/health", "/webhook", "/webhook/status", "/api/auth/login"}
+
+
+async def _capturar_payload_twilio(request: Request, endpoint: str) -> None:
+    """Grava o formulário cru que a Twilio mandou, uma linha JSON por chamada.
+
+    Por que isto existe: todo teste de webhook deste projeto monta o formulário à mão, com
+    os campos que NÓS supomos que a Twilio envia. Nenhum deles prova que o campo existe, que
+    se chama assim ou que vem nesse formato. Enquanto a conta trial estiver viva, uma rodada
+    real vira fixture permanente, e os testes passam a ser conferidos contra a realidade.
+
+    Nunca derruba a requisição: falhar em gravar instrumentação não pode custar a mensagem do
+    cliente. E o corpo é relido de `request.form()`, que o Starlette mantém em cache, então
+    ler aqui não consome o stream de quem vem depois.
+    """
+    if not settings.TWILIO_CAPTURAR_PAYLOADS:
+        return
+    try:
+        formulario = dict(await request.form())
+        registro = {
+            "recebido_em": utc_now().isoformat(),
+            "endpoint": endpoint,
+            "query": dict(request.query_params),
+            # Só os cabeçalhos que importam para reproduzir a chamada. `X-Twilio-Signature`
+            # entra porque é o que uma futura validação precisaria conferir.
+            "headers": {
+                k: v
+                for k, v in request.headers.items()
+                if k.lower() in ("content-type", "user-agent", "x-twilio-signature")
+            },
+            "form": formulario,
+        }
+        caminho = Path(settings.TWILIO_CAPTURA_ARQUIVO)
+        caminho.parent.mkdir(parents=True, exist_ok=True)
+        with caminho.open("a", encoding="utf-8") as arquivo:
+            arquivo.write(json.dumps(registro, ensure_ascii=False) + "\n")
+        logger.info("[CapturaTwilio] %s: %s campos gravados", endpoint, len(formulario))
+    except Exception:
+        logger.exception("[CapturaTwilio] falha ao gravar payload (ignorada de propósito)")
 
 
 async def _exigir_assinatura_twilio(request: Request) -> None:
@@ -528,6 +568,7 @@ async def webhook_twilio(
     Mensagem sem texto (só mídia) tem caminho próprio, sem passar pelo cérebro: ver
     `_registrar_mensagem_sem_texto`.
     """
+    await _capturar_payload_twilio(request, "/webhook")
     await _exigir_assinatura_twilio(request)
 
     telefone = From.replace("whatsapp:", "")
@@ -602,6 +643,7 @@ async def webhook_status_twilio(
     A Twilio chama várias vezes por mensagem (queued, sent, delivered, read). O SID é o
     mesmo em todas, então só a primeira grava; as demais só atualizam o erro, se houver.
     """
+    await _capturar_payload_twilio(request, "/webhook/status")
     await _exigir_assinatura_twilio(request)
 
     sid = MessageSid or SmsSid

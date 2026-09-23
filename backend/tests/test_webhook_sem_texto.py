@@ -406,3 +406,64 @@ def test_reply_to_nao_resolve_sid_de_outra_conversa():
     finally:
         _limpar(telefone)
         _limpar(telefone_alheio)
+
+
+def test_captura_de_payload_grava_o_formulario_cru(tmp_path, monkeypatch):
+    """A captura existe para virar fixture: precisa gravar o formulário como ele chegou.
+
+    Ligada por `TWILIO_CAPTURAR_PAYLOADS`, desligada por padrão. Grava antes de qualquer
+    processamento, então um erro no cérebro não faz perder o payload, que é justamente o que
+    se quer preservar enquanto a conta trial existe.
+    """
+    import json as _json
+
+    import main
+    from fastapi.testclient import TestClient
+
+    destino = tmp_path / "payloads.jsonl"
+    monkeypatch.setattr(main.settings, "TWILIO_CAPTURAR_PAYLOADS", True)
+    monkeypatch.setattr(main.settings, "TWILIO_CAPTURA_ARQUIVO", str(destino))
+
+    telefone = "5511999977010"
+    try:
+        with TestClient(main.app) as cliente:
+            cliente.post(
+                "/webhook",
+                data={
+                    "From": f"whatsapp:+{telefone}",
+                    "Body": "oi",
+                    "AccountSid": "ACtestefake",
+                    "NumMedia": "0",
+                    "CampoQueNaoConhecemos": "valor",
+                },
+            )
+
+        linhas = destino.read_text(encoding="utf-8").strip().splitlines()
+        assert len(linhas) == 1
+        registro = _json.loads(linhas[0])
+        assert registro["endpoint"] == "/webhook"
+        # O ponto do mecanismo: campo que o nosso código não declara também é preservado.
+        # É exatamente o que faria descobrir que a Twilio manda algo que ignoramos.
+        assert registro["form"]["CampoQueNaoConhecemos"] == "valor"
+        assert registro["form"]["Body"] == "oi"
+        assert "recebido_em" in registro
+    finally:
+        _limpar(telefone)
+
+
+def test_captura_desligada_por_padrao_nao_cria_arquivo(tmp_path, monkeypatch):
+    """Instrumentação ligada sem querer em produção grava telefone de cliente em disco."""
+    import main
+    from fastapi.testclient import TestClient
+
+    destino = tmp_path / "nao_deve_existir.jsonl"
+    monkeypatch.setattr(main.settings, "TWILIO_CAPTURA_ARQUIVO", str(destino))
+    assert main.settings.TWILIO_CAPTURAR_PAYLOADS is False
+
+    telefone = "5511999977011"
+    try:
+        with TestClient(main.app) as cliente:
+            cliente.post("/webhook", data={"From": f"whatsapp:+{telefone}", "Body": "oi"})
+        assert not destino.exists()
+    finally:
+        _limpar(telefone)

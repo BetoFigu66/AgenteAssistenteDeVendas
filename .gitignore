@@ -97,3 +97,4 @@ list_files_to*
 sanity_check.conf
 logs/sanity_check*.log
 logs/.sanity_estado.json
+logs/payloads_twilio*.jsonl

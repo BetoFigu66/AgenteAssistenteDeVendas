@@ -45,6 +45,15 @@ class Settings(BaseSettings):
     # testador de conversas, que não assina nada. Ligar junto com `CANAL_SAIDA=twilio`.
     TWILIO_VALIDAR_ASSINATURA: bool = False
 
+    # Grava em arquivo o formulário CRU que a Twilio manda para `/webhook` e
+    # `/webhook/status`. Existe por uma janela específica: a conta trial expira e, com ela,
+    # a única fonte de payloads reais. Todo teste de webhook deste projeto usa formulário
+    # que nós mesmos inventamos, então nenhum deles prova que o campo existe, se chama assim
+    # e vem nesse formato. Capturar uma vez transforma isso em fixture permanente.
+    # Default `False`: não é instrumentação para ficar ligada em produção.
+    TWILIO_CAPTURAR_PAYLOADS: bool = False
+    TWILIO_CAPTURA_ARQUIVO: str = "logs/payloads_twilio.jsonl"
+
     # Database
     DATABASE_URL: str = "postgresql+psycopg://inforrel:inforrel_dev@192.168.0.34:5433/assistente_vendas"
 
