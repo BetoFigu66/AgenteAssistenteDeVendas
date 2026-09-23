@@ -1,15 +1,17 @@
 nome: mensagem_vazia_ou_so_midia
-descricao: 'Mensagem sem texto (o caso real é a foto sem legenda). Nasce INATIVO: ver o turno 1.'
-ativo: false
+descricao: Mensagem sem texto (o caso real é a foto sem legenda, que a Twilio entrega com
+  NumMedia>0 e Body vazio).
+ativo: true
 turnos:
 - ordem: 1
   mensagem_enviada: ''
-  observacoes: 'PRECISA: responder HTTP 200 com TwiML válido e tratar como mensagem sem conteúdo | NÃO
-    PODE: devolver 422 ou 500 | exercita: REQ-008, entrada degenerada. VERIFICADO em 19/09/2026 contra
-    o backend: ''Body: str = Form(...)'' em main.py trata string vazia como campo ausente e a chamada
-    devolve 422 (''Body: Field required''), então o testador aborta no raise_for_status. Cenário nasce
-    inativo até o backend aceitar Body vazio, que é exatamente o que a Twilio envia numa mensagem só de
-    mídia (NumMedia>0).'
+  observacoes: 'PRECISA: responder HTTP 200 com TwiML válido e registrar a mensagem no histórico |
+    NÃO PODE: devolver 422 ou 500, nem responder como se tivesse lido a mídia | exercita: REQ-008,
+    entrada degenerada. HISTÓRICO: até 19/09/2026 o backend devolvia 422 aqui, porque ''Body: str =
+    Form(...)'' tratava string vazia como campo ausente, e o cenário ficou inativo por isso. Corrigido
+    no mesmo dia (commit 57b87a3): a mensagem passa a ser registrada e o webhook devolve TwiML vazio,
+    sem resposta automática, porque o sistema não leu a mídia e não pode fingir que leu. Quem responde
+    é o operador, pelo painel. Cenário reativado em 23/09/2026.'
   respostas_aceitas: []
 - ordem: 2
   mensagem_enviada: mandei uma foto do equipamento que tenho hoje, é compatível?

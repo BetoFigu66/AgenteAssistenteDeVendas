@@ -105,9 +105,15 @@ python cli.py exportar prazo_entrega_pergunta_direta
 ```
 
 `rodar-todos` pega só os cenários **ativos**, em ordem alfabética. Cenário que
-depende de rede externa ou de correção no backend nasce com `ativo: false` no
-YAML, de propósito (hoje: `cnpj_valido_mas_inexistente_na_receita` e
-`mensagem_vazia_ou_so_midia`); para rodar um deles, ligue o `ativo` no banco.
+depende de rede externa, ou de uma correção que ainda não existe no backend,
+nasce com `ativo: false` no YAML, de propósito. Hoje só
+`cnpj_valido_mas_inexistente_na_receita` está nessa situação, porque consulta a
+ReceitaWS de verdade e estouraria o limite do plano gratuito numa rodada em lote.
+
+Quando a correção que travava um cenário entrar, **reative o cenário no mesmo
+commit**: `mensagem_vazia_ou_so_midia` ficou quatro dias desligado depois de o
+bug dele ter sido corrigido, e nesse intervalo a única cobertura ponta a ponta do
+fix estava desativada, sem ninguém perceber.
 
 ### Importar / exportar
 

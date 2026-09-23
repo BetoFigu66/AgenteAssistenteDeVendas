@@ -57,9 +57,14 @@ class ClienteBackend:
         candidatas = [m for m in r.json().get("mensagens", []) if m.get("telefone") == telefone]
         if not candidatas:
             return None
-        # `timestamp` é ISO 8601 UTC com sufixo Z (formato fixo, ordena como texto);
-        # `id` é autoincremento e desempata mensagens do mesmo instante.
-        mais_recente = max(candidatas, key=lambda m: (m.get("timestamp") or "", m.get("id") or 0))
+        # Ordena só por `id`, que é autoincremento e portanto já é a ordem de criação.
+        #
+        # A versão anterior ordenava pelo `timestamp` como texto, supondo formato fixo. Não
+        # é: o backend serializa com `datetime.isoformat()`, que **omite os microssegundos
+        # quando são zero**. Então "2026-09-19T10:00:00Z" e "2026-09-19T10:00:00.500000Z"
+        # divergem já na posição 19, onde 'Z' (0x5A) é maior que '.' (0x2E), e a mensagem
+        # anterior ganhava da posterior. Medido, não deduzido.
+        mais_recente = max(candidatas, key=lambda m: m.get("id") or 0)
         return mais_recente.get("conteudo") or ""
 
     def limpar_telefone(self, telefone: str) -> None:
