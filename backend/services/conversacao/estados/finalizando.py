@@ -514,23 +514,13 @@ class FinalizandoState(EstadoAtendimento):
                 if dlog:
                     dlog.log("finalizando", f"faixa_funcionarios capturado (resposta solta): {match.group(1)}")
 
-        elif campo.chave == CAMPO_SOFTWARE_PONTO.chave:
-            texto = conteudo.strip()
-            if not texto:
+        elif campo.chave in (CAMPO_SOFTWARE_PONTO.chave, CAMPO_SOFTWARE_ACESSO.chave):
+            valor = self._ler_software(conteudo, intencao)
+            if valor is None:
                 return
-            valor = "nenhum" if _SOFTWARE_NENHUM_REGEX.search(texto) else texto
             p._salvar_info_atendimento(db, atendimento.id, campo.chave, valor)
             if dlog:
-                dlog.log("finalizando", f"software_controle_ponto capturado (resposta livre): {valor}")
-
-        elif campo.chave == CAMPO_SOFTWARE_ACESSO.chave:
-            texto = conteudo.strip()
-            if not texto:
-                return
-            valor = "nenhum" if _SOFTWARE_NENHUM_REGEX.search(texto) else texto
-            p._salvar_info_atendimento(db, atendimento.id, campo.chave, valor)
-            if dlog:
-                dlog.log("finalizando", f"software_controle_acesso capturado (resposta livre): {valor}")
+                dlog.log("finalizando", f"{campo.chave} capturado (resposta livre): {valor}")
 
         elif campo.chave == CAMPO_INTERESSE_SISTEMA_NUVEM.chave:
             valor = self._ler_sim_nao(conteudo, intencao)
@@ -559,6 +549,26 @@ class FinalizandoState(EstadoAtendimento):
         # reconhecida, `campos_pendentes()` deixa de bloquear o fluxo por causa dele.
         if not campo.obrigatorio:
             self._marcar_pergunta_opcional_se_necessario(ctx, campo)
+
+    @staticmethod
+    def _ler_software(conteudo: str, intencao: Intencao) -> Optional[str]:
+        """Lê o nome do software, ou a sentinela "nenhum" quando o cliente nega ter um.
+
+        Mesma ideia de `_ler_sim_nao`: a intenção classificada é evidência primária. Aqui
+        isso não é refinamento, é correção de um buraco. O classificador reconhece como
+        NEGAR não só "não", mas também "errado" e "incorreto"
+        (`classificador.py`, regra ancorada). O regex local só cobre "não"/"nenhum", então
+        um "errado" atravessava e era gravado **como se fosse o nome do software do
+        cliente**, indo parar no resumo e no handoff ao vendedor.
+
+        Devolve `None` quando não há o que capturar, para o chamador não gravar vazio.
+        """
+        texto = conteudo.strip()
+        if not texto:
+            return None
+        if intencao == Intencao.NEGAR or _SOFTWARE_NENHUM_REGEX.search(texto):
+            return "nenhum"
+        return texto
 
     @staticmethod
     def _ler_sim_nao(conteudo: str, intencao: Intencao) -> Optional[str]:

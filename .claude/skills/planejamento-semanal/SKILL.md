@@ -93,6 +93,21 @@ descartar: em 19/09 as duas frentes interrompidas tinham entregue a tarefa mais 
 parcial valia commit. Por isso, **ordenar as tarefas dentro de cada frente da mais valiosa
 para a menos**, e dizer isso ao subagente.
 
+## Não commite enquanto houver frente editando o working tree
+
+O `pre-commit` deste repositório faz **stash dos arquivos não-staged** antes de rodar os
+hooks e os restaura depois (`Stashing unstaged files` / `Restored changes` na saída). Durante
+essa janela, os arquivos que os subagentes estão editando **voltam ao HEAD**.
+
+Em 22/09/2026 isso fez uma frente ver seu próprio trabalho desaparecer, concluir que alguém
+tinha revertido o repositório e, seguindo a instrução de parar em caso de conflito, desfazer
+o resto das próprias edições e apagar o arquivo de teste. Nada se perdeu (o stash restaurou,
+e o agente tinha copiado tudo para o scratchpad), mas custou uma frente inteira.
+
+Portanto: **junte os commits para depois que todas as frentes fecharem.** Se precisar
+commitar no meio, avise no prompt de cada frente que arquivos podem sumir por alguns segundos
+durante um commit, e que o certo é aguardar e reconferir, não reverter.
+
 ## Regras que valem sempre nesta rotina
 
 - **O maior uso de IA fica na janela.** Se uma tarefa pode ser feita por IA agora, não a adie para

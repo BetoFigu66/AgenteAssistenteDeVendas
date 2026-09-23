@@ -170,3 +170,27 @@ def test_negativa_dentro_da_frase_nao_vira_sim(db_session, processador):
         assert _valores(db_session, atendimento).get("interesse_sistema_nuvem") == "não"
     finally:
         _limpar(db_session, telefone)
+
+
+@pytest.mark.parametrize("resposta_negativa", ["errado", "incorreto"])
+def test_negacao_que_nao_e_nome_de_software_nao_vira_nome_de_software(
+    db_session, processador, resposta_negativa
+):
+    """Regressão da própria correção: abrir NEGAR para o campo de software criou um buraco.
+
+    O classificador reconhece "não", "errado" e "incorreto" isolados como NEGAR, mas o ramo
+    do campo de software grava texto livre e só traduzia para "nenhum" quando o regex local
+    casava. Resultado: "errado" era gravado como se fosse o nome do software do cliente, e
+    seguia para o resumo e para o handoff ao vendedor.
+    """
+    telefone = "5511999982006"
+    try:
+        contato = _iniciar_finalizando_com_software(db_session, processador, telefone)
+        atendimento = contato.atendimentos[0]
+        _resolver_modelo_manual(db_session, atendimento)
+
+        _responder(processador, db_session, telefone, contato, resposta_negativa, Intencao.NEGAR)
+
+        assert _valores(db_session, atendimento).get("software_controle_ponto") == "nenhum"
+    finally:
+        _limpar(db_session, telefone)

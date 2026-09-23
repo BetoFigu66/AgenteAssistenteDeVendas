@@ -64,7 +64,15 @@ class ProcessamentoMensagem(Base):
     ter mudado desde então). Usado para debug ("Raciocínio do cérebro" no painel)."""
 
     # --- Decisão de resposta ---
-    template_usado: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
+    # `Text`, e não `String(N)`, de propósito: o valor é COMPOSTO em runtime, não escolhido
+    # de uma lista. O motor junta com "+" os templates de todas as ações que dispararam
+    # (`conversacao/motor.py`), o gerador compõe códigos (`respostas/gerador.py`), e a
+    # Finalizando ainda compõe dúvida + retomada, cada lado podendo já vir composto. Quatro
+    # templates reais estouravam o limite antigo de 100, e o INSERT de auditoria derrubava
+    # `processar()` inteiro: o cliente recebia "tive um problema ao processar" e o turno era
+    # revertido. Mesmo mecanismo da divergência B (commit `a94e996`), num campo sem teto
+    # natural. Truncar não serve: campo de auditoria truncado mente sobre o que o sistema fez.
+    template_usado: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     personalizado_via_llm: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
 
     # --- Metadados da LLM (se usada) ---
