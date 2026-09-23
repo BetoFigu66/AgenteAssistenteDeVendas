@@ -56,3 +56,25 @@ Se nenhum arquivo existir, o botão simplesmente não é renderizado.
 
 Estes textos envelhecem junto com a interface. **Ao alterar uma tela de forma visível
 para o usuário, revise o `.md` correspondente no mesmo PR.**
+
+Existe um mecanismo de detecção para isso. O arquivo `_fontes.json` mapeia cada tela aos
+componentes que ela descreve e guarda uma impressão digital das strings que o usuário vê
+(texto JSX, `title`, `placeholder`, `aria-label`). Quando essa assinatura muda, o aviso
+aparece:
+
+```bash
+python scripts/ajuda_fingerprint.py              # verifica
+python scripts/ajuda_fingerprint.py --atualizar  # registra que revisou
+```
+
+Roda também como check `ajuda-telas-desatualizada` do QA Engineer (severidade
+`warning` — não bloqueia commit).
+
+Ao ver o aviso, decida:
+
+- **o texto ficou errado** → corrija o `.md` e rode `--atualizar`;
+- **o texto continua correto** → rode só `--atualizar` (reconhecimento explícito).
+
+Renomear uma variável ou reorganizar a lógica não dispara nada — só mudança no texto
+que o usuário lê. Ao criar um `.md` novo, adicione a tela em `_fontes.json` com
+`"hash": ""` e rode `--atualizar`.

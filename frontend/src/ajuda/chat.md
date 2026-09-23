@@ -39,6 +39,15 @@ mesmo ajuste disponível na aba Parâmetros, útil para calibrar durante um test
 
 Atenção: a alteração vale para o **sistema inteiro**, não só para esta conversa.
 
+## Apagar conversa
+
+O botão **Apagar conversa**, também no cabeçalho, remove o contato, os atendimentos e
+as mensagens daquele telefone — serve para recomeçar um teste do zero, como se o número
+nunca tivesse falado com a empresa.
+
+É uma ação **destrutiva e sem confirmação**: use apenas com telefones de teste. O
+recurso é restrito a ambiente de desenvolvimento (exige `DEBUG=True` no backend).
+
 ## Observações
 
 - As mensagens enviadas aqui passam pelo mesmo processamento das mensagens reais e

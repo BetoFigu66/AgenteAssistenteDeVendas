@@ -1000,6 +1000,19 @@ contexto aceita hierarquia: `reports.detalhe` cai para `reports.md` e depois
 mesmo PR** — é o principal risco desse formato. Detalhes em
 `frontend/src/ajuda/README.md`.
 
+Há detecção automática para isso: `frontend/src/ajuda/_fontes.json` guarda uma impressão
+digital das strings visíveis de cada tela (texto JSX, `title`, `placeholder`,
+`aria-label`).
+
+```bash
+python scripts/ajuda_fingerprint.py              # verifica (exit 1 se divergir)
+python scripts/ajuda_fingerprint.py --atualizar  # re-baseline após revisar
+```
+
+Roda também como check `ajuda-telas-desatualizada` (`warning`, não bloqueia commit) —
+aparece no `python scripts/qa_check.py` e no pre-commit. Renomear variável não dispara;
+renomear um botão dispara.
+
 ---
 
 ## WSL (Windows Subsystem for Linux)
