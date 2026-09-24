@@ -1,9 +1,25 @@
-# Plano: últimos 4 dias da conta Twilio trial (23 a 26/09/2026)
+# Plano: últimos dias da conta Twilio trial (23 a 26/09/2026)
 
 <!-- CLASSIFICACAO: PROCESSO -->
 
 A conta trial expira e leva junto o Sandbox e o pareamento do celular. Tudo que exige a
 Twilio de verdade precisa caber nesta janela.
+
+> ## Revisado em 24/09: o Dia 1 não rodou, restam 3 dias
+>
+> Verificado na manhã de 24/09: nenhuma mensagem nova na conta (a última continua sendo a de
+> 14/09), nenhuma das quatro variáveis no `.env`, nenhum payload capturado. O plano original
+> tinha quatro dias e agora tem três, então os Dias 1 e 2 foram fundidos.
+>
+> O que isso custa, em ordem: se **hoje** não houver uma rodada real, o Dia 3 (reply-to e
+> cenários) perde a base, porque o reply-to depende do `message_sid` capturado na véspera. E
+> se a conta expirar antes do previsto, o que sobra é o que já estiver capturado.
+>
+> Para reduzir o atrito, as quatro variáveis viraram `./scripts/twilio_modo_teste.sh`
+> (`ligar` / `desligar` / `status`), testado nos dois sentidos, preservando as 23 chaves
+> existentes do `.env`. O `desligar` importa mais que o `ligar`: `CANAL_SAIDA=twilio` faz o
+> sistema responder de verdade no WhatsApp, e esquecer isso ligado é o tipo de coisa que só
+> se descobre pelo cliente.
 
 **Restrições, decididas em 23/09:** sem upgrade (cartão fora de cogitação), sem
 `TWILIO_AUTH_TOKEN` à mão, ~1h/dia de disponibilidade do Beto para o que exige celular.
@@ -32,7 +48,7 @@ O `12300` **não** é do nosso sistema: testei o webhook atual e ele responde
 `Content-Type: application/xml`, que é válido. Era do spike. Mas serve de aviso: esse erro é
 invisível para quem só olha o celular, porque a mensagem parece ter chegado.
 
-## 2. A ideia que organiza os 4 dias
+## 2. A ideia que organiza a janela
 
 A conta morre; o que extrairmos dela pode ser permanente.
 
@@ -83,9 +99,14 @@ ninguém supor o contrário no piloto com a Rita.
 
 ---
 
-## 4. Os 4 dias
+## 4. Os dias
 
-### Dia 1 — hoje (23/09): ligar e provar o ciclo básico
+### Dia 1 + 2 — hoje (24/09): ligar, provar o ciclo e colher os tipos
+
+**Fundidos, porque só restam três dias.** Se o tempo apertar, a ordem de prioridade dentro da
+hora é: (a) uma mensagem ida e volta com `message_sid` preenchido, (b) foto sem legenda, que
+é o caso que exercita o fix de ontem, (c) o resto dos tipos. Parar no meio da lista é
+aceitável; não começar não é.
 
 **Eu, antes de você começar:** captura de payloads implementada e testada (feito), checklist
 de configuração e roteiro abaixo, e verificação de que o túnel e o backend público estão de
@@ -100,7 +121,8 @@ pé (feito: `app.auxvendas.com` responde, `/webhook` devolve 200).
 2. **Apontar o webhook para o sistema**, não para o spike. Na aba **Sandbox settings**, campo
    *"When a message comes in"*: `https://app.auxvendas.com/webhook`, método **POST**.
    Atenção: em 14/09 esse campo apontava para `spike.auxvendas.com`.
-3. **Configurar o `.env`** (eu deixo as linhas prontas na seção 5) e reiniciar o backend.
+3. **Ligar o modo de teste** e reiniciar o backend:
+   `./scripts/twilio_modo_teste.sh ligar` (ver seção 5).
 4. **Mandar `oi`** do celular e conferir que a resposta chega.
 
 **O que eu faço na sequência, com você parado:** leio o payload capturado, confiro contra o
@@ -109,11 +131,11 @@ que os nossos testes supõem, e reporto divergência campo a campo.
 **Critério de sucesso do dia:** uma mensagem ida e volta, e o `message_sid` da mensagem de
 saída preenchido no banco (prova que o `statusCallback` chegou).
 
-### Dia 2 (24/09): a colheita — tipos de mensagem
+#### A colheita de tipos (a segunda metade da sua hora de hoje)
 
-O dia de maior valor por hora sua, porque cada tipo gera um payload diferente que nunca vimos.
+Cada tipo gera um payload diferente que nunca vimos.
 
-**Você (~1h):** mandar, do celular, uma de cada e nada mais:
+**Você:** mandar, do celular, uma de cada e nada mais:
 foto com legenda · foto **sem** legenda · áudio · documento (PDF) · localização · contato
 (vCard) · figurinha · emoji puro · mensagem longa (>1000 caracteres) · texto com acentuação e
 `ç` · e uma mensagem **editada** depois de enviada.
@@ -122,7 +144,7 @@ foto com legenda · foto **sem** legenda · áudio · documento (PDF) · localiz
 sem saber. O fix de ontem (mensagem sem texto) foi escrito supondo `NumMedia`; este é o dia em
 que ele é confrontado com mídia de verdade.
 
-### Dia 3 (25/09): reply-to e os cenários de negócio
+### Dia 2 — sexta (25/09): reply-to e os cenários de negócio
 
 **Você (~1h):**
 
@@ -134,7 +156,7 @@ que ele é confrontado com mídia de verdade.
    o `/webhook` direto; aqui a mensagem passa pela Twilio, e é onde aparecem diferenças de
    encoding, quebra de linha e agrupamento.
 
-### Dia 4 (26/09): transformar em patrimônio
+### Dia 3 — sábado (26/09): transformar em patrimônio
 
 **Eu, o dia inteiro:** converter os payloads capturados em fixtures anonimizadas (seu telefone
 vira fictício), reescrever os testes de webhook para usarem os formulários reais, e registrar
@@ -145,18 +167,20 @@ anteriores valerem depois que a conta morrer.
 
 ---
 
-## 5. Configuração para o Dia 1
-
-Acrescentar ao `backend/.env` (hoje nenhuma dessas linhas existe, então tudo está no default,
-que é `simulado`):
+## 5. Configuração: um comando, não quatro variáveis
 
 ```bash
-CANAL_SAIDA=twilio
-TWILIO_MODO_ENVIO=twiml
-APP_URL_PUBLICA=https://app.auxvendas.com
-TWILIO_CAPTURAR_PAYLOADS=true
-# TWILIO_VALIDAR_ASSINATURA fica false: exige o Auth Token, que não temos.
+./scripts/twilio_modo_teste.sh ligar       # antes dos testes
+./scripts/twilio_modo_teste.sh status      # o que está valendo agora
+./scripts/twilio_modo_teste.sh desligar    # AO TERMINAR, sempre
 ```
+
+Reiniciar o backend depois de cada um: as variáveis são lidas no boot.
+
+O script mexe só nas quatro chaves dele e guarda um backup do `.env` anterior. Verificado nos
+dois sentidos, com as 23 chaves existentes preservadas. `TWILIO_VALIDAR_ASSINATURA` fica
+deliberadamente de fora: exige o Auth Token, e ligar sem ele faz os dois webhooks devolverem
+HTTP 503.
 
 Dois avisos que valem mais que o resto da configuração:
 
