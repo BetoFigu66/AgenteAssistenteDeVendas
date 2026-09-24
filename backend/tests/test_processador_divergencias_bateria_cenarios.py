@@ -91,7 +91,7 @@ def test_rotulos_de_resultado_fallback_cabem_na_coluna():
 def test_primeira_confianca_baixa_persiste_auditoria_sem_estourar(db_session, processador):
     """Sem o fix, este turno levanta `DataError` (value too long for character
     varying(30)) e o webhook responde com o fallback de erro."""
-    telefone = "5511999977101"
+    telefone = "+5511999977101"
     try:
         _conversar(processador, db_session, telefone, ["bom dia", "tudo bem?"])
 
@@ -110,7 +110,7 @@ def test_rajada_nao_cai_no_fallback_de_erro_e_escala_na_segunda_baixa(db_session
     ocorrência de confiança baixa era revertida junto com a transação, o contador do
     REQ-004.9 nunca persistia e o escalonamento na 2ª ocorrência nunca acontecia.
     """
-    telefone = "5511999977102"
+    telefone = "+5511999977102"
     mensagens = ["bom dia", "tudo bem?", "é o seguinte", "preciso de um controle de acesso", "pra uma academia"]
     try:
         resultados = _conversar(processador, db_session, telefone, mensagens)
@@ -152,7 +152,7 @@ def test_classificador_extrai_catraca_da_pergunta_de_preco():
     "(decisão de produto).",
 )
 def test_pergunta_de_modelo_para_catraca_nao_fala_de_relogio(db_session, processador):
-    telefone = "5511999977103"
+    telefone = "+5511999977103"
     try:
         resultados = _conversar(processador, db_session, telefone, ["quanto custa a catraca de balcão?"])
         assert "relógio" not in resultados[0].resposta.lower()
@@ -168,7 +168,7 @@ def test_pergunta_de_modelo_para_catraca_nao_fala_de_relogio(db_session, process
     "de produto.",
 )
 def test_pergunta_de_modelo_nao_se_repete_indefinidamente(db_session, processador):
-    telefone = "5511999977104"
+    telefone = "+5511999977104"
     mensagens = ["quanto custa a catraca de balcão?", "me passa só um valor aproximado", "é muito caro isso?"]
     try:
         resultados = _conversar(processador, db_session, telefone, mensagens)

@@ -33,7 +33,7 @@ def _ctx(intencoes, fase=None, atendimento=None) -> ContextoAcao:
     identificacao_fake = object()  # não usado pelas Regras fictícias destes testes
     return ContextoAcao(
         db=None,
-        telefone="5511999999999",
+        telefone="+5511999999999",
         conteudo="teste",
         identificacao=identificacao_fake,
         resultado_class=resultado_class,

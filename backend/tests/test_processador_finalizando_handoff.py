@@ -84,7 +84,7 @@ def _atendimento_pronto_para_resumo(db_session, processador, telefone):
 def test_g1_g2_g3_confirmar_resumo_transiciona_e_escala_humano(db_session, processador):
     """G1+G2+G3: depois do resumo (F4), o cliente confirmando transita fase para
     EM_ORCAMENTACAO, escala modo_operacao para HUMANO e envia a mensagem de handoff."""
-    telefone = "5511999982001"
+    telefone = "+5511999982001"
     try:
         contato, atendimento = _atendimento_pronto_para_resumo(db_session, processador, telefone)
         identificacao = ResultadoIdentificacao(status=StatusIdentificacao.SEM_EMPRESA, contatos=[contato], empresas=[])
@@ -124,7 +124,7 @@ def test_g1_primeira_mensagem_apos_tudo_capturado_nao_conclui_mesmo_se_confirmar
     classificado como CONFIRMAR mesmo sendo a *primeira* mensagem a chegar depois de tudo
     capturado — nesse caso o cliente nunca viu o resumo, então não é uma confirmação dele.
     Só um CONFIRMAR posterior a um resumo já apresentado (G1) deve concluir o handoff."""
-    telefone = "5511999982005"
+    telefone = "+5511999982005"
     try:
         contato, atendimento = _atendimento_pronto_para_resumo(db_session, processador, telefone)
         identificacao = ResultadoIdentificacao(status=StatusIdentificacao.SEM_EMPRESA, contatos=[contato], empresas=[])
@@ -158,7 +158,7 @@ def test_g1_primeira_mensagem_apos_tudo_capturado_nao_conclui_mesmo_se_confirmar
 def test_g_mensagem_nao_confirmatoria_repete_resumo_sem_transicionar(db_session, processador):
     """G1 (negativo): uma mensagem que não é CONFIRMAR não deve disparar o handoff — só
     repete o resumo, mantendo fase/modo inalterados."""
-    telefone = "5511999982002"
+    telefone = "+5511999982002"
     try:
         contato, atendimento = _atendimento_pronto_para_resumo(db_session, processador, telefone)
         identificacao = ResultadoIdentificacao(status=StatusIdentificacao.SEM_EMPRESA, contatos=[contato], empresas=[])
@@ -182,7 +182,7 @@ def test_g_confirmar_sem_tipo_produto_conhecido_nao_conclui(db_session, processa
     """Regressão: se o tipo de produto ainda não foi identificado, `campos_pendentes()`
     também retorna vazio — mas isso não é "tudo capturado". Um "sim" nesse estágio não
     pode disparar o handoff (G); deve reapresentar PEDIR_TIPO_PRODUTO."""
-    telefone = "5511999982003"
+    telefone = "+5511999982003"
     try:
         identificacao_1 = ResultadoIdentificacao(status=StatusIdentificacao.NOVO, contatos=[], empresas=[])
         resultado_1 = _resultado(Intencao.PEDIR_ORCAMENTO)  # sem tipos_produto
@@ -219,7 +219,7 @@ def test_tipo_produto_pode_ser_informado_apos_ja_estar_em_finalizando(db_session
     bloquear a primeira gravação legítima quando o produto só é informado numa mensagem
     posterior — ex.: bot pergunta PEDIR_TIPO_PRODUTO (fase já é Finalizando) e só então o
     cliente responde "relógio de ponto"."""
-    telefone = "5511999982004"
+    telefone = "+5511999982004"
     try:
         identificacao_1 = ResultadoIdentificacao(status=StatusIdentificacao.NOVO, contatos=[], empresas=[])
         resultado_1 = _resultado(Intencao.PEDIR_ORCAMENTO)

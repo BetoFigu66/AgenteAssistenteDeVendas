@@ -46,7 +46,7 @@ def _msg_in_mais_recente(db_session, telefone):
 
 
 def test_reply_por_id_da_interface_web(db_session, processador):
-    telefone = "5511999977001"
+    telefone = "+5511999977001"
     try:
         ParametroService(db_session).set(MODO_EXECUCAO, ModoExecucao.EXECUCAO_NORMAL.value)
         primeiro = asyncio.run(processador.processar(db_session, telefone, "Quero orçamento de catraca"))
@@ -70,7 +70,7 @@ def test_reply_por_id_da_interface_web(db_session, processador):
 def test_reply_por_sid_do_whatsapp(db_session, processador):
     """O caminho real: o `statusCallback` já gravou o SID na mensagem de saída, e a
     resposta citada chega com esse mesmo SID."""
-    telefone = "5511999977002"
+    telefone = "+5511999977002"
     try:
         ParametroService(db_session).set(MODO_EXECUCAO, ModoExecucao.EXECUCAO_NORMAL.value)
         primeiro = asyncio.run(processador.processar(db_session, telefone, "Quero orçamento de catraca"))
@@ -98,7 +98,7 @@ def test_reply_por_sid_do_whatsapp(db_session, processador):
 def test_sid_desconhecido_guarda_o_cru_sem_resolver(db_session, processador):
     """O `statusCallback` pode não ter chegado. Guardar o SID cru é o que distingue
     "não citou nada" de "citou algo que não conhecemos"."""
-    telefone = "5511999977003"
+    telefone = "+5511999977003"
     try:
         asyncio.run(
             processador.processar(
@@ -119,8 +119,8 @@ def test_sid_desconhecido_guarda_o_cru_sem_resolver(db_session, processador):
 def test_nao_aceita_citar_mensagem_de_outra_conversa(db_session, processador):
     """O id vem do navegador e o SID, de um POST público: sem filtro por telefone,
     apontar para a mensagem de outro cliente seria só trocar um número."""
-    telefone_a = "5511999977004"
-    telefone_b = "5511999977005"
+    telefone_a = "+5511999977004"
+    telefone_b = "+5511999977005"
     try:
         ParametroService(db_session).set(MODO_EXECUCAO, ModoExecucao.EXECUCAO_NORMAL.value)
         de_a = asyncio.run(processador.processar(db_session, telefone_a, "Quero orçamento de catraca"))
@@ -142,7 +142,7 @@ def test_nao_aceita_citar_mensagem_de_outra_conversa(db_session, processador):
 
 
 def test_sem_reply_nao_preenche_nada(db_session, processador):
-    telefone = "5511999977006"
+    telefone = "+5511999977006"
     try:
         asyncio.run(processador.processar(db_session, telefone, "Quero orçamento de catraca"))
         msg_in = _msg_in_mais_recente(db_session, telefone)
@@ -155,7 +155,7 @@ def test_sem_reply_nao_preenche_nada(db_session, processador):
 def test_modo_humano_nao_devolve_mensagem_de_saida(db_session, processador):
     """`mensagem_saida_id` é o que o webhook usa para montar o `statusCallback` — sem
     resposta gerada não existe mensagem de saída para rastrear."""
-    telefone = "5511999977007"
+    telefone = "+5511999977007"
     try:
         ParametroService(db_session).set(MODO_EXECUCAO, ModoExecucao.CONVERSA_CONTROLADA.value)
         resultado = asyncio.run(processador.processar(db_session, telefone, "Quero orçamento de catraca"))

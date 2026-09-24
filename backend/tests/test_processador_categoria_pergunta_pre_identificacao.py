@@ -51,9 +51,9 @@ def _limpar(db_session, telefone):
 @pytest.mark.parametrize(
     "intencao,tipos_produto,telefone",
     [
-        (Intencao.PERGUNTAR_PRODUTO, ["relogio_ponto"], "5511999960001"),
-        (Intencao.PERGUNTAR_PRECO, ["relogio_ponto"], "5511999960002"),
-        (Intencao.FORA_CONTEXTO, [], "5511999960003"),
+        (Intencao.PERGUNTAR_PRODUTO, ["relogio_ponto"], "+5511999960001"),
+        (Intencao.PERGUNTAR_PRECO, ["relogio_ponto"], "+5511999960002"),
+        (Intencao.FORA_CONTEXTO, [], "+5511999960003"),
     ],
 )
 def test_novo_categoria_pergunta_nao_cai_no_fallback_generico(
@@ -79,7 +79,7 @@ def test_novo_categoria_pergunta_nao_cai_no_fallback_generico(
 
 def test_novo_pergunta_produto_registra_interesse_passivo_d2(db_session, processador):
     """D2: tipos_produto mencionado deve ser gravado em AtendimentoInfo mesmo em NOVO."""
-    telefone = "5511999970001"
+    telefone = "+5511999970001"
     identificacao = ResultadoIdentificacao(status=StatusIdentificacao.NOVO, contatos=[], empresas=[])
     resultado_class = _resultado(Intencao.PERGUNTAR_PRODUTO, tipos_produto=["relogio_ponto"])
 
@@ -108,7 +108,7 @@ def test_tecnologia_leitura_acumula_entre_mensagens_distintas(db_session, proces
     """D6: se o cliente mencionar "biométrico" numa mensagem e "facial" em outra depois,
     `AtendimentoInfo` deve acumular os dois valores (união), não sobrescrever com o
     último — perder o sinal antigo travaria `_resolver_modelo`."""
-    telefone = "5511999970004"
+    telefone = "+5511999970004"
     identificacao = ResultadoIdentificacao(status=StatusIdentificacao.NOVO, contatos=[], empresas=[])
     try:
         resultado_1 = _resultado(
@@ -146,7 +146,7 @@ def test_novo_registra_software_leitor_e_faixa_passivamente_d3_d4(db_session, pr
     """D3/D4: software, tipo de leitor e faixa de funcionários mencionados espontaneamente
     devem ser gravados em AtendimentoInfo (mesmas chaves do catálogo — CAMPO_SOFTWARE_PONTO,
     CAMPO_FAIXA_FUNCIONARIOS — e a chave provisória tipo_leitor_mencionado para a Fase F)."""
-    telefone = "5511999970003"
+    telefone = "+5511999970003"
     identificacao = ResultadoIdentificacao(status=StatusIdentificacao.NOVO, contatos=[], empresas=[])
     resultado_class = _resultado(
         Intencao.PERGUNTAR_PRODUTO,
@@ -179,7 +179,7 @@ def test_novo_registra_software_leitor_e_faixa_passivamente_d3_d4(db_session, pr
 
 def test_sem_empresa_fora_contexto_nao_pede_cnpj(db_session, processador):
     """D1: contato já existe (sem empresa) e pergunta fora de contexto não deve pedir CNPJ."""
-    telefone = "5511999970002"
+    telefone = "+5511999970002"
     contato = Contato(telefone=telefone, empresa_id=None)
     db_session.add(contato)
     db_session.commit()

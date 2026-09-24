@@ -138,7 +138,7 @@ def _iniciar_finalizando_catraca(db_session, processador, telefone):
 def test_f1_resposta_solta_faixa_funcionarios_sem_palavra_gatilho(db_session, processador):
     """F1: "80" sozinho (sem a palavra "funcionários") deve ser capturado quando a
     pergunta pendente atual é faixa_funcionarios — os extratores D3/D4 exigem gatilho."""
-    telefone = "5511999981001"
+    telefone = "+5511999981001"
     try:
         contato = _iniciar_finalizando_com_software(db_session, processador, telefone, software="nenhum")
         atendimento = contato.atendimentos[0]
@@ -167,7 +167,7 @@ def test_f1_resposta_livre_software_fora_do_catalogo_conhecido(db_session, proce
     """F1: nome de software fora de `_SOFTWARES_PONTO_CONHECIDOS` deve ser aceito como
     texto livre quando é a pergunta pendente atual (CAMPO-software-ponto não exige
     catálogo, ao contrário de modelo). Quando o software é real, faixa não é perguntada."""
-    telefone = "5511999981002"
+    telefone = "+5511999981002"
     try:
         contato = _iniciar_finalizando_com_software(db_session, processador, telefone)
         atendimento = contato.atendimentos[0]
@@ -195,7 +195,7 @@ def test_f1_resposta_livre_software_fora_do_catalogo_conhecido(db_session, proce
 
 def test_f1_resposta_software_ponto_nenhum_pergunta_faixa(db_session, processador):
     """F1: quando o software de ponto é 'nenhum', a faixa de pessoas deve ser perguntada."""
-    telefone = "5511999981020"
+    telefone = "+5511999981020"
     try:
         contato = _iniciar_finalizando_com_software(db_session, processador, telefone)
         atendimento = contato.atendimentos[0]
@@ -223,7 +223,7 @@ def test_f1_nao_sequestra_intencao_reconhecida_como_resposta(db_session, process
     """F1 (regressão): uma mensagem que já bate numa intenção conhecida (ex.:
     "quero orçamento" de novo) não deve ser sequestrada como resposta livre — só
     DESCONHECIDO passa pela captura solta."""
-    telefone = "5511999981003"
+    telefone = "+5511999981003"
     try:
         contato = _iniciar_finalizando_com_software(db_session, processador, telefone)
         atendimento = contato.atendimentos[0]
@@ -252,7 +252,7 @@ def test_f3_duvida_sobre_outro_produto_nao_reescreve_tipos_produto(db_session, p
     """Regressão descoberta em smoke test manual: uma dúvida tangencial mencionando outro
     produto (ex.: "vocês têm catraca também?") não pode sobrescrever `tipos_produto` e
     esvaziar `campos_pendentes()` no meio da coleta — o tipo já está decidido em Finalizando."""
-    telefone = "5511999981008"
+    telefone = "+5511999981008"
     try:
         contato = _iniciar_finalizando_com_software(db_session, processador, telefone)
         atendimento = contato.atendimentos[0]
@@ -282,7 +282,7 @@ def test_f3_duvida_sobre_outro_produto_nao_reescreve_tipos_produto(db_session, p
 def test_f2_modelo_escala_para_humano_apos_tentativas_sem_correspondencia(db_session, processador):
     """F2: catálogo de Produto vazio para o tipo_leitor mencionado → após 2 tentativas
     sem correspondência, escala para atendimento humano (nunca aceita texto livre)."""
-    telefone = "5511999981004"
+    telefone = "+5511999981004"
     try:
         contato = _iniciar_finalizando_com_software(db_session, processador, telefone)
         atendimento = contato.atendimentos[0]
@@ -325,7 +325,7 @@ def test_f2_modelo_escala_para_humano_apos_tentativas_sem_correspondencia(db_ses
 def test_f2_nao_conta_tentativa_quando_mensagem_nao_tenta_responder_modelo(db_session, processador):
     """F2: mensagens que não mencionam nenhuma tecnologia de leitor não devem consumir
     as tentativas de resolução de modelo (só contam quando há um sinal real)."""
-    telefone = "5511999981005"
+    telefone = "+5511999981005"
     try:
         contato = _iniciar_finalizando_com_software(db_session, processador, telefone)
         atendimento = contato.atendimentos[0]
@@ -351,7 +351,7 @@ def test_f2_nao_conta_tentativa_quando_mensagem_nao_tenta_responder_modelo(db_se
 def test_f3_duvida_em_finalizando_retoma_pergunta_pendente(db_session, processador):
     """F3: uma dúvida de categoria_pergunta (perguntar_preco) durante Finalizando é respondida
     e a última pergunta pendente é reapresentada, sem perder a fase/progresso."""
-    telefone = "5511999981006"
+    telefone = "+5511999981006"
     try:
         contato = _iniciar_finalizando_com_software(db_session, processador, telefone)
         atendimento = contato.atendimentos[0]
@@ -379,7 +379,7 @@ def test_f3_duvida_em_finalizando_retoma_pergunta_pendente(db_session, processad
 def test_f4_resumo_quando_tudo_capturado(db_session, processador):
     """F4: quando modelo (resolvido) + software 'nenhum' + faixa estão completos, apresenta o
     resumo pedindo confirmação."""
-    telefone = "5511999981007"
+    telefone = "+5511999981007"
     try:
         contato = _iniciar_finalizando_com_software(db_session, processador, telefone, software="nenhum")
         atendimento = contato.atendimentos[0]
@@ -408,7 +408,7 @@ def test_f1_resposta_livre_software_acesso(db_session, processador):
     """F1: software de controle de acesso fora da lista curta deve ser aceito como texto
     livre. Por ser não reconhecido, REQ-002.15 também aciona o alerta de homologação
     (opcional) antes da quantidade."""
-    telefone = "5511999981010"
+    telefone = "+5511999981010"
     try:
         contato = _iniciar_finalizando_catraca(db_session, processador, telefone)
         atendimento = contato.atendimentos[0]
@@ -447,7 +447,7 @@ def test_f1_resposta_livre_software_acesso(db_session, processador):
 
 def test_f1_catraca_sem_software_interesse_nuvem_pergunta_faixa(db_session, processador):
     """F1: catraca sem software + interesse em nuvem → pergunta faixa de pessoas e quantidade."""
-    telefone = "5511999981011"
+    telefone = "+5511999981011"
     try:
         contato = _iniciar_finalizando_catraca(db_session, processador, telefone)
         atendimento = contato.atendimentos[0]
@@ -481,7 +481,7 @@ def test_f1_catraca_sem_software_interesse_nuvem_pergunta_faixa(db_session, proc
 
 def test_f1_catraca_com_software_homologavel_pergunta_homologacao(db_session, processador):
     """F1: catraca com software EVO/Pacto/SCA/Panobianco/Sky → pergunta homologação."""
-    telefone = "5511999981012"
+    telefone = "+5511999981012"
     try:
         contato = _iniciar_finalizando_catraca(db_session, processador, telefone)
         atendimento = contato.atendimentos[0]

@@ -47,7 +47,7 @@ def _limpar_processamento(db_session, proc_id):
 
 
 def test_reprovacao_automatica_cria_report_severidade_media(client, db_session):
-    telefone = "5511999987201"
+    telefone = "+5511999987201"
     try:
         mensagem_id = _criar_mensagem_pendente(db_session, telefone)
 

@@ -98,3 +98,9 @@ sanity_check.conf
 logs/sanity_check*.log
 logs/.sanity_estado.json
 logs/payloads_twilio*.jsonl
+
+# Backups de dados (contem telefone e nome de cliente real)
+backups/
+
+# Backup do .env criado pelo twilio_modo_teste.sh
+backend/.env.antes_modo_teste

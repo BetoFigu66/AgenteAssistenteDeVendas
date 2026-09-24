@@ -97,7 +97,7 @@ class _CanalTwilioFake(CanalTwilio):
 def test_chamada_local_recebe_o_texto_no_twiml(client):
     """O testador de conversas e o simulador leem a resposta pelo TwiML. Sem
     `AccountSid`, sabemos que a chamada não veio da Twilio e nada sai para o WhatsApp."""
-    telefone = "5511999966001"
+    telefone = "+5511999966001"
     try:
         r = _post_webhook(client, telefone, "Quero orçamento de catraca")
         assert r.status_code == 200
@@ -110,7 +110,7 @@ def test_chamada_local_recebe_o_texto_no_twiml(client):
 def test_canal_simulado_nao_entrega_para_a_twilio(monkeypatch, client):
     """A trava do `CANAL_SAIDA=simulado` vale também no webhook: com `AccountSid`
     presente (a chamada veio mesmo da Twilio), o TwiML volta vazio."""
-    telefone = "5511999966002"
+    telefone = "+5511999966002"
     monkeypatch.setattr(settings, "CANAL_SAIDA", "simulado")
     try:
         r = _post_webhook(client, telefone, "Quero orçamento de catraca", AccountSid="AC_real")
@@ -126,7 +126,7 @@ def test_canal_simulado_nao_entrega_para_a_twilio(monkeypatch, client):
 
 
 def test_twilio_modo_twiml_responde_com_status_callback(monkeypatch, client):
-    telefone = "5511999966003"
+    telefone = "+5511999966003"
     canal = _CanalTwilioFake(modo_envio="twiml")
     monkeypatch.setattr("main.obter_canal", lambda: canal)
     try:
@@ -145,7 +145,7 @@ def test_twilio_modo_twiml_responde_com_status_callback(monkeypatch, client):
 
 
 def test_twilio_modo_rest_envia_pela_api_e_devolve_twiml_vazio(monkeypatch, client):
-    telefone = "5511999966004"
+    telefone = "+5511999966004"
     canal = _CanalTwilioFake(modo_envio="rest")
     monkeypatch.setattr("main.obter_canal", lambda: canal)
     try:
@@ -162,7 +162,7 @@ def test_twilio_modo_rest_envia_pela_api_e_devolve_twiml_vazio(monkeypatch, clie
 
 
 def test_status_callback_grava_o_sid(client):
-    telefone = "5511999966005"
+    telefone = "+5511999966005"
     try:
         _post_webhook(client, telefone, "Quero orçamento de catraca")
         msg = _msg_out(telefone)
@@ -181,7 +181,7 @@ def test_status_callback_grava_o_sid(client):
 def test_status_callback_repetido_nao_sobrescreve(client):
     """A Twilio chama várias vezes por mensagem (queued, sent, delivered, read).
     `message_sid` é unique: sobrescrever trocaria a identidade da mensagem."""
-    telefone = "5511999966006"
+    telefone = "+5511999966006"
     try:
         _post_webhook(client, telefone, "Quero orçamento de catraca")
         msg = _msg_out(telefone)
@@ -202,7 +202,7 @@ def test_status_callback_repetido_nao_sobrescreve(client):
 
 
 def test_status_callback_de_falha_desfaz_o_envio_otimista(client):
-    telefone = "5511999966007"
+    telefone = "+5511999966007"
     try:
         _post_webhook(client, telefone, "Quero orçamento de catraca")
         msg = _msg_out(telefone)
@@ -235,7 +235,7 @@ def test_assinatura_invalida_recusa_webhook(monkeypatch, client):
     monkeypatch.setattr(settings, "TWILIO_AUTH_TOKEN", "token_teste")
     monkeypatch.setattr(settings, "APP_URL_PUBLICA", "https://exemplo.test")
 
-    r = _post_webhook(client, "5511999966008", "oi", AccountSid="AC_real")
+    r = _post_webhook(client, "+5511999966008", "oi", AccountSid="AC_real")
     assert r.status_code == 403
 
 
@@ -245,7 +245,7 @@ def test_validacao_ligada_sem_auth_token_recusa(monkeypatch, client):
     monkeypatch.setattr(settings, "TWILIO_VALIDAR_ASSINATURA", True)
     monkeypatch.setattr(settings, "TWILIO_AUTH_TOKEN", None)
 
-    r = _post_webhook(client, "5511999966009", "oi", AccountSid="AC_real")
+    r = _post_webhook(client, "+5511999966009", "oi", AccountSid="AC_real")
     assert r.status_code == 503
 
 

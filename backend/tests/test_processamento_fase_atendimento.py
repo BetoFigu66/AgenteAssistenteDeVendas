@@ -15,7 +15,7 @@ from services.respostas import RespostaGerada
 
 
 def test_fase_atendimento_usa_snapshot_pre_decisao_nao_a_fase_atual():
-    telefone = "5511999983002"
+    telefone = "+5511999983002"
     database = Database()
     with database.get_session() as db:
         try:
@@ -65,7 +65,7 @@ def test_fase_atendimento_usa_snapshot_pre_decisao_nao_a_fase_atual():
 
 
 def test_fase_atendimento_none_quando_nao_havia_atendimento_ainda():
-    telefone = "5511999983003"
+    telefone = "+5511999983003"
     database = Database()
     with database.get_session() as db:
         try:

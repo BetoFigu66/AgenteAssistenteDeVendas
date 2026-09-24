@@ -45,7 +45,7 @@ def _msg_out_mais_recente(db_session, telefone):
 
 
 def test_execucao_normal_envia_direto_e_auto_aprova(db_session, processador):
-    telefone = "5511999988001"
+    telefone = "+5511999988001"
     try:
         ParametroService(db_session).set(MODO_EXECUCAO, ModoExecucao.EXECUCAO_NORMAL.value)
         resultado = asyncio.run(
@@ -63,7 +63,7 @@ def test_execucao_normal_envia_direto_e_auto_aprova(db_session, processador):
 
 
 def test_conversa_controlada_fica_pendente_sem_envio(db_session, processador):
-    telefone = "5511999988002"
+    telefone = "+5511999988002"
     try:
         ParametroService(db_session).set(MODO_EXECUCAO, ModoExecucao.CONVERSA_CONTROLADA.value)
         resultado = asyncio.run(
@@ -81,7 +81,7 @@ def test_conversa_controlada_fica_pendente_sem_envio(db_session, processador):
 
 
 def test_simulacao_fica_pendente_sem_envio(db_session, processador):
-    telefone = "5511999988003"
+    telefone = "+5511999988003"
     try:
         ParametroService(db_session).set(MODO_EXECUCAO, ModoExecucao.SIMULACAO.value)
         resultado = asyncio.run(
@@ -100,7 +100,7 @@ def test_aprovar_mensagem_pendente_libera_conteudo_original(db_session, processa
     """A mensagem pendente preserva o texto completo — aprovar via
     `/api/mensagens/{id}/aprovar` (fora do escopo deste teste) é o que de fato libera o
     envio; aqui validamos que o texto não se perde enquanto pendente."""
-    telefone = "5511999988004"
+    telefone = "+5511999988004"
     try:
         ParametroService(db_session).set(MODO_EXECUCAO, ModoExecucao.CONVERSA_CONTROLADA.value)
         asyncio.run(processador.processar(db_session, telefone, "Quero orçamento de catraca"))

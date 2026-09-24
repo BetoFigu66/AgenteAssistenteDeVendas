@@ -93,7 +93,7 @@ class _CanalEntregador(CanalSaida):
 
 
 def test_mensagem_manual_nasce_aprovada_pelo_operador_logado(client, db_session):
-    telefone = "5511999955001"
+    telefone = "+5511999955001"
     try:
         atendimento_id = _novo_atendimento_id(db_session, telefone)
 
@@ -124,7 +124,7 @@ def test_mensagem_manual_nasce_aprovada_pelo_operador_logado(client, db_session)
 
 @pytest.mark.parametrize("conteudo", ["", "   ", "\n\t "])
 def test_conteudo_vazio_ou_so_espacos_e_rejeitado(client, db_session, conteudo):
-    telefone = "5511999955002"
+    telefone = "+5511999955002"
     try:
         atendimento_id = _novo_atendimento_id(db_session, telefone)
 
@@ -157,7 +157,7 @@ def test_canal_simulado_registra_mas_nao_entrega(client, db_session, monkeypatch
     `entregue=False` com `erro_envio=None` é o terceiro estado do `ResultadoEnvio`,
     o que costuma ser esquecido: não entregou porque o canal não entrega.
     """
-    telefone = "5511999955003"
+    telefone = "+5511999955003"
     monkeypatch.setattr("config.settings.CANAL_SAIDA", "simulado")
     try:
         atendimento_id = _novo_atendimento_id(db_session, telefone)
@@ -182,7 +182,7 @@ def test_canal_simulado_registra_mas_nao_entrega(client, db_session, monkeypatch
 
 
 def test_canal_que_entrega_marca_envio_e_sid(client, db_session, monkeypatch):
-    telefone = "5511999955004"
+    telefone = "+5511999955004"
     canal = _CanalEntregador()
     monkeypatch.setattr("services.envio.obter_canal", lambda: canal)
     try:
@@ -213,7 +213,7 @@ def test_falha_de_entrega_nao_desfaz_o_registro(client, db_session, monkeypatch)
     aprovado, com o motivo da não entrega ao lado. Virar HTTP 500 perderia as duas
     informações de uma vez.
     """
-    telefone = "5511999955005"
+    telefone = "+5511999955005"
     monkeypatch.setattr("services.envio.obter_canal", _CanalFalho)
     try:
         atendimento_id = _novo_atendimento_id(db_session, telefone)

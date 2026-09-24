@@ -10,7 +10,7 @@ from services.identificador import criar_contato_sem_empresa
 
 
 def test_to_dict_inclui_fase():
-    telefone = "5511999983001"
+    telefone = "+5511999983001"
     database = Database()
     with database.get_session() as db:
         try:

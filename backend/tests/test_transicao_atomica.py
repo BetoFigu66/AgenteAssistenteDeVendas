@@ -67,7 +67,7 @@ def _eventos_de(db_session, atendimento_id) -> list[EventoAtendimento]:
 
 def test_transicao_e_evento_desfazem_juntos(db_session):
     """Falha depois da transição não pode deixar a fase nova gravada."""
-    telefone = "5511999966001"
+    telefone = "+5511999966001"
     try:
         atendimento = _atendimento_em_esclarecendo(db_session, telefone)
         atendimento_id = atendimento.id
@@ -90,7 +90,7 @@ def test_transicao_e_evento_desfazem_juntos(db_session):
 
 def test_transicao_e_evento_persistem_juntos(db_session):
     """O outro lado: no caminho feliz, os dois têm que estar lá."""
-    telefone = "5511999966002"
+    telefone = "+5511999966002"
     try:
         atendimento = _atendimento_em_esclarecendo(db_session, telefone)
 

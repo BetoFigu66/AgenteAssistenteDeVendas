@@ -48,7 +48,7 @@ def _limpar(db_session, telefone):
 def test_saudacao_nao_impede_resposta_a_pergunta_de_produto_no_mesmo_turno(db_session, processador):
     """Regressão do bug relatado: SAUDACAO + PERGUNTAR_PRODUTO na mesma mensagem deve
     criar o atendimento e responder à pergunta de produto — não pedir CNPJ."""
-    telefone = "5511999984001"
+    telefone = "+5511999984001"
     identificacao = ResultadoIdentificacao(status=StatusIdentificacao.NOVO, contatos=[], empresas=[])
     resultado = _resultado(
         [Intencao.SAUDACAO, Intencao.PERGUNTAR_PRODUTO, Intencao.FORNECER_NOME],
@@ -82,7 +82,7 @@ def test_saudacao_nao_impede_resposta_a_pergunta_de_produto_no_mesmo_turno(db_se
 def test_documento_pendente_nao_repete_apos_recusa_implicita(db_session, processador):
     """"Não quero fornecer ainda." não bate na regra NEGAR (que exige a mensagem inteira
     ser só "não") — mesmo assim, a segunda pergunta não deve repetir o pedido de CNPJ."""
-    telefone = "5511999984002"
+    telefone = "+5511999984002"
     identificacao = ResultadoIdentificacao(status=StatusIdentificacao.NOVO, contatos=[], empresas=[])
 
     try:
@@ -124,7 +124,7 @@ def test_documento_pendente_nao_repete_apos_recusa_implicita(db_session, process
 
 def test_documento_fornecido_depois_de_solicitado_limpa_pendencia(db_session, processador):
     """Se o cliente fornece o CNPJ depois de já ter sido perguntado, a pendência some."""
-    telefone = "5511999984003"
+    telefone = "+5511999984003"
     identificacao = ResultadoIdentificacao(status=StatusIdentificacao.NOVO, contatos=[], empresas=[])
 
     try:
@@ -148,7 +148,7 @@ def test_fora_contexto_isolado_nao_cria_atendimento():
     database = Database()
     with database.get_session() as db_session:
         processador = ProcessadorMensagem()
-        telefone = "5511999984004"
+        telefone = "+5511999984004"
         identificacao = ResultadoIdentificacao(status=StatusIdentificacao.NOVO, contatos=[], empresas=[])
         try:
             asyncio.run(
@@ -166,7 +166,7 @@ def test_fora_contexto_isolado_nao_cria_atendimento():
 def test_saudacao_identificado_com_empresa_usa_nome(db_session, processador):
     """Cliente já identificado (empresa vinculada) dizendo "oi" de novo deve ser
     cumprimentado pelo nome — comportamento preservado da unificação do dispatch."""
-    telefone = "5511999984005"
+    telefone = "+5511999984005"
     empresa = Empresa(cnpj="00.000.000/0001-99", nome="Empresa Teste Esclarecendo")
     db_session.add(empresa)
     db_session.commit()
@@ -197,7 +197,7 @@ def test_saudacao_identificado_com_empresa_usa_nome(db_session, processador):
 def test_perguntar_prazo_agora_funciona_para_contato_novo(db_session, processador):
     """Unificação de escopo (confirmada): PERGUNTAR_PRAZO deixou de ser exclusivo de
     contatos já identificados — um contato novo também recebe a resposta padrão."""
-    telefone = "5511999984006"
+    telefone = "+5511999984006"
     identificacao = ResultadoIdentificacao(status=StatusIdentificacao.NOVO, contatos=[], empresas=[])
     try:
         resposta = asyncio.run(
@@ -217,7 +217,7 @@ def test_perguntar_disponibilidade_confirma_e_pergunta_faixa_funcionarios(db_ses
     """"Vocês vendem relógio biométrico?" deve confirmar disponibilidade (com marcas do
     catálogo) e já perguntar a faixa de funcionários, sem pular direto para perguntas de
     modelo/cartográfico como acontecia com PEDIR_ORCAMENTO."""
-    telefone = "5511999984008"
+    telefone = "+5511999984008"
     identificacao = ResultadoIdentificacao(status=StatusIdentificacao.NOVO, contatos=[], empresas=[])
     resultado = _resultado(
         [Intencao.PERGUNTAR_DISPONIBILIDADE, Intencao.PERGUNTAR_PRODUTO],
@@ -249,7 +249,7 @@ def test_perguntar_disponibilidade_sem_produto_nao_dispara_acao(db_session, proc
     """Guarda de produto obrigatório (DEC-008) também vale para PERGUNTAR_DISPONIBILIDADE
     — sem tipo de produto extraído, a ação não deve disparar (evita "Sim, vendemos" sem
     saber o quê)."""
-    telefone = "5511999984009"
+    telefone = "+5511999984009"
     identificacao = ResultadoIdentificacao(status=StatusIdentificacao.NOVO, contatos=[], empresas=[])
     resultado = _resultado([Intencao.PERGUNTAR_DISPONIBILIDADE])
     try:
@@ -270,7 +270,7 @@ def test_disponibilidade_seguida_de_duvida_sobre_marcas_nao_sequestra_pergunta(d
     delas?") não deve ser sequestrada por uma tentativa de resolução de modelo usando o
     sinal antigo (tecnologia_leitura=biometria) — deve responder a dúvida via RAG/Q&A e
     retomar a pergunta pendente, não "Não encontrei esse modelo"."""
-    telefone = "5511999984010"
+    telefone = "+5511999984010"
     identificacao = ResultadoIdentificacao(status=StatusIdentificacao.NOVO, contatos=[], empresas=[])
     resultado_1 = _resultado(
         [Intencao.PERGUNTAR_DISPONIBILIDADE, Intencao.PERGUNTAR_PRODUTO],
@@ -309,7 +309,7 @@ def test_disponibilidade_seguida_de_mensagem_sem_sinal_nao_reapresenta_modelo(db
     marca/aplicação/tecnologia) não pode reapresentar "cartográfico ou eletrônico?" — esse
     campo nunca foi de fato perguntado nesta conversa. Deve continuar com a faixa de
     funcionários, que é o campo prioritário ainda pendente."""
-    telefone = "5511999984011"
+    telefone = "+5511999984011"
     identificacao = ResultadoIdentificacao(status=StatusIdentificacao.NOVO, contatos=[], empresas=[])
     resultado_1 = _resultado(
         [Intencao.PERGUNTAR_DISPONIBILIDADE, Intencao.PERGUNTAR_PRODUTO],
@@ -344,7 +344,7 @@ def test_pedir_orcamento_suprime_categoria_pergunta_redundante_no_mesmo_turno(db
     """Regressão de smoke test manual: "Quero orçamento de relógio de ponto" bate em
     PEDIR_ORCAMENTO **e** PERGUNTAR_PRODUTO — sem a supressão, a resposta ficava tripla e
     redundante (início do orçamento + resposta genérica de RAG sobre o mesmo produto)."""
-    telefone = "5511999984007"
+    telefone = "+5511999984007"
     identificacao = ResultadoIdentificacao(status=StatusIdentificacao.NOVO, contatos=[], empresas=[])
     resultado = _resultado(
         [Intencao.PEDIR_ORCAMENTO, Intencao.PERGUNTAR_PRODUTO],

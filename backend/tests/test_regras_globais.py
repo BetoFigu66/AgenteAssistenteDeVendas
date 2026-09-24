@@ -70,7 +70,7 @@ def _limpar_com_pessoa(db_session, telefone, cpf_formatado):
 def test_fornecer_cnpj_cria_atendimento_vinculado_a_empresa_existente(db_session):
     """`_executar_fornecer_cnpj` (regras_globais.py:87-96) — Empresa já cadastrada no
     banco: `obter_ou_criar_empresa` não precisa consultar a ReceitaWS."""
-    telefone = "5511999988001"
+    telefone = "+5511999988001"
     try:
         empresa = Empresa(cnpj=_CNPJ_VALIDO, nome="Empresa Teste Regras Globais")
         db_session.add(empresa)
@@ -106,7 +106,7 @@ def test_fornecer_cpf_sem_data_nascimento_pergunta_e_marca_pendente(db_session):
     """`_executar_fornecer_cpf` (regras_globais.py:99-111) sem data de nascimento na
     mesma mensagem: pergunta a data e guarda o CPF em `AtendimentoInfo` (cpf_pendente)
     pra completar depois."""
-    telefone = "5511999988002"
+    telefone = "+5511999988002"
     try:
         identificacao = ResultadoIdentificacao(status=StatusIdentificacao.NOVO, contatos=[], empresas=[])
         resultado_class = _resultado(Intencao.FORNECER_CPF, cpfs=[_CPF_VALIDO])
@@ -138,7 +138,7 @@ def test_fornecer_cpf_sem_data_nascimento_pergunta_e_marca_pendente(db_session):
 def test_fornecer_cpf_com_data_nascimento_na_mesma_mensagem_conclui(db_session):
     """`_executar_fornecer_cpf` com `datas_nascimento` já presente na mesma mensagem:
     cria a Pessoa e conclui sem precisar de uma segunda mensagem."""
-    telefone = "5511999988003"
+    telefone = "+5511999988003"
     try:
         identificacao = ResultadoIdentificacao(status=StatusIdentificacao.NOVO, contatos=[], empresas=[])
         resultado_class = _resultado(
@@ -170,7 +170,7 @@ def test_fornecer_data_nascimento_isolada_completa_cpf_pendente(db_session):
     """`_builder_fornecer_data_nascimento` (regras_globais.py:114-149) — continuação do
     fluxo PF: 1ª mensagem dá o CPF sem data (fica pendente); 2ª mensagem só com a data,
     sem repetir o CPF, completa o cadastro."""
-    telefone = "5511999988004"
+    telefone = "+5511999988004"
     try:
         p = ProcessadorMensagem()
 
@@ -214,7 +214,7 @@ def test_fornecer_nome_grava_no_contato_existente_sem_nome(db_session):
     """`_executar_fornecer_nome` (regras_globais.py:152-162) — só grava quando o
     Contato já existe e ainda não tem nome (efeito colateral silencioso, sem gerar
     fragmento de resposta)."""
-    telefone = "5511999988005"
+    telefone = "+5511999988005"
     try:
         contato = Contato(telefone=telefone, nome=None)
         db_session.add(contato)

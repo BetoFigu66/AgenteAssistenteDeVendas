@@ -58,7 +58,7 @@ def _canal_twilio(modo_envio="rest", url_publica="https://exemplo.test", erro=No
 
 
 def test_simulado_nao_entrega_e_nao_e_erro():
-    resultado = CanalSimulado().enviar("5519999990000", "oi", mensagem_id=7)
+    resultado = CanalSimulado().enviar("+5519999990000", "oi", mensagem_id=7)
     assert resultado.entregue is False
     assert resultado.falhou is False
     assert resultado.erro is None
@@ -79,19 +79,19 @@ def test_simulado_nunca_entrega_pela_resposta_do_webhook():
 
 def test_twilio_rest_devolve_sid_na_hora():
     canal = _canal_twilio(modo_envio="rest")
-    resultado = canal.enviar("5519999990000", "olá", mensagem_id=42)
+    resultado = canal.enviar("+5519999990000", "olá", mensagem_id=42)
 
     assert resultado.entregue is True
     assert resultado.message_sid == "SM_teste_123"
     enviado = canal._cliente.messages.chamadas[0]
     # O prefixo `whatsapp:` é obrigatório nos dois lados e o número do .env não o tem.
-    assert enviado["to"] == "whatsapp:5519999990000"
+    assert enviado["to"] == "whatsapp:+5519999990000"
     assert enviado["from_"] == "whatsapp:+14155238886"
 
 
 def test_twilio_falha_vira_erro_legivel_e_nao_excecao():
     canal = _canal_twilio(erro=_ErroTwilio(63016))
-    resultado = canal.enviar("5519999990000", "olá", mensagem_id=42)
+    resultado = canal.enviar("+5519999990000", "olá", mensagem_id=42)
 
     assert resultado.entregue is False
     assert resultado.falhou is True

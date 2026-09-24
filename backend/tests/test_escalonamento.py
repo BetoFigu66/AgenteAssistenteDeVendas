@@ -73,7 +73,7 @@ def _limpar(db_session, telefone):
 
 
 def test_escalar_humano_seta_modo_humano_e_persiste_dados(db_session):
-    telefone = "5511999987001"
+    telefone = "+5511999987001"
     identificacao = ResultadoIdentificacao(status=StatusIdentificacao.NOVO, contatos=[], empresas=[])
     resultado_class = _resultado(Intencao.ESCALAR_HUMANO)
     p = ProcessadorMensagem()
@@ -103,7 +103,7 @@ def test_escalar_humano_seta_modo_humano_e_persiste_dados(db_session):
 
 
 def test_reclamar_seta_modo_humano(db_session):
-    telefone = "5511999987002"
+    telefone = "+5511999987002"
     identificacao = ResultadoIdentificacao(status=StatusIdentificacao.NOVO, contatos=[], empresas=[])
     resultado_class = _resultado(Intencao.RECLAMAR)
     p = ProcessadorMensagem()
@@ -128,7 +128,7 @@ def test_reclamar_seta_modo_humano(db_session):
 
 
 def test_quantidade_grande_escala_sem_intencao_explicita(db_session):
-    telefone = "5511999987003"
+    telefone = "+5511999987003"
     identificacao = ResultadoIdentificacao(status=StatusIdentificacao.NOVO, contatos=[], empresas=[])
     resultado_class = _resultado(Intencao.DESCONHECIDO, quantidades=[10])
     p = ProcessadorMensagem()
@@ -153,7 +153,7 @@ def test_quantidade_grande_escala_sem_intencao_explicita(db_session):
 
 
 def test_quantidade_pequena_nao_escala(db_session):
-    telefone = "5511999987004"
+    telefone = "+5511999987004"
     identificacao = ResultadoIdentificacao(status=StatusIdentificacao.NOVO, contatos=[], empresas=[])
     resultado_class = _resultado(Intencao.DESCONHECIDO, quantidades=[2])
     p = ProcessadorMensagem()
@@ -178,7 +178,7 @@ def test_quantidade_pequena_nao_escala(db_session):
 
 
 def test_faixa_funcionarios_acima_limiar_escala(db_session):
-    telefone = "5511999987005"
+    telefone = "+5511999987005"
     identificacao = ResultadoIdentificacao(status=StatusIdentificacao.NOVO, contatos=[], empresas=[])
     resultado_class = _resultado(Intencao.DESCONHECIDO, faixa_funcionarios=80)
     p = ProcessadorMensagem()
@@ -207,7 +207,7 @@ def test_faixa_funcionarios_acima_limiar_escala(db_session):
 
 
 def test_leitor_facial_escala(db_session):
-    telefone = "5511999987006"
+    telefone = "+5511999987006"
     identificacao = ResultadoIdentificacao(status=StatusIdentificacao.NOVO, contatos=[], empresas=[])
     resultado_class = _resultado(Intencao.DESCONHECIDO, tipo_leitor_mencionado="facial")
     p = ProcessadorMensagem()
@@ -232,7 +232,7 @@ def test_leitor_facial_escala(db_session):
 
 
 def test_projeto_complexo_nao_repete_quando_ja_humano(db_session):
-    telefone = "5511999987007"
+    telefone = "+5511999987007"
     identificacao = ResultadoIdentificacao(status=StatusIdentificacao.NOVO, contatos=[], empresas=[])
     p = ProcessadorMensagem()
 
@@ -270,7 +270,7 @@ def test_projeto_complexo_nao_repete_quando_ja_humano(db_session):
 
 
 def test_confianca_baixa_escala_na_segunda_ocorrencia_consecutiva(db_session):
-    telefone = "5511999987008"
+    telefone = "+5511999987008"
     try:
         contato = Contato(telefone=telefone, nome="Cliente Confiança Baixa")
         db_session.add(contato)
@@ -334,7 +334,7 @@ def test_confianca_baixa_escala_na_segunda_ocorrencia_consecutiva(db_session):
 
 
 def test_retrofit_rag_escalado_sem_base_preenche_motivo(db_session):
-    telefone = "5511999987009"
+    telefone = "+5511999987009"
     try:
         contato = Contato(telefone=telefone, nome="Cliente RAG Sem Base")
         db_session.add(contato)
@@ -384,7 +384,7 @@ def test_sequencia_disponibilidade_depois_duvida_nao_escala_precipitadamente(db_
     clarificação de uma pergunta anterior — a disponibilidade bem-sucedida invalida esse
     ciclo. E, se escalar, não deve misturar a mensagem de escalonamento com a retomada da
     pergunta pendente no mesmo turno."""
-    telefone = "5511999987011"
+    telefone = "+5511999987011"
     try:
         p = ProcessadorMensagem(retrieval=_RetrievalFake([]), qa=_QAFake([]))
 
@@ -434,7 +434,7 @@ def test_sequencia_disponibilidade_depois_duvida_nao_escala_precipitadamente(db_
 
 
 def test_manual_takeover_endpoint_registra_motivo(client, db_session):
-    telefone = "5511999987010"
+    telefone = "+5511999987010"
     try:
         contato = Contato(telefone=telefone, nome="Cliente Takeover Manual")
         db_session.add(contato)

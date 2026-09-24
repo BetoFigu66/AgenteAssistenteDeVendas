@@ -44,7 +44,7 @@ def _limpar(db_session, telefone):
 
 
 def test_duvida_pura_dispara_pergunta_fechamento(db_session, processador):
-    telefone = "5511999985001"
+    telefone = "+5511999985001"
     identificacao = ResultadoIdentificacao(status=StatusIdentificacao.NOVO, contatos=[], empresas=[])
     try:
         resposta = asyncio.run(
@@ -63,7 +63,7 @@ def test_duvida_pura_dispara_pergunta_fechamento(db_session, processador):
 
 
 def test_resposta_negativa_encerra_atendimento(db_session, processador):
-    telefone = "5511999985002"
+    telefone = "+5511999985002"
     identificacao = ResultadoIdentificacao(status=StatusIdentificacao.NOVO, contatos=[], empresas=[])
     try:
         asyncio.run(
@@ -96,7 +96,7 @@ def test_resposta_negativa_encerra_atendimento(db_session, processador):
 
 
 def test_resposta_afirmativa_mantem_ativo_e_segue_fluxo(db_session, processador):
-    telefone = "5511999985003"
+    telefone = "+5511999985003"
     identificacao = ResultadoIdentificacao(status=StatusIdentificacao.NOVO, contatos=[], empresas=[])
     try:
         asyncio.run(

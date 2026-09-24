@@ -25,8 +25,8 @@ from models import (
 )
 from services.dev_limpeza_telefone import apagar_dados_telefone
 
-_TELEFONE = "5511999944001"
-_TELEFONE_OUTRO = "5511999944002"
+_TELEFONE = "+5511999944001"
+_TELEFONE_OUTRO = "+5511999944002"
 _CNPJ = "99.888.777/0001-66"
 
 

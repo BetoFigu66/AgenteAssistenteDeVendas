@@ -70,7 +70,7 @@ def _indicadores(client, dias=7) -> dict:
 
 def test_carimbo_automatico_nao_entra_na_conta_de_aprovadas(client, db_session):
     """Auto-aprovação do sistema fica num balde próprio, fora da taxa humana."""
-    telefone = "5511999987101"
+    telefone = "+5511999987101"
     try:
         antes = _indicadores(client)
 
@@ -91,7 +91,7 @@ def test_carimbo_automatico_nao_entra_na_conta_de_aprovadas(client, db_session):
 
 
 def test_aprovacao_humana_conta_como_aprovada(client, db_session):
-    telefone = "5511999987102"
+    telefone = "+5511999987102"
     try:
         antes = _indicadores(client)
 
@@ -109,7 +109,7 @@ def test_aprovacao_humana_conta_como_aprovada(client, db_session):
 
 def test_reprovacao_conta_como_reprovada_e_nao_como_aprovada(client, db_session):
     """Aprovar e reprovar gravam o mesmo `aprovador_id`; quem separa é o report."""
-    telefone = "5511999987103"
+    telefone = "+5511999987103"
     try:
         antes = _indicadores(client)
 
@@ -129,7 +129,7 @@ def test_reprovacao_conta_como_reprovada_e_nao_como_aprovada(client, db_session)
 
 
 def test_mensagem_pendente_nao_conta_como_decidida(client, db_session):
-    telefone = "5511999987104"
+    telefone = "+5511999987104"
     try:
         antes = _indicadores(client)
 
@@ -145,7 +145,7 @@ def test_mensagem_pendente_nao_conta_como_decidida(client, db_session):
 
 def test_baldes_particionam_a_coorte_da_janela(client, db_session):
     """Invariantes estruturais: os baldes fecham com o total e entre si."""
-    telefone = "5511999987105"
+    telefone = "+5511999987105"
     try:
         _criar_mensagem_system(db_session, telefone)
         body = _indicadores(client)
@@ -164,7 +164,7 @@ def test_baldes_particionam_a_coorte_da_janela(client, db_session):
 
 
 def test_janela_ignora_mensagem_anterior_ao_periodo(client, db_session):
-    telefone = "5511999987106"
+    telefone = "+5511999987106"
     try:
         antes = _indicadores(client, dias=7)
 

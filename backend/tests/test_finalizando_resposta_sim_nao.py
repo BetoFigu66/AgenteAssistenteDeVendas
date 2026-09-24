@@ -90,7 +90,7 @@ def _chegar_em_pergunta_nuvem(db_session, processador, telefone):
 
 def test_sim_classificado_como_confirmar_captura_interesse_nuvem(db_session, processador):
     """O caso que o defeito atingia: "sim" vira CONFIRMAR e a resposta era descartada."""
-    telefone = "5511999982001"
+    telefone = "+5511999982001"
     try:
         contato, atendimento = _chegar_em_pergunta_nuvem(db_session, processador, telefone)
 
@@ -104,7 +104,7 @@ def test_sim_classificado_como_confirmar_captura_interesse_nuvem(db_session, pro
 
 
 def test_nao_classificado_como_negar_captura_interesse_nuvem(db_session, processador):
-    telefone = "5511999982002"
+    telefone = "+5511999982002"
     try:
         contato, atendimento = _chegar_em_pergunta_nuvem(db_session, processador, telefone)
 
@@ -125,7 +125,7 @@ def test_nao_classificado_como_negar_captura_software_de_ponto(db_session, proce
     O ramo do campo já sabia traduzir a sentinela de negação para "nenhum"; a mensagem é que
     nunca chegava até ele.
     """
-    telefone = "5511999982003"
+    telefone = "+5511999982003"
     try:
         contato = _iniciar_finalizando_com_software(db_session, processador, telefone)
         atendimento = contato.atendimentos[0]
@@ -144,7 +144,7 @@ def test_intencao_reconhecida_sem_relacao_nao_e_sequestrada_como_resposta(db_ses
     Uma intenção reconhecida que não tem nada a ver com a pergunta pendente (o cliente repete
     "quero orçamento") não pode ser lida como se fosse a resposta dela.
     """
-    telefone = "5511999982004"
+    telefone = "+5511999982004"
     try:
         contato, atendimento = _chegar_em_pergunta_nuvem(db_session, processador, telefone)
 
@@ -161,7 +161,7 @@ def test_negativa_dentro_da_frase_nao_vira_sim(db_session, processador):
     `_RESPOSTA_SIM_REGEX` contém "quero", então testar o afirmativo primeiro fazia "não
     quero" casar com o ramo do sim. A negação tem que ser avaliada antes.
     """
-    telefone = "5511999982005"
+    telefone = "+5511999982005"
     try:
         contato, atendimento = _chegar_em_pergunta_nuvem(db_session, processador, telefone)
 
@@ -183,7 +183,7 @@ def test_negacao_que_nao_e_nome_de_software_nao_vira_nome_de_software(
     casava. Resultado: "errado" era gravado como se fosse o nome do software do cliente, e
     seguia para o resumo e para o handoff ao vendedor.
     """
-    telefone = "5511999982006"
+    telefone = "+5511999982006"
     try:
         contato = _iniciar_finalizando_com_software(db_session, processador, telefone)
         atendimento = contato.atendimentos[0]

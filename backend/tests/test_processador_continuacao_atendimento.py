@@ -66,7 +66,7 @@ def _identificacao(contato) -> ResultadoIdentificacao:
 
 
 def test_atendimento_encerrado_dispara_pergunta_continuacao(db_session, processador):
-    telefone = "5511999984001"
+    telefone = "+5511999984001"
     try:
         atendimento = _atendimento_encerrado_com_interesse(db_session, telefone)
         contato = atendimento.contato
@@ -89,7 +89,7 @@ def test_atendimento_encerrado_dispara_pergunta_continuacao(db_session, processa
 
 
 def test_continuar_reabre_e_pergunta_confirma_interesse(db_session, processador):
-    telefone = "5511999984002"
+    telefone = "+5511999984002"
     try:
         atendimento = _atendimento_encerrado_com_interesse(db_session, telefone)
         contato = atendimento.contato
@@ -118,7 +118,7 @@ def test_continuar_reabre_e_pergunta_confirma_interesse(db_session, processador)
 
 
 def test_manter_interesse_preserva_dados_capturados(db_session, processador):
-    telefone = "5511999984003"
+    telefone = "+5511999984003"
     try:
         atendimento = _atendimento_encerrado_com_interesse(db_session, telefone)
         contato = atendimento.contato
@@ -151,7 +151,7 @@ def test_manter_interesse_preserva_dados_capturados(db_session, processador):
 
 
 def test_mudou_de_ideia_reinicia_qualificacao(db_session, processador):
-    telefone = "5511999984004"
+    telefone = "+5511999984004"
     try:
         atendimento = _atendimento_encerrado_com_interesse(db_session, telefone)
         contato = atendimento.contato
@@ -184,7 +184,7 @@ def test_mudou_de_ideia_reinicia_qualificacao(db_session, processador):
 
 
 def test_novo_pedido_cria_atendimento_novo(db_session, processador):
-    telefone = "5511999984005"
+    telefone = "+5511999984005"
     try:
         atendimento_1 = _atendimento_encerrado_com_interesse(db_session, telefone)
         contato = atendimento_1.contato
@@ -223,7 +223,7 @@ def test_novo_pedido_cria_atendimento_novo(db_session, processador):
 
 
 def test_concluido_conversao_nao_pergunta_cria_atendimento_direto(db_session, processador):
-    telefone = "5511999984006"
+    telefone = "+5511999984006"
     try:
         atendimento_1 = _atendimento_encerrado_com_interesse(
             db_session, telefone, motivo=MotivoEncerramento.CONCLUIDO_CONVERSAO

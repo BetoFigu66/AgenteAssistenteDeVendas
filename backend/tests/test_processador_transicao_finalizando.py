@@ -74,7 +74,7 @@ def _limpar(db_session, telefone):
 def test_novo_pedir_orcamento_transita_fase_e_pergunta_modelo(db_session, processador):
     """E1 + E3: telefone novo pedindo orçamento com produto já mencionado vira Finalizando
     e a próxima pergunta é o modelo (nada mais foi capturado ainda)."""
-    telefone = "5511999980001"
+    telefone = "+5511999980001"
     identificacao = ResultadoIdentificacao(status=StatusIdentificacao.NOVO, contatos=[], empresas=[])
     resultado_class = _resultado(Intencao.PEDIR_ORCAMENTO, tipos_produto=["relogio_ponto"])
 
@@ -100,7 +100,7 @@ def test_novo_pedir_orcamento_transita_fase_e_pergunta_modelo(db_session, proces
 def test_novo_pedir_orcamento_sem_produto_ainda_pede_tipo(db_session, processador):
     """E3: sem tipo de produto identificado, cai no fallback PEDIR_TIPO_PRODUTO (sem
     INICIAR_FINALIZANDO) — mas a fase já muda para Finalizando (E1)."""
-    telefone = "5511999980002"
+    telefone = "+5511999980002"
     identificacao = ResultadoIdentificacao(status=StatusIdentificacao.NOVO, contatos=[], empresas=[])
     resultado_class = _resultado(Intencao.PEDIR_ORCAMENTO)
 
@@ -126,7 +126,7 @@ def test_novo_pedir_orcamento_sem_produto_ainda_pede_tipo(db_session, processado
 def test_composta_orcamento_com_software_junto_captura_no_mesmo_turno(db_session, processador):
     """E3: 'quero orçamento, já uso o Domínio' captura software no mesmo turno da transição;
     a próxima pergunta é modelo (ainda pendente)."""
-    telefone = "5511999980003"
+    telefone = "+5511999980003"
     identificacao = ResultadoIdentificacao(status=StatusIdentificacao.NOVO, contatos=[], empresas=[])
     resultado_class = _resultado(
         Intencao.PEDIR_ORCAMENTO,
@@ -157,7 +157,7 @@ def test_composta_orcamento_com_software_junto_captura_no_mesmo_turno(db_session
 def test_transicao_e_idempotente_segunda_mensagem_ja_finalizando(db_session, processador):
     """E1: se o atendimento já está em Finalizando, uma nova PEDIR_ORCAMENTO não deveria
     re-disparar a transição nem quebrar — só decide a próxima pergunta de novo."""
-    telefone = "5511999980004"
+    telefone = "+5511999980004"
     identificacao_1 = ResultadoIdentificacao(status=StatusIdentificacao.NOVO, contatos=[], empresas=[])
     resultado_1 = _resultado(Intencao.PEDIR_ORCAMENTO, tipos_produto=["relogio_ponto"])
 

@@ -40,7 +40,7 @@ def _limpar(db_session, telefone):
 
 
 def test_eventos_ficam_vinculados_a_mensagem_e_ao_processamento(db_session, processador):
-    telefone = "5511999955001"
+    telefone = "+5511999955001"
     try:
         _limpar(db_session, telefone)
         asyncio.run(processador.processar(db_session, telefone, "Quero orcamento de catraca"))
@@ -72,7 +72,7 @@ def test_limpeza_por_telefone_remove_eventos_antes_das_mensagens(db_session, pro
     """Regressão da FK: com `mensagem_id` preenchido, apagar `mensagens` antes dos
     eventos viola `eventos_atendimento_mensagem_id_fkey`. Enquanto a coluna era sempre
     NULL, a ordem em `dev_limpeza_telefone` não importava e ninguém notava."""
-    telefone = "5511999955002"
+    telefone = "+5511999955002"
     try:
         _limpar(db_session, telefone)
         asyncio.run(processador.processar(db_session, telefone, "Quero orcamento de catraca"))

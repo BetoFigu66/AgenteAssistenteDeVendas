@@ -46,7 +46,7 @@ def _campos(client, telefone) -> list:
 
 
 def test_campos_capturados_traz_valor_e_rotulo_do_catalogo(client, db_session):
-    telefone = "5511999985201"
+    telefone = "+5511999985201"
     try:
         _preparar(
             db_session,
@@ -69,7 +69,7 @@ def test_campos_capturados_traz_valor_e_rotulo_do_catalogo(client, db_session):
 
 def test_chaves_de_controle_interno_nao_vazam_para_a_tela(client, db_session):
     """Marcadores do motor, contadores e resultado de consulta de crédito ficam fora."""
-    telefone = "5511999985202"
+    telefone = "+5511999985202"
     internas = [
         ("pergunta_prioritaria_chave", "faixa_funcionarios"),
         ("homologado_software__perguntado", "true"),
@@ -96,7 +96,7 @@ def test_chaves_de_controle_interno_nao_vazam_para_a_tela(client, db_session):
 
 def test_so_aparecem_campos_aplicaveis_ao_produto(client, db_session):
     """`software_controle_acesso` não se aplica a relógio de ponto, mesmo capturado."""
-    telefone = "5511999985203"
+    telefone = "+5511999985203"
     try:
         _preparar(
             db_session,
@@ -117,7 +117,7 @@ def test_so_aparecem_campos_aplicaveis_ao_produto(client, db_session):
 
 def test_sem_tipo_de_produto_identificado_lista_fica_vazia(client, db_session):
     """Sem produto não há catálogo aplicável, então não há o que mostrar."""
-    telefone = "5511999985204"
+    telefone = "+5511999985204"
     try:
         _preparar(db_session, telefone, [("nome_contato", "Fulano")])
         assert _campos(client, telefone) == []
@@ -126,7 +126,7 @@ def test_sem_tipo_de_produto_identificado_lista_fica_vazia(client, db_session):
 
 
 def test_valor_em_branco_nao_conta_como_capturado(client, db_session):
-    telefone = "5511999985205"
+    telefone = "+5511999985205"
     try:
         _preparar(
             db_session,

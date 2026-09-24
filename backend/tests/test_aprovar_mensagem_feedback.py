@@ -28,7 +28,7 @@ def _criar_mensagem_pendente(db_session, telefone) -> int:
 
 
 def test_aprovar_com_feedback_persiste_texto(client, db_session):
-    telefone = "5511999988101"
+    telefone = "+5511999988101"
     try:
         mensagem_id = _criar_mensagem_pendente(db_session, telefone)
 
@@ -45,7 +45,7 @@ def test_aprovar_com_feedback_persiste_texto(client, db_session):
 
 
 def test_aprovar_sem_feedback_fica_none(client, db_session):
-    telefone = "5511999988102"
+    telefone = "+5511999988102"
     try:
         mensagem_id = _criar_mensagem_pendente(db_session, telefone)
 

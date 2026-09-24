@@ -27,7 +27,7 @@ def _novo_atendimento(db_session, telefone) -> Atendimento:
 
 
 def test_encerrar_atendimento_seta_motivo_e_auditoria(db_session):
-    telefone = "5511999983001"
+    telefone = "+5511999983001"
     try:
         atendimento = _novo_atendimento(db_session, telefone)
         svc.encerrar_atendimento(
@@ -42,7 +42,7 @@ def test_encerrar_atendimento_seta_motivo_e_auditoria(db_session):
 
 
 def test_encerrar_atendimento_ja_encerrado_levanta_erro(db_session):
-    telefone = "5511999983002"
+    telefone = "+5511999983002"
     try:
         atendimento = _novo_atendimento(db_session, telefone)
         svc.encerrar_atendimento(db_session, atendimento, motivo=MotivoEncerramento.MANUAL_VENDEDOR, ator="vendedor")
@@ -53,7 +53,7 @@ def test_encerrar_atendimento_ja_encerrado_levanta_erro(db_session):
 
 
 def test_reabrir_atendimento_limpa_motivo_e_seta_auditoria(db_session):
-    telefone = "5511999983003"
+    telefone = "+5511999983003"
     try:
         atendimento = _novo_atendimento(db_session, telefone)
         svc.encerrar_atendimento(
@@ -70,7 +70,7 @@ def test_reabrir_atendimento_limpa_motivo_e_seta_auditoria(db_session):
 
 
 def test_reabrir_atendimento_concluido_conversao_bloqueado(db_session):
-    telefone = "5511999983004"
+    telefone = "+5511999983004"
     try:
         atendimento = _novo_atendimento(db_session, telefone)
         svc.encerrar_atendimento(db_session, atendimento, motivo=MotivoEncerramento.CONCLUIDO_CONVERSAO, ator="sistema")
@@ -82,7 +82,7 @@ def test_reabrir_atendimento_concluido_conversao_bloqueado(db_session):
 
 
 def test_atendimento_mais_recente_retorna_independente_do_status(db_session):
-    telefone = "5511999983005"
+    telefone = "+5511999983005"
     try:
         atendimento = _novo_atendimento(db_session, telefone)
         svc.encerrar_atendimento(db_session, atendimento, motivo=MotivoEncerramento.ABANDONO, ator="sistema")
@@ -96,7 +96,7 @@ def test_atendimento_mais_recente_retorna_independente_do_status(db_session):
 
 
 def test_encerrar_por_conversao(db_session):
-    telefone = "5511999983006"
+    telefone = "+5511999983006"
     try:
         atendimento = _novo_atendimento(db_session, telefone)
         svc.encerrar_por_conversao(db_session, atendimento.id)

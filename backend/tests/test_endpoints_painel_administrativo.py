@@ -24,7 +24,7 @@ def _limpar(db_session, telefone):
 
 
 def test_atendimentos_ativas_filtro_status_e_busca(client, db_session):
-    telefone = "5511999986001"
+    telefone = "+5511999986001"
     try:
         contato = Contato(telefone=telefone, nome="Cliente Filtro Teste")
         db_session.add(contato)
@@ -78,7 +78,7 @@ def test_historico_limit_invalido_400(client):
 
 
 def test_conversa_retorna_pessoa_com_cpf_mascarado(client, db_session):
-    telefone = "5511999986002"
+    telefone = "+5511999986002"
     try:
         contato = Contato(telefone=telefone, nome="Cliente PF Teste")
         db_session.add(contato)
@@ -109,7 +109,7 @@ def test_conversa_retorna_pessoa_com_cpf_mascarado(client, db_session):
 def test_campos_pendentes_endpoint(client, db_session):
     from models import AtendimentoInfo
 
-    telefone = "5511999986003"
+    telefone = "+5511999986003"
     try:
         contato = Contato(telefone=telefone, nome="Cliente Campos Pendentes")
         db_session.add(contato)

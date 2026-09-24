@@ -49,7 +49,7 @@ def _limpar(db_session, telefone):
 
 def test_salvar_info_torna_valor_visivel_na_colecao_ja_carregada(db_session, processador):
     """O caso exato do P0-2: ler a coleção ANTES de gravar é o que criava o cache."""
-    telefone = "5511999977001"
+    telefone = "+5511999977001"
     try:
         atendimento = _novo_atendimento(db_session, telefone)
 
@@ -72,7 +72,7 @@ def test_sobrescrever_valor_existente_reflete_na_colecao(db_session, processador
     dentro da coleção carregada, então a mudança aparece por identidade. Fica aqui como
     caracterização — pega uma troca futura para `query.update()` em massa, que passaria
     por fora da sessão e recriaria a obsolescência, como acontece no `delete()`."""
-    telefone = "5511999977002"
+    telefone = "+5511999977002"
     try:
         atendimento = _novo_atendimento(db_session, telefone)
         processador._salvar_info_atendimento(db_session, atendimento.id, "software_ponto", "nenhum")
@@ -87,7 +87,7 @@ def test_sobrescrever_valor_existente_reflete_na_colecao(db_session, processador
 def test_remover_info_some_da_colecao_ja_carregada(db_session, processador):
     """`query.delete()` é bulk e passa por fora da sessão: sem expire, a linha apagada
     continuaria aparecendo na coleção carregada."""
-    telefone = "5511999977003"
+    telefone = "+5511999977003"
     try:
         atendimento = _novo_atendimento(db_session, telefone)
         processador._salvar_info_atendimento(db_session, atendimento.id, "cpf_pendente", "12345678909")
@@ -103,7 +103,7 @@ def test_remover_info_some_da_colecao_ja_carregada(db_session, processador):
 def test_salvar_info_nao_commita(db_session, processador):
     """Guarda o outro lado do invariante: consertar a obsolescência voltando para
     `commit()` reintroduziria o commit parcial que o `flush()` veio remover."""
-    telefone = "5511999977004"
+    telefone = "+5511999977004"
     try:
         atendimento = _novo_atendimento(db_session, telefone)
         db_session.commit()  # o atendimento existe; a info abaixo é que não pode persistir

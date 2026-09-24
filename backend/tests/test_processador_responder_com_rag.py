@@ -132,7 +132,7 @@ def test_responder_com_rag_sem_nada_cai_no_fallback_generico():
 
 
 def test_pergunta_produto_sem_base_pede_clarificacao_depois_escala(db_session):
-    telefone = "5511999985001"
+    telefone = "+5511999985001"
     identificacao = ResultadoIdentificacao(status=StatusIdentificacao.NOVO, contatos=[], empresas=[])
     resultado_class = _resultado(Intencao.PERGUNTAR_PRODUTO, tipos_produto=["relogio_ponto"])
     p = ProcessadorMensagem(retrieval=_RetrievalFake([]), qa=_QAFake([]))
@@ -177,7 +177,7 @@ def test_pergunta_produto_sem_base_pede_clarificacao_depois_escala(db_session):
 
 def test_pergunta_produto_encontra_conteudo_na_segunda_tentativa_nao_escala(db_session):
     """Se a clarificação trouxer conteúdo suficiente, responde normalmente e não escala."""
-    telefone = "5511999985002"
+    telefone = "+5511999985002"
     identificacao = ResultadoIdentificacao(status=StatusIdentificacao.NOVO, contatos=[], empresas=[])
     resultado_class = _resultado(Intencao.PERGUNTAR_PRODUTO, tipos_produto=["relogio_ponto"])
     retrieval = _RetrievalFake([])
@@ -267,7 +267,7 @@ def test_pedir_catalogo_link_nao_configurado_avisa_indisponivel(db_session):
 def test_pedir_catalogo_fluxo_completo_pergunta_depois_resolve(db_session):
     """"Você tem catálogo?" -> pergunta qual; "catracas" (sem repetir "catálogo") ->
     resolve sozinho via `catalogo_pendente` (resposta "solta" à pergunta anterior)."""
-    telefone = "5511999985003"
+    telefone = "+5511999985003"
     identificacao = ResultadoIdentificacao(status=StatusIdentificacao.NOVO, contatos=[], empresas=[])
     svc = ParametroService(db_session)
     original = svc.get_str("catalogo_link_catraca")

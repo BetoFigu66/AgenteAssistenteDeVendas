@@ -73,7 +73,7 @@ def test_body_vazio_com_midia_e_aceito_e_registrado():
     import main
     from fastapi.testclient import TestClient
 
-    telefone = "5511999977001"
+    telefone = "+5511999977001"
     try:
         with TestClient(main.app) as client:
             resposta = client.post(
@@ -100,7 +100,7 @@ def test_body_vazio_sem_midia_e_aceito_e_registrado():
     import main
     from fastapi.testclient import TestClient
 
-    telefone = "5511999977002"
+    telefone = "+5511999977002"
     try:
         with TestClient(main.app) as client:
             resposta = client.post(
@@ -124,7 +124,7 @@ def test_campo_body_ausente_nao_devolve_422():
     import main
     from fastapi.testclient import TestClient
 
-    telefone = "5511999977003"
+    telefone = "+5511999977003"
     try:
         with TestClient(main.app) as client:
             resposta = client.post("/webhook", data={"From": f"whatsapp:{telefone}", "NumMedia": "1"})
@@ -142,7 +142,7 @@ def test_chamada_da_twilio_com_midia_tambem_e_registrada(monkeypatch):
     from config import settings
     from fastapi.testclient import TestClient
 
-    telefone = "5511999977004"
+    telefone = "+5511999977004"
     monkeypatch.setattr(settings, "CANAL_SAIDA", "simulado")
     try:
         with TestClient(main.app) as client:
@@ -170,7 +170,7 @@ def test_num_media_invalido_conta_como_sem_midia():
     import main
     from fastapi.testclient import TestClient
 
-    telefone = "5511999977005"
+    telefone = "+5511999977005"
     try:
         with TestClient(main.app) as client:
             resposta = client.post(
@@ -206,7 +206,7 @@ def test_falha_ao_registrar_nao_vira_500_para_a_twilio(monkeypatch):
         resposta = client.post(
             "/webhook",
             data={
-                "From": "whatsapp:5511999977006",
+                "From": "whatsapp:+5511999977006",
                 "Body": "",
                 "NumMedia": "1",
                 "AccountSid": "AC_real",
@@ -291,7 +291,7 @@ def test_midia_de_contato_com_atendimento_ativo_entra_no_atendimento():
     import main
     from fastapi.testclient import TestClient
 
-    telefone = "5511999977010"
+    telefone = "+5511999977010"
     try:
         contato_id, atendimento_id = _preparar_contato_com_atendimento(telefone)
         assert _atendimento(atendimento_id)["ultima_mensagem_at"] is None
@@ -319,7 +319,7 @@ def test_midia_de_contato_sem_atendimento_ativo_fica_so_no_contato():
     from fastapi.testclient import TestClient
     from services.identificador import criar_contato_sem_empresa
 
-    telefone = "5511999977011"
+    telefone = "+5511999977011"
     try:
         database = Database()
         with database.get_session() as session:
@@ -347,7 +347,7 @@ def test_reply_to_resolve_quando_o_sid_citado_e_da_mesma_conversa():
     import main
     from fastapi.testclient import TestClient
 
-    telefone = "5511999977012"
+    telefone = "+5511999977012"
     sid_citado = "SM_reply_to_mesma_conversa"
     try:
         _preparar_contato_com_atendimento(telefone)
@@ -381,8 +381,8 @@ def test_reply_to_nao_resolve_sid_de_outra_conversa():
     import main
     from fastapi.testclient import TestClient
 
-    telefone = "5511999977013"
-    telefone_alheio = "5511999977014"
+    telefone = "+5511999977013"
+    telefone_alheio = "+5511999977014"
     sid_alheio = "SM_reply_to_outra_conversa"
     try:
         _gravar_mensagem_do_sistema(telefone_alheio, sid_alheio)
@@ -424,7 +424,7 @@ def test_captura_de_payload_grava_o_formulario_cru(tmp_path, monkeypatch):
     monkeypatch.setattr(main.settings, "TWILIO_CAPTURAR_PAYLOADS", True)
     monkeypatch.setattr(main.settings, "TWILIO_CAPTURA_ARQUIVO", str(destino))
 
-    telefone = "5511999977010"
+    telefone = "+5511999977010"
     try:
         with TestClient(main.app) as cliente:
             cliente.post(
@@ -460,7 +460,7 @@ def test_captura_desligada_por_padrao_nao_cria_arquivo(tmp_path, monkeypatch):
     monkeypatch.setattr(main.settings, "TWILIO_CAPTURA_ARQUIVO", str(destino))
     assert main.settings.TWILIO_CAPTURAR_PAYLOADS is False
 
-    telefone = "5511999977011"
+    telefone = "+5511999977011"
     try:
         with TestClient(main.app) as cliente:
             cliente.post("/webhook", data={"From": f"whatsapp:+{telefone}", "Body": "oi"})

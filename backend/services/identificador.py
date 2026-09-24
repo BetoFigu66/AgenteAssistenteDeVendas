@@ -52,26 +52,54 @@ class ResultadoIdentificacao:
         return self.status in (StatusIdentificacao.NOVO, StatusIdentificacao.MULTIPLO)
 
 
+DDD_PADRAO = "19"
+"""DDD assumido quando o número vem sem ele. A Inforrel atende a região de Campinas."""
+
+
 def normalizar_telefone(telefone: str) -> str:
     """
-    Normaliza telefone removendo caracteres não numéricos e prefixos.
+    Normaliza telefone para a forma canônica `+55DDD9NNNNNNNN` (14 caracteres).
+
+    Um formato só, porque o telefone é a chave por onde o histórico de uma conversa é
+    montado (`Mensagem.telefone`). Até 24/09/2026 esta função devolvia o que recebia, só
+    tirando a máscara, e o mesmo cliente virava chaves diferentes conforme a porta de
+    entrada: o WhatsApp entrega `whatsapp:+5519991931173`, a interface web recebia
+    `19991931173` digitado à mão. O efeito foi o painel não mostrar **nenhuma** mensagem
+    vinda do WhatsApp, porque procurava pelo telefone do contato, gravado noutra forma.
+
+    A interpretação é pelo **tamanho**, não por completar um prefixo à esquerda: completar
+    à esquerda empurra os dígitos originais para a direita, e em `1999854265` o `19` que
+    era DDD viraria parte do número.
+
+    Número que não se encaixa em nenhum caso conhecido é devolvido apenas sem máscara, e
+    não deformado: é melhor um registro fora do padrão, visível, do que um telefone
+    plausível e errado.
 
     Exemplos:
-        'whatsapp:+5511999999999' -> '+5511999999999'
-        '(11) 99999-9999' -> '11999999999'
+        'whatsapp:+5519991931173' -> '+5519991931173'   (já canônico)
+        '(19) 99193-1173'         -> '+5519991931173'
+        '1999854265'              -> '+5519998854265'   (insere o 9 do celular)
+        '991931173'               -> '+5519991931173'   (assume DDD 19)
     """
     if not telefone:
         return ""
 
-    tel = telefone.strip()
+    tel = re.sub(r"^whatsapp:", "", telefone.strip(), flags=re.IGNORECASE)
+    digitos = re.sub(r"\D", "", tel)
 
-    # Remove prefixo whatsapp:
-    tel = re.sub(r"^whatsapp:", "", tel, flags=re.IGNORECASE)
+    if len(digitos) == 13 and digitos.startswith("55"):
+        return "+" + digitos
+    if len(digitos) == 12 and digitos.startswith("55"):
+        return "+55" + digitos[2:4] + "9" + digitos[4:]
+    if len(digitos) == 11:
+        return "+55" + digitos
+    if len(digitos) == 10:
+        return "+55" + digitos[:2] + "9" + digitos[2:]
+    if len(digitos) == 9:
+        return "+55" + DDD_PADRAO + digitos
 
-    # Mantém apenas dígitos e +
-    tel = re.sub(r"[^\d+]", "", tel)
-
-    return tel
+    # Não reconhecido: devolve sem máscara, preservando o `+` se havia.
+    return re.sub(r"[^\d+]", "", tel)
 
 
 def identificar_por_telefone(db: Session, telefone: str) -> ResultadoIdentificacao:
