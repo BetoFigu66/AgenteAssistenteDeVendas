@@ -1,0 +1,59 @@
+{
+  "_comentario": [
+    "Impressao digital do texto visivel de cada tela, usada para detectar quando o",
+    "texto de ajuda (<tela>.md, neste diretorio) pode ter ficado desatualizado.",
+    "",
+    "'componentes' = arquivos cujo texto visivel aquele .md descreve (caminhos",
+    "relativos a frontend/). 'hash' = assinatura das strings visiveis desses arquivos.",
+    "",
+    "Verificar:  python scripts/ajuda_fingerprint.py",
+    "Re-baseline: python scripts/ajuda_fingerprint.py --atualizar",
+    "",
+    "Ao alterar uma tela: se o texto de ajuda precisa mudar, edite o .md; se continua",
+    "correto, rode --atualizar para registrar que a divergencia foi revisada.",
+    "",
+    "Este arquivo nao e importado pelo frontend (o index.js so carrega ./*.md)."
+  ],
+  "telas": {
+    "chat": {
+      "componentes": [
+        "src/components/ChatArea.jsx",
+        "src/components/PhonePanel.jsx",
+        "src/components/ConversaInfo.jsx"
+      ],
+      "hash": "460e6107fb8837ee"
+    },
+    "acompanhamento": {
+      "componentes": [
+        "src/components/AcompanhamentoPage.jsx"
+      ],
+      "hash": "cf2970ec49f8556e"
+    },
+    "reports": {
+      "componentes": [
+        "src/components/ReportsPage.jsx",
+        "src/components/ReportDetalhe.jsx"
+      ],
+      "hash": "dfeb3a61dd573327"
+    },
+    "qa-base": {
+      "componentes": [
+        "src/components/QABasePage.jsx"
+      ],
+      "hash": "facb5643a55c6d45"
+    },
+    "parametros": {
+      "componentes": [
+        "src/components/ParametrosPage.jsx"
+      ],
+      "hash": "eba159e129443db0"
+    },
+    "geral": {
+      "componentes": [
+        "src/App.jsx",
+        "src/components/Header.jsx"
+      ],
+      "hash": "7b8d0a1fedf0cfbe"
+    }
+  }
+}

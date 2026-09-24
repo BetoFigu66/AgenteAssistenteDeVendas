@@ -355,6 +355,64 @@ def _check_referencias_orfas_em_docs(raiz: Path) -> CheckResult:
 
 
 @registrar_check(
+    id="ajuda-telas-desatualizada",
+    titulo="Texto de ajuda das telas possivelmente desatualizado",
+    severidade="warning",
+    escopos=["sempre", "pre-commit"],
+)
+def _check_ajuda_telas_desatualizada(raiz: Path) -> CheckResult:
+    """
+    Acusa telas cujo texto visivel mudou desde a ultima revisao da ajuda.
+
+    A logica fica em `scripts/ajuda_fingerprint.py`: ele extrai as strings que o
+    usuario ve (texto JSX + title/placeholder/aria-label) e compara com o hash
+    registrado em `frontend/src/ajuda/_fontes.json`. Refatoracao interna nao
+    dispara; renomear um botao dispara.
+
+    `warning` de proposito: documentacao desatualizada nao deve bloquear commit.
+    """
+    import importlib.util
+
+    script = raiz / "scripts" / "ajuda_fingerprint.py"
+    if not script.exists():
+        return CheckResult(passou=True, mensagem="ajuda_fingerprint.py nao encontrado; check ignorado.")
+
+    spec = importlib.util.spec_from_file_location("ajuda_fingerprint", script)
+    if spec is None or spec.loader is None:
+        return CheckResult(passou=True, mensagem="Nao foi possivel carregar ajuda_fingerprint.py; check ignorado.")
+
+    modulo = importlib.util.module_from_spec(spec)
+    try:
+        spec.loader.exec_module(modulo)
+        divergencias, erros = modulo.verificar()
+    except FileNotFoundError as exc:
+        return CheckResult(passou=True, mensagem=f"Manifesto de ajuda ausente ({exc}); check ignorado.")
+    except Exception as exc:  # pragma: no cover - defensivo
+        return CheckResult(
+            passou=False,
+            mensagem=f"Erro ao verificar a ajuda das telas: {exc}",
+            dica_correcao="Rode 'python scripts/ajuda_fingerprint.py' para reproduzir o erro.",
+        )
+
+    findings = [f"{d.tela}: texto visivel mudou — revise {d.arquivo_ajuda}" for d in divergencias]
+    findings += erros
+    return CheckResult(
+        passou=not findings,
+        findings=findings,
+        comandos_uteis=["python scripts/ajuda_fingerprint.py --atualizar"] if findings else [],
+        mensagem=(
+            f"{len(findings)} tela(s) com ajuda possivelmente desatualizada"
+            if findings
+            else "Ajuda das telas em sincronia com o texto visivel."
+        ),
+        dica_correcao=(
+            "Revise o .md da tela; se o texto continua correto, rode "
+            "'python scripts/ajuda_fingerprint.py --atualizar' para registrar a revisao."
+        ),
+    )
+
+
+@registrar_check(
     id="pgvector-op-sem-return-type",
     titulo="Operador pgvector <=> sem return_type=Float() explícito",
     severidade="error",
