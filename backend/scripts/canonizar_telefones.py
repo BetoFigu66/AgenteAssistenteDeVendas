@@ -2,8 +2,8 @@
 """Coloca todos os telefones do banco num formato único: `+55DDD9NNNNNNNN`.
 
 Por que existe: o mesmo cliente aparecia no banco em até três formatos, conforme a porta
-de entrada. O WhatsApp entrega `whatsapp:+5519991931173`, a interface web recebia
-`19991931173` digitado à mão, e o testador usava outra forma ainda. Como `Mensagem.telefone`
+de entrada. O WhatsApp entrega `whatsapp:+5519990001234`, a interface web recebia
+`19990001234` digitado à mão, e o testador usava outra forma ainda. Como `Mensagem.telefone`
 é a chave que o histórico usa, a conversa de uma pessoa ficava partida: em 24/09/2026 o
 painel não mostrava nenhuma mensagem vinda do WhatsApp, porque procurava pelo telefone do
 contato, gravado noutro formato.

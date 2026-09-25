@@ -14,20 +14,20 @@ que era DDD viraria parte do número, com o DDD virando `11`.
 import pytest
 from services.identificador import normalizar_telefone
 
-CANONICO = "+5519991931173"
+CANONICO = "+5519990001234"
 
 
 @pytest.mark.parametrize(
     "entrada",
     [
-        "whatsapp:+5519991931173",  # como a Twilio entrega
-        "whatsapp:5519991931173",  # sem o +
-        "+5519991931173",  # já canônico
-        "5519991931173",  # DDI sem +
-        "19991931173",  # DDD + celular, como se digita no painel
-        "(19) 99193-1173",  # com máscara
-        "19 99193-1173",
-        "991931173",  # sem DDD, assume 19
+        "whatsapp:+5519990001234",  # como a Twilio entrega
+        "whatsapp:5519990001234",  # sem o +
+        "+5519990001234",  # já canônico
+        "5519990001234",  # DDI sem +
+        "19990001234",  # DDD + celular, como se digita no painel
+        "(19) 99000-1234",  # com máscara
+        "19 99000-1234",
+        "990001234",  # sem DDD, assume 19
     ],
 )
 def test_formas_do_mesmo_numero_convergem(entrada):
@@ -69,5 +69,5 @@ def test_numero_irreconhecivel_nao_e_deformado():
 def test_normalizacao_e_idempotente():
     """Aplicar duas vezes não pode mudar o resultado: a função roda em vários pontos do
     pipeline, e um valor já canônico passa por ela de novo."""
-    uma_vez = normalizar_telefone("19991931173")
+    uma_vez = normalizar_telefone("19990001234")
     assert normalizar_telefone(uma_vez) == uma_vez

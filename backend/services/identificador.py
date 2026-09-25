@@ -63,8 +63,8 @@ def normalizar_telefone(telefone: str) -> str:
     Um formato só, porque o telefone é a chave por onde o histórico de uma conversa é
     montado (`Mensagem.telefone`). Até 24/09/2026 esta função devolvia o que recebia, só
     tirando a máscara, e o mesmo cliente virava chaves diferentes conforme a porta de
-    entrada: o WhatsApp entrega `whatsapp:+5519991931173`, a interface web recebia
-    `19991931173` digitado à mão. O efeito foi o painel não mostrar **nenhuma** mensagem
+    entrada: o WhatsApp entrega `whatsapp:+5519990001234`, a interface web recebia
+    `19990001234` digitado à mão. O efeito foi o painel não mostrar **nenhuma** mensagem
     vinda do WhatsApp, porque procurava pelo telefone do contato, gravado noutra forma.
 
     A interpretação é pelo **tamanho**, não por completar um prefixo à esquerda: completar
@@ -76,10 +76,10 @@ def normalizar_telefone(telefone: str) -> str:
     plausível e errado.
 
     Exemplos:
-        'whatsapp:+5519991931173' -> '+5519991931173'   (já canônico)
-        '(19) 99193-1173'         -> '+5519991931173'
+        'whatsapp:+5519990001234' -> '+5519990001234'   (já canônico)
+        '(19) 99000-1234'         -> '+5519990001234'
         '1999854265'              -> '+5519998854265'   (insere o 9 do celular)
-        '991931173'               -> '+5519991931173'   (assume DDD 19)
+        '990001234'               -> '+5519990001234'   (assume DDD 19)
     """
     if not telefone:
         return ""

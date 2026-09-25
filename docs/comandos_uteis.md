@@ -1438,7 +1438,7 @@ O sinal de que funcionou é a mensagem de saída ficar com `message_sid` preench
 
 ```sql
 SELECT id, origem, message_sid, timestamp_envio, erro_envio, resposta_a_mensagem_id
-FROM mensagens WHERE telefone = '5519991931173' ORDER BY id DESC LIMIT 10;
+FROM mensagens WHERE telefone = '+5519990001234' ORDER BY id DESC LIMIT 10;  -- troque pelo telefone, na forma canônica
 ```
 
 `message_sid` nulo numa mensagem `system` significa que o `statusCallback` não chegou — quase sempre
