@@ -26,6 +26,117 @@ Twilio de verdade precisa caber nesta janela.
 
 ---
 
+# ⏩ Beto: Continuar daqui
+
+**Estado em 25/09 06:36 (sexta):** o ciclo completo com a Twilio **já foi provado** na
+quinta. O que falta é só a colheita de tipos de mensagem, que é o único item que morre com a
+conta. **Restam hoje e sábado.**
+
+O ambiente está **desligado** (Docker parado durante a noite; o Postgres recusa conexão na
+5433). Então:
+
+### Passo 1 — subir o ambiente (~3 min)
+
+```bash
+# Abrir o Docker Desktop no Windows, depois:
+cd /mnt/c/Beto/Pessoal/Python/git/AgenteAssistenteDeVendas
+docker compose up -d
+./scripts/twilio_modo_teste.sh status          # tem que dizer CANAL_SAIDA=twilio
+curl -s localhost:8000/api/config/execucao | python3 -m json.tool
+#   esperado: "canal_saida": "twilio", "entrega_real": true
+```
+
+O `.env` **já está** com o modo de teste ligado e a captura de payloads ativa. Se o
+`canal_saida` vier `simulado`, é só o backend não ter relido: `docker compose restart backend`.
+
+### Passo 2 — a colheita (~10 min seus, é o que expira)
+
+Mandar do celular, para o **+1 415 523 8886**, uma de cada, **em sequência, sem esperar
+resposta entre elas**:
+
+| # | Mandar | Por que importa |
+|---|---|---|
+| 1 | foto **com** legenda | `NumMedia` + `Body` juntos |
+| 2 | foto **sem** legenda | é o caso que o fix de 23/09 trata, nunca visto de verdade |
+| 3 | áudio | payload diferente de imagem |
+| 4 | documento (PDF) | idem |
+| 5 | localização | campos que nem sabemos que existem |
+| 6 | contato (vCard) | idem |
+| 7 | figurinha | idem |
+| 8 | só emoji (ex.: 👍) | encoding |
+| 9 | texto longo (>1000 caracteres) | `NumSegments` > 1 |
+| 10 | texto com acentuação e ç | encoding real, não o nosso |
+| 11 | uma mensagem e depois **editá-la** | descobrir se a Twilio reenvia |
+
+Não precisa conferir nada no celular. O objetivo é **capturar payload**, não validar resposta.
+
+### Passo 3 — me avisar
+
+Eu rodo `python scripts/analisar_payloads_twilio.py`, comparo campo a campo com o que o
+código espera, e reporto o que estamos jogando fora.
+
+### Se sobrar tempo (nesta ordem)
+
+1. **Reply-to:** responder, com o "Responder" do WhatsApp, a 3 mensagens nossas diferentes,
+   fora de ordem. Agora é possível: o `message_sid` de saída está sendo gravado (provado na
+   quinta).
+2. **Cenários de negócio** pelo WhatsApp real: prazo, preço, compatibilidade, pedido de humano.
+
+---
+
+## Execução: o que já foi feito (24/09)
+
+### ✅ O ciclo completo funciona, ponta a ponta
+
+Provado com tráfego real, não simulado:
+
+| Etapa | Evidência |
+|---|---|
+| Mensagem do celular chega ao nosso webhook | payload capturado 21:24 e 21:39 |
+| O cérebro processa e responde | resposta recebida no celular |
+| A Twilio chama o `statusCallback` | **3 chamadas** (21:39:13, :14, :17) |
+| O SID de saída é gravado | `SM270faa99c22be147ce00ad32c1abeaf9`, status `delivered` → `read` |
+
+Esse último item é o que o reply-to depende, e era o risco silencioso do plano. Está resolvido.
+
+### ✅ O que os payloads reais revelaram
+
+**`/webhook` manda 17 campos; declaramos 7.** Ignorados, entre outros:
+
+- **`ProfileName`** = o nome do cliente no WhatsApp. **O sistema pergunta o nome ao cliente.**
+- **`WaId`** = o telefone já canônico, sem `+` e sem máscara.
+- `MessageType`, `ChannelMetadata`, `NumSegments`, `ExternalUserId`, `ReferralNumMedia`.
+
+**`/webhook/status` manda 12 campos; declaramos 5.** Ignorados: `ChannelInstallSid`,
+`ChannelPrefix`, `ChannelToAddress`, `To`, `From`, `ExternalUserId`, `StructuredMessage`.
+E `ErrorCode`/`ErrorMessage`, que declaramos, **nunca vieram** — só apareceriam numa falha
+de entrega, que nesta conta não conseguimos provocar.
+
+### ✅ Dois bugs encontrados por causa do teste real
+
+**1. Sua primeira mensagem não teve resposta, e o sistema estava certo.** O atendimento
+estava em `modo_operacao = humano` desde **21/08**, escalado por `projeto_complexo`. A regra
+do REQ-011.14 suprime geração automática nesse modo. Devolvi para `agente` pelo endpoint, com
+evento de auditoria.
+
+**2. O telefone estava em 3 formatos no banco, e o painel não mostrava o WhatsApp.** Este é o
+achado grande, e não tem nada a ver com Twilio: `Mensagem.telefone` é a chave que monta o
+histórico, e `normalizar_telefone` devolvia o que recebia. Seu histórico estava partido em 8
+mensagens numa chave e 3 noutra. Corrigido em três camadas (dados, código, testes) no commit
+`894434b`, com 366 testes passando. Detalhes na auditoria.
+
+### ⚠️ Pendências que sobraram
+
+| # | O quê | Situação |
+|---|---|---|
+| 1 | **Colheita de tipos: 1 de 12** (só `text`) | é o passo 2 acima, e o único que expira |
+| 2 | Empresa **INFOR-REL** foi apagada | efeito colateral da limpeza de contato de teste: ficou órfã e a remoção automática (achado B4) a levou, com 4 atividades e 3 sócios. É dado público da Receita, recriado por consulta de CNPJ. **Decidir se quer de volta.** |
+| 3 | Testes de canal dependem do `.env` da máquina | 3 testes falharam só porque `CANAL_SAIDA=twilio` estava ligado. Frágil; vale isolar numa fixture |
+| 4 | Reply-to e cenários de negócio | não começaram |
+
+
+---
+
 ## 1. O fato que motiva o plano
 
 O canal `twilio` foi construído em 19/09: `services/canal/`, `POST /webhook/status`,
@@ -101,7 +212,7 @@ ninguém supor o contrário no piloto com a Rita.
 
 ## 4. Os dias
 
-### Dia 1 + 2 — hoje (24/09): ligar, provar o ciclo e colher os tipos
+### ✅ Dia 1 + 2 — quinta (24/09): EXECUTADO, menos a colheita de tipos
 
 **Fundidos, porque só restam três dias.** Se o tempo apertar, a ordem de prioridade dentro da
 hora é: (a) uma mensagem ida e volta com `message_sid` preenchido, (b) foto sem legenda, que
@@ -144,7 +255,7 @@ foto com legenda · foto **sem** legenda · áudio · documento (PDF) · localiz
 sem saber. O fix de ontem (mensagem sem texto) foi escrito supondo `NumMedia`; este é o dia em
 que ele é confrontado com mídia de verdade.
 
-### Dia 2 — sexta (25/09): reply-to e os cenários de negócio
+### Dia 2 — sexta (25/09): **primeiro a colheita**, depois reply-to e cenários
 
 **Você (~1h):**
 
