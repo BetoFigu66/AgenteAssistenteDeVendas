@@ -24,9 +24,41 @@ Twilio de verdade precisa caber nesta janela.
 **Restrições, decididas em 23/09:** sem upgrade (cartão fora de cogitação), sem
 `TWILIO_AUTH_TOKEN` à mão, ~1h/dia de disponibilidade do Beto para o que exige celular.
 
----
+> ## Revisado em 25/09 18:00: o que depende da Twilio está quase todo feito
+>
+> Feito até aqui: ciclo TwiML completo e `statusCallback` (24/09); colheita de 9 dos 11
+> tipos, com download dos anexos, e o primeiro reply-to (25/09). Detalhes nas seções
+> "Execução" abaixo.
+>
+> **Repriorização decidida pelo Beto:** o que sobra para o celular é **só o que depende do
+> WhatsApp de verdade**. Os cenários de negócio saem do celular: a lógica deles (cérebro,
+> classificador, RAG, templates) é a mesma pelo `/webhook` do `testador_conversas` e pela
+> interface web, e o que a Twilio acrescenta a eles (encoding, acentuação, emoji) a colheita
+> já provou que chega íntegro.
 
 # ⏩ Beto: Continuar daqui
+
+### O que ainda só dá para testar pelo WhatsApp (~25 min seus, em ordem de valor)
+
+| # | Teste | Como | O que prova |
+|---|---|---|---|
+| 1 | **Latência contra o limite de 15 s** | uma pergunta técnica que acione RAG + LLM (ex.: "a catraca X funciona com biometria facial e integra com ponto?") | a resposta TwiML precisa sair antes de a Twilio desistir; se passar, a resposta se perde em silêncio (erro 11200). O web e o testador não têm esse limite |
+| 2 | **Rajada** | 3 mensagens curtas seguidas, sem esperar (ex.: "oi" / "quero orçamento" / "de catraca") | ordem de chegada, processamento concorrente do mesmo telefone e se as 3 respostas saem coerentes |
+| 3 | **Reply-to fora de ordem** | responder com "Responder" a 2 mensagens antigas nossas, a mais velha primeiro | o primeiro reply-to foi a uma só; falta provar que a mensagem certa é escolhida quando há várias |
+| 4 | **Citar a própria mensagem** | "Responder" em uma mensagem sua, não nossa | se o `OriginalRepliedMessageSid` de uma mensagem de entrada resolve |
+| 5 | Figurinha | mandar uma | o único tipo da colheita que faltou |
+| 6 | Pedido de humano | "quero falar com um atendente" e depois mais uma mensagem | no WhatsApp real, o modo `humano` devolve TwiML vazio e o cliente não recebe nada estranho. Ao fim, devolver o atendimento para `agente` |
+
+**Ao terminar:** `./scripts/twilio_modo_teste.sh desligar` e reiniciar o backend.
+
+### O que sai do celular e vai para o web/testador
+
+Os cenários de negócio (prazo, preço, compatibilidade, reclamação), rodados pelo
+`testador_conversas` (`cli.py rodar <cenario>`) ou pela interface web. Não perdem nada que o
+WhatsApp acrescentaria, com duas exceções já cobertas acima: a latência (item 1) e o
+comportamento do modo humano (item 6).
+
+---
 
 **Estado em 25/09 06:36 (sexta):** o ciclo completo com a Twilio **já foi provado** na
 quinta. O que falta é só a colheita de tipos de mensagem, que é o único item que morre com a
@@ -77,10 +109,64 @@ código espera, e reporto o que estamos jogando fora.
 
 ### Se sobrar tempo (nesta ordem)
 
-1. **Reply-to:** responder, com o "Responder" do WhatsApp, a 3 mensagens nossas diferentes,
-   fora de ordem. Agora é possível: o `message_sid` de saída está sendo gravado (provado na
-   quinta).
-2. **Cenários de negócio** pelo WhatsApp real: prazo, preço, compatibilidade, pedido de humano.
+1. ✅ **Reply-to** (25/09, uma mensagem): "eletrônico" das 17:32, citando a pergunta
+   "O relógio seria cartográfico ou eletrônico?", gravou `resposta_a_mensagem_id = 3754`, a
+   mensagem certa. O atendimento estava em modo humano naquele momento (escalado às 17:26 pelo
+   texto longo), então não houve resposta. O "fora de ordem" com várias mensagens ficou para
+   o item 3 da lista do topo.
+2. **Cenários de negócio:** saíram do celular, ver a revisão de 25/09 18:00 no topo.
+
+---
+
+## Execução (25/09): a colheita
+
+Mensagens enviadas pelo Beto entre 17:11 e 17:28. Nesta rodada a captura passou a **baixar os
+anexos** também (`services/canal/captura_midia.py`), para `backend/logs/midias_twilio/`, com
+um `indice.jsonl` por anexo. A API Key autenticou o download direto da URL do `MediaUrl0`
+(200 na primeira tentativa), embora a **listagem** de mídia da API seja recusada na trial
+(erro 20003).
+
+| # | Tipo | `MessageType` | O que chegou | O que o sistema fez |
+|---|---|---|---|---|
+| 1 | foto com legenda | `image` | `NumMedia=1`, `image/jpeg`, `Body` = legenda | respondeu à legenda; jpg baixado (156 KB) |
+| 2 | foto sem legenda | `image` | `Body` vazio | caminho "sem texto", sem resposta; jpg baixado |
+| 3 | áudio | `audio` | `audio/ogg`, `Body` vazio | caminho "sem texto"; ogg baixado (13 KB) |
+| 4 | PDF (encaminhado) | `document` | `Body` = **nome do arquivo**, `Forwarded=true`, `FrequentlyForwarded=false` | **tratou o nome do arquivo como texto do cliente e respondeu**; pdf baixado |
+| 5 | localização | `location` | `NumMedia=0`, `Latitude`/`Longitude`, `Body` vazio, sem endereço | gravou "[mensagem recebida sem conteúdo]": **as coordenadas se perdem** |
+| 6 | contato | `contacts` | `text/vcard`, `Body` vazio | caminho "sem texto"; vcf baixado (393 B) |
+| 7 | figurinha | — | **não enviada** | — |
+| 8 | só emoji (🍾) | `text` | encoding íntegro | respondeu |
+| 9 | texto longo (1075 caracteres) | `text` | **`NumSegments=1`**: no WhatsApp não há segmentação, a suposição estava errada | **escalou para modo humano** (projeto complexo) |
+| 10 | acentuação e ç | `text` | íntegros (`terça`, `está`) | — |
+| 11 | editar mensagem | — | **o WhatsApp não ofereceu a opção de editar** na conversa com o número do Sandbox (+1 415 523 8886), embora a edição funcione nas conversas do Beto com outros contatos | nada a capturar; não sabemos se a Twilio repassa edição |
+
+Sobre o item 11: a causa **não foi verificada**. Hipótese: o WhatsApp não oferece edição em
+conversa com conta Business/API, ou não no Sandbox. Fica em aberto para quando houver o
+número próprio (chip pré-pago).
+
+### O que a colheita revelou
+
+- **`MessageType` é o campo que faltava.** Chega sempre (`text`, `image`, `audio`,
+  `document`, `location`, `contacts`) e resolve os dois erros abaixo melhor que olhar só
+  `Body`/`NumMedia`.
+- **Bug: documento com o nome do arquivo no `Body`.** O PDF passou pelo cérebro como se o
+  nome do arquivo fosse mensagem do cliente. Correção: `MessageType=document` vai para o
+  caminho de mídia, com o `Body` guardado como nome do arquivo.
+- **Bug: localização sem conteúdo.** `Latitude`/`Longitude` chegam no formulário e não são
+  gravadas.
+- **O texto longo escalou o atendimento para `humano`.** Mesma armadilha de 24/09: a partir
+  dali (17:26) nenhuma mensagem teve resposta, inclusive a do item 11 e o "eletrônico" das
+  17:32. Precisa voltar para `agente` antes do reply-to.
+- **O bot repetiu a mesma pergunta** ("O relógio seria cartográfico ou eletrônico?") para a
+  legenda da foto, o nome do PDF e o emoji. É o sintoma que a pilha de perguntas pendentes
+  endereça.
+- `ChannelMetadata` é um JSON com o contexto da mensagem (`Forwarded`, `Latitude`,
+  `ProfileName`), redundante com os campos soltos.
+- `ErrorCode`/`ErrorMessage` continuam sem aparecer no `/webhook/status`: nenhuma entrega
+  falhou.
+
+Os arquivos baixados e as coordenadas são dados reais do Beto e ficam só em `backend/logs/`,
+que o git ignora.
 
 ---
 
@@ -129,7 +215,7 @@ mensagens numa chave e 3 noutra. Corrigido em três camadas (dados, código, tes
 
 | # | O quê | Situação |
 |---|---|---|
-| 1 | **Colheita de tipos: 1 de 12** (só `text`) | é o passo 2 acima, e o único que expira |
+| 1 | ~~Colheita de tipos~~ | **concluída em 25/09**, 9 de 11 tipos; ver "Execução (25/09)" |
 | 2 | Empresa **INFOR-REL** foi apagada | efeito colateral da limpeza de contato de teste: ficou órfã e a remoção automática (achado B4) a levou, com 4 atividades e 3 sócios. É dado público da Receita, recriado por consulta de CNPJ. **Decidir se quer de volta.** |
 | 3 | Testes de canal dependem do `.env` da máquina | 3 testes falharam só porque `CANAL_SAIDA=twilio` estava ligado. Frágil; vale isolar numa fixture |
 | 4 | Reply-to e cenários de negócio | não começaram |
@@ -177,21 +263,22 @@ uma linha JSON por chamada, **antes** de qualquer processamento, para que um err
 não faça perder o payload. Desligado por padrão, com teste garantindo que fica desligado.
 Arquivo no `.gitignore`, porque contém o seu telefone.
 
+
 ## 3. O que é testável nesta conta, e o que não é
 
 Sendo honesto sobre o escopo, porque metade da lista que parecia óbvia não cabe:
 
 ### Testável
 
-| Item | Por quê importa |
-|---|---|
-| Ciclo TwiML completo no sistema real | é o único caminho de entrega que a trial permite, e nunca rodou |
-| `statusCallback` gravando `message_sid` | é o que liga o reply-to; sem ele a pilha de perguntas perde o desempate (0) |
-| Reply-to ponta a ponta | o spike provou o mecanismo, o **sistema** não |
-| Payloads reais de cada tipo de mensagem | vira fixture permanente |
-| Tipos de mídia (foto, áudio, documento, localização, contato) | cada um manda campos diferentes, e o fix de ontem só foi testado com `NumMedia` inventado |
-| Casos de borda de texto (emoji, mensagem longa, acentuação) | nunca passaram por um encoding real |
-| Os cenários de negócio pelo WhatsApp de verdade | o testador fala com o `/webhook` direto, sem passar pela Twilio |
+| Item | Por quê importa | Situação em 25/09 |
+|---|---|---|
+| Ciclo TwiML completo no sistema real | é o único caminho de entrega que a trial permite, e nunca rodou | ✅ 24/09 |
+| `statusCallback` gravando `message_sid` | é o que liga o reply-to; sem ele a pilha de perguntas perde o desempate (0) | ✅ 24/09 |
+| Reply-to ponta a ponta | o spike provou o mecanismo, o **sistema** não | ✅ 25/09, uma mensagem; falta "fora de ordem" |
+| Payloads reais de cada tipo de mensagem | vira fixture permanente | ✅ capturados; falta virar fixture (Dia 3) |
+| Tipos de mídia (foto, áudio, documento, localização, contato) | cada um manda campos diferentes, e o fix de ontem só foi testado com `NumMedia` inventado | ✅ 25/09, com dois bugs achados (documento, localização) |
+| Casos de borda de texto (emoji, mensagem longa, acentuação) | nunca passaram por um encoding real | ✅ 25/09, íntegros |
+| Os cenários de negócio pelo WhatsApp de verdade | o testador fala com o `/webhook` direto, sem passar pela Twilio | ➡️ movidos para web/testador em 25/09 |
 
 ### **Não** testável nesta conta (e isso é permanente, não pendência)
 
