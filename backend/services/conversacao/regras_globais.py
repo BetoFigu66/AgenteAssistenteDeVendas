@@ -92,7 +92,7 @@ async def _executar_fornecer_cnpj(ctx: ContextoAcao):
         ctx.db,
         ctx.telefone,
         entidades.cnpjs[0],
-        nome_informado=entidades.nomes[0] if entidades.nomes else None,
+        nome_informado=ctx.nome_para_contato(),
     )
 
 
@@ -108,6 +108,7 @@ async def _executar_fornecer_cpf(ctx: ContextoAcao):
         entidades.cpfs[0],
         nome_informado=entidades.nomes[0] if entidades.nomes else None,
         data_nascimento=data_nasc,
+        nome_perfil=ctx.nome_perfil,
     )
 
 
@@ -135,6 +136,10 @@ def _builder_fornecer_data_nascimento(ctx: ContextoAcao) -> GrupoAcoes:
     if not cpf_pendente:
         return GrupoAcoes()
 
+    # `contato.nome` vira `Pessoa.nome` aqui, então um nome que só veio do perfil do
+    # WhatsApp (igual ao `ProfileName` desta mensagem) não é repassado como nome informado.
+    nome_do_cliente = contato_pendente.nome if contato_pendente.nome != ctx.nome_perfil else None
+
     async def _executar(ctx: ContextoAcao):
         if ctx.dlog:
             ctx.dlog.log("rota", f"data_nasc_complemento cpf={mascarar_cpf(cpf_pendente)}")
@@ -142,8 +147,9 @@ def _builder_fornecer_data_nascimento(ctx: ContextoAcao) -> GrupoAcoes:
             ctx.db,
             ctx.telefone,
             cpf_pendente,
-            nome_informado=contato_pendente.nome,
+            nome_informado=nome_do_cliente,
             data_nascimento=data_nasc_avulsa,
+            nome_perfil=ctx.nome_perfil,
         )
 
     return GrupoAcoes(exclusivo=[Acao("fornecer_data_nascimento", _executar)])
@@ -154,9 +160,16 @@ async def _executar_fornecer_nome(ctx: ContextoAcao):
     nome — unifica 3 duplicações que existiam espalhadas pelo roteador antigo. Quando
     ainda não há `Contato` (telefone totalmente novo), o nome é passado direto para quem
     cria o contato (`_garantir_contato_e_atendimento_qualificacao`/
-    `_garantir_atendimento_anonimo`), então não há nada a fazer aqui nesse caso."""
+    `_garantir_atendimento_anonimo`), então não há nada a fazer aqui nesse caso.
+
+    Exceção ao "só se não tem nome": se o nome atual é o nome de perfil do WhatsApp
+    (igual ao `ProfileName` desta mensagem), o nome que o cliente escreveu o substitui.
+    Nome dado pelo próprio cliente vale mais que o apelido do perfil."""
     entidades = ctx.resultado_class.entidades
-    if entidades.nomes and ctx.contato and not ctx.contato.nome:
+    if not (entidades.nomes and ctx.contato):
+        return None
+    nome_veio_do_perfil = bool(ctx.nome_perfil) and ctx.contato.nome == ctx.nome_perfil
+    if not ctx.contato.nome or (nome_veio_do_perfil and entidades.nomes[0] != ctx.contato.nome):
         ctx.contato.nome = entidades.nomes[0]
         ctx.db.commit()
     return None

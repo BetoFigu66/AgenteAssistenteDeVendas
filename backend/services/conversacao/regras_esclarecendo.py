@@ -156,7 +156,6 @@ async def _executar_pedir_orcamento(ctx: ContextoAcao):
     aqui porque é o builder de Esclarecendo que decide disparar a transição."""
     p = ctx.processador
     era_novo = ctx.identificacao.status == StatusIdentificacao.NOVO
-    entidades = ctx.resultado_class.entidades
 
     await garantir_atendimento_dispatch(ctx)
     partes_finalizando = await FINALIZANDO.entrar(ctx)
@@ -164,7 +163,7 @@ async def _executar_pedir_orcamento(ctx: ContextoAcao):
     if era_novo:
         if ctx.dlog:
             ctx.dlog.log("rota", "NOVO + PEDIR_ORCAMENTO → composta (Finalizando)")
-        ctx_novo = {"nome": entidades.nomes[0] if entidades.nomes else None, "modo": "orcamento"}
+        ctx_novo = {"nome": ctx.nome_para_contato(), "modo": "orcamento"}
         return await p._gerador.gerar_composta([(MensagemId.SAUDACAO_NOVO_CONTATO, ctx_novo), *partes_finalizando])
 
     if len(partes_finalizando) == 1:
@@ -218,7 +217,7 @@ async def _executar_perguntar_disponibilidade(ctx: ContextoAcao):
     if era_novo:
         if ctx.dlog:
             ctx.dlog.log("rota", "NOVO + PERGUNTAR_DISPONIBILIDADE → composta (Finalizando)")
-        ctx_novo = {"nome": entidades.nomes[0] if entidades.nomes else None, "modo": "orcamento"}
+        ctx_novo = {"nome": ctx.nome_para_contato(), "modo": "orcamento"}
         return await p._gerador.gerar_composta([(MensagemId.SAUDACAO_NOVO_CONTATO, ctx_novo), *partes_finalizando])
 
     if len(partes_finalizando) == 1:

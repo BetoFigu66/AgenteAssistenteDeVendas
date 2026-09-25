@@ -77,7 +77,7 @@ class EsclarecendoState(EstadoAtendimento):
         if ctx.identificacao.status == StatusIdentificacao.NOVO:
             entidades = ctx.resultado_class.entidades
             ctx_novo = {
-                "nome": entidades.nomes[0] if entidades.nomes else None,
+                "nome": ctx.nome_para_contato(),
                 "tem_documento": bool(entidades.cnpjs or entidades.cpfs),
                 "modo": "identificacao",
             }

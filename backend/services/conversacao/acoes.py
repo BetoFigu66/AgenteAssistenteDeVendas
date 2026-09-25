@@ -56,10 +56,20 @@ class ContextoAcao:
     pessoa: Optional[Pessoa] = None
     atendimento: Optional[Atendimento] = None
     dlog: Optional[DebugLogger] = None
+    # Nome de perfil do WhatsApp (`ProfileName`) já validado por
+    # `utils.nome_perfil.nome_perfil_aproveitavel`, ou None (inválido, ausente ou chamada
+    # que não veio do WhatsApp). Ver `nome_para_contato`.
+    nome_perfil: Optional[str] = None
     # Fragmentos já produzidos por Ações anteriores NESTA mensagem, na ordem de execução
     # — permite que uma Ação de último recurso (ex.: pedir documento fiscal) só aja
     # quando nada mais respondeu nada ainda.
     fragmentos_ate_agora: list[RespostaGerada] = field(default_factory=list)
+
+    def nome_para_contato(self) -> Optional[str]:
+        """Nome a usar para um contato que ainda não tem nome: o que o cliente escreveu
+        nesta mensagem vem antes do nome de perfil do WhatsApp."""
+        nomes = self.resultado_class.entidades.nomes
+        return nomes[0] if nomes else self.nome_perfil
 
 
 # Uma Ação produz: um par (MensagemId, contexto) pronto pro catálogo de templates, OU uma
@@ -106,7 +116,7 @@ async def garantir_atendimento_dispatch(ctx: ContextoAcao) -> Atendimento:
         return ctx.atendimento
     p = ctx.processador
     atendimento = await p._garantir_contato_e_atendimento_qualificacao(
-        ctx.db, ctx.telefone, ctx.contato, ctx.resultado_class, dlog=ctx.dlog
+        ctx.db, ctx.telefone, ctx.contato, ctx.resultado_class, dlog=ctx.dlog, nome_perfil=ctx.nome_perfil
     )
     ctx.atendimento = atendimento
     ctx.contato = atendimento.contato
