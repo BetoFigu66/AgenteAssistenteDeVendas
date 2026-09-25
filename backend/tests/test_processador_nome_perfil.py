@@ -13,7 +13,7 @@ from database import Database
 from models import Contato, Empresa, ModoExecucao, ProcessamentoMensagem
 from services.dev_limpeza_telefone import apagar_dados_telefone
 from services.identificador import criar_contato, criar_contato_sem_empresa
-from services.parametro_service import MODO_EXECUCAO, ParametroService
+from services.parametro_service import ParametroService
 from services.processador import ProcessadorMensagem
 
 # CNPJ sintético válido (mesmo de `test_regras_globais.py`), sem relação com empresa real.
@@ -22,14 +22,14 @@ _PEDE_NOME = "o seu nome"
 
 
 @pytest.fixture
-def db_session():
+def db_session(monkeypatch):
+    # O modo vem de um dublê e não é gravado: o banco é compartilhado com o backend que
+    # estiver no ar, e mudar o `parametros` ali mudaria o que ele faz com mensagem real.
+    monkeypatch.setattr(ParametroService, "modo_execucao", lambda self: ModoExecucao.EXECUCAO_NORMAL)
     database = Database()
     with database.get_session() as session:
-        modo_original = ParametroService(session).modo_execucao()
-        ParametroService(session).set(MODO_EXECUCAO, ModoExecucao.EXECUCAO_NORMAL.value)
         yield session
         session.rollback()
-        ParametroService(session).set(MODO_EXECUCAO, modo_original.value)
 
 
 @pytest.fixture

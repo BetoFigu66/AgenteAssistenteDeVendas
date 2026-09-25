@@ -318,3 +318,49 @@ def test_callbacks_de_status_reais_gravam_o_sid_uma_vez():
         m = session.query(Mensagem).filter_by(id=mensagem_id).one()
         assert m.message_sid == sid
         assert m.erro_envio is None
+
+
+# ---------------------------------------------------------------------------
+# Download de anexos: só depois da assinatura e da idempotência
+# ---------------------------------------------------------------------------
+
+
+@pytest.fixture
+def espiao_download(monkeypatch, tmp_path):
+    import main
+    from config import settings
+
+    monkeypatch.setattr(settings, "TWILIO_CAPTURAR_PAYLOADS", True)
+    monkeypatch.setattr(settings, "TWILIO_CAPTURA_ARQUIVO", str(tmp_path / "payloads.jsonl"))
+    chamadas = []
+    monkeypatch.setattr(main, "agendar_download_midias", lambda formulario: chamadas.append(formulario))
+    return chamadas
+
+
+def test_download_de_anexo_e_agendado_para_chamada_da_twilio(espiao_download):
+    resposta = _postar("foto_sem_legenda")
+
+    _assert_twiml_vazio(resposta)
+    assert len(espiao_download) == 1
+    assert espiao_download[0]["MediaUrl0"] == _fixture("foto_sem_legenda")["form"]["MediaUrl0"]
+
+
+def test_assinatura_invalida_nao_dispara_download(espiao_download, monkeypatch):
+    """Antes a captura agendava o download antes de conferir a assinatura: uma requisição
+    forjada acionava o download e só depois levava a recusa."""
+    from config import settings
+
+    monkeypatch.setattr(settings, "TWILIO_VALIDAR_ASSINATURA", True)
+    monkeypatch.setattr(settings, "TWILIO_AUTH_TOKEN", "token-de-teste")
+
+    resposta = _postar("foto_sem_legenda", headers={"X-Twilio-Signature": "forjada"})
+
+    assert resposta.status_code in (403, 503)
+    assert espiao_download == []
+
+
+def test_reentrega_nao_baixa_de_novo(espiao_download):
+    _postar("foto_sem_legenda")
+    _postar("foto_sem_legenda")
+
+    assert len(espiao_download) == 1

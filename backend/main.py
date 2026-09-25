@@ -191,8 +191,6 @@ async def _capturar_payload_twilio(request: Request, endpoint: str) -> None:
         with caminho.open("a", encoding="utf-8") as arquivo:
             arquivo.write(json.dumps(registro, ensure_ascii=False) + "\n")
         logger.info("[CapturaTwilio] %s: %s campos gravados", endpoint, len(formulario))
-        if endpoint == "/webhook":
-            agendar_download_midias(formulario)
     except Exception:
         logger.exception("[CapturaTwilio] falha ao gravar payload (ignorada de propósito)")
 
@@ -669,6 +667,15 @@ async def webhook_twilio(
     if _mensagem_ja_recebida(MessageSid):
         logger.info("[Webhook] MessageSid %s já registrado, reentrega ignorada.", MessageSid)
         return PlainTextResponse(content=_TWIML_VAZIO, media_type="application/xml")
+
+    # Download dos anexos (instrumentação da colheita) só depois da assinatura e da
+    # idempotência, e só para chamada que se diz da Twilio: disparar antes deixava uma
+    # requisição forjada acionar downloads que ela mesma levaria 403 em seguida.
+    if settings.TWILIO_CAPTURAR_PAYLOADS and veio_da_twilio:
+        try:
+            agendar_download_midias(dict(await request.form()))
+        except Exception:
+            logger.exception("[CapturaMidia] falha ao agendar download (ignorada de propósito)")
 
     # Mensagem sem texto do cliente: registra e devolve TwiML vazio, sem acionar o
     # cérebro. Ver `_registrar_mensagem_sem_texto` para o porquê de cada parte. Vale
