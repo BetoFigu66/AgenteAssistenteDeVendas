@@ -148,9 +148,10 @@ class _FalhaDownload(Exception):
 async def _baixar(cliente: httpx.AsyncClient, url: str) -> tuple[bytes, int, Optional[int]]:
     """Baixa em stream com teto de tamanho. Devolve (conteúdo, status, status com auth).
 
-    Na conta trial a API de mídia responde 20003 ("not available on a Trial account") para
-    chamada autenticada; a URL do `MediaUrl{i}` é servida sem autenticação quando a conta
-    não exige, então um 401/403 com credencial ganha uma segunda tentativa sem ela. O
+    Na colheita de 25/09 a URL do `MediaUrl{i}` respondeu 200 com a API Key na primeira
+    tentativa (quem responde 20003 na trial é a *listagem* de mídia, que não usamos). A
+    segunda tentativa sem credencial, num 401/403, cobre a conta que não exige autenticação
+    para mídia e uma chave sem escopo para ela. O
     redirecionamento para o armazenamento (outro host) não leva a credencial: o httpx a
     remove quando a origem muda.
     """

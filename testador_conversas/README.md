@@ -24,9 +24,11 @@ refactorings e novas implementações sem depender só de teste unitário.
   (o que enviar) e `respostas_aceitas` (o que é considerado válido, evolui por
   revisão humana) moram lá. O YAML em `cenarios_exportados/` é a fotografia
   versionada no git: `cli.py exportar` grava, `cli.py importar` restaura.
-- **v1 sem LLM**: o backend de teste precisa rodar **sem `GROQ_API_KEY`**
-  (`ProcessadorMensagem(llm=None)`, que já é o padrão quando a chave não está
-  configurada) para as respostas serem 100% determinísticas. Com LLM ligado, a
+- **v1 sem LLM**: o backend de teste precisa rodar **com `LLM_API_KEY` vazia**
+  (a variável é `LLM_API_KEY`, lida em `backend/config.py`; `GROQ_API_KEY` não
+  existe no backend). Sem chave, `get_llm_provider()` levanta erro no lifespan e o
+  backend cai para `ProcessadorMensagem(llm=None)`, e as respostas ficam 100%
+  determinísticas. Com LLM ligado, a
   personalização muda o texto a cada rodada e toda resposta vira divergência.
   Personalização por LLM fica pra v2 (banco de variações aceitas, ou juiz por
   LLM pra equivalência semântica).
@@ -46,7 +48,7 @@ refactorings e novas implementações sem depender só de teste unitário.
    bootstrap quebra com "relation users does not exist".
 2. **`DEBUG=true` no `.env` do backend**: `DELETE /api/dev/telefones/{telefone}`,
    usado para limpar a conversa ao fim de cada cenário, responde 403 sem isso.
-3. **Sem `GROQ_API_KEY`** (ver acima).
+3. **`LLM_API_KEY` vazia** (ver acima).
 4. **`ModoExecucao.EXECUCAO_NORMAL`** é o caminho testado: a resposta volta
    dentro do TwiML, síncrona, e o testador a lê direto. Em `SIMULACAO`/
    `CONVERSA_CONTROLADA` o TwiML volta vazio e o testador cai no plano B,
@@ -56,6 +58,53 @@ refactorings e novas implementações sem depender só de teste unitário.
 5. **Porta**: `TESTADOR_BACKEND_BASE_URL` tem default `http://localhost:8001`
    (backend em dev, `uvicorn --port 8001`). O ambiente docker/QA sobe na **8000**,
    então lá é `TESTADOR_BACKEND_BASE_URL=http://localhost:8000`.
+6. **Driver do banco no backend nativo**: use `DATABASE_URL=postgresql://...`
+   (psycopg2, o que está no `backend/requirements.txt` e no `backend/venv`). O
+   default de `backend/config.py` é `postgresql+psycopg://...` (psycopg v3), que não
+   está instalado no venv: o backend nem sobe (`No module named 'psycopg'`). O
+   `.env` do backend já usa `postgresql://`; o problema só aparece quando se
+   sobrescreve a URL por variável de ambiente e se copia o default do `config.py`.
+
+### Backend separado para a bateria
+
+Receita usada na bateria de 25/09 (`artefatos/qa/2026-09-25_cenarios_testador.md`).
+Serve quando o backend do Docker (8000) está em modo de teste real
+(`CANAL_SAIDA=twilio`) e não deve ser tocado: sobe um segundo backend, nativo no
+WSL, na 8001, com tudo o que importa sobrescrito por variável de ambiente. Nem o
+`.env` nem o Docker mudam; as variáveis de ambiente têm precedência sobre o `.env`.
+
+```bash
+# Terminal 1: backend da bateria (de backend/, venv ativo)
+cd backend && source venv/bin/activate
+LLM_API_KEY= \
+CANAL_SAIDA=simulado \
+TWILIO_CAPTURAR_PAYLOADS=false \
+DEBUG=true \
+DATABASE_URL=postgresql://inforrel:inforrel_dev@localhost:5433/assistente_vendas \
+uvicorn main:app --host 0.0.0.0 --port 8001      # sem --reload, de propósito
+
+# Terminal 2: o testador (aponta para a 8001 por padrão)
+cd testador_conversas && source venv/bin/activate
+python cli.py rodar-todos --nao-interativo
+```
+
+Cuidados:
+
+- **Sem `--reload`**: se alguém editar o código durante a bateria, o backend não
+  recarrega no meio e a rodada inteira testa o mesmo código.
+- **O banco é o mesmo do Docker**, e o `ModoExecucao` é global (tabela
+  `parametros`). Leia (`GET /api/config/execucao`), não altere: trocar o modo aqui
+  troca também no backend do Docker, que está entregando de verdade.
+- **Confirmar que o LLM ficou desligado por fora.** Depois do `alembic upgrade head`
+  do lifespan os logs do backend somem (o `fileConfig` do Alembic desliga os
+  loggers), inclusive a linha "LLM não disponível". Confira em
+  `processamentos_mensagem` que nenhum registro da rodada tem
+  `personalizado_via_llm = true`.
+- Para comparar com outra branch, o mesmo esquema funciona com um `git worktree`
+  em outra porta (a de 25/09 usou `develop` na 8002, com o mesmo venv) e
+  `TESTADOR_BACKEND_BASE_URL=http://localhost:8002`. Remova o worktree ao fim.
+- Ao terminar, derrube o backend da 8001 (Ctrl+C). Um backend órfão na porta faz a
+  próxima subida falhar com "address already in use".
 
 ## Setup (uma vez)
 

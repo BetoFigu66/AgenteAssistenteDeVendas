@@ -1461,6 +1461,104 @@ balão mostra o motivo. O caso mais comum é o erro **63016** — mais de 24h de
 cliente, e o WhatsApp só aceita template a partir daí. Reabrir a conversa com template ainda não é
 suportado.
 
+### Colheita de payloads reais (e dos anexos)
+
+Instrumentação para ligar só durante um teste com o celular. `./scripts/twilio_modo_teste.sh ligar`
+já liga a captura junto com o canal real, e `desligar` a desliga. Com `TWILIO_CAPTURAR_PAYLOADS=true`:
+
+- **Formulário cru** de cada chamada a `/webhook` e `/webhook/status`, uma linha JSON por chamada,
+  em `TWILIO_CAPTURA_ARQUIVO` (default `logs/payloads_twilio.jsonl`, relativo a `backend/`).
+- **Anexos** (desde 25/09): cada `MediaUrl{i}` é baixado em segundo plano para
+  `TWILIO_CAPTURA_MIDIAS_PASTA` (default `logs/midias_twilio/`), com o nome `<MessageSid>_<i>.<ext>`.
+  Cada anexo, baixado ou não, ganha uma linha em `logs/midias_twilio/indice.jsonl` (status HTTP,
+  tamanho, ou o erro). O download nunca segura nem derruba o webhook.
+
+Travas do download (achados A1 a A3 da revisão de 25/09, porque o webhook é público):
+
+- só baixa de `https://api.twilio.com`, e só para lá vai a credencial (API Key, ou Auth Token na
+  falta dela). `MediaUrl` de outro host vira erro no índice;
+- só depois da validação de assinatura e da checagem de idempotência, e só para chamada com
+  `AccountSid`. O formulário cru continua sendo gravado **antes** da assinatura, de propósito
+  (registra também o que foi recusado);
+- `MessageSid` precisa ter o formato da Twilio (`MM`/`SM` + 32 hex), senão nada é baixado;
+- no máximo 10 anexos por mensagem e 110 MB por anexo.
+
+Tudo isso fica em `backend/logs/`, que o git ignora: são fotos, áudios e coordenadas reais de quem
+testou. **Não copiar nada dali para dentro do repositório** sem anonimizar (ver fixtures abaixo).
+
+```bash
+# O que chegou x o que o código declara (lê os parâmetros dos endpoints por introspecção)
+cd backend && source venv/bin/activate
+python scripts/analisar_payloads_twilio.py                       # usa TWILIO_CAPTURA_ARQUIVO
+python scripts/analisar_payloads_twilio.py outro_arquivo.jsonl
+
+# Situação dos anexos baixados, sem abrir os arquivos
+python3 -c "import json; [print(r.get('content_type'), r.get('status_http'), r.get('bytes'), r.get('erro','')) for r in map(json.loads, open('logs/midias_twilio/indice.jsonl'))]"
+```
+
+O relatório do script diz, por endpoint, os campos declarados que nunca vieram, os que vieram e o
+código ignora, e todos os campos por frequência com exemplos de valor.
+
+### Fixtures reais anonimizadas (`backend/tests/fixtures/twilio/`)
+
+Um JSON por tipo de mensagem da colheita de 25/09 (texto simples, emoji, acentuação, texto longo,
+reply-to, foto com e sem legenda, áudio, documento encaminhado, localização, contato) mais os três
+status (`sent`, `delivered`, `read`). Cada arquivo tem o mesmo formato de uma linha do
+`payloads_twilio.jsonl`, com um campo `origem` a mais. `tests/test_webhook_payloads_reais.py` usa
+essas fixtures para conferir o webhook contra o que a Twilio de fato manda.
+
+Se houver nova colheita (número próprio, outro tipo de mensagem), a regeneração é manual:
+
+1. Escolher a linha em `backend/logs/payloads_twilio.jsonl` e copiá-la para um arquivo novo em
+   `backend/tests/fixtures/twilio/<tipo>.json`.
+2. Anonimizar seguindo as regras do `README.md` da pasta: telefone vira `+5511900000001` (em `From`,
+   `WaId`, `To` do status, `ChannelToAddress`), `ProfileName` vira "Cliente Teste", SIDs trocados por
+   fictícios do mesmo formato e **de forma consistente** entre arquivos (inclusive dentro de
+   `MediaUrl` e `OriginalRepliedMessageSid`), coordenadas, nome de arquivo e texto livre trocados,
+   `ChannelMetadata` acompanhando os mesmos valores, `x-twilio-signature` removido.
+3. Conferir com `grep` que o telefone real, o nome do perfil e os SIDs reais não sobraram em nenhum
+   arquivo da pasta, e só então `git add`. Os anexos baixados **não** viram fixture.
+
+### Comportamento do `/webhook` por `MessageType`
+
+A Twilio manda `MessageType` em toda chamada (`text`, `image`, `audio`, `document`, `location`,
+`contacts`). É ele, e não só `Body`/`NumMedia`, que decide se a mensagem vai ao cérebro
+(`main.py::_conteudo_sem_texto`):
+
+| `MessageType` | O que chega | O que o sistema grava | Vai ao cérebro? |
+|---|---|---|---|
+| `text` | `Body` | o texto | sim |
+| `image` com legenda | `Body` = legenda | a legenda | sim (a legenda é texto do cliente) |
+| `image`, `audio`, `contacts` sem texto | `NumMedia>0`, `Body` vazio | `[mídia recebida sem texto: N anexo(s)]` | não |
+| `document` | `Body` = **nome do arquivo** | `[documento recebido: <nome>]` | não |
+| `location` | `NumMedia=0`, `Latitude`/`Longitude`, `Body` vazio | `[localização: <lat>, <lon>]` | não |
+| ausente (testador, simulador web) | só `From`/`Body` | regra antiga: sem `Body` é "sem texto" | se tiver `Body` |
+
+Mensagem que não vai ao cérebro recebe TwiML vazio, sem resposta automática. Os colchetes indicam
+anotação do sistema, não texto digitado.
+
+**Idempotência:** se o `MessageSid` já está gravado em `mensagens`, o `/webhook` devolve 200 com TwiML
+vazio e não processa de novo (`_mensagem_ja_recebida`). Evita resposta duplicada quando a Twilio
+reentrega. Chamada local não manda `MessageSid` e nunca é barrada. Se a consulta falhar, a mensagem
+segue como nova.
+
+### Armadilhas descobertas na colheita (24 e 25/09)
+
+- **Listagem de mídia recusada, URL individual funciona.** Na conta trial, listar a mídia pela API
+  devolve erro **20003**. A URL que vem no `MediaUrl{i}` respondeu 200 com a API Key na primeira
+  tentativa, para os cinco anexos. Por garantia, um 401/403 com credencial ganha uma segunda
+  tentativa sem ela.
+- **Sem opção de editar mensagem no Sandbox.** O WhatsApp não ofereceu "Editar" na conversa com o
+  `+1 415 523 8886`, embora ofereça nas outras conversas. Causa não verificada (hipótese: conta
+  Business/API ou Sandbox). Ainda não sabemos se a Twilio repassa edição; fica para o número próprio.
+- **Texto longo chega com `NumSegments=1`.** Um texto de 1075 caracteres veio inteiro, em uma chamada.
+  No WhatsApp não há segmentação como no SMS.
+- **Texto longo escala o atendimento.** O mesmo texto disparou "projeto complexo" e pôs o atendimento
+  em `humano`; dali em diante nenhuma mensagem teve resposta. Antes de testar outra coisa depois dele,
+  devolver o atendimento para `agente`.
+- **`ErrorCode`/`ErrorMessage` nunca apareceram** no `/webhook/status`: só vêm numa falha de entrega,
+  que esta conta não provocou.
+
 ---
 
 ## Testador de conversas — bateria de cenários
@@ -1479,7 +1577,7 @@ rotina de uso.
 |---|---|
 | `alembic upgrade head` rodado antes do `bootstrap_usuario.py` | o bootstrap faz SELECT em `users`, tabela do backend |
 | `DEBUG=true` no `.env` do backend | sem isso `DELETE /api/dev/telefones` dá 403 e toda execução falha na limpeza |
-| **sem** `GROQ_API_KEY` | com LLM a resposta varia a cada rodada e todo turno vira revisão manual |
+| **sem** `LLM_API_KEY` (vazia) | com LLM a resposta varia a cada rodada e todo turno vira revisão manual. A variável é `LLM_API_KEY`, não `GROQ_API_KEY` |
 | `ModoExecucao = EXECUCAO_NORMAL` | é o caminho testado: a resposta volta no TwiML. Nos modos com aprovação ela fica pendente no painel |
 | porta certa | o testador aponta para 8001 (dev) por padrão; o docker/QA responde na 8000 |
 
@@ -1505,6 +1603,10 @@ python cli.py exportar && git add testador_conversas/cenarios_exportados/
 ```
 
 Para rodar contra o docker/QA: `TESTADOR_BACKEND_BASE_URL=http://localhost:8000 python cli.py ...`
+
+Com o docker/QA ligado no canal real (`CANAL_SAIDA=twilio`), o mais seguro é subir um backend
+separado na 8001, sem LLM e com canal simulado, só por variável de ambiente. A receita está em
+`testador_conversas/README.md`, seção "Backend separado para a bateria".
 
 O critério de aceite de cada turno está no campo `observacoes` do YAML, no formato
 `PRECISA: ... | NÃO PODE: ... | exercita: ...`. O CLI ainda não imprime isso na tela, então
