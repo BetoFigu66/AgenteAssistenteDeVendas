@@ -1,0 +1,29 @@
+{
+  "origem": "colheita real Twilio WhatsApp Sandbox de 25/09/2026, anonimizada",
+  "recebido_em": "2026-09-25T20:20:42.186724+00:00",
+  "endpoint": "/webhook",
+  "query": {},
+  "headers": {
+    "user-agent": "TwilioProxy/1.1",
+    "content-type": "application/x-www-form-urlencoded"
+  },
+  "form": {
+    "ExternalUserId": "whatsapp:BR.1000000000000001",
+    "SmsMessageSid": "SMf1c7f1c7f1c7f1c7f1c7f1c7f1c70002",
+    "NumMedia": "0",
+    "ProfileName": "Cliente Teste",
+    "MessageType": "text",
+    "SmsSid": "SMf1c7f1c7f1c7f1c7f1c7f1c7f1c70002",
+    "WaId": "5511900000001",
+    "SmsStatus": "received",
+    "Body": "🍾",
+    "To": "whatsapp:+14155238886",
+    "NumSegments": "1",
+    "ReferralNumMedia": "0",
+    "MessageSid": "SMf1c7f1c7f1c7f1c7f1c7f1c7f1c70002",
+    "AccountSid": "ACf1c7f1c7f1c7f1c7f1c7f1c7f1c70001",
+    "ChannelMetadata": "{\"type\":\"whatsapp\",\"data\":{\"context\":{\"ProfileName\":\"Cliente Teste\",\"WaId\":\"5511900000001\"}}}",
+    "From": "whatsapp:+5511900000001",
+    "ApiVersion": "2010-04-01"
+  }
+}

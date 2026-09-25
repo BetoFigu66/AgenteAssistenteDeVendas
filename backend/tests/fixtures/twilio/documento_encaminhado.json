@@ -1,0 +1,33 @@
+{
+  "origem": "colheita real Twilio WhatsApp Sandbox de 25/09/2026, anonimizada",
+  "recebido_em": "2026-09-25T20:15:42.682905+00:00",
+  "endpoint": "/webhook",
+  "query": {},
+  "headers": {
+    "user-agent": "TwilioProxy/1.1",
+    "content-type": "application/x-www-form-urlencoded"
+  },
+  "form": {
+    "MediaContentType0": "application/pdf",
+    "ExternalUserId": "whatsapp:BR.1000000000000001",
+    "SmsMessageSid": "MMf1c7f1c7f1c7f1c7f1c7f1c7f1c70004",
+    "FrequentlyForwarded": "false",
+    "NumMedia": "1",
+    "ProfileName": "Cliente Teste",
+    "MessageType": "document",
+    "SmsSid": "MMf1c7f1c7f1c7f1c7f1c7f1c7f1c70004",
+    "WaId": "5511900000001",
+    "SmsStatus": "received",
+    "Body": "3c9a7e21-5b4d-4f18-9a62-0e8d4b7c1f35_assinado.pdf",
+    "Forwarded": "true",
+    "To": "whatsapp:+14155238886",
+    "NumSegments": "1",
+    "ReferralNumMedia": "0",
+    "MessageSid": "MMf1c7f1c7f1c7f1c7f1c7f1c7f1c70004",
+    "AccountSid": "ACf1c7f1c7f1c7f1c7f1c7f1c7f1c70001",
+    "ChannelMetadata": "{\"type\":\"whatsapp\",\"data\":{\"context\":{\"Forwarded\":\"true\",\"FrequentlyForwarded\":\"false\",\"ProfileName\":\"Cliente Teste\",\"WaId\":\"5511900000001\"}}}",
+    "From": "whatsapp:+5511900000001",
+    "MediaUrl0": "https://api.twilio.com/2010-04-01/Accounts/ACf1c7f1c7f1c7f1c7f1c7f1c7f1c70001/Messages/MMf1c7f1c7f1c7f1c7f1c7f1c7f1c70004/Media/MEf1c7f1c7f1c7f1c7f1c7f1c7f1c70004",
+    "ApiVersion": "2010-04-01"
+  }
+}

@@ -1,0 +1,31 @@
+{
+  "origem": "colheita real Twilio WhatsApp Sandbox de 25/09/2026, anonimizada",
+  "recebido_em": "2026-09-25T20:11:10.974600+00:00",
+  "endpoint": "/webhook",
+  "query": {},
+  "headers": {
+    "user-agent": "TwilioProxy/1.1",
+    "content-type": "application/x-www-form-urlencoded"
+  },
+  "form": {
+    "MediaContentType0": "image/jpeg",
+    "ExternalUserId": "whatsapp:BR.1000000000000001",
+    "SmsMessageSid": "MMf1c7f1c7f1c7f1c7f1c7f1c7f1c70001",
+    "NumMedia": "1",
+    "ProfileName": "Cliente Teste",
+    "MessageType": "image",
+    "SmsSid": "MMf1c7f1c7f1c7f1c7f1c7f1c7f1c70001",
+    "WaId": "5511900000001",
+    "SmsStatus": "received",
+    "Body": "Segue uma foto em anexo.",
+    "To": "whatsapp:+14155238886",
+    "NumSegments": "1",
+    "ReferralNumMedia": "0",
+    "MessageSid": "MMf1c7f1c7f1c7f1c7f1c7f1c7f1c70001",
+    "AccountSid": "ACf1c7f1c7f1c7f1c7f1c7f1c7f1c70001",
+    "ChannelMetadata": "{\"type\":\"whatsapp\",\"data\":{\"context\":{\"ProfileName\":\"Cliente Teste\",\"WaId\":\"5511900000001\"}}}",
+    "From": "whatsapp:+5511900000001",
+    "MediaUrl0": "https://api.twilio.com/2010-04-01/Accounts/ACf1c7f1c7f1c7f1c7f1c7f1c7f1c70001/Messages/MMf1c7f1c7f1c7f1c7f1c7f1c7f1c70001/Media/MEf1c7f1c7f1c7f1c7f1c7f1c7f1c70001",
+    "ApiVersion": "2010-04-01"
+  }
+}

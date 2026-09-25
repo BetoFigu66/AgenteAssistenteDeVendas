@@ -395,6 +395,7 @@ async def _processar_via_cerebro(
     message_sid: Optional[str],
     responde_a_message_sid: Optional[str] = None,
     responde_a_mensagem_id: Optional[int] = None,
+    nome_perfil: Optional[str] = None,
 ) -> ResultadoProcessamento:
     """Executa o processador dentro de uma sessão de banco."""
     with db.get_session() as session:
@@ -405,6 +406,7 @@ async def _processar_via_cerebro(
             message_sid=message_sid,
             responde_a_message_sid=responde_a_message_sid,
             responde_a_mensagem_id=responde_a_mensagem_id,
+            nome_perfil=nome_perfil,
         )
 
 
@@ -464,18 +466,71 @@ def _quantidade_de_midias(num_media: Optional[str]) -> int:
         return 0
 
 
+def _conteudo_sem_texto(
+    message_type: Optional[str],
+    body: Optional[str],
+    num_media: Optional[str],
+    latitude: Optional[str],
+    longitude: Optional[str],
+) -> Optional[str]:
+    """Marcador a gravar quando a mensagem não tem texto digitado pelo cliente, ou
+    `None` quando ela tem e deve seguir para o cérebro.
+
+    Ter `Body` preenchido não basta para ser texto do cliente. A colheita de payloads
+    reais de 25/09 (`logs/payloads_twilio.jsonl`) mostrou dois casos em que o `Body`
+    engana, e é o `MessageType` (que a Twilio manda em toda chamada de `/webhook`) que
+    os separa:
+
+    - `document`: o `Body` traz o **nome do arquivo**. Mandado ao cérebro, o bot
+      respondeu ao nome de um PDF como se fosse pergunta. O nome vai para o marcador
+      porque é a única pista do que o anexo é, para quem lê a conversa no painel.
+    - `location`: chega com `NumMedia=0` e `Body` vazio, e as coordenadas vêm em
+      `Latitude`/`Longitude`. Sem este caso ela virava "mensagem sem conteúdo" e as
+      coordenadas se perdiam.
+
+    Sem `MessageType` (testador de conversas e simulador web mandam só `From`/`Body`),
+    ou com um tipo que não tratamos aqui, vale a regra de antes: sem texto é só o `Body`
+    vazio. Foto com legenda (`image` com `Body`) continua indo ao cérebro: a legenda é
+    texto que o cliente escreveu.
+
+    Entre colchetes de propósito: quem lê a conversa precisa ver que é anotação do
+    sistema, não texto que o cliente digitou.
+    """
+    tipo = (message_type or "").strip().lower()
+    texto = (body or "").strip()
+
+    if tipo == "document":
+        return f"[documento recebido: {texto}]" if texto else "[documento recebido]"
+
+    if tipo == "location":
+        lat = (latitude or "").strip()
+        lon = (longitude or "").strip()
+        if lat and lon:
+            return f"[localização: {lat}, {lon}]"
+        return "[localização recebida sem coordenadas]"
+
+    if texto:
+        return None
+
+    quantidade_midias = _quantidade_de_midias(num_media)
+    if quantidade_midias > 0:
+        return f"[mídia recebida sem texto: {quantidade_midias} anexo(s)]"
+    return "[mensagem recebida sem conteúdo]"
+
+
 def _registrar_mensagem_sem_texto(
     telefone: str,
-    quantidade_midias: int,
+    conteudo: str,
     message_sid: Optional[str],
     responde_a_message_sid: Optional[str],
 ) -> int:
-    """Grava no histórico uma mensagem do cliente que chegou sem nenhum texto.
+    """Grava no histórico uma mensagem do cliente que chegou sem texto dele.
 
-    É o caso da mensagem só com mídia: a Twilio manda `NumMedia>0` com `Body` vazio
-    (foto, áudio, documento). Antes disso virar tratamento explícito, o `Body` era
+    O caso original é a mensagem só com mídia: a Twilio manda `NumMedia>0` com `Body`
+    vazio (foto, áudio). Antes disso virar tratamento explícito, o `Body` era
     obrigatório na assinatura do endpoint e o FastAPI devolvia 422 para a Twilio: a
-    mensagem do cliente sumia, sem registro e sem resposta.
+    mensagem do cliente sumia, sem registro e sem resposta. Documento e localização
+    entram pelo mesmo caminho (ver `_conteudo_sem_texto`, que monta o `conteudo`).
 
     Três decisões, todas conscientes:
 
@@ -497,13 +552,6 @@ def _registrar_mensagem_sem_texto(
     Devolve o id da mensagem registrada.
     """
     telefone_norm = normalizar_telefone(telefone)
-    # Entre colchetes de propósito: quem lê a conversa precisa ver que é anotação do
-    # sistema, não texto que o cliente digitou.
-    conteudo = (
-        f"[mídia recebida sem texto: {quantidade_midias} anexo(s)]"
-        if quantidade_midias > 0
-        else "[mensagem recebida sem conteúdo]"
-    )
 
     with db.get_session() as session:
         mensagem = Mensagem(
@@ -537,11 +585,38 @@ def _registrar_mensagem_sem_texto(
         mensagem_id = mensagem.id
 
     logger.info(
-        "[Webhook] Mensagem sem texto registrada (mensagem_id=%s, anexos=%s) — sem resposta automática.",
+        # Só o id: o `conteudo` pode ter nome de arquivo ou coordenadas do cliente, e o
+        # que ele diz já está no banco.
+        "[Webhook] Mensagem sem texto registrada (mensagem_id=%s), sem resposta automática.",
         mensagem_id,
-        quantidade_midias,
     )
     return mensagem_id
+
+
+def _mensagem_ja_recebida(message_sid: Optional[str]) -> bool:
+    """Diz se esta mensagem da Twilio já foi registrada (idempotência do `/webhook`).
+
+    A Twilio pode chamar o webhook mais de uma vez para a mesma mensagem (timeout do
+    nosso lado, reentrega configurada no console). Processar de novo duplicaria a
+    mensagem no histórico e, pior, geraria uma segunda resposta ao cliente. Na prática
+    a segunda gravação nem chegaria ao fim, porque `message_sid` é unique, mas a falha
+    viria depois de o cérebro já ter rodado.
+
+    A consulta não filtra por origem: SID da Twilio é único na conta toda, e o que
+    importa aqui é justamente a coluna unique. Chamada local (testador, simulador) não
+    manda `MessageSid` e nunca é barrada.
+
+    Se a consulta falhar, segue como mensagem nova: perder a mensagem do cliente é pior
+    que o raro risco de duplicá-la, e o processamento em seguida tem o próprio
+    tratamento de erro.
+    """
+    if not message_sid:
+        return False
+    try:
+        return db.mensagem_existe(message_sid)
+    except Exception:
+        logger.exception("[Webhook] Falha ao checar idempotência do MessageSid %s", message_sid)
+        return False
 
 
 @app.post("/webhook", response_class=PlainTextResponse)
@@ -557,6 +632,14 @@ async def webhook_twilio(
     To: Optional[str] = Form(None),
     NumMedia: Optional[str] = Form("0"),
     OriginalRepliedMessageSid: Optional[str] = Form(None),
+    # Os três abaixo só vêm da Twilio (o testador e o simulador não mandam). Ver
+    # `_conteudo_sem_texto` para o que cada um muda.
+    MessageType: Optional[str] = Form(None),
+    Latitude: Optional[str] = Form(None),
+    Longitude: Optional[str] = Form(None),
+    # Nome de perfil do cliente no WhatsApp. Vai cru: a validação (não aproveitar "~~~")
+    # fica em `processar()`, via `utils/nome_perfil.py`.
+    ProfileName: Optional[str] = Form(None),
 ):
     """
     Webhook para receber mensagens do Twilio WhatsApp.
@@ -568,8 +651,11 @@ async def webhook_twilio(
     citando uma mensagem nossa. Vem acompanhado de `OriginalRepliedMessageSender`, que
     não usamos: o remetente já é conhecido pelo `From`.
 
-    Mensagem sem texto (só mídia) tem caminho próprio, sem passar pelo cérebro: ver
-    `_registrar_mensagem_sem_texto`.
+    Mensagem sem texto do cliente (só mídia, documento, localização) tem caminho próprio,
+    sem passar pelo cérebro: ver `_conteudo_sem_texto` e `_registrar_mensagem_sem_texto`.
+
+    Mensagem cujo `MessageSid` já está gravado não é processada de novo (ver
+    `_mensagem_ja_recebida`).
     """
     await _capturar_payload_twilio(request, "/webhook")
     await _exigir_assinatura_twilio(request)
@@ -580,12 +666,16 @@ async def webhook_twilio(
     # é o que impede o TwiML de virar entrega real quando o canal está simulado.
     veio_da_twilio = bool(AccountSid)
 
-    # Mensagem sem texto (tipicamente só mídia): registra e devolve TwiML vazio, sem
-    # acionar o cérebro. Ver `_registrar_mensagem_sem_texto` para o porquê de cada
-    # parte. Vale igual para chamada local e para a Twilio: o testador não tem o que
-    # ler no TwiML porque não há resposta gerada, e não porque a entrega foi suprimida.
-    texto = (Body or "").strip()
-    if not texto:
+    if _mensagem_ja_recebida(MessageSid):
+        logger.info("[Webhook] MessageSid %s já registrado, reentrega ignorada.", MessageSid)
+        return PlainTextResponse(content=_TWIML_VAZIO, media_type="application/xml")
+
+    # Mensagem sem texto do cliente: registra e devolve TwiML vazio, sem acionar o
+    # cérebro. Ver `_registrar_mensagem_sem_texto` para o porquê de cada parte. Vale
+    # igual para chamada local e para a Twilio: o testador não tem o que ler no TwiML
+    # porque não há resposta gerada, e não porque a entrega foi suprimida.
+    conteudo_sem_texto = _conteudo_sem_texto(MessageType, Body, NumMedia, Latitude, Longitude)
+    if conteudo_sem_texto is not None:
         # O `try` não é zelo genérico: registrar é o único efeito deste caminho, e uma
         # falha aqui (banco fora do ar, constraint, sessão) subiria como HTTP 500 para a
         # Twilio. A Twilio não reentrega webhook por padrão, só anota o erro 11200: a
@@ -595,7 +685,7 @@ async def webhook_twilio(
         try:
             _registrar_mensagem_sem_texto(
                 telefone,
-                _quantidade_de_midias(NumMedia),
+                conteudo_sem_texto,
                 MessageSid,
                 OriginalRepliedMessageSid,
             )
@@ -609,6 +699,7 @@ async def webhook_twilio(
             Body,
             MessageSid,
             responde_a_message_sid=OriginalRepliedMessageSid,
+            nome_perfil=ProfileName,
         )
         resposta = resultado.resposta
         mensagem_saida_id = resultado.mensagem_saida_id

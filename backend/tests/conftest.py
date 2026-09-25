@@ -30,6 +30,51 @@ def gate_autenticacao_ligado(monkeypatch):
     monkeypatch.setattr(settings, "AUTH_ENABLED", True)
 
 
+# Configurações de canal/Twilio que o `.env` da máquina pode ter ligado e que mudam o
+# comportamento de teste sem nada estar quebrado. As credenciais entram na lista de
+# propósito: sem elas, mesmo um teste que ligue `CANAL_SAIDA=twilio` e esqueça de mockar
+# o envio cai no `CanalSimulado` (falha segura da factory) em vez de falar com a Twilio.
+_SETTINGS_ISOLADOS_DO_ENV = (
+    "CANAL_SAIDA",
+    "TWILIO_MODO_ENVIO",
+    "APP_URL_PUBLICA",
+    "TWILIO_VALIDAR_ASSINATURA",
+    "TWILIO_CAPTURAR_PAYLOADS",
+    "TWILIO_CAPTURA_ARQUIVO",
+    "TWILIO_CAPTURA_MIDIAS_PASTA",
+    "TWILIO_ACCOUNT_SID",
+    "TWILIO_AUTH_TOKEN",
+    "TWILIO_WHATSAPP_NUMBER",
+    "TWILIO_API_KEY_SID",
+    "TWILIO_API_KEY_SECRET",
+)
+
+
+@pytest.fixture(autouse=True)
+def canal_e_twilio_nos_defaults(monkeypatch):
+    """Roda toda a suíte com canal e Twilio nos defaults do `Settings`, ignorando o
+    `.env` da máquina.
+
+    Na janela da colheita de payloads o `.env` ficou com `CANAL_SAIDA=twilio` e
+    `TWILIO_CAPTURAR_PAYLOADS=true`, e testes que assumem o default passaram a falhar (e,
+    pior, os de webhook passaram a tentar gravar no arquivo de captura real). O default
+    vem da própria declaração do campo, para não haver uma segunda cópia dele aqui. Quem
+    precisa de outro valor continua fazendo `monkeypatch.setattr` no próprio teste, que
+    roda depois deste fixture e prevalece.
+
+    O `cache_clear` é necessário porque `obter_canal` guarda a instância: um canal
+    montado com o `.env` antes deste fixture sobreviveria a ele.
+    """
+    from services.canal.factory import obter_canal
+
+    campos = type(settings).model_fields
+    for nome in _SETTINGS_ISOLADOS_DO_ENV:
+        monkeypatch.setattr(settings, nome, campos[nome].default)
+    obter_canal.cache_clear()
+    yield
+    obter_canal.cache_clear()
+
+
 def _garantir_usuario_teste() -> None:
     db = Database()
     with db.get_session() as session:

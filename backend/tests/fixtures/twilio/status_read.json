@@ -1,0 +1,26 @@
+{
+  "origem": "colheita real Twilio WhatsApp Sandbox de 25/09/2026, anonimizada",
+  "recebido_em": "2026-09-25T20:20:45.782990+00:00",
+  "endpoint": "/webhook/status",
+  "query": {
+    "mensagem_id": "3754"
+  },
+  "headers": {
+    "user-agent": "TwilioProxy/1.1",
+    "content-type": "application/x-www-form-urlencoded; charset=utf-8"
+  },
+  "form": {
+    "ChannelPrefix": "whatsapp",
+    "ApiVersion": "2010-04-01",
+    "MessageStatus": "read",
+    "SmsSid": "SMf1c7f1c7f1c7f1c7f1c7f1c7f1c70006",
+    "SmsStatus": "read",
+    "ChannelInstallSid": "XEf1c7f1c7f1c7f1c7f1c7f1c7f1c70001",
+    "ExternalUserId": "whatsapp:BR.1000000000000001",
+    "To": "whatsapp:+5511900000001",
+    "From": "whatsapp:+14155238886",
+    "MessageSid": "SMf1c7f1c7f1c7f1c7f1c7f1c7f1c70006",
+    "AccountSid": "ACf1c7f1c7f1c7f1c7f1c7f1c7f1c70001",
+    "ChannelToAddress": "+551190000XXXX"
+  }
+}

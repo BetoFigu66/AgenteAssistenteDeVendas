@@ -1,0 +1,29 @@
+{
+  "origem": "colheita real Twilio WhatsApp Sandbox de 25/09/2026, anonimizada",
+  "recebido_em": "2026-09-25T20:26:11.448696+00:00",
+  "endpoint": "/webhook",
+  "query": {},
+  "headers": {
+    "user-agent": "TwilioProxy/1.1",
+    "content-type": "application/x-www-form-urlencoded"
+  },
+  "form": {
+    "ExternalUserId": "whatsapp:BR.1000000000000001",
+    "SmsMessageSid": "SMf1c7f1c7f1c7f1c7f1c7f1c7f1c70003",
+    "NumMedia": "0",
+    "ProfileName": "Cliente Teste",
+    "MessageType": "text",
+    "SmsSid": "SMf1c7f1c7f1c7f1c7f1c7f1c7f1c70003",
+    "WaId": "5511900000001",
+    "SmsStatus": "received",
+    "Body": "# Reunião de alinhamento — quarta, 14/10/2026 (manhã)\n\n<!-- CLASSIFICACAO: EXEMPLO -->\n\nDiferente da anterior, esta não teve rodada de dúvidas: a\npauta já estava escrita no documento base e o orçamento estava bem abaixo do teto do mês (12%\nusado contra os 40% previstos para outubro), então o grupo foi direto para a execução.\n\n**Início:** 09:15 em diante. **Orçamento no início:** 12% do mensal.\n\n---\n\n## 1. O que motivou cada tópico\n\nTrês pontos chegaram antes da pauta planejada, e mudaram a ordem:\n\n1. **O fornecedor confirmou às 09:10**, cinco minutos antes do início, a troca das catracas\n   do saguão e uma pendência de testes sobre o leitor de crachá.\n2. **O painel de controle estava fora do ar** no ambiente (`Cannot find module\n   '@exemplo/painel-leitura'`), só faltando reinstalar depois.\n3. A pendência dele pedia conferência antes de qualquer outra coisa, porque afetava\n   justamente o que a equipe tinha ajustado na segunda.\n3. A pendência dele pedia conferência antes de qualquer outra coisa, porque afetava\n   justamente o que a equipe tinha ajustado na segunda.",
+    "To": "whatsapp:+14155238886",
+    "NumSegments": "1",
+    "ReferralNumMedia": "0",
+    "MessageSid": "SMf1c7f1c7f1c7f1c7f1c7f1c7f1c70003",
+    "AccountSid": "ACf1c7f1c7f1c7f1c7f1c7f1c7f1c70001",
+    "ChannelMetadata": "{\"type\":\"whatsapp\",\"data\":{\"context\":{\"ProfileName\":\"Cliente Teste\",\"WaId\":\"5511900000001\"}}}",
+    "From": "whatsapp:+5511900000001",
+    "ApiVersion": "2010-04-01"
+  }
+}
