@@ -49,6 +49,7 @@ from routers.pares_qa import router as pares_qa_router
 from services import atendimentos as atendimentos_svc
 from services import auth as auth_svc
 from services.canal import obter_canal
+from services.canal.captura_midia import agendar_download as agendar_download_midias
 from services.conversacao.campos_pendentes import campos_pendentes
 from services.conversacao.catalogo_campos import (
     DESTINO_ITEM_ATENDIMENTO_MODELO_ID,
@@ -190,6 +191,8 @@ async def _capturar_payload_twilio(request: Request, endpoint: str) -> None:
         with caminho.open("a", encoding="utf-8") as arquivo:
             arquivo.write(json.dumps(registro, ensure_ascii=False) + "\n")
         logger.info("[CapturaTwilio] %s: %s campos gravados", endpoint, len(formulario))
+        if endpoint == "/webhook":
+            agendar_download_midias(formulario)
     except Exception:
         logger.exception("[CapturaTwilio] falha ao gravar payload (ignorada de propósito)")
 

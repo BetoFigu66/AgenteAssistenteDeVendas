@@ -53,6 +53,10 @@ class Settings(BaseSettings):
     # Default `False`: não é instrumentação para ficar ligada em produção.
     TWILIO_CAPTURAR_PAYLOADS: bool = False
     TWILIO_CAPTURA_ARQUIVO: str = "logs/payloads_twilio.jsonl"
+    # Com a captura ligada, os anexos (`MediaUrl{i}`) também são baixados para esta pasta,
+    # com um `indice.jsonl` do que deu certo e do que falhou. Fica em `logs/`, que é
+    # ignorado pelo git: são fotos e áudios reais de quem testou.
+    TWILIO_CAPTURA_MIDIAS_PASTA: str = "logs/midias_twilio"
 
     # Database
     DATABASE_URL: str = "postgresql+psycopg://inforrel:inforrel_dev@192.168.0.34:5433/assistente_vendas"
