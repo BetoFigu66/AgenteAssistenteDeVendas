@@ -356,6 +356,11 @@ que ele é confrontado com mídia de verdade.
 
 ### Dia 3 — sábado (26/09): transformar em patrimônio
 
+> **Adiantado para 25/09 à noite** (ver `2026-09-25_progresso.md`): fixtures anonimizadas
+> em `backend/tests/fixtures/twilio/`, testes de webhook com os formulários reais,
+> `docs/comandos_uteis.md` e `STATUS.md` atualizados. Sobra para sábado só o que depende do
+> celular (lista do topo) e a revisão do Beto.
+
 **Eu, o dia inteiro:** converter os payloads capturados em fixtures anonimizadas (seu telefone
 vira fictício), reescrever os testes de webhook para usarem os formulários reais, e registrar
 no `docs/comandos_uteis.md` e no `STATUS.md` o que aprendemos. É o trabalho que faz os 3 dias
