@@ -133,6 +133,20 @@ inclusive dentro do código-fonte. O path traversal de 25/09 era grave por isso:
   em `C:\Beto`) e se algum script do repositório lê `backend/logs/` pelo caminho do host.
 - (Recomendo b.)
 
+## Frente E: registro do que levou ao escalonamento (26/09)
+
+Decisões do Beto (26/09 09:59): tabela nova `escalonamentos`; avaliação humana
+(procedente/indevido) já nesta entrega, com tela; só escalonamentos futuros; estende o
+REQ-004 (novos REQ-004.5B e 5C, v1.9).
+
+- [x] **E1. Especificação** em `artefatos/requisitos_formais/REQ-004-human-takeover-escalonamento.md`.
+- [ ] **E2. Backend:** model + migração Alembic, registro no `_escalar_atendimento`
+  (`processador.py:1097`, ponto único das 7 chamadas) com gatilho e evidências vindos de
+  cada chamada, endpoints de leitura e avaliação, testes. **Esperar o [N] (I1) terminar**:
+  mexe nos mesmos arquivos.
+- [ ] **E3. Frontend:** gatilho, evidências e avaliação no painel do atendimento escalado.
+- [ ] **E4. Revisão e commit.**
+
 ## Registro
 
 - 18:10 branch criada; commits `035d2e7` (download de mídia) e `fa0ae7b` (plano).
@@ -161,3 +175,4 @@ inclusive dentro do código-fonte. O path traversal de 25/09 era grave por isso:
 - 22:10 retomada agendada disparou: todos os passos marcados, árvore limpa (só `TextoLongo.md` e `.gitignore_beto`, do Beto), nenhum trabalho parcial. Nenhuma decisão nova do Beto desde 19:00; nada a executar sem elas.
 - 26/09 09:15 respostas do Beto registradas; decisões revisadas; frentes I1 a I4 abertas.
 - 26/09 09:52 ideia da resposta de manutenção no `/webhook` registrada no I2; `scripts/claude_quota.py --csv` implementado e commitado; I1 disparado.
+- 26/09 10:02 frente E aberta; E1 (especificação REQ-004.5B/5C) escrita.

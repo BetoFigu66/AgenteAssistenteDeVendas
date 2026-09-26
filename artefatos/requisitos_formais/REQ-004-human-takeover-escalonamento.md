@@ -3,8 +3,8 @@
 <!-- CLASSIFICACAO: SISTEMA-CAIXAPRETA -->
 <!-- CLASSIFICACAO: IA -->
 
-**Versão**: 1.8  
-**Data**: 2026-07-10  
+**Versão**: 1.9  
+**Data**: 2026-09-26  
 **Autor**: Kika (Analista de Requisitos)  
 **Status**: Em Elaboração  
 **Prioridade**: Alta  
@@ -84,6 +84,49 @@ No POC, o escalonamento deve notificar o vendedor, que responderá ao cliente pe
     - Se o modelo que quer é homologado
   
   Esses dados devem ser obtidos pelo fluxo de qualificação (REQ-002).
+
+- [ ] **REQ-004.5B — Registro do gatilho e das evidências de cada escalonamento**: Além do
+  motivo (REQ-004.5), que é uma categoria, o sistema deve registrar **o que concretamente
+  levou** a cada escalonamento, para que seja possível saber por que o sistema escalou sem
+  reconstituir a conversa. Para cada escalonamento, um registro com:
+  - o atendimento, e a mensagem e o processamento (`ProcessamentoMensagem`) que o causaram,
+    quando houver (no takeover manual pelo vendedor, REQ-004.3, não há);
+  - o motivo (categoria atual: `solicitado_cliente`, `reclamacao`, `projeto_complexo`,
+    `baixa_confianca`, `base_insuficiente`, `modelo_nao_reconhecido`, `manual_vendedor`);
+  - o **gatilho específico** que disparou. Quando mais de uma condição disparar ao mesmo
+    tempo, registrar todas. Lista inicial:
+
+    | Motivo | Gatilhos |
+    |---|---|
+    | `solicitado_cliente` | `intencao_escalar_humano` |
+    | `reclamacao` | `intencao_reclamar` |
+    | `projeto_complexo` | `quantidade_minima`, `faixa_funcionarios`, `leitor_facial` |
+    | `baixa_confianca` | `baixa_confianca_repetida` |
+    | `base_insuficiente` | `base_sem_resposta` |
+    | `modelo_nao_reconhecido` | `tentativas_esgotadas` |
+    | `manual_vendedor` | `assumido_pelo_vendedor` |
+
+  - as **evidências** do gatilho: os valores extraídos que o dispararam (ex.: quantidades
+    `[1, 2, 3, 20, 25]`), o limiar vigente no momento (ex.: quantidade mínima 4; o limiar de
+    funcionários é configurável em `parametros` e pode mudar), a intenção e a confiança do
+    classificador, e se a classificação veio de regra ou do LLM;
+  - o ator e o timestamp.
+
+  O texto da mensagem **não é copiado** para o registro: ele já está em `mensagens`, e o
+  vínculo basta. Isso evita duplicar dado pessoal do cliente.
+
+  Vale só para escalonamentos a partir da implantação; os anteriores continuam apenas com o
+  motivo (decisão do Beto, 26/09/2026).
+
+- [ ] **REQ-004.5C — Avaliação humana do escalonamento**: O operador deve poder avaliar cada
+  escalonamento no painel do atendimento (REQ-010), marcando-o como **procedente** ou
+  **indevido**, com comentário opcional. A avaliação registra quem avaliou e quando, pode
+  ser alterada depois (vale a última), e começa vazia ("não avaliado"). O painel deve
+  mostrar, junto do atendimento escalado, o motivo, o gatilho e as evidências
+  (REQ-004.5B), para que a avaliação seja feita olhando o porquê. Objetivo: medir a taxa
+  de escalonamentos indevidos por gatilho e usar os indevidos como fila de correção das
+  regras (os bugs de 25/09, "45 funcionários" e "1) 2) 3)" lidos como quantidade, são
+  exatamente esse caso).
 
 ### 4.2 Gatilhos de Escalonamento
 
@@ -214,7 +257,8 @@ O sistema deve gerar um resumo curto, orientado à ação, incluindo quando poss
 | Implementar resumo para humano | 3h |
 | Implementar notificação (POC) | 3h |
 | Testes com conversas reais | 4h |
-| **Total** | **17h** |
+| Registro de gatilho e avaliação humana (REQ-004.5B/5C) | 6h |
+| **Total** | **23h** |
 
 ---
 
@@ -231,6 +275,7 @@ O sistema deve gerar um resumo curto, orientado à ação, incluindo quando poss
 | 12/05/2026 | 1.6 | REQ-004.7 enriquecido com regra de prioridade: reclamações de pós-venda (atraso, defeito, suporte) seguem o fluxo do REQ-009 (identificação de orçamento antes do escalonamento); reclamações genéricas continuam escalando imediatamente | Kika |
 | 09/06/2026 | 1.7 | Renomeação do estado da conversa de `em atendimento humano` para `em modo humano` (decisão D6 da renomeação Negociação → Atendimento) para evitar ambiguidade com a entidade Atendimento (REQ-016 v2.0). Ajustes em REQ-004.3, REQ-004.4, REQ-004.10 e §11. | Beto |
 | 10/07/2026 | 1.8 | REQ-004.4: corrigida frase residual que ainda dizia "indicando se ela está em atendimento humano" (não foi ajustada na v1.7) para "em modo humano", eliminando a última ambiguidade com a entidade Atendimento. Cabeçalho do documento também corrigido (estava com Versão desatualizada em 1.6 desde a v1.7). Identificado durante implementação do passo A0 do MVP Continuidade. | Beto + Claude |
+| 26/09/2026 | 1.9 | Adição de REQ-004.5B (registro do gatilho específico e das evidências de cada escalonamento, só para escalonamentos futuros) e REQ-004.5C (avaliação humana procedente/indevido no painel). Motivado pelos falsos positivos de projeto complexo achados na varredura do testador de 25/09. | Beto + Claude |
 
 ---
 
