@@ -109,6 +109,13 @@ do container `frontend`) → `backend:8000`.
   então mensagem que chegar no meio do deploy se perde (fica só no log da Twilio). Isso é
   limite do modo TwiML, não do deploy.
 - (Recomendo b, que inclui a a.)
+- **Ideia do Beto (26/09) para o `/webhook`:** com a bandeira ativa, o nginx responde ele
+  mesmo na rota `/webhook`, com HTTP 200 e TwiML `<Response><Message>Sistema em manutenção,
+  tente mais tarde.</Message></Response>` (`application/xml`); `/webhook/status` responde 200
+  vazio. **Funciona**: a Twilio só quer TwiML válido, não importa quem o gere. O cliente é
+  avisado em vez de ficar sem resposta. Limites: a mensagem dele não entra no nosso banco
+  (fica só no log da Twilio), e não cobre o instante em que o próprio container `frontend`
+  é recriado. Entra no formato (b).
 
 **I3. Isolar a escrita do container.** Hoje o `docker-compose.yml` monta `./backend:/app`
 (bind mount) e o container roda como **root**: tudo que o backend grava cai no seu disco,
@@ -153,3 +160,4 @@ inclusive dentro do código-fonte. O path traversal de 25/09 era grave por isso:
 - 19:00 lista consolidada de decisões escrita acima. **Leva desta janela concluída.**
 - 22:10 retomada agendada disparou: todos os passos marcados, árvore limpa (só `TextoLongo.md` e `.gitignore_beto`, do Beto), nenhum trabalho parcial. Nenhuma decisão nova do Beto desde 19:00; nada a executar sem elas.
 - 26/09 09:15 respostas do Beto registradas; decisões revisadas; frentes I1 a I4 abertas.
+- 26/09 09:52 ideia da resposta de manutenção no `/webhook` registrada no I2; `scripts/claude_quota.py --csv` implementado e commitado; I1 disparado.
