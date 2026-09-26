@@ -16,7 +16,7 @@ import re
 import time
 from dataclasses import dataclass
 from datetime import date, datetime, timedelta
-from typing import Optional
+from typing import Any, Optional, Sequence
 
 from config import settings
 from models import (
@@ -24,8 +24,10 @@ from models import (
     AtendimentoInfo,
     Contato,
     Empresa,
+    Escalonamento,
     EventoAtendimento,
     FaseAtendimento,
+    GatilhoEscalonamento,
     Mensagem,
     ModoExecucao,
     ModoOperacao,
@@ -47,6 +49,7 @@ from utils.datetime_utils import utc_now
 from utils.nome_perfil import nome_perfil_aproveitavel
 
 from services import atendimentos as atendimentos_svc
+from services import escalonamentos as escalonamentos_svc
 from services.classificador import NivelConfianca, ResultadoClassificacao, classificar
 from services.cnpj import ConsultaCnpjError, obter_ou_criar_empresa
 from services.cnpj.receitaws import validar_cnpj
@@ -428,6 +431,16 @@ class ProcessadorMensagem:
                 {"mensagem_id": msg_in.id, "processamento_id": processamento.id},
                 synchronize_session=False,
             )
+            # REQ-004.5B: o `Escalonamento` nasce ao lado do evento `escalado` e tem o
+            # mesmo problema de ordem (o processamento ainda não existia), então recebe o
+            # mesmo back-fill, pelo mesmo critério.
+            db.query(Escalonamento).filter(
+                Escalonamento.evento_id > ultimo_evento_id,
+                Escalonamento.atendimento_id == atendimento.id,
+            ).update(
+                {"mensagem_id": msg_in.id, "processamento_id": processamento.id},
+                synchronize_session=False,
+            )
 
         # 8. Vincula mensagem do cliente ao processamento/contato/atendimento
         msg_in.processamento_id = processamento.id
@@ -772,8 +785,20 @@ class ProcessadorMensagem:
             aguardando = bool(self._info_atendimento(db, atendimento.id, _CONFIANCA_BAIXA_TENTATIVA_CHAVE))
             if aguardando:
                 self._remover_info_atendimento(db, atendimento.id, _CONFIANCA_BAIXA_TENTATIVA_CHAVE)
+                limiares = ParametroService(db).limiares_classificador()
                 await self._escalar_atendimento(
-                    db, atendimento, MotivoEscalonamento.BAIXA_CONFIANCA, ator="sistema:confianca_baixa", dlog=dlog
+                    db,
+                    atendimento,
+                    MotivoEscalonamento.BAIXA_CONFIANCA,
+                    ator="sistema:confianca_baixa",
+                    dlog=dlog,
+                    evidencias={
+                        **escalonamentos_svc.evidencias_da_classificacao(resultado_class),
+                        # 2 = esta mensagem + a anterior, marcada pelo contador em
+                        # AtendimentoInfo (`_CONFIANCA_BAIXA_TENTATIVA_CHAVE`).
+                        "ocorrencias_consecutivas": 2,
+                        "limiar_confianca_baixa": limiares["baixa_max"],
+                    },
                 )
                 if dlog:
                     dlog.log("rota", "confiança baixa 2x seguidas → escalar_humano (REQ-004.9)")
@@ -1000,6 +1025,7 @@ class ProcessadorMensagem:
         atendimento: Atendimento,
         conteudo_cliente: str,
         dlog: Optional[DebugLogger] = None,
+        resultado_class: Optional[ResultadoClassificacao] = None,
     ) -> RespostaGerada:
         """REQ-003.7: quando a base (Q&A/RAG) não tem conteúdo sobre o produto perguntado,
         faz no máximo 1 pergunta de clarificação antes de escalar para atendimento humano —
@@ -1033,7 +1059,22 @@ class ProcessadorMensagem:
         # (REQ-004.9/REQ-004.2: motivo/timestamp/resumo via helper central da Fase 5).
         self._remover_info_atendimento(db, atendimento.id, _RAG_CLARIFICACAO_PENDENTE_CHAVE)
         await self._escalar_atendimento(
-            db, atendimento, MotivoEscalonamento.BASE_INSUFICIENTE, ator="sistema:base_insuficiente", dlog=dlog
+            db,
+            atendimento,
+            MotivoEscalonamento.BASE_INSUFICIENTE,
+            ator="sistema:base_insuficiente",
+            dlog=dlog,
+            evidencias={
+                **escalonamentos_svc.evidencias_da_classificacao(resultado_class),
+                # O melhor score abaixo do limiar não é conhecido aqui: `buscar_trechos`
+                # já devolve só o que passou do `score_minimo`. Fica o limiar vigente e o
+                # fato de nada ter passado, nesta mensagem e na anterior (clarificação).
+                "qa_encontrado": False,
+                "trechos_rag": 0,
+                "rag_habilitado": bool(getattr(self._retrieval, "habilitado", False)),
+                "rag_score_minimo": getattr(self._retrieval, "_score_minimo_padrao", None),
+                "clarificacoes_pedidas": 1,
+            },
         )
         return await self._gerador.gerar(MensagemId.RAG_ESCALADO_SEM_BASE)
 
@@ -1076,21 +1117,31 @@ class ProcessadorMensagem:
         motivo: MotivoEscalonamento,
         ator: str,
         dlog: Optional[DebugLogger] = None,
-    ) -> None:
+        *,
+        gatilhos: Optional[Sequence[GatilhoEscalonamento]] = None,
+        evidencias: Optional[dict[str, Any]] = None,
+        mensagem_id: Optional[int] = None,
+        processamento_id: Optional[int] = None,
+    ) -> Optional[Escalonamento]:
         """REQ-004.2/004.4/004.5: marca modo humano, persiste motivo/timestamp/ator e
         gera o resumo de contexto para o vendedor — helper central reaproveitado por
         todo caminho de escalonamento (explícito, implícito, retrofit da Fase 3 e
         takeover manual do painel). Não faz nada se o atendimento já não está ATIVO
-        (encerrado não deveria ser "escalado")."""
+        (encerrado não deveria ser "escalado").
+
+        REQ-004.5B: grava também o `Escalonamento` com `gatilhos` e `evidencias` (sem o
+        texto da mensagem), ligado ao evento `escalado`. Sem `gatilhos`, vale o gatilho
+        único do motivo. `mensagem_id`/`processamento_id` normalmente não existem aqui
+        (ver o back-fill em `processar()`); os parâmetros ficam para quem os tiver."""
         if atendimento.status != StatusAtendimento.ATIVO:
-            return
+            return None
         modo_anterior = atendimento.modo_operacao.value
         atendimento.modo_operacao = ModoOperacao.HUMANO
         atendimento.escalado_em = utc_now()
         atendimento.escalado_por = ator
         atendimento.motivo_escalonamento = motivo.value
         atendimento.resumo_escalonamento = self._montar_resumo_escalonamento(db, atendimento, motivo)
-        atendimentos_svc.registrar_evento_atendimento(
+        evento = atendimentos_svc.registrar_evento_atendimento(
             db,
             atendimento,
             tipo=TipoEventoAtendimento.ESCALADO,
@@ -1098,12 +1149,27 @@ class ProcessadorMensagem:
             estado_anterior=modo_anterior,
             estado_novo=ModoOperacao.HUMANO.value,
             motivo=motivo.value,
+            mensagem_id=mensagem_id,
+            processamento_id=processamento_id,
+        )
+        escalonamento = escalonamentos_svc.registrar_escalonamento(
+            db,
+            atendimento,
+            motivo=motivo,
+            ator=ator,
+            evento=evento,
+            gatilhos=gatilhos,
+            evidencias=evidencias,
+            mensagem_id=mensagem_id,
+            processamento_id=processamento_id,
         )
         if dlog:
             dlog.log(
                 "escalonamento",
-                f"atendimento {atendimento.id} → HUMANO (motivo={motivo.value}, ator={ator})",
+                f"atendimento {atendimento.id} → HUMANO (motivo={motivo.value}, ator={ator},"
+                f" gatilhos={escalonamento.gatilhos})",
             )
+        return escalonamento
 
     _LABEL_MOTIVO_ESCALONAMENTO = {
         MotivoEscalonamento.SOLICITADO_CLIENTE: "Cliente pediu para falar com atendente",

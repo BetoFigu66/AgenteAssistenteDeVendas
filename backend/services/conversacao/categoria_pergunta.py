@@ -70,7 +70,7 @@ async def _responder_produto(ctx: ContextoAcao) -> RespostaGerada:
     p = ctx.processador
     if ctx.db is not None and ctx.atendimento is not None:
         return await p._responder_produto_com_clarificacao(
-            ctx.db, ctx.atendimento, ctx.conteudo, dlog=ctx.dlog
+            ctx.db, ctx.atendimento, ctx.conteudo, dlog=ctx.dlog, resultado_class=ctx.resultado_class
         )
     return await p._responder_com_rag(
         conteudo_cliente=ctx.conteudo,

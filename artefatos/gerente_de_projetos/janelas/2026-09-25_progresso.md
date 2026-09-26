@@ -62,7 +62,7 @@ Entre parênteses, a minha recomendação.
    as credenciais Twilio; localização com `Body` preenchido também vira marcador.
 
 **B. Implementação já decidida ou que só precisa de "sim"**
-- **I1. Confirmação do nome do WhatsApp** (decidido em 26/09). Pronto para fazer.
+- [x] **I1. Confirmação do nome do WhatsApp** (commit `f51ea13`, 504 passando). Decisões a revisar no corpo do commit.
 - **I2. Página de manutenção no deploy.** Escolher o formato (opções em "Frentes novas").
 - **I3. Isolar a escrita do container.** Escolher o formato (opções em "Frentes novas").
 - **I4. Correções de produto achadas pela varredura** (sim/não para cada):
@@ -140,7 +140,7 @@ Decisões do Beto (26/09 09:59): tabela nova `escalonamentos`; avaliação human
 REQ-004 (novos REQ-004.5B e 5C, v1.9).
 
 - [x] **E1. Especificação** em `artefatos/requisitos_formais/REQ-004-human-takeover-escalonamento.md`.
-- [ ] **E2. Backend:** model + migração Alembic, registro no `_escalar_atendimento`
+- [x] **E2. Backend:** (commit a seguir; 522 passando, migração `2026092601` aplicada) model + migração Alembic, registro no `_escalar_atendimento`
   (`processador.py:1097`, ponto único das 7 chamadas) com gatilho e evidências vindos de
   cada chamada, endpoints de leitura e avaliação, testes. **Esperar o [N] (I1) terminar**:
   mexe nos mesmos arquivos.
@@ -176,3 +176,6 @@ REQ-004 (novos REQ-004.5B e 5C, v1.9).
 - 26/09 09:15 respostas do Beto registradas; decisões revisadas; frentes I1 a I4 abertas.
 - 26/09 09:52 ideia da resposta de manutenção no `/webhook` registrada no I2; `scripts/claude_quota.py --csv` implementado e commitado; I1 disparado.
 - 26/09 10:02 frente E aberta; E1 (especificação REQ-004.5B/5C) escrita.
+- 26/09 10:12 [N] concluído e commitado (`f51ea13`). Bugs preexistentes achados pelo [N]: (1) **dígitos de CNPJ/CPF viram `quantidades`** ("11.222.333/0001-81" → [11, 222, 333, 1, 81]) e disparam projeto complexo antes da confirmação do CNPJ; (2) `_resolver_modelo` trata qualquer chave de `AtendimentoInfo` como atributo de modelo (`documento_fiscal_pendente` quebra "biometria" → "Não encontrei esse modelo").
+- 26/09 10:13 [E] disparado para E2 (model, migração, registro, leitura e avaliação sem abertura de report). Pendentes do Beto: indevido abre `ReportProblema`? quem pode avaliar?
+- 26/09 10:28 [E] concluído. Decisões a revisar: base insuficiente sem o melhor score abaixo do limiar (exigiria 2ª busca de embedding); sinais do modelo não reconhecido só da mensagem atual; handoff para orçamento (`FinalizandoState.concluir`) põe em HUMANO sem gerar `Escalonamento` (não é escalonamento pela especificação); desfazer avaliação limpa comentário/autor/data (sem histórico); projeto complexo grava as 3 condições sempre. Possível bug preexistente: `cpf_pendente` e outras chaves de `AtendimentoInfo` entram como filtro de catálogo.

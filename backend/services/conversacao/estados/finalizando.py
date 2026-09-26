@@ -30,6 +30,7 @@ from models import (
 from sqlalchemy.orm import Session
 
 from services import atendimentos as atendimentos_svc
+from services import escalonamentos as escalonamentos_svc
 from services.classificador import Intencao
 from services.conversacao.acoes import ContextoAcao
 from services.conversacao.campos_pendentes import PERGUNTA_PRIORITARIA_CHAVE, campos_pendentes
@@ -464,6 +465,24 @@ class FinalizandoState(EstadoAtendimento):
             await p._escalar_atendimento(
                 db, atendimento, MotivoEscalonamento.MODELO_NAO_RECONHECIDO,
                 ator="sistema:resolucao_modelo", dlog=dlog,
+                evidencias={
+                    **escalonamentos_svc.evidencias_da_classificacao(resultado_class),
+                    "tentativas": tentativas,
+                    "tentativas_maximas": _MODELO_MAX_TENTATIVAS,
+                    # Só o extraído desta mensagem. `sinais` (o filtro do catálogo) também
+                    # carrega o acumulado em AtendimentoInfo, onde podem morar chaves que não
+                    # são de modelo (ex.: `cpf_pendente`) e não devem ir para a evidência.
+                    "sinais_extraidos": {
+                        k: v
+                        for k, v in {
+                            "marca": marca,
+                            "aplicacao": aplicacao,
+                            "tipo_leitor": tipo_leitor,
+                            **entidades.atributos,
+                        }.items()
+                        if v
+                    },
+                },
             )
             return False
 

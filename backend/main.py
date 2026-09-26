@@ -20,9 +20,11 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, PlainTextResponse
 from models import (
     Atendimento,
+    AvaliacaoEscalonamento,
     CategoriaReport,
     Contato,
     Empresa,
+    Escalonamento,
     EventoAtendimento,
     HistoricoConfiguracao,
     HistoricoModoExecucao,
@@ -48,6 +50,7 @@ from pydantic import BaseModel
 from routers.pares_qa import router as pares_qa_router
 from services import atendimentos as atendimentos_svc
 from services import auth as auth_svc
+from services import escalonamentos as escalonamentos_svc
 from services.canal import obter_canal
 from services.canal.captura_midia import agendar_download as agendar_download_midias
 from services.conversacao.campos_pendentes import campos_pendentes
@@ -1174,6 +1177,9 @@ async def obter_atendimento(atendimento_id: int):
             "itens": [item.to_dict() for item in atendimento.itens],
             "informacoes": [info.to_dict() for info in atendimento.informacoes],
             "orcamentos": [orc.to_dict() for orc in atendimento.orcamentos],
+            # REQ-004.5C: o painel mostra motivo, gatilho e evidências junto do atendimento
+            # escalado, para a avaliação ser feita olhando o porquê.
+            "escalonamentos": [esc.to_dict() for esc in atendimento.escalonamentos],
         }
 
 
@@ -1223,6 +1229,21 @@ async def obter_eventos_atendimento(atendimento_id: int, limit: int = 100):
         return {"atendimento_id": atendimento_id, "eventos": [evento.to_dict() for evento in eventos]}
 
 
+@app.get("/api/atendimentos/{atendimento_id}/escalonamentos")
+async def obter_escalonamentos_atendimento(atendimento_id: int):
+    """REQ-004.5B/5C: escalonamentos do atendimento, mais recentes primeiro, com
+    gatilhos, evidências e avaliação. Só existem para escalonamentos a partir de 26/09/2026;
+    os anteriores têm apenas o motivo (no próprio atendimento e em `/eventos`)."""
+    with db.get_session() as session:
+        atendimento = session.query(Atendimento).filter_by(id=atendimento_id).first()
+        if not atendimento:
+            raise HTTPException(status_code=404, detail="Atendimento não encontrado")
+        return {
+            "atendimento_id": atendimento_id,
+            "escalonamentos": [esc.to_dict() for esc in atendimento.escalonamentos],
+        }
+
+
 class AlterarModoRequest(BaseModel):
     modo_operacao: str  # "agente" | "humano"
 
@@ -1256,7 +1277,12 @@ async def alterar_modo_operacao(
             # REQ-004.3: takeover manual pelo vendedor recebe o mesmo tratamento de um
             # escalonamento (motivo/timestamp/resumo via helper central da Fase 5).
             await processador._escalar_atendimento(
-                session, atendimento, MotivoEscalonamento.MANUAL_VENDEDOR, ator=ator_nome
+                session,
+                atendimento,
+                MotivoEscalonamento.MANUAL_VENDEDOR,
+                ator=ator_nome,
+                # Sem mensagem/processamento de origem (REQ-004.5B): foi uma ação do painel.
+                evidencias={"ator": ator_nome, "origem_acao": "painel"},
             )
         else:
             modo_anterior = atendimento.modo_operacao.value
@@ -1276,6 +1302,35 @@ async def alterar_modo_operacao(
             f"[ModoOperacao] Atendimento {atendimento.id} alterado para modo={novo_modo.value} por {ator_nome}"
         )
         return atendimento.to_dict()
+
+
+class AvaliarEscalonamentoRequest(BaseModel):
+    # Obrigatório, mas aceita null: `null` desfaz a avaliação ("não avaliado").
+    avaliacao: Optional[AvaliacaoEscalonamento]
+    comentario: Optional[str] = None
+
+
+@app.patch("/api/escalonamentos/{escalonamento_id}/avaliacao")
+async def avaliar_escalonamento(
+    escalonamento_id: int,
+    payload: AvaliarEscalonamentoRequest,
+    avaliado_por: str = Depends(usuario_nome_atual),
+):
+    """REQ-004.5C: marca o escalonamento como procedente/indevido (vale a última
+    avaliação) ou desfaz com `avaliacao: null`."""
+    with db.get_session() as session:
+        escalonamento = session.query(Escalonamento).filter_by(id=escalonamento_id).first()
+        if not escalonamento:
+            raise HTTPException(status_code=404, detail="Escalonamento não encontrado")
+        escalonamentos_svc.avaliar_escalonamento(
+            escalonamento,
+            avaliacao=payload.avaliacao,
+            comentario=payload.comentario,
+            avaliado_por=avaliado_por,
+        )
+        session.commit()
+        session.refresh(escalonamento)
+        return escalonamento.to_dict()
 
 
 class EncerrarAtendimentoRequest(BaseModel):

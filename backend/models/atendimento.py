@@ -7,6 +7,7 @@ from typing import TYPE_CHECKING, List, Optional
 
 from models_comportamento import ComportamentoAtendimento
 from sqlalchemy import Boolean, Enum, ForeignKey, Index, Numeric, String, Text, UniqueConstraint
+from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from utils.datetime_utils import serialize_utc_datetime, utc_now
 
@@ -83,6 +84,50 @@ class MotivoEscalonamento(str, enum.Enum):
     BASE_INSUFICIENTE = "base_insuficiente"
     MANUAL_VENDEDOR = "manual_vendedor"
     MODELO_NAO_RECONHECIDO = "modelo_nao_reconhecido"
+
+
+class GatilhoEscalonamento(str, enum.Enum):
+    """Condição concreta que disparou um escalonamento (REQ-004.5B).
+
+    `MotivoEscalonamento` é a categoria; o gatilho é o que de fato aconteceu dentro dela.
+    Um escalonamento pode ter mais de um (projeto complexo com quantidade e leitor facial
+    na mesma mensagem, por exemplo). Gravado como lista de strings em
+    `Escalonamento.gatilhos`, sem CHECK constraint, pelo mesmo motivo de
+    `TipoEventoAtendimento`: um gatilho novo não deve exigir migração.
+    """
+
+    INTENCAO_ESCALAR_HUMANO = "intencao_escalar_humano"
+    INTENCAO_RECLAMAR = "intencao_reclamar"
+    QUANTIDADE_MINIMA = "quantidade_minima"
+    FAIXA_FUNCIONARIOS = "faixa_funcionarios"
+    LEITOR_FACIAL = "leitor_facial"
+    BAIXA_CONFIANCA_REPETIDA = "baixa_confianca_repetida"
+    BASE_SEM_RESPOSTA = "base_sem_resposta"
+    TENTATIVAS_ESGOTADAS = "tentativas_esgotadas"
+    ASSUMIDO_PELO_VENDEDOR = "assumido_pelo_vendedor"
+
+
+# Gatilho de cada motivo que só tem um. `projeto_complexo` fica de fora de propósito: tem
+# três condições possíveis e quem escala precisa dizer quais dispararam.
+GATILHO_UNICO_POR_MOTIVO: dict[MotivoEscalonamento, GatilhoEscalonamento] = {
+    MotivoEscalonamento.SOLICITADO_CLIENTE: GatilhoEscalonamento.INTENCAO_ESCALAR_HUMANO,
+    MotivoEscalonamento.RECLAMACAO: GatilhoEscalonamento.INTENCAO_RECLAMAR,
+    MotivoEscalonamento.BAIXA_CONFIANCA: GatilhoEscalonamento.BAIXA_CONFIANCA_REPETIDA,
+    MotivoEscalonamento.BASE_INSUFICIENTE: GatilhoEscalonamento.BASE_SEM_RESPOSTA,
+    MotivoEscalonamento.MODELO_NAO_RECONHECIDO: GatilhoEscalonamento.TENTATIVAS_ESGOTADAS,
+    MotivoEscalonamento.MANUAL_VENDEDOR: GatilhoEscalonamento.ASSUMIDO_PELO_VENDEDOR,
+}
+
+
+class AvaliacaoEscalonamento(str, enum.Enum):
+    """Avaliação humana de um escalonamento (REQ-004.5C). Ausente (NULL) = não avaliado.
+
+    String livre em `Escalonamento.avaliacao`, sem CHECK constraint, como os demais
+    enums deste arquivo; a validação fica na API.
+    """
+
+    PROCEDENTE = "procedente"
+    INDEVIDO = "indevido"
 
 
 class ModoOperacao(str, enum.Enum):
@@ -214,6 +259,11 @@ class Atendimento(Base, ComportamentoAtendimento):
         cascade="all, delete-orphan",
         order_by="EventoAtendimento.timestamp.desc()",
     )
+    escalonamentos: Mapped[List["Escalonamento"]] = relationship(
+        back_populates="atendimento",
+        cascade="all, delete-orphan",
+        order_by="Escalonamento.timestamp.desc()",
+    )
 
     def to_dict(self) -> dict:
         """Converte o modelo para dicionário."""
@@ -288,6 +338,66 @@ class EventoAtendimento(Base):
             "mensagem_id": self.mensagem_id,
             "processamento_id": self.processamento_id,
             "timestamp": serialize_utc_datetime(self.timestamp),
+        }
+
+
+class Escalonamento(Base):
+    """Registro do que levou a cada escalonamento e da avaliação humana dele
+    (REQ-004.5B/5C).
+
+    Complementa o `EventoAtendimento` do tipo `escalado` (ligado por `evento_id`): o
+    evento diz que o atendimento passou a modo humano; este registro diz por quê, com os
+    gatilhos que dispararam e os valores e limiares vigentes em `evidencias`. O texto da
+    mensagem não é copiado para cá (o vínculo `mensagem_id` basta e evita duplicar dado
+    pessoal do cliente).
+
+    `mensagem_id`/`processamento_id` ficam nulos no takeover manual pelo vendedor e em
+    escalonamentos feitos fora de `ProcessadorMensagem.processar()`.
+    """
+
+    __tablename__ = "escalonamentos"
+
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    atendimento_id: Mapped[int] = mapped_column(ForeignKey("atendimentos.id"), nullable=False, index=True)
+    evento_id: Mapped[Optional[int]] = mapped_column(
+        ForeignKey("eventos_atendimento.id"), nullable=True, index=True
+    )
+    mensagem_id: Mapped[Optional[int]] = mapped_column(ForeignKey("mensagens.id"), nullable=True)
+    processamento_id: Mapped[Optional[int]] = mapped_column(
+        ForeignKey("processamentos_mensagem.id"), nullable=True
+    )
+    # Valores de `MotivoEscalonamento`; mesmo tamanho de `Atendimento.motivo_escalonamento`.
+    motivo: Mapped[str] = mapped_column(String(30), nullable=False, index=True)
+    # Lista de valores de `GatilhoEscalonamento`.
+    gatilhos: Mapped[list] = mapped_column(JSONB, nullable=False, default=list)
+    evidencias: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict)
+    ator: Mapped[str] = mapped_column(String(50), nullable=False)
+    timestamp: Mapped[datetime] = mapped_column(UTCDateTime, default=utc_now, nullable=False, index=True)
+    # Avaliação humana (REQ-004.5C): NULL = não avaliado; vale a última.
+    avaliacao: Mapped[Optional[str]] = mapped_column(String(20), nullable=True, index=True)
+    avaliacao_comentario: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    avaliado_por: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
+    avaliado_em: Mapped[Optional[datetime]] = mapped_column(UTCDateTime, nullable=True)
+
+    atendimento: Mapped["Atendimento"] = relationship(back_populates="escalonamentos")
+
+    def to_dict(self) -> dict:
+        """Converte o modelo para dicionário."""
+        return {
+            "id": self.id,
+            "atendimento_id": self.atendimento_id,
+            "evento_id": self.evento_id,
+            "mensagem_id": self.mensagem_id,
+            "processamento_id": self.processamento_id,
+            "motivo": self.motivo,
+            "gatilhos": list(self.gatilhos or []),
+            "evidencias": dict(self.evidencias or {}),
+            "ator": self.ator,
+            "timestamp": serialize_utc_datetime(self.timestamp),
+            "avaliacao": self.avaliacao,
+            "avaliacao_comentario": self.avaliacao_comentario,
+            "avaliado_por": self.avaliado_por,
+            "avaliado_em": serialize_utc_datetime(self.avaliado_em),
         }
 
 

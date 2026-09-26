@@ -12,9 +12,10 @@ Ver `docs/arquitetura_motor_conversacao_2026-07.md` para o funcionamento geral d
 
 from __future__ import annotations
 
-from models import ModoOperacao, MotivoEscalonamento, TipoDocumento
+from models import GatilhoEscalonamento, ModoOperacao, MotivoEscalonamento, TipoDocumento
 
-from services.classificador import Intencao
+from services import escalonamentos as escalonamentos_svc
+from services.classificador import EntidadesExtraidas, Intencao
 from services.cpf.validacao import mascarar_cpf
 from services.parametro_service import ParametroService
 from services.respostas import MensagemId
@@ -37,7 +38,12 @@ async def _executar_escalar_humano(ctx: ContextoAcao):
     corrigido na Fase 5: antes só respondia o template, sem setar modo humano)."""
     atendimento = await garantir_atendimento_dispatch(ctx)
     await ctx.processador._escalar_atendimento(
-        ctx.db, atendimento, MotivoEscalonamento.SOLICITADO_CLIENTE, ator="cliente", dlog=ctx.dlog
+        ctx.db,
+        atendimento,
+        MotivoEscalonamento.SOLICITADO_CLIENTE,
+        ator="cliente",
+        dlog=ctx.dlog,
+        evidencias=escalonamentos_svc.evidencias_da_classificacao(ctx.resultado_class),
     )
     if ctx.dlog:
         ctx.dlog.log("rota", "ESCALAR_HUMANO → ESCALADO_HUMANO + modo=HUMANO")
@@ -49,21 +55,68 @@ async def _executar_reclamar(ctx: ContextoAcao):
     acima). Prioridade de pós-venda (REQ-009) só se aplica na Fase 15."""
     atendimento = await garantir_atendimento_dispatch(ctx)
     await ctx.processador._escalar_atendimento(
-        ctx.db, atendimento, MotivoEscalonamento.RECLAMACAO, ator="cliente", dlog=ctx.dlog
+        ctx.db,
+        atendimento,
+        MotivoEscalonamento.RECLAMACAO,
+        ator="cliente",
+        dlog=ctx.dlog,
+        evidencias=escalonamentos_svc.evidencias_da_classificacao(ctx.resultado_class),
     )
     if ctx.dlog:
         ctx.dlog.log("rota", "RECLAMAR → RECLAMACAO_ESCALADA + modo=HUMANO")
     return (MensagemId.RECLAMACAO_ESCALADA, None)
 
 
-async def _executar_projeto_complexo(ctx: ContextoAcao):
-    atendimento = await garantir_atendimento_dispatch(ctx)
-    await ctx.processador._escalar_atendimento(
-        ctx.db, atendimento, MotivoEscalonamento.PROJETO_COMPLEXO, ator="sistema:projeto_complexo", dlog=ctx.dlog
-    )
-    if ctx.dlog:
-        ctx.dlog.log("rota", "projeto complexo → PROJETO_COMPLEXO_ESCALADO + modo=HUMANO")
-    return (MensagemId.PROJETO_COMPLEXO_ESCALADO, None)
+def _gatilhos_projeto_complexo(
+    entidades: EntidadesExtraidas, limiar_funcionarios: int
+) -> list[GatilhoEscalonamento]:
+    """REQ-004.8: as condições de projeto complexo que esta mensagem satisfaz (todas, não
+    só a primeira, para o registro do REQ-004.5B). Lista vazia = não é projeto complexo."""
+    gatilhos = []
+    if any(q >= _QUANTIDADE_MINIMA_PROJETO_COMPLEXO for q in entidades.quantidades):
+        gatilhos.append(GatilhoEscalonamento.QUANTIDADE_MINIMA)
+    if entidades.faixa_funcionarios is not None and entidades.faixa_funcionarios >= limiar_funcionarios:
+        gatilhos.append(GatilhoEscalonamento.FAIXA_FUNCIONARIOS)
+    if entidades.tipo_leitor_mencionado == "facial":
+        gatilhos.append(GatilhoEscalonamento.LEITOR_FACIAL)
+    return gatilhos
+
+
+def _executor_projeto_complexo(gatilhos: list[GatilhoEscalonamento], limiar_funcionarios: int):
+    """Monta a Ação com os gatilhos e o limiar que o builder avaliou, para o registro
+    guardar exatamente o que decidiu (o limiar é parâmetro e pode mudar)."""
+
+    async def _executar(ctx: ContextoAcao):
+        entidades = ctx.resultado_class.entidades
+        atendimento = await garantir_atendimento_dispatch(ctx)
+        await ctx.processador._escalar_atendimento(
+            ctx.db,
+            atendimento,
+            MotivoEscalonamento.PROJETO_COMPLEXO,
+            ator="sistema:projeto_complexo",
+            dlog=ctx.dlog,
+            gatilhos=gatilhos,
+            evidencias={
+                **escalonamentos_svc.evidencias_da_classificacao(ctx.resultado_class),
+                # As três condições com valor e limiar, disparadas ou não: é o que
+                # permite dizer depois se o gatilho leu certo a mensagem.
+                "quantidades": list(entidades.quantidades),
+                "quantidade_minima": _QUANTIDADE_MINIMA_PROJETO_COMPLEXO,
+                "faixa_funcionarios": entidades.faixa_funcionarios,
+                "limiar_funcionarios": limiar_funcionarios,
+                "tipo_leitor_mencionado": entidades.tipo_leitor_mencionado,
+            },
+        )
+        if ctx.dlog:
+            ctx.dlog.log(
+                "rota",
+                "projeto complexo ("
+                + ", ".join(g.value for g in gatilhos)
+                + ") → PROJETO_COMPLEXO_ESCALADO + modo=HUMANO",
+            )
+        return (MensagemId.PROJETO_COMPLEXO_ESCALADO, None)
+
+    return _executar
 
 
 def _builder_projeto_complexo(ctx: ContextoAcao) -> GrupoAcoes:
@@ -74,16 +127,11 @@ def _builder_projeto_complexo(ctx: ContextoAcao) -> GrupoAcoes:
     if ctx.atendimento and ctx.atendimento.modo_operacao == ModoOperacao.HUMANO:
         return GrupoAcoes()
 
-    entidades = ctx.resultado_class.entidades
     limiar = ParametroService(ctx.db).get_int(_LIMIAR_FUNCIONARIOS_PARAM, _LIMIAR_FUNCIONARIOS_DEFAULT)
-    gatilho = (
-        any(q >= _QUANTIDADE_MINIMA_PROJETO_COMPLEXO for q in entidades.quantidades)
-        or (entidades.faixa_funcionarios is not None and entidades.faixa_funcionarios >= limiar)
-        or entidades.tipo_leitor_mencionado == "facial"
-    )
-    if not gatilho:
+    gatilhos = _gatilhos_projeto_complexo(ctx.resultado_class.entidades, limiar)
+    if not gatilhos:
         return GrupoAcoes()
-    return GrupoAcoes(exclusivo=[Acao("projeto_complexo", _executar_projeto_complexo)])
+    return GrupoAcoes(exclusivo=[Acao("projeto_complexo", _executor_projeto_complexo(gatilhos, limiar))])
 
 
 async def _executar_fornecer_cnpj(ctx: ContextoAcao):

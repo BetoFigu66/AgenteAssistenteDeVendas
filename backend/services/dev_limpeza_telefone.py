@@ -2,7 +2,7 @@
 Limpeza de dados de teste por telefone (ferramenta de desenvolvimento).
 
 Remove em cascata (ordem de FKs):
-  reports → eventos_atendimento → mensagens → processamentos → orçamentos/itens →
+  reports → escalonamentos → eventos_atendimento → mensagens → processamentos → orçamentos/itens →
   itens/infos de atendimento → atendimentos → contato →
   (atividades_empresa, socios_empresa, empresa) quando a empresa ficou órfã
 
@@ -23,6 +23,7 @@ from models import (
     AtividadeEmpresa,
     Contato,
     Empresa,
+    Escalonamento,
     EventoAtendimento,
     ItemAtendimento,
     ItemOrcamento,
@@ -240,6 +241,17 @@ def apagar_dados_telefone(db: Session, telefone: str) -> dict[str, Any]:
     # `processamento_id` passaram a ser preenchidos (achado A2), essas FKs deixaram de ser
     # sempre NULL e passaram a bloquear a remoção das mensagens. Antes disso a ordem não
     # importava, e por isso este delete ficava lá embaixo, junto dos atendimentos.
+    # REQ-004.5B: escalonamentos apontam para eventos, mensagens, processamentos e
+    # atendimentos, então saem antes de todos eles.
+    if atendimento_ids:
+        removidos["escalonamentos"] = (
+            db.query(Escalonamento)
+            .filter(Escalonamento.atendimento_id.in_(atendimento_ids))
+            .delete(synchronize_session=False)
+        )
+    else:
+        removidos["escalonamentos"] = 0
+
     if atendimento_ids:
         removidos["eventos_atendimento"] = (
             db.query(EventoAtendimento)
