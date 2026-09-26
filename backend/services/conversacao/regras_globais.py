@@ -2,7 +2,8 @@
 Regras globais do motor de roteamento (`services/conversacao/motor.py`) — avaliadas
 independente da Fase efetiva do atendimento: ESCALAR_HUMANO, RECLAMAR, FORNECER_CNPJ,
 FORNECER_CPF, FORNECER_DATA_NASCIMENTO (continuação do fluxo PF pendente), FORNECER_NOME
-(efeito colateral silencioso) e a resposta à pergunta de fechamento do atendimento
+(efeito colateral silencioso), a resposta que só trata da confirmação do nome de perfil
+(`confirmacao_nome_perfil.py`) e a resposta à pergunta de fechamento do atendimento
 (REQ-016.10, `regras_encerramento.py`). São wrappers finos em cima dos helpers já
 existentes e testados em `ProcessadorMensagem` — nenhuma lógica de negócio nova aqui.
 
@@ -19,6 +20,7 @@ from services.parametro_service import ParametroService
 from services.respostas import MensagemId
 
 from .acoes import Acao, ContextoAcao, GrupoAcoes, garantir_atendimento_dispatch
+from .confirmacao_nome_perfil import REGRA_RESPOSTA_SO_AO_NOME
 from .motor import RegraIntencao
 from .regras_encerramento import REGISTRO_ENCERRAMENTO
 
@@ -92,7 +94,7 @@ async def _executar_fornecer_cnpj(ctx: ContextoAcao):
         ctx.db,
         ctx.telefone,
         entidades.cnpjs[0],
-        nome_informado=ctx.nome_para_contato(),
+        nome_informado=ctx.nome_digitado(),
     )
 
 
@@ -106,9 +108,8 @@ async def _executar_fornecer_cpf(ctx: ContextoAcao):
         ctx.db,
         ctx.telefone,
         entidades.cpfs[0],
-        nome_informado=entidades.nomes[0] if entidades.nomes else None,
+        nome_informado=ctx.nome_digitado(),
         data_nascimento=data_nasc,
-        nome_perfil=ctx.nome_perfil,
     )
 
 
@@ -136,8 +137,9 @@ def _builder_fornecer_data_nascimento(ctx: ContextoAcao) -> GrupoAcoes:
     if not cpf_pendente:
         return GrupoAcoes()
 
-    # `contato.nome` vira `Pessoa.nome` aqui, então um nome que só veio do perfil do
-    # WhatsApp (igual ao `ProfileName` desta mensagem) não é repassado como nome informado.
+    # `contato.nome` vira `Pessoa.nome` aqui, então um nome que veio do perfil do WhatsApp
+    # (igual ao `ProfileName` desta mensagem), mesmo confirmado como forma de tratamento,
+    # não é repassado como nome informado.
     nome_do_cliente = contato_pendente.nome if contato_pendente.nome != ctx.nome_perfil else None
 
     async def _executar(ctx: ContextoAcao):
@@ -149,7 +151,6 @@ def _builder_fornecer_data_nascimento(ctx: ContextoAcao) -> GrupoAcoes:
             cpf_pendente,
             nome_informado=nome_do_cliente,
             data_nascimento=data_nasc_avulsa,
-            nome_perfil=ctx.nome_perfil,
         )
 
     return GrupoAcoes(exclusivo=[Acao("fornecer_data_nascimento", _executar)])
@@ -162,14 +163,11 @@ async def _executar_fornecer_nome(ctx: ContextoAcao):
     cria o contato (`_garantir_contato_e_atendimento_qualificacao`/
     `_garantir_atendimento_anonimo`), então não há nada a fazer aqui nesse caso.
 
-    Exceção ao "só se não tem nome": se o nome atual é o nome de perfil do WhatsApp
-    (igual ao `ProfileName` desta mensagem), o nome que o cliente escreveu o substitui.
-    Nome dado pelo próprio cliente vale mais que o apelido do perfil."""
+    O nome de perfil do WhatsApp não chega mais ao contato sem confirmação
+    (`confirmacao_nome_perfil.py`), então não existe mais "nome provisório" a substituir:
+    vale a regra de sempre, só preenche quem ainda não tem nome."""
     entidades = ctx.resultado_class.entidades
-    if not (entidades.nomes and ctx.contato):
-        return None
-    nome_veio_do_perfil = bool(ctx.nome_perfil) and ctx.contato.nome == ctx.nome_perfil
-    if not ctx.contato.nome or (nome_veio_do_perfil and entidades.nomes[0] != ctx.contato.nome):
+    if entidades.nomes and ctx.contato and not ctx.contato.nome:
         ctx.contato.nome = entidades.nomes[0]
         ctx.db.commit()
     return None
@@ -218,4 +216,5 @@ REGRAS_GLOBAIS: list[RegraIntencao] = [
         builder=lambda ctx: GrupoAcoes(pre=[Acao("fornecer_nome", _executar_fornecer_nome)]),
         nome="fornecer_nome",
     ),
+    REGRA_RESPOSTA_SO_AO_NOME,
 ] + REGISTRO_ENCERRAMENTO

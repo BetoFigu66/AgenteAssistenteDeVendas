@@ -45,6 +45,7 @@ from services.conversacao.catalogo_campos import (
     chave_perguntado,
 )
 from services.conversacao.categoria_pergunta import responder_categoria_pergunta
+from services.conversacao.confirmacao_nome_perfil import CHAVES_CONFIRMACAO_NOME_PERFIL
 from services.respostas import MensagemId, RespostaGerada
 
 from .base import EstadoAtendimento
@@ -366,6 +367,10 @@ class FinalizandoState(EstadoAtendimento):
         atributos_mensagem: dict[str, str] = {}
         for chave, valor in valores.items():
             if chave in ("marca", "aplicacao", "tipo_leitor_mencionado", "tipos_produto", "quantidades"):
+                continue
+            # Estado da pergunta do nome de perfil do WhatsApp: não é atributo de modelo e,
+            # se entrasse, viraria filtro e nenhum modelo casaria.
+            if chave in CHAVES_CONFIRMACAO_NOME_PERFIL:
                 continue
             atributos_mensagem[chave] = valor
         for chave, valor in entidades.atributos.items():

@@ -64,6 +64,8 @@ class MensagemId(IntEnum):
     PEDIR_INTERESSE_SISTEMA_NUVEM = 44
     PEDIR_HOMOLOGADO_SOFTWARE = 45
     DISPONIBILIDADE_PRODUTO = 46
+    CONFIRMAR_NOME_PERFIL = 47
+    NOME_ANOTADO = 48
 
 
 @dataclass(frozen=True)
@@ -114,6 +116,20 @@ CATALOGO: dict[int, MensagemTemplate] = {
         id=MensagemId.PERGUNTAR_NOME,
         codigo="PERGUNTAR_NOME",
         mensagem="Como posso te chamar? 😊",
+    ),
+    # Substitui o pedido de nome quando o nome de perfil do WhatsApp é aproveitável
+    # (decisão do Beto, 26/09): o nome só é gravado depois que o cliente responde.
+    MensagemId.CONFIRMAR_NOME_PERFIL: MensagemTemplate(
+        id=MensagemId.CONFIRMAR_NOME_PERFIL,
+        codigo="CONFIRMAR_NOME_PERFIL",
+        mensagem="{abertura}Posso te chamar assim ou seu nome é outro?{linha_pedido}",
+        transformers=("montar_confirmar_nome_perfil",),
+    ),
+    MensagemId.NOME_ANOTADO: MensagemTemplate(
+        id=MensagemId.NOME_ANOTADO,
+        codigo="NOME_ANOTADO",
+        mensagem="Combinado, {nome}! 😊{linha_seguinte}",
+        transformers=("montar_nome_anotado",),
     ),
     MensagemId.CONFIRMAR_EMPRESA: MensagemTemplate(
         id=MensagemId.CONFIRMAR_EMPRESA,

@@ -58,18 +58,24 @@ class ContextoAcao:
     dlog: Optional[DebugLogger] = None
     # Nome de perfil do WhatsApp (`ProfileName`) já validado por
     # `utils.nome_perfil.nome_perfil_aproveitavel`, ou None (inválido, ausente ou chamada
-    # que não veio do WhatsApp). Ver `nome_para_contato`.
+    # que não veio do WhatsApp). Nunca é gravado direto: vira `Contato.nome` só depois
+    # que o cliente confirma (ver `confirmacao_nome_perfil.py`).
     nome_perfil: Optional[str] = None
+    # Preenchidos por `confirmacao_nome_perfil.tratar_resposta` antes do motor rodar,
+    # quando esta mensagem responde à pergunta "Posso te chamar assim ou seu nome é outro?".
+    nome_resposta_confirmacao: Optional[str] = None
+    resposta_so_ao_nome: bool = False
+    pedir_nome_apos_negacao: bool = False
     # Fragmentos já produzidos por Ações anteriores NESTA mensagem, na ordem de execução
     # — permite que uma Ação de último recurso (ex.: pedir documento fiscal) só aja
     # quando nada mais respondeu nada ainda.
     fragmentos_ate_agora: list[RespostaGerada] = field(default_factory=list)
 
-    def nome_para_contato(self) -> Optional[str]:
-        """Nome a usar para um contato que ainda não tem nome: o que o cliente escreveu
-        nesta mensagem vem antes do nome de perfil do WhatsApp."""
+    def nome_digitado(self) -> Optional[str]:
+        """Nome que o cliente escreveu nesta mensagem, se escreveu. O nome de perfil do
+        WhatsApp não entra aqui: ele só vira nome do contato depois de confirmado."""
         nomes = self.resultado_class.entidades.nomes
-        return nomes[0] if nomes else self.nome_perfil
+        return nomes[0] if nomes else None
 
 
 # Uma Ação produz: um par (MensagemId, contexto) pronto pro catálogo de templates, OU uma
@@ -116,7 +122,7 @@ async def garantir_atendimento_dispatch(ctx: ContextoAcao) -> Atendimento:
         return ctx.atendimento
     p = ctx.processador
     atendimento = await p._garantir_contato_e_atendimento_qualificacao(
-        ctx.db, ctx.telefone, ctx.contato, ctx.resultado_class, dlog=ctx.dlog, nome_perfil=ctx.nome_perfil
+        ctx.db, ctx.telefone, ctx.contato, ctx.resultado_class, dlog=ctx.dlog
     )
     ctx.atendimento = atendimento
     ctx.contato = atendimento.contato

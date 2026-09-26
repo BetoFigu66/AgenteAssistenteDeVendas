@@ -23,6 +23,7 @@ from sqlalchemy.orm import Session
 
 from services.classificador import Intencao
 from services.conversacao.catalogo_campos import CAMPO_FAIXA_FUNCIONARIOS
+from services.conversacao.confirmacao_nome_perfil import saudacao_primeiro_contato
 from services.conversacao.estados.esclarecendo import ESCLARECENDO
 from services.conversacao.estados.finalizando import FINALIZANDO, _produto_ids_por_tipos
 from services.identificador import StatusIdentificacao
@@ -148,8 +149,9 @@ def _buscar_marcas_produto(
 async def _executar_pedir_orcamento(ctx: ContextoAcao):
     """PEDIR_ORCAMENTO transita para Finalizando e pergunta o primeiro campo pendente.
     Um contato totalmente novo (`StatusIdentificacao.NOVO`) ganha a saudação de
-    boas-vindas junto (mesma composição de sempre); quem já conversava antes não precisa
-    ser cumprimentado de novo.
+    boas-vindas junto (mesma composição de sempre, ou a pergunta de confirmação do nome de
+    perfil do WhatsApp no lugar dela, ver `saudacao_primeiro_contato`); quem já conversava
+    antes não precisa ser cumprimentado de novo.
 
     Builder de Esclarecendo disparando a entrada em Finalizando (`FINALIZANDO.entrar`) é
     inerente à transição E→F, não uma violação da linha roteamento/comportamento — fica
@@ -163,8 +165,8 @@ async def _executar_pedir_orcamento(ctx: ContextoAcao):
     if era_novo:
         if ctx.dlog:
             ctx.dlog.log("rota", "NOVO + PEDIR_ORCAMENTO → composta (Finalizando)")
-        ctx_novo = {"nome": ctx.nome_para_contato(), "modo": "orcamento"}
-        return await p._gerador.gerar_composta([(MensagemId.SAUDACAO_NOVO_CONTATO, ctx_novo), *partes_finalizando])
+        saudacao = saudacao_primeiro_contato(ctx, modo="orcamento")
+        return await p._gerador.gerar_composta([saudacao, *partes_finalizando])
 
     if len(partes_finalizando) == 1:
         return partes_finalizando[0]
@@ -217,8 +219,8 @@ async def _executar_perguntar_disponibilidade(ctx: ContextoAcao):
     if era_novo:
         if ctx.dlog:
             ctx.dlog.log("rota", "NOVO + PERGUNTAR_DISPONIBILIDADE → composta (Finalizando)")
-        ctx_novo = {"nome": ctx.nome_para_contato(), "modo": "orcamento"}
-        return await p._gerador.gerar_composta([(MensagemId.SAUDACAO_NOVO_CONTATO, ctx_novo), *partes_finalizando])
+        saudacao = saudacao_primeiro_contato(ctx, modo="orcamento")
+        return await p._gerador.gerar_composta([saudacao, *partes_finalizando])
 
     if len(partes_finalizando) == 1:
         return partes_finalizando[0]

@@ -13,6 +13,12 @@ from models import FaseAtendimento
 
 from services.classificador import Intencao
 from services.conversacao.acoes import ContextoAcao, RespostaFragmento, garantir_atendimento_dispatch
+from services.conversacao.confirmacao_nome_perfil import (
+    contexto_confirmacao,
+    nome_perfil_a_confirmar,
+    registrar_pergunta,
+    saudacao_primeiro_contato,
+)
 from services.identificador import StatusIdentificacao
 from services.respostas import MensagemId
 
@@ -49,6 +55,10 @@ class EsclarecendoState(EstadoAtendimento):
             if Intencao.SAUDACAO in ctx.resultado_class.intencoes:
                 if nome:
                     return (MensagemId.SAUDACAO_COM_NOME, {"nome": nome})
+                nome_perfil = nome_perfil_a_confirmar(ctx) if ctx.atendimento else None
+                if nome_perfil:
+                    registrar_pergunta(ctx, nome_perfil)
+                    return (MensagemId.CONFIRMAR_NOME_PERFIL, contexto_confirmacao(nome_perfil, False, False))
                 return (MensagemId.PERGUNTAR_NOME, None)
             return await p._fallback_qa_ou_nao_entendi(
                 ctx.conteudo, resultado_class=ctx.resultado_class, db=ctx.db, atendimento=ctx.atendimento,
@@ -75,15 +85,15 @@ class EsclarecendoState(EstadoAtendimento):
         p._salvar_info_atendimento(ctx.db, atendimento.id, _CHAVE_DOC_PENDENTE, "solicitado")
 
         if ctx.identificacao.status == StatusIdentificacao.NOVO:
-            entidades = ctx.resultado_class.entidades
-            ctx_novo = {
-                "nome": ctx.nome_para_contato(),
-                "tem_documento": bool(entidades.cnpjs or entidades.cpfs),
-                "modo": "identificacao",
-            }
-            return (MensagemId.SAUDACAO_NOVO_CONTATO, ctx_novo)
+            return saudacao_primeiro_contato(ctx, modo="identificacao")
 
         nome_contato = atendimento.contato.nome if atendimento.contato else None
+        nome_perfil = None if nome_contato else nome_perfil_a_confirmar(ctx)
+        if nome_perfil:
+            # O pedido de nome do PERGUNTAR_CNPJ vira a pergunta de confirmação; o de
+            # CNPJ/CPF continua na mesma frase.
+            registrar_pergunta(ctx, nome_perfil)
+            return (MensagemId.CONFIRMAR_NOME_PERFIL, contexto_confirmacao(nome_perfil, False, True))
         return (MensagemId.PERGUNTAR_CNPJ, {"nome": nome_contato})
 
 

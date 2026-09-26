@@ -75,6 +75,46 @@ def montar_saudacao_novo(ctx: ContextoMensagem) -> ContextoMensagem:
     return ctx
 
 
+def montar_confirmar_nome_perfil(ctx: ContextoMensagem) -> ContextoMensagem:
+    """
+    Preenche abertura e linha_pedido para CONFIRMAR_NOME_PERFIL.
+
+    Contexto:
+    - nome: str (nome de perfil do WhatsApp, já validado)
+    - apresentar: bool, primeiro contato ("Sou o assistente da Inforrel.")
+    - pedir_documento: bool, emenda o pedido de CNPJ/CPF na mesma frase
+    """
+    abertura = f"Olá, {_nome_informado(ctx)}! 👋 "
+    if ctx.get("apresentar"):
+        abertura += "Sou o assistente da Inforrel.\n"
+    ctx["abertura"] = abertura
+    ctx["linha_pedido"] = (
+        " E para te atender melhor, poderia me informar o CNPJ da sua empresa ou seu CPF?"
+        if ctx.get("pedir_documento")
+        else ""
+    )
+    return ctx
+
+
+def montar_nome_anotado(ctx: ContextoMensagem) -> ContextoMensagem:
+    """
+    Preenche linha_seguinte para NOME_ANOTADO (resposta que só tratou do nome).
+
+    Contexto:
+    - nome: str
+    - pedir_documento: bool, repete o pedido de CNPJ/CPF ainda sem resposta
+    - segue_pergunta: bool, outra mensagem do catálogo vem logo depois (ex.: a pergunta
+      pendente do orçamento), então não fecha com "em que posso ajudar"
+    """
+    if ctx.get("pedir_documento"):
+        ctx["linha_seguinte"] = " Para te atender melhor, poderia me informar o CNPJ da sua empresa ou seu CPF?"
+    elif ctx.get("segue_pergunta"):
+        ctx["linha_seguinte"] = ""
+    else:
+        ctx["linha_seguinte"] = " Em que posso te ajudar hoje?"
+    return ctx
+
+
 def montar_perguntar_cnpj(ctx: ContextoMensagem) -> ContextoMensagem:
     """Preenche pedido_identificacao para PERGUNTAR_CNPJ."""
     ctx = montar_pedido_identificacao(ctx)
@@ -123,5 +163,7 @@ TRANSFORMERS: dict[str, TransformerFn] = {
     "montar_saudacao_novo": montar_saudacao_novo,
     "montar_pedido_identificacao": montar_pedido_identificacao,
     "montar_perguntar_cnpj": montar_perguntar_cnpj,
+    "montar_confirmar_nome_perfil": montar_confirmar_nome_perfil,
+    "montar_nome_anotado": montar_nome_anotado,
     "montar_resumo_finalizando": montar_resumo_finalizando,
 }

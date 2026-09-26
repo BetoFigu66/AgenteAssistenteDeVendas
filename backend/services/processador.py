@@ -60,6 +60,7 @@ from services.conversacao.catalogo_campos import (
     CAMPO_SOFTWARE_ACESSO,
     CAMPO_SOFTWARE_PONTO,
 )
+from services.conversacao.confirmacao_nome_perfil import tratar_resposta as tratar_resposta_confirmacao_nome
 from services.conversacao.motor import resolver_e_executar
 from services.conversacao.regras_esclarecendo import REGISTRO_ESCLARECENDO
 from services.conversacao.regras_finalizando import REGISTRO_FINALIZANDO
@@ -255,9 +256,10 @@ class ProcessadorMensagem:
         `_resolver_resposta_a`.
 
         `nome_perfil` é o `ProfileName` que a Twilio manda no webhook do WhatsApp. Só é
-        usado depois de passar por `nome_perfil_aproveitavel`, e só para preencher um nome
-        que o sistema ainda não conhece (ver `_aplicar_nome_perfil`). Sem ele (interface
-        web, testador de conversas), o comportamento é exatamente o de antes.
+        usado depois de passar por `nome_perfil_aproveitavel`, e nunca é gravado direto:
+        no lugar do pedido de nome, o bot pergunta se pode chamar o cliente assim, e só a
+        resposta dele decide o nome (`services/conversacao/confirmacao_nome_perfil.py`).
+        Sem ele (interface web, testador de conversas), o comportamento é o de antes.
         """
         telefone_norm = normalizar_telefone(telefone)
         inicio_ms = time.monotonic()
@@ -328,7 +330,6 @@ class ProcessadorMensagem:
         nome_perfil_valido = nome_perfil_aproveitavel(nome_perfil)
         if nome_perfil is not None:
             dlog.log("nome_perfil", f"recebido={nome_perfil!r} aproveitavel={nome_perfil_valido is not None}")
-        self._aplicar_nome_perfil(db, identificacao.contato, nome_perfil_valido, resultado_class, dlog=dlog)
 
         # 4. Verifica modo de operação do atendimento ativo (se existir)
         # Se modo=HUMANO, o sistema processa/classifica mas NÃO gera resposta.
@@ -481,36 +482,6 @@ class ProcessadorMensagem:
             origem_classificacao=resultado_class.origem,
             mensagem_saida_id=mensagem_saida_id,
         )
-
-    @staticmethod
-    def _aplicar_nome_perfil(
-        db: Session,
-        contato: Optional[Contato],
-        nome_perfil: Optional[str],
-        resultado_class: ResultadoClassificacao,
-        dlog: Optional[DebugLogger] = None,
-    ) -> bool:
-        """Preenche `contato.nome` com o nome de perfil do WhatsApp (já validado) quando o
-        contato existe e ainda não tem nome. Devolve True se preencheu.
-
-        Nunca sobrescreve: um nome que já está no contato veio do cliente, de um operador
-        ou de um perfil anterior, e fica como está. Se o cliente escreveu um nome nesta
-        mesma mensagem, também não faz nada, porque os fluxos de sempre (`fornecer_nome`,
-        criação do contato) gravam o nome digitado, que tem precedência.
-
-        Contato ainda inexistente (telefone novo) não é criado aqui: criar mudaria o status
-        de identificação (NOVO → SEM_EMPRESA) e com ele o roteamento. Nesse caso o nome
-        segue em `ContextoAcao.nome_perfil` e entra quando o contato for criado.
-        """
-        if not nome_perfil or contato is None or contato.nome:
-            return False
-        if resultado_class.entidades.nomes:
-            return False
-        contato.nome = nome_perfil
-        db.commit()
-        if dlog:
-            dlog.log("nome_perfil", f"contato_id={contato.id} nome preenchido pelo perfil do WhatsApp")
-        return True
 
     @staticmethod
     def _resolver_resposta_a(
@@ -735,6 +706,10 @@ class ProcessadorMensagem:
             dlog=dlog,
             nome_perfil=nome_perfil,
         )
+        # Fora do motor de propósito: a resposta à pergunta do nome de perfil precisa ser
+        # gravada mesmo quando uma Regra `exclusivo` (ex.: FORNECER_CNPJ) responde.
+        if atendimento:
+            tratar_resposta_confirmacao_nome(ctx)
         resposta = await resolver_e_executar(ctx, REGRAS_GLOBAIS, REGISTRO_POR_FASE)
         if resposta is not None:
             return resposta
@@ -1298,13 +1273,8 @@ class ProcessadorMensagem:
         cpf: str,
         nome_informado: Optional[str] = None,
         data_nascimento: Optional[date] = None,
-        nome_perfil: Optional[str] = None,
     ) -> RespostaGerada:
-        """Processa quando o cliente forneceu CPF: valida, persiste pessoa e vincula atendimento.
-
-        `nome_perfil` (WhatsApp, já validado) só serve de último recurso para `Contato.nome`,
-        nunca vai para `Pessoa.nome`: o nome da pessoa física é o que o cliente informou.
-        """
+        """Processa quando o cliente forneceu CPF: valida, persiste pessoa e vincula atendimento."""
         if not validar_cpf(cpf):
             return await self._gerador.gerar(MensagemId.CPF_INVALIDO)
 
@@ -1315,11 +1285,10 @@ class ProcessadorMensagem:
                 .filter(Contato.telefone.in_([telefone_norm, telefone]))
                 .first()
             )
-            nome_contato = nome_informado or nome_perfil
             if not contato:
-                contato = criar_contato(db=db, telefone=telefone, nome=nome_contato)
-            elif nome_contato and not contato.nome:
-                contato.nome = nome_contato
+                contato = criar_contato(db=db, telefone=telefone, nome=nome_informado)
+            elif nome_informado and not contato.nome:
+                contato.nome = nome_informado
                 db.commit()
 
             atendimento = self._obter_ou_criar_atendimento_pf_pendente(db, contato, cpf)
@@ -1343,10 +1312,10 @@ class ProcessadorMensagem:
             contato_existente = criar_contato(
                 db=db,
                 telefone=telefone,
-                nome=nome_informado or pessoa.nome or nome_perfil,
+                nome=nome_informado or pessoa.nome,
             )
         else:
-            nome_final = nome_informado or pessoa.nome or nome_perfil
+            nome_final = nome_informado or pessoa.nome
             if nome_final and not contato_existente.nome:
                 contato_existente.nome = nome_final
                 db.commit()
@@ -1383,13 +1352,12 @@ class ProcessadorMensagem:
         contato: Optional[Contato],
         resultado_class: ResultadoClassificacao,
         dlog: Optional[DebugLogger] = None,
-        nome_perfil: Optional[str] = None,
     ) -> Atendimento:
         """REQ-002.1B / REQ-016.6: cria contato e atendimento anônimos na intenção comercial.
 
-        O nome digitado nesta mensagem tem precedência; `nome_perfil` (WhatsApp, já
-        validado) só entra quando o cliente não escreveu nome nenhum."""
-        nome = resultado_class.entidades.nomes[0] if resultado_class.entidades.nomes else nome_perfil
+        Só o nome digitado nesta mensagem entra no contato; o nome de perfil do WhatsApp
+        espera a confirmação do cliente (`confirmacao_nome_perfil.py`)."""
+        nome = resultado_class.entidades.nomes[0] if resultado_class.entidades.nomes else None
         if contato is None:
             contato = criar_contato_sem_empresa(db, telefone, nome=nome)
             if dlog:
