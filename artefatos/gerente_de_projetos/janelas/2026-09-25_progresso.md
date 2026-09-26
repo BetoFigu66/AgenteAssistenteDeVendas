@@ -39,54 +39,92 @@ só o passo interrompido.
 - [x] **6. Documentação:** (commit `7c52b24`; o `STATUS.md` do spike é local, gitignored) `docs/comandos_uteis.md` e `STATUS.md` do spike.
 - [x] **7. Atualizar o plano** e deixar a lista de decisões pendentes para o Beto.
 
-## ⏩ Beto: decisões pendentes (consolidado às 19:00)
+## Respostas do Beto (26/09 09:00)
 
-Em ordem do que destrava mais trabalho. Entre parênteses, a minha recomendação.
+- **Nome do WhatsApp (decidido):** no início do atendimento, se o `ProfileName` passar na
+  validação, perguntar "Olá, <nome>! Posso te chamar assim ou seu nome é outro?"; se não
+  passar, segue o fluxo atual de perguntar o nome. **Muda o que o commit `8a7939a` faz**
+  (hoje ele usa o nome direto, sem perguntar): vira item de implementação (I1 abaixo).
+- **Logs de andamento:** passam a ter `dd/MM HH:MM (X%) [sigla]:`. A quota eu não consigo
+  ler; uso a última informada ou `(?%)`.
+- **Novas frentes pedidas:** página de manutenção durante deploy (I2) e isolamento da
+  escrita do container no disco da máquina (I3).
 
-**A. Para fechar a branch**
-1. Revisar e fazer o merge de `janela/2026-09-25` em `develop` (9 commits). Os mais
-   sensíveis para revisar: `273b0bd` (segurança do download) e `8a7939a` (nome de perfil,
-   mexe no fluxo de conversa).
-2. Decisões embutidas nos commits, para confirmar ou reverter:
-   - nome digitado depois substitui o do perfil; perfil nunca vai para `Pessoa.nome`;
-     emoji junto de letras é mantido (P);
-   - a fixture de testes zera também as credenciais Twilio; localização com `Body`
-     preenchido também vira marcador (W).
+## ⏩ Beto: decisões pendentes (revisado 26/09 09:15)
 
-**B. Produto (destravam correções que posso fazer em seguida)**
-3. **Catraca recebe a pergunta de relógio.** Opções: (1) template por produto, texto da
-   Kika; (2) relógio mantém o texto e os demais usam o genérico `PerguntaModelo.pergunta`;
-   (3) limitar a repetição da mesma pergunta (N e ação a definir). (2 hoje, 3 com N=2 e
-   reformular; 1 quando a Kika puder.)
-4. **Compatibilidade não vai para validação técnica** (viola regra de negócio do
-   CLAUDE.md): "funciona ou não funciona?" vira reclamação e encerra o atendimento.
-   (Corrigir; é regra já decidida, falta só autorizar mexer no classificador.)
-5. **Reclamação não é detectada** nas duas mensagens do cenário. (Corrigir junto com o 4.)
-6. **"45 funcionários" e "1) 2) 3)" viram quantidade de equipamento** e disparam projeto
-   complexo. (Corrigir.)
-7. **"sou pessoa física" é lido como pedido de humano.** (Corrigir.)
-8. Três perguntas de negócio: a Inforrel vende câmera (o template diz "Sim, Intelbras")?
-   Leitor facial é sempre projeto complexo? Duas cortesias seguidas devem escalar?
+Entre parênteses, a minha recomendação.
 
-**C. Testador**
-9. Aceitar/rejeitar as respostas: lista em `artefatos/qa/2026-09-25_cenarios_testador.md`.
-10. Reimportar `mensagem_vazia_ou_so_midia` (`importar --atualizar`); corrigir o default
-    `"now()"` em `testador_conversas/models.py` (exige `ALTER` no schema `teste_conversas`,
-    que não tem Alembic); trocar o CNPJ "fictício" `11222333000181`, que é de uma escola
-    real e consulta a ReceitaWS a cada rodada. (Sim para os três.)
+**A. Fechar a branch `janela/2026-09-25` (9 commits, sem push)**
+1. Revisar e fazer o merge em `develop`. Mais sensíveis: `273b0bd` (segurança do download)
+   e `8a7939a` (nome de perfil; será ajustado pelo I1, então pode revisar depois dele).
+2. Confirmar as decisões embutidas: nome digitado depois substitui o do perfil; perfil
+   nunca vai para `Pessoa.nome`; emoji junto de letras é mantido; a fixture de testes zera
+   as credenciais Twilio; localização com `Body` preenchido também vira marcador.
 
-**D. Revisão (baixa severidade)**
-11. A5, origem do nome do perfil registrada de verdade (migração) ou comparação atual.
-    (Comparação atual até existir a regra definitiva de nome.)
-12. Estender o dublê de `ModoExecucao` ao `test_processador_modo_execucao.py`. (Sim.)
-13. B1: reentrega após timeout perde a resposta e o banco diz "entregue". (Anotar para o
-    piloto com número próprio; na trial não dá para provocar.)
-14. B4: caracteres invisíveis passam na validação do nome. (Entra na regra definitiva.)
-15. B8: `debug_log.py` tem `19991931176`, a um dígito do seu número. É real? (Trocar.)
+**B. Implementação já decidida ou que só precisa de "sim"**
+- **I1. Confirmação do nome do WhatsApp** (decidido em 26/09). Pronto para fazer.
+- **I2. Página de manutenção no deploy.** Escolher o formato (opções em "Frentes novas").
+- **I3. Isolar a escrita do container.** Escolher o formato (opções em "Frentes novas").
+- **I4. Correções de produto achadas pela varredura** (sim/não para cada):
+  compatibilidade não vai para validação técnica; reclamação não é detectada; "45
+  funcionários" e "1) 2) 3)" viram quantidade; "sou pessoa física" vira pedido de humano.
 
-**E. WhatsApp (amanhã, ~25 min seus):** a lista do topo do plano de 23/09 (latência,
-rajada, reply-to fora de ordem, citar a própria mensagem, figurinha, pedido de humano).
-Ao terminar, `./scripts/twilio_modo_teste.sh desligar`.
+**C. Produto (precisam de escolha, não só de "sim")**
+3. Catraca recebe a pergunta de relógio: (1) template por produto, texto da Kika;
+   (2) relógio mantém o texto e os demais usam o genérico; (3) limitar a repetição da
+   mesma pergunta (N e ação a definir). (2 hoje, 3 com N=2 e reformular.)
+4. A Inforrel vende câmera (o template diz "Sim, Intelbras")? Leitor facial é sempre
+   projeto complexo? Duas cortesias seguidas devem escalar?
+
+**D. Testador**
+5. Aceitar/rejeitar as respostas: lista em `artefatos/qa/2026-09-25_cenarios_testador.md`.
+6. Reimportar `mensagem_vazia_ou_so_midia`; corrigir o default `"now()"` do
+   `testador_conversas/models.py` (exige `ALTER` no schema `teste_conversas`); trocar o
+   CNPJ "fictício" `11222333000181`, que é real. (Sim para os três.)
+
+**E. Revisão (detalhes em `artefatos/qa/2026-09-25_revisao_branch_janela.md`)**
+7. A5: registrar a origem do nome do perfil de verdade (migração) ou manter a comparação.
+   (Revisitar junto com o I1: a confirmação do cliente é o momento natural de gravar a
+   origem.)
+8. Estender o dublê de `ModoExecucao` ao `test_processador_modo_execucao.py`. (Sim.)
+9. B1: reentrega após timeout perde a resposta e o banco diz "entregue". (Anotar para o
+   piloto.)
+10. B4: caracteres invisíveis passam na validação do nome. (Entra na regra definitiva.)
+11. B8: `debug_log.py` tem `19991931176`, a um dígito do seu número. (Trocar.)
+
+**F. WhatsApp (~25 min seus):** lista do topo do plano de 23/09. Ao terminar,
+`./scripts/twilio_modo_teste.sh desligar`.
+
+## Frentes novas (26/09), com opções
+
+**I2. Página de manutenção.** Caminho atual: Cloudflare → túnel → `localhost:3000` (nginx
+do container `frontend`) → `backend:8000`.
+- (a) **nginx serve `manutencao.html` quando o backend não responde** (`error_page 502 503
+  504`). Automático, sem script; mas não sabe desde quando, e não cobre o rebuild do
+  próprio `frontend` (aí quem responde é a Cloudflare, com o erro dela).
+- (b) **Script `deploy.sh` com arquivo-bandeira:** grava a página com "em manutenção desde
+  dd/MM/aa hh:mm", o nginx devolve 503 com ela enquanto a bandeira existir, o script faz o
+  deploy e remove a bandeira. Tem o horário que você pediu; é a (a) mais um script.
+- Em ambas, o `/webhook` fica de fora da página: a Twilio não entende HTML e não reentrega,
+  então mensagem que chegar no meio do deploy se perde (fica só no log da Twilio). Isso é
+  limite do modo TwiML, não do deploy.
+- (Recomendo b, que inclui a a.)
+
+**I3. Isolar a escrita do container.** Hoje o `docker-compose.yml` monta `./backend:/app`
+(bind mount) e o container roda como **root**: tudo que o backend grava cai no seu disco,
+inclusive dentro do código-fonte. O path traversal de 25/09 era grave por isso: gravar um
+`.py` em `backend/` faria o `--reload` executá-lo.
+- (a) **Código montado só para leitura (`./backend:/app:ro`) e `logs/` num volume nomeado
+  do Docker.** O container deixa de escrever no seu disco; o `--reload` continua funcionando.
+  Custo: `logs/` e anexos passam a ser lidos com `docker cp`/`docker exec`, e o
+  `analisar_payloads_twilio.py` e as fixtures precisam apontar para lá.
+- (b) (a) **mais usuário não-root** no `Dockerfile`. Fecha também escrita em qualquer lugar
+  do container fora do volume. Exige rebuild da imagem.
+- (c) Sem bind mount no ambiente público (imagem com o código copiado). Mais isolado, mas
+  perde o `--reload`: todo ajuste vira rebuild.
+- Não verificado: onde o Docker Desktop guarda o volume nomeado (disco virtual do WSL, não
+  em `C:\Beto`) e se algum script do repositório lê `backend/logs/` pelo caminho do host.
+- (Recomendo b.)
 
 ## Registro
 
@@ -113,3 +151,5 @@ Ao terminar, `./scripts/twilio_modo_teste.sh desligar`.
 - 18:56 documentação commitada (`7c52b24`).
 - 18:58 auditoria da exposição A1-A3: os 27 payloads capturados são legítimos (SID no formato, `MediaUrl` da Twilio, user-agent da Twilio, `AccountSid` válido) e nenhum arquivo foi gravado fora de `logs/midias_twilio/`. Não houve exploração.
 - 19:00 lista consolidada de decisões escrita acima. **Leva desta janela concluída.**
+- 22:10 retomada agendada disparou: todos os passos marcados, árvore limpa (só `TextoLongo.md` e `.gitignore_beto`, do Beto), nenhum trabalho parcial. Nenhuma decisão nova do Beto desde 19:00; nada a executar sem elas.
+- 26/09 09:15 respostas do Beto registradas; decisões revisadas; frentes I1 a I4 abertas.

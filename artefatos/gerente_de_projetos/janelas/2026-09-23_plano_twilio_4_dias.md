@@ -38,6 +38,10 @@ Twilio de verdade precisa caber nesta janela.
 
 # ⏩ Beto: Continuar daqui
 
+> **26/09:** o que falta decidir e as frentes novas (confirmação do nome do WhatsApp,
+> página de manutenção, isolamento do container) estão em `2026-09-25_progresso.md`,
+> seção "decisões pendentes". Aqui fica só o que depende do celular.
+
 ### O que ainda só dá para testar pelo WhatsApp (~25 min seus, em ordem de valor)
 
 | # | Teste | Como | O que prova |
