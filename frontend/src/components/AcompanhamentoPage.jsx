@@ -1,9 +1,12 @@
-import { useState, useEffect } from 'react'
-import { Eye, CheckCircle, XCircle, Send, RefreshCw, Bot, User, Brain, Flag, Clipboard } from 'lucide-react'
+import { useState, useEffect, useRef } from 'react'
+import {
+  Eye, CheckCircle, XCircle, Send, RefreshCw, Bot, User, Brain, Flag, Clipboard, AlertTriangle, ChevronDown, ChevronRight,
+} from 'lucide-react'
 import { api } from '../services/api'
 import DetalheModal from './DetalheModal'
 import BotaoAjuda from './BotaoAjuda'
 import ProcessamentoDetalhes from './ProcessamentoDetalhes'
+import EscalonamentosAtendimento from './EscalonamentosAtendimento'
 import { formatDatetimeBRT } from '../utils/datetime'
 import {
   numeroAtendimentoExibicao,
@@ -34,6 +37,14 @@ function AcompanhamentoPage({ atendimentoIdInicial, onAtendimentoIdInicialConsum
   const [enviandoMensagem, setEnviandoMensagem] = useState(false)
 
   const [processamentoSelecionado, setProcessamentoSelecionado] = useState(null)
+
+  // REQ-004.5B/5C: bloco "Por que escalou". A lista em si é do componente; aqui fica só
+  // o resumo para o cabeçalho recolhível e o destaque da mensagem de origem.
+  const [escalonamentos, setEscalonamentos] = useState([])
+  const [mostrarEscalonamentos, setMostrarEscalonamentos] = useState(false)
+  const [recarregarEscalonamentos, setRecarregarEscalonamentos] = useState(0)
+  const [mensagemDestacadaId, setMensagemDestacadaId] = useState(null)
+  const listaMensagensRef = useRef(null)
 
   const [mensagemReprovando, setMensagemReprovando] = useState(null)
   const [justificativaReprovacao, setJustificativaReprovacao] = useState('')
@@ -181,12 +192,32 @@ function AcompanhamentoPage({ atendimentoIdInicial, onAtendimentoIdInicialConsum
     try {
       await api.alterarModoOperacao(atendimentoSelecionado.id, novoModo)
       setModoOperacao(novoModo)
+      // Assumir o atendimento (modo humano) grava um escalonamento novo.
+      setRecarregarEscalonamentos((n) => n + 1)
       carregarAtendimentos()
     } catch (error) {
       console.error('Erro ao alterar modo:', error)
       alert('Erro ao alterar modo de operação: ' + error.message)
     }
   }
+
+  const mensagemVisivel = (mensagemId) => mensagensAtendimento.some((m) => m.id === mensagemId)
+
+  // Rola só a lista de mensagens (mesmo cuidado do ChatArea: `scrollIntoView` rolaria a
+  // página inteira) e destaca o balão por alguns segundos.
+  const irParaMensagem = (mensagemId) => {
+    const container = listaMensagensRef.current
+    const alvo = container?.querySelector(`[data-mensagem-id="${mensagemId}"]`)
+    if (!container || !alvo) return
+    container.scrollTop = Math.max(0, alvo.offsetTop - 16)
+    setMensagemDestacadaId(mensagemId)
+  }
+
+  useEffect(() => {
+    if (mensagemDestacadaId == null) return
+    const t = setTimeout(() => setMensagemDestacadaId(null), 3000)
+    return () => clearTimeout(t)
+  }, [mensagemDestacadaId])
 
   const handleCopiarContextoQA = async (msg) => {
     try {
@@ -567,6 +598,45 @@ function AcompanhamentoPage({ atendimentoIdInicial, onAtendimentoIdInicialConsum
                 </div>
               </div>
 
+              {/* REQ-004.5B/5C: sempre montado (é ele que busca a lista); só aparece se
+                  houver escalonamento registrado ou o atendimento estiver em modo humano. */}
+              <div
+                className={`mx-4 mt-3 bg-orange-50 border border-orange-200 rounded-md ${
+                  escalonamentos.length > 0 || modoOperacao === 'humano' ? '' : 'hidden'
+                }`}
+              >
+                <button
+                  type="button"
+                  onClick={() => setMostrarEscalonamentos((v) => !v)}
+                  aria-expanded={mostrarEscalonamentos}
+                  className="w-full px-3 py-2 flex items-center gap-1.5 text-sm font-medium text-orange-800"
+                >
+                  {mostrarEscalonamentos ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
+                  <AlertTriangle size={14} />
+                  Por que escalou
+                  {escalonamentos.length > 0 && (
+                    <span className="ml-auto text-xs font-normal text-gray-600">
+                      {`${escalonamentos.length} escalonamento${escalonamentos.length > 1 ? 's' : ''}`}
+                      {(() => {
+                        const n = escalonamentos.filter((e) => !e.avaliacao).length
+                        return n > 0 ? ` · ${n} não avaliado${n > 1 ? 's' : ''}` : ' · todos avaliados'
+                      })()}
+                    </span>
+                  )}
+                </button>
+                <div className={`px-3 pb-3 max-h-80 overflow-y-auto ${mostrarEscalonamentos ? '' : 'hidden'}`}>
+                  <EscalonamentosAtendimento
+                    key={atendimentoSelecionado.id}
+                    atendimentoId={atendimentoSelecionado.id}
+                    recarregarChave={recarregarEscalonamentos}
+                    onCarregados={setEscalonamentos}
+                    onIrParaMensagem={irParaMensagem}
+                    mensagemVisivel={mensagemVisivel}
+                    onAbrirProcessamento={setProcessamentoSelecionado}
+                  />
+                </div>
+              </div>
+
               {mensagensAtendimento.filter(m => m.origem === 'system' && m.pendente_aprovacao).length > 0 && (
                 <div className="mx-4 mt-3 p-3 bg-yellow-50 border border-yellow-300 rounded-md">
                   <div className="flex items-center gap-2 text-yellow-800">
@@ -578,7 +648,7 @@ function AcompanhamentoPage({ atendimentoIdInicial, onAtendimentoIdInicialConsum
                 </div>
               )}
 
-              <div className="max-h-[calc(100vh-450px)] overflow-y-auto p-4 space-y-3">
+              <div ref={listaMensagensRef} className="relative max-h-[calc(100vh-450px)] overflow-y-auto p-4 space-y-3">
                 {carregandoMensagens ? (
                   <div className="text-center text-gray-500 py-8">
                     <RefreshCw size={20} className="animate-spin mx-auto mb-2" />
@@ -592,12 +662,15 @@ function AcompanhamentoPage({ atendimentoIdInicial, onAtendimentoIdInicialConsum
                   mensagensAtendimento.map((msg) => (
                     <div
                       key={msg.id}
+                      data-mensagem-id={msg.id}
                       className={`flex ${
                         msg.origem === 'user' ? 'justify-end' : 'justify-start'
                       }`}
                     >
                       <div
-                        className={`max-w-[85%] rounded-lg px-4 py-2.5 ${
+                        className={`max-w-[85%] rounded-lg px-4 py-2.5 transition ${
+                          mensagemDestacadaId === msg.id ? 'ring-2 ring-inforrel-accent ' : ''
+                        }${
                           msg.origem === 'user'
                             ? 'bg-blue-50 border-l-4 border-inforrel-secondary'
                             : msg.pendente_aprovacao

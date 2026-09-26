@@ -32,6 +32,41 @@ No painel da direita você alterna entre:
 A troca vale só para aquele atendimento e tem efeito imediato na próxima mensagem
 que o cliente enviar.
 
+## Por que escalou
+
+Quando o atendimento foi escalado para humano, aparece abaixo do Modo de Operação a
+faixa laranja **Por que escalou**. Clique nela para abrir. O resumo ao lado diz quantos
+escalonamentos o atendimento teve e quantos ainda não foram avaliados.
+
+Cada escalonamento (o mais recente primeiro) mostra:
+
+- **Motivo**, a data e hora e quem escalou (o próprio sistema, o cliente ou o vendedor).
+- **Gatilhos**: o que concretamente disparou, por exemplo *Quantidade de equipamentos
+  acima do mínimo* ou *Leitor facial mencionado*. Pode haver mais de um.
+- **Evidências**: os valores que o sistema leu e o limite vigente na hora, por exemplo
+  "Quantidades lidas: 1, 2, 3, 20, 25 (mínimo 4)" ou "Faixa de funcionários: 45
+  (limiar 60)", além da intenção detectada, da confiança e se veio de regra ou do LLM.
+- **Ver mensagem de origem**: rola a conversa até a mensagem que causou o escalonamento
+  e a destaca por alguns segundos. **Ver raciocínio** abre o cérebro daquela mensagem.
+
+Escalonamentos anteriores a 26/09/2026 não têm esse registro detalhado, só o motivo.
+
+### Avaliar o escalonamento
+
+Olhando as evidências, marque se o escalonamento fez sentido:
+
+- **Procedente**: o atendimento precisava mesmo de uma pessoa.
+- **Indevido**: o sistema escalou sem necessidade (por exemplo, leu "1) 2) 3)" de uma
+  lista como quantidade de equipamentos).
+
+O comentário é opcional, mas ajuda a corrigir a regra depois. A avaliação mostra quem
+avaliou e quando, e pode ser trocada a qualquer momento (vale a última). Para mudar só o
+comentário, edite o texto e clique de novo na avaliação já escolhida. **Desfazer
+avaliação** volta para *Não avaliado* e apaga o comentário.
+
+Os escalonamentos marcados como indevidos são a fila de correção das regras de
+escalonamento.
+
 ## Aprovar ou reprovar uma resposta
 
 Mensagens do assistente com fundo amarelo e o selo **Pendente** ainda não foram

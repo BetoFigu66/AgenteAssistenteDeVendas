@@ -209,6 +209,35 @@ export const api = {
     }
   },
 
+  // REQ-004.5B/5C: escalonamentos do atendimento, mais recentes primeiro.
+  async obterEscalonamentosAtendimento(atendimentoId) {
+    try {
+      const response = await apiFetch(`${API_URL}/api/atendimentos/${atendimentoId}/escalonamentos`)
+      if (!response.ok) {
+        throw new ApiError('Erro ao obter escalonamentos do atendimento', response.status, 'server')
+      }
+      return response.json()
+    } catch (error) {
+      if (error instanceof ApiError) throw error
+      throw new ApiError('Backend não está respondendo', 0, 'network')
+    }
+  },
+
+  // REQ-004.5C: `avaliacao` é 'procedente' | 'indevido' | null (null desfaz). Autor vem da sessão.
+  async avaliarEscalonamento(escalonamentoId, avaliacao, comentario) {
+    const response = await apiFetch(`${API_URL}/api/escalonamentos/${escalonamentoId}/avaliacao`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ avaliacao, comentario: comentario || null }),
+    })
+    if (!response.ok) {
+      const detail = await response.json().catch(() => null)
+      const mensagem = typeof detail?.detail === 'string' ? detail.detail : 'Erro ao avaliar escalonamento'
+      throw new ApiError(mensagem, response.status, 'server')
+    }
+    return response.json()
+  },
+
   async obterCamposPendentes(atendimentoId) {
     try {
       const response = await apiFetch(`${API_URL}/api/atendimentos/${atendimentoId}/campos-pendentes`)

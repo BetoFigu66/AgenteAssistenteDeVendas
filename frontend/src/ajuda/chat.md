@@ -24,7 +24,9 @@ Logo abaixo do cabeçalho aparecem os dados que o sistema reconheceu:
 - **Empresa** (CNPJ) ou **Pessoa** (CPF mascarado) — clique na empresa para ver o
   cadastro completo.
 - **Contato** — nome de quem está falando.
-- **Atendimento** — número e situação; clique para abrir o detalhe.
+- **Atendimento** — número e situação; clique para abrir o detalhe. Se o atendimento
+  foi escalado, o detalhe traz o bloco **Por que escalou**, o mesmo da tela de
+  Acompanhamento, onde dá para avaliar cada escalonamento.
 - **Fase** e, quando houver, um selo âmbar com os dados que ainda faltam ser coletados.
   Passe o mouse sobre ele para ver a lista.
 

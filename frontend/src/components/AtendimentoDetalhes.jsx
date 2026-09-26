@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { AlertTriangle, Archive, History, RotateCcw } from 'lucide-react'
 import { api } from '../services/api'
+import EscalonamentosAtendimento from './EscalonamentosAtendimento'
 import { formatDatetimeBRT } from '../utils/datetime'
 import {
   rotuloAtendimento,
@@ -187,23 +188,35 @@ function AtendimentoDetalhes({ atendimentoId }) {
         </div>
       )}
 
-      {atendimento.motivo_escalonamento && (
+      {(atendimento.motivo_escalonamento || atendimento.escalonamentos?.length > 0) && (
         <div className="p-3 bg-orange-50 border border-orange-200 rounded-md">
           <h3 className="text-sm font-semibold text-orange-800 mb-1 flex items-center gap-1.5">
             <AlertTriangle size={14} /> Escalonamento (REQ-004)
           </h3>
-          <p className="text-sm text-gray-800">
-            {labelMotivoEscalonamento(atendimento.motivo_escalonamento)}
-          </p>
-          <p className="text-xs text-gray-500 mt-1">
-            {formatDatetimeBRT(atendimento.escalado_em)}
-            {atendimento.escalado_por && ` · por ${atendimento.escalado_por}`}
-          </p>
+          {atendimento.motivo_escalonamento && (
+            <>
+              <p className="text-sm text-gray-800">
+                {labelMotivoEscalonamento(atendimento.motivo_escalonamento)}
+              </p>
+              <p className="text-xs text-gray-500 mt-1">
+                {formatDatetimeBRT(atendimento.escalado_em)}
+                {atendimento.escalado_por && ` · por ${atendimento.escalado_por}`}
+              </p>
+            </>
+          )}
           {atendimento.resumo_escalonamento && (
             <pre className="text-xs text-gray-700 bg-white border border-orange-100 rounded p-2 mt-2 whitespace-pre-wrap font-sans">
               {atendimento.resumo_escalonamento}
             </pre>
           )}
+          {/* REQ-004.5B/5C: o porquê de cada escalonamento e a avaliação humana. */}
+          <h4 className="text-xs font-semibold text-orange-800 uppercase tracking-wide mt-3 mb-1.5">
+            Por que escalou
+          </h4>
+          <EscalonamentosAtendimento
+            atendimentoId={atendimento.id}
+            escalonamentos={atendimento.escalonamentos}
+          />
         </div>
       )}
 

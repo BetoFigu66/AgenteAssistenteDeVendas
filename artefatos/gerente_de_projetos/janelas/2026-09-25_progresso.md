@@ -144,7 +144,7 @@ REQ-004 (novos REQ-004.5B e 5C, v1.9).
   (`processador.py:1097`, ponto único das 7 chamadas) com gatilho e evidências vindos de
   cada chamada, endpoints de leitura e avaliação, testes. **Esperar o [N] (I1) terminar**:
   mexe nos mesmos arquivos.
-- [ ] **E3. Frontend:** gatilho, evidências e avaliação no painel do atendimento escalado.
+- [x] **E3. Frontend:** (lint e build ok; não testado no navegador) gatilho, evidências e avaliação no painel do atendimento escalado.
 - [ ] **E4. Revisão e commit.**
 
 ## Registro
@@ -179,3 +179,5 @@ REQ-004 (novos REQ-004.5B e 5C, v1.9).
 - 26/09 10:12 [N] concluído e commitado (`f51ea13`). Bugs preexistentes achados pelo [N]: (1) **dígitos de CNPJ/CPF viram `quantidades`** ("11.222.333/0001-81" → [11, 222, 333, 1, 81]) e disparam projeto complexo antes da confirmação do CNPJ; (2) `_resolver_modelo` trata qualquer chave de `AtendimentoInfo` como atributo de modelo (`documento_fiscal_pendente` quebra "biometria" → "Não encontrei esse modelo").
 - 26/09 10:13 [E] disparado para E2 (model, migração, registro, leitura e avaliação sem abertura de report). Pendentes do Beto: indevido abre `ReportProblema`? quem pode avaliar?
 - 26/09 10:28 [E] concluído. Decisões a revisar: base insuficiente sem o melhor score abaixo do limiar (exigiria 2ª busca de embedding); sinais do modelo não reconhecido só da mensagem atual; handoff para orçamento (`FinalizandoState.concluir`) põe em HUMANO sem gerar `Escalonamento` (não é escalonamento pela especificação); desfazer avaliação limpa comentário/autor/data (sem histórico); projeto complexo grava as 3 condições sempre. Possível bug preexistente: `cpf_pendente` e outras chaves de `AtendimentoInfo` entram como filtro de catálogo.
+- 26/09 10:30 backend commitado (`2f76496`); [F] disparado para E3 (bloco "Por que escalou" + avaliação no painel).
+- 26/09 10:35 [F] concluído: bloco "Por que escalou" na Acompanhamento (faixa recolhível, fechada por padrão) e no detalhe do atendimento do Chat. Para o Beto: faixa aberta quando houver não avaliado?; trocar só o comentário exige reclicar a avaliação (ou botão "Salvar comentário"); rótulos dos gatilhos e das intenções ("pedir orcamento", "alta") a revisar; `_fontes.json` do fingerprint não cobre os componentes novos, e 5 telas já estavam divergentes antes (o `--atualizar` é geral).
