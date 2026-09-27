@@ -6,15 +6,15 @@ Arquivo enxuto, **sem histórico**: só o estado atual, o que depende de mim e a
 soltas. Item resolvido sai daqui (o histórico fica no git e nos arquivos de janela).
 Detalhe de cada item: `janelas/2026-09-25_progresso.md`.
 
-**Atualizado:** 27/09/2026 08:00
+**Atualizado:** 27/09/2026 08:02
 
 ## Onde estamos
 
-- Branch `janela/2026-09-25`: 16 commits, **sem push, sem merge**. Tudo verde (suíte
+- Branch `janela/2026-09-25`: 17 commits, **sem push, sem merge**. Tudo verde (suíte
   backend, ruff, lint e build do frontend).
 - Twilio trial: colheita e reply-to feitos. **Modo de teste ainda ligado**
   (`CANAL_SAIDA=twilio`).
-- Em andamento com o Claude: revisão de todos os textos de ajuda das telas.
+- Nada em andamento com o Claude.
 - Frontend do Docker (porta 3000) serve build antigo: para ver as telas novas, `npm run dev`
   ou rebuild do container `frontend`. Nada foi testado no navegador ainda.
 
@@ -43,7 +43,10 @@ Detalhe de cada item: `janelas/2026-09-25_progresso.md`.
    ligar; a regra do banco exige uma). Concorda, ou afrouxar a regra?
 10. **Testar no navegador:** bloco "Por que escalou", avaliação, "Salvar comentário",
     link para o report (no Chat abre janela sobre janela).
-11. **Revisar decisões embutidas nos commits** (listadas no corpo de cada commit e no
+11. **Dois comportamentos da tela achados na revisão das ajudas:** o modal da Base Q&A diz
+    que o embedding é refeito "na próxima aprovação", mas é refeito ao salvar; editar
+    `modo_execucao` em Parâmetros pula a confirmação do REQ-011.18. Corrigir?
+12. **Revisar decisões embutidas nos commits** (listadas no corpo de cada commit e no
    progresso): nome do perfil, escalonamentos, fixtures.
 
 ## Ideias (ainda não viraram tarefa)
@@ -54,4 +57,6 @@ Detalhe de cada item: `janelas/2026-09-25_progresso.md`.
   responder fora do webhook (REST bloqueado no Sandbox) nem listar mídia.
 - Registrar a origem do nome do perfil de forma durável (hoje em `AtendimentoInfo`).
 - Estender o dublê de `ModoExecucao` ao `test_processador_modo_execucao.py`.
+- O check de ajuda (`scripts/ajuda_fingerprint.py`) deixa de fora texto seguido de `{...}`
+  com `>`, entidades `&quot;`, rótulos passados como prop e mapas JS. Melhorar o script?
 - `debug_log.py` tem `19991931176`, a um dígito do meu número: trocar.

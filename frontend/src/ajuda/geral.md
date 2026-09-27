@@ -6,31 +6,48 @@ responder e ajusta o comportamento dele.
 
 ## As abas do sistema
 
-- **Chat** — simulador de atendimento. Permite conversar com o assistente fingindo ser
-  um cliente, sem envolver o WhatsApp real. Use para testar respostas.
-- **Acompanhamento** — tela principal do dia a dia. Lista os atendimentos em andamento
-  e é onde se aprova ou reprova cada resposta antes de ela chegar ao cliente.
-- **Triagem de Reports** — fila de problemas registrados sobre respostas do assistente.
-- **Base Q&A** — perguntas e respostas prontas que o assistente usa para responder.
-- **Parâmetros** — ajustes finos de funcionamento, alteráveis sem reiniciar o sistema.
+- **Chat**: simulador de atendimento. Você escreve como se fosse o cliente e vê o que o
+  assistente responderia. Também mostra o histórico das conversas reais de cada telefone.
+- **Acompanhamento**: tela principal do dia a dia. Lista os atendimentos e é onde se
+  aprova ou reprova cada resposta, assume a conversa como humano e avalia os
+  escalonamentos.
+- **Triagem de Reports**: fila de problemas registrados sobre respostas e escalonamentos
+  do assistente.
+- **Base Q&A**: perguntas e respostas prontas que o assistente usa para responder.
+- **Parâmetros**: ajustes finos de funcionamento, alteráveis sem reiniciar o sistema.
 
 ## O que aparece no topo da tela
 
-- Seu nome de usuário e o botão de sair, na barra escura superior.
-- O **modo de execução** vigente, no canto direito do cabeçalho. Ele vale para o sistema
-  inteiro e define o quanto o assistente age sozinho:
-  - **Simulação** — nada é enviado ao cliente.
-  - **Conversa Controlada** — envio só acontece após aprovação humana.
-  - **Execução Normal** — o assistente envia automaticamente.
+- Na barra escura superior: telefone e e-mail da Inforrel, seu nome de usuário e o
+  botão de sair.
+- No canto direito do cabeçalho: o **modo de execução** vigente e o seletor para trocá-lo.
+  Ele vale para o sistema inteiro e define se as respostas passam por uma pessoa:
+  - **Simulação**: toda resposta do assistente fica pendente até alguém aprovar. Modo de
+    testes.
+  - **Conversa Controlada**: também exige aprovação de cada resposta, para conversas com
+    clientes reais sob supervisão.
+  - **Execução Normal**: o assistente responde sozinho, sem aprovação.
+
+Passar para **Execução Normal** pede confirmação. A janela mostra as decisões humanas dos
+últimos 7 dias (aprovadas, reprovadas, taxa de aprovação e quantas aguardam decisão)
+para ajudar a avaliar se o assistente já está maduro para responder sozinho. Voltar para
+um modo com aprovação não pede confirmação.
+
+Se a mensagem chega de fato ao WhatsApp do cliente depende de outra trava, o **canal de
+saída**, configurado pela equipe técnica fora do painel. Com o canal simulado nada é
+entregue, em nenhum modo; a janela de confirmação avisa quando é esse o caso.
 
 ## Como funciona o atendimento, em resumo
 
 1. O cliente manda uma mensagem no WhatsApp.
 2. O sistema identifica quem é (pelo telefone), entende a intenção da mensagem e monta
-   uma resposta — usando a Base Q&A, a base de conhecimento dos produtos ou textos padrão.
-3. A resposta fica registrada e, conforme o modo de execução, aguarda aprovação de
-   alguém da equipe na tela de Acompanhamento.
-4. Se alguém reprova a resposta, é aberto automaticamente um report na fila de Triagem.
+   uma resposta, usando a Base Q&A, a base de conhecimento dos produtos ou textos padrão.
+3. Conforme o modo de execução, a resposta vai direto ou aguarda aprovação na tela de
+   Acompanhamento.
+4. Se o cliente pede uma pessoa, reclama ou o caso é complexo, o atendimento é escalado
+   para humano e o assistente para de responder nele.
+5. Reprovar uma resposta, ou avaliar um escalonamento como indevido, abre um report na
+   fila de Triagem.
 
 ## Ajuda das outras telas
 

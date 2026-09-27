@@ -19,28 +19,33 @@
       "componentes": [
         "src/components/ChatArea.jsx",
         "src/components/PhonePanel.jsx",
-        "src/components/ConversaInfo.jsx"
+        "src/components/ConversaInfo.jsx",
+        "src/components/Message.jsx",
+        "src/components/AtendimentoDetalhes.jsx",
+        "src/components/EscalonamentosAtendimento.jsx"
       ],
-      "hash": "460e6107fb8837ee"
+      "hash": "dfb0c1851e907e5f"
     },
     "acompanhamento": {
       "componentes": [
-        "src/components/AcompanhamentoPage.jsx"
+        "src/components/AcompanhamentoPage.jsx",
+        "src/components/EscalonamentosAtendimento.jsx",
+        "src/components/ProcessamentoDetalhes.jsx"
       ],
-      "hash": "cf2970ec49f8556e"
+      "hash": "7c7a6311ce23c93d"
     },
     "reports": {
       "componentes": [
         "src/components/ReportsPage.jsx",
         "src/components/ReportDetalhe.jsx"
       ],
-      "hash": "dfeb3a61dd573327"
+      "hash": "3d98298148513925"
     },
     "qa-base": {
       "componentes": [
         "src/components/QABasePage.jsx"
       ],
-      "hash": "facb5643a55c6d45"
+      "hash": "0fc55d89b9c3de36"
     },
     "parametros": {
       "componentes": [
@@ -53,7 +58,7 @@
         "src/App.jsx",
         "src/components/Header.jsx"
       ],
-      "hash": "7b8d0a1fedf0cfbe"
+      "hash": "828fc6b4df4f7a15"
     }
   }
 }
