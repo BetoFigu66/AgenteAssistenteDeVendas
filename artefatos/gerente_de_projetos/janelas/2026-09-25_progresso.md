@@ -6,7 +6,7 @@ Arquivo de retomada. Atualizado **ao fim de cada passo**, para que, se a quota a
 meio, a sessão agendada para 22:10 (ou uma nova) saiba exatamente de onde continuar e refaça
 só o passo interrompido.
 
-**Branch:** `janela/2026-09-25` (local, sem push). O Beto revisa e faz o merge em `develop`.
+**Branch:** `janela/2026-09-25`, mergeada em `develop` por fast-forward em 27/09 (a pedido do Beto; revisão dos commits ainda pendente) e apagada. O projeto não usa branches.
 **Plano de origem:** `2026-09-23_plano_twilio_4_dias.md`.
 
 ## Decisões do Beto (25/09 ~18:10)
@@ -183,3 +183,4 @@ REQ-004 (novos REQ-004.5B e 5C, v1.9).
 - 26/09 10:35 [F] concluído: bloco "Por que escalou" na Acompanhamento (faixa recolhível, fechada por padrão) e no detalhe do atendimento do Chat. Para o Beto: faixa aberta quando houver não avaliado?; trocar só o comentário exige reclicar a avaliação (ou botão "Salvar comentário"); rótulos dos gatilhos e das intenções ("pedir orcamento", "alta") a revisar; `_fontes.json` do fingerprint não cobre os componentes novos, e 5 telas já estavam divergentes antes (o `--atualizar` é geral).
 - 27/09 08:00 [R] concluído: report automático (categoria nova `escalonamento_indevido`, migração `2026092701` aplicada), faixa abre sozinha, "Salvar comentário", rótulos legíveis. 526 passando. Takeover manual indevido não abre report (regra `chk_processamento_ou_mensagem_not_null`). `Beto.md` criado como ponto de reentrada.
 - 27/09 08:02 [H] concluído: seis ajudas revistas (erros corrigidos em geral.md e chat.md), `_fontes.json` ampliado, fingerprint regravado, check sem aviso. Limitações do script e duas divergências de tela registradas no `Beto.md`.
+- 27/09 09:31 merge fast-forward em `develop` a pedido do Beto, com revisão pendente (fica como item 1 do `Beto.md`, antes do push). Branch apagada. A partir daqui, só `develop`.

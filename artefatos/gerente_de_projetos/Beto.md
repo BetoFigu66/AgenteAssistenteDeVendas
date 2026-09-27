@@ -6,12 +6,13 @@ Arquivo enxuto, **sem histórico**: só o estado atual, o que depende de mim e a
 soltas. Item resolvido sai daqui (o histórico fica no git e nos arquivos de janela).
 Detalhe de cada item: `janelas/2026-09-25_progresso.md`.
 
-**Atualizado:** 27/09/2026 08:02
+**Atualizado:** 27/09/2026 09:31
 
 ## Onde estamos
 
-- Branch `janela/2026-09-25`: 17 commits, **sem push, sem merge**. Tudo verde (suíte
-  backend, ruff, lint e build do frontend).
+- Tudo em `develop` (sem branches, decisão de 27/09). Local à frente do `origin/develop`,
+  **sem push**, com 17 commits da janela de 25-27/09 **ainda não revisados**. Tudo verde
+  (suíte backend, ruff, lint e build do frontend).
 - Twilio trial: colheita e reply-to feitos. **Modo de teste ainda ligado**
   (`CANAL_SAIDA=twilio`).
 - Nada em andamento com o Claude.
@@ -20,7 +21,8 @@ Detalhe de cada item: `janelas/2026-09-25_progresso.md`.
 
 ## Decidir ou fazer (em ordem)
 
-1. **Revisar e fazer o merge da branch.** Comece por `273b0bd` (segurança do download de
+1. **Revisar os 17 commits antes do push** (já estão em `develop`; regra 3 da FITec:
+   revisão humana antes de integrar). `git log --oneline 612fe4d..047696b`. Comece por `273b0bd` (segurança do download de
    mídia), `f51ea13` (confirmação do nome) e `2f76496` (tabela de escalonamentos).
 2. **Celular, ~25 min:** latência, rajada, reply-to fora de ordem, citar a própria
    mensagem, figurinha, pedido de humano. Lista no topo de
