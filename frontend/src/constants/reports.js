@@ -5,6 +5,11 @@ export const CATEGORIAS = [
   { valor: 'resposta_inadequada', label: 'Resposta Inadequada', descricao: 'Resposta do agente reprovada pelo usuário' },
   { valor: 'dados', label: 'Dados', descricao: 'Dados incorretos (CNPJ, contato, etc.)' },
   { valor: 'llm', label: 'LLM', descricao: 'Problema com a LLM' },
+  {
+    valor: 'escalonamento_indevido',
+    label: 'Escalonamento indevido',
+    descricao: 'Escalonamento avaliado como indevido no painel (aberto automaticamente)',
+  },
   { valor: 'outro', label: 'Outro', descricao: 'Outra categoria' },
 ]
 

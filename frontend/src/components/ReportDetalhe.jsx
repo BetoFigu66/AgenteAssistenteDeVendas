@@ -28,6 +28,7 @@ import {
   labelStatus,
   statusPermitidos,
 } from '../constants/reports'
+import { labelAvaliacaoEscalonamento } from '../utils/escalonamento'
 
 // O histórico do report deixou de ser só de status (REQ-012.8): a mesma lista traz agora
 // alterações de categoria e severidade, distinguidas pelo campo `campo`. As chaves
@@ -37,6 +38,8 @@ const LABELS_CAMPO_HISTORICO = {
   status: 'Status',
   categoria: 'Categoria',
   severidade: 'Severidade',
+  // Report aberto por escalonamento indevido (REQ-004.5C): mudança posterior da avaliação.
+  avaliacao_escalonamento: 'Avaliação do escalonamento',
 }
 
 const labelCampoHistorico = (campo) => LABELS_CAMPO_HISTORICO[campo] || campo
@@ -45,13 +48,14 @@ const labelValorHistorico = (campo, valor) => {
   if (!valor) return '—'
   if (campo === 'categoria') return labelCategoria(valor)
   if (campo === 'severidade') return labelSeveridade(valor)
+  if (campo === 'avaliacao_escalonamento') return labelAvaliacaoEscalonamento(valor)
   return labelStatus(valor)
 }
 
 const badgeHistorico = (campo, valor) => {
   const base = 'text-xs px-2 py-0.5 rounded-full'
   if (campo === 'severidade') return `${base} ${corSeveridade(valor)}`
-  if (campo === 'categoria') return `${base} bg-gray-100 text-gray-700`
+  if (campo === 'categoria' || campo === 'avaliacao_escalonamento') return `${base} bg-gray-100 text-gray-700`
   return `${base} ${corStatus(valor)}`
 }
 

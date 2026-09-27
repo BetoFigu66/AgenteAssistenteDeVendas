@@ -9,16 +9,20 @@
  * gatilho novo no backend aparecer na tela mesmo antes de ganhar rótulo.
  */
 
+// Para quem vende, não para quem programa: dizem o que aconteceu na conversa. Os números
+// (quantidade lida, limite vigente) ficam nas evidências, logo abaixo. Espelhados em
+// `LABEL_GATILHO_ESCALONAMENTO` (backend/services/escalonamentos.py), que usa os mesmos
+// textos na descrição do report de escalonamento indevido.
 const GATILHO_LABELS = {
   intencao_escalar_humano: 'Cliente pediu para falar com uma pessoa',
   intencao_reclamar: 'Cliente reclamou ou demonstrou insatisfação',
-  quantidade_minima: 'Quantidade de equipamentos acima do mínimo',
-  faixa_funcionarios: 'Número de funcionários acima do limiar',
-  leitor_facial: 'Leitor facial mencionado',
-  baixa_confianca_repetida: 'Confiança baixa em mensagens seguidas',
-  base_sem_resposta: 'Base de conhecimento sem resposta',
-  tentativas_esgotadas: 'Tentativas de identificar o modelo esgotadas',
-  assumido_pelo_vendedor: 'Assumido pelo vendedor no painel',
+  quantidade_minima: 'Cliente pediu muitos equipamentos de uma vez',
+  faixa_funcionarios: 'Empresa do cliente tem muitos funcionários',
+  leitor_facial: 'Cliente falou em leitor facial',
+  baixa_confianca_repetida: 'O sistema não entendeu várias mensagens seguidas',
+  base_sem_resposta: 'O sistema não tinha resposta para a pergunta',
+  tentativas_esgotadas: 'O sistema não conseguiu identificar o modelo do equipamento',
+  assumido_pelo_vendedor: 'Vendedor assumiu a conversa',
 }
 
 export function labelGatilhoEscalonamento(gatilho) {
@@ -28,6 +32,8 @@ export function labelGatilhoEscalonamento(gatilho) {
 const AVALIACAO_LABELS = {
   procedente: 'Procedente',
   indevido: 'Indevido',
+  // Valor do histórico do report quando a avaliação é desfeita (services/escalonamentos.py).
+  nao_avaliado: 'Não avaliado',
 }
 
 export function labelAvaliacaoEscalonamento(avaliacao) {
@@ -36,8 +42,55 @@ export function labelAvaliacaoEscalonamento(avaliacao) {
 }
 
 const ORIGEM_CLASSIFICACAO_LABELS = {
-  regra: 'por regra',
-  llm: 'por LLM',
+  regra: 'identificada por regra',
+  llm: 'identificada pela IA',
+}
+
+// "pedir_orcamento" → "Pedir orçamento": fallback para valor sem rótulo.
+function capitalizarValor(valor) {
+  const texto = String(valor).replace(/_/g, ' ')
+  return texto.charAt(0).toUpperCase() + texto.slice(1)
+}
+
+// Espelha `Intencao` de backend/services/classificador.py. Intenção nova sem entrada aqui
+// sai pelo fallback (`capitalizarValor`), sem acento.
+const INTENCAO_LABELS = {
+  saudacao: 'Saudação',
+  fornecer_cnpj: 'Informar CNPJ',
+  fornecer_cpf: 'Informar CPF',
+  fornecer_nome: 'Informar nome',
+  fornecer_data_nascimento: 'Informar data de nascimento',
+  confirmar: 'Confirmar',
+  negar: 'Negar',
+  pedir_orcamento: 'Pedir orçamento',
+  pedir_catalogo: 'Pedir catálogo',
+  perguntar_disponibilidade: 'Perguntar disponibilidade',
+  perguntar_preco: 'Perguntar preço',
+  perguntar_produto: 'Perguntar sobre produto',
+  perguntar_prazo: 'Perguntar prazo',
+  aprovar_orcamento: 'Aprovar orçamento',
+  reprovar_orcamento: 'Recusar orçamento',
+  reclamar: 'Reclamação',
+  escalar_humano: 'Pedir atendente',
+  fora_contexto: 'Fora do assunto',
+  desconhecido: 'Não identificada',
+}
+
+export function labelIntencao(intencao) {
+  if (!intencao) return 'Não identificada'
+  return INTENCAO_LABELS[intencao] || capitalizarValor(intencao)
+}
+
+// Espelha `NivelConfianca` de backend/services/classificador.py.
+const NIVEL_CONFIANCA_LABELS = {
+  alta: 'Alta',
+  media: 'Média',
+  baixa: 'Baixa',
+}
+
+export function labelNivelConfianca(nivel) {
+  if (!nivel) return ''
+  return NIVEL_CONFIANCA_LABELS[nivel] || capitalizarValor(nivel)
 }
 
 // Rótulos das chaves do fallback genérico e de `sinais_extraidos`.
@@ -96,18 +149,17 @@ export function linhasEvidencias(evidencias) {
   const linhas = []
   const usar = (...chaves) => chaves.forEach((c) => usadas.add(c))
 
-  // Classificação: "Intenção: reclamar, confiança 0,90 (alta), por LLM".
+  // Classificação: "Intenção: Reclamação, confiança 0,90 (Alta), identificada pela IA".
   if (presente(ev, 'intencoes') || presente(ev, 'confianca')) {
     usar('intencoes', 'confianca', 'confianca_nivel', 'origem_classificacao')
     const intencoes = Array.isArray(ev.intencoes) ? ev.intencoes : []
-    const partes = [
-      intencoes.length > 0 ? intencoes.map((i) => String(i).replace(/_/g, ' ')).join(', ') : 'nenhuma',
-    ]
+    const partes = [intencoes.length > 0 ? intencoes.map(labelIntencao).join(', ') : 'nenhuma']
     if (typeof ev.confianca === 'number') {
-      partes.push(`confiança ${numeroBR(ev.confianca, 2)}${ev.confianca_nivel ? ` (${ev.confianca_nivel})` : ''}`)
+      const nivel = labelNivelConfianca(ev.confianca_nivel)
+      partes.push(`confiança ${numeroBR(ev.confianca, 2)}${nivel ? ` (${nivel})` : ''}`)
     }
     if (ev.origem_classificacao) {
-      partes.push(ORIGEM_CLASSIFICACAO_LABELS[ev.origem_classificacao] || `por ${ev.origem_classificacao}`)
+      partes.push(ORIGEM_CLASSIFICACAO_LABELS[ev.origem_classificacao] || `identificada por ${ev.origem_classificacao}`)
     }
     linhas.push(`${intencoes.length > 1 ? 'Intenções' : 'Intenção'}: ${partes.join(', ')}`)
   }

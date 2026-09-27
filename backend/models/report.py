@@ -23,6 +23,7 @@ class CategoriaReport(str, enum.Enum):
     RESPOSTA_INADEQUADA = "resposta_inadequada"  # resposta do agente inadequada (reprovação)
     DADOS = "dados"  # dados incorretos (CNPJ, contato, etc.)
     LLM = "llm"  # problema com a LLM (timeout, erro, etc.)
+    ESCALONAMENTO_INDEVIDO = "escalonamento_indevido"  # escalonamento avaliado como indevido (REQ-004.5C)
     OUTRO = "outro"
 
 

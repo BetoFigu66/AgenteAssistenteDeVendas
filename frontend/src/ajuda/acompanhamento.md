@@ -35,17 +35,19 @@ que o cliente enviar.
 ## Por que escalou
 
 Quando o atendimento foi escalado para humano, aparece abaixo do Modo de Operação a
-faixa laranja **Por que escalou**. Clique nela para abrir. O resumo ao lado diz quantos
-escalonamentos o atendimento teve e quantos ainda não foram avaliados.
+faixa laranja **Por que escalou**. Ela já abre sozinha quando há escalonamento ainda não
+avaliado; com todos avaliados, fica fechada (clique nela para abrir). O resumo ao lado diz
+quantos escalonamentos o atendimento teve e quantos ainda não foram avaliados.
 
 Cada escalonamento (o mais recente primeiro) mostra:
 
 - **Motivo**, a data e hora e quem escalou (o próprio sistema, o cliente ou o vendedor).
-- **Gatilhos**: o que concretamente disparou, por exemplo *Quantidade de equipamentos
-  acima do mínimo* ou *Leitor facial mencionado*. Pode haver mais de um.
+- **Gatilhos**: o que concretamente disparou, por exemplo *Cliente pediu muitos
+  equipamentos de uma vez* ou *Cliente falou em leitor facial*. Pode haver mais de um.
 - **Evidências**: os valores que o sistema leu e o limite vigente na hora, por exemplo
   "Quantidades lidas: 1, 2, 3, 20, 25 (mínimo 4)" ou "Faixa de funcionários: 45
-  (limiar 60)", além da intenção detectada, da confiança e se veio de regra ou do LLM.
+  (limiar 60)", além da intenção detectada (por exemplo *Pedir orçamento*), da confiança
+  (Alta, Média ou Baixa) e se foi identificada por regra ou pela IA.
 - **Ver mensagem de origem**: rola a conversa até a mensagem que causou o escalonamento
   e a destaca por alguns segundos. **Ver raciocínio** abre o cérebro daquela mensagem.
 
@@ -61,11 +63,17 @@ Olhando as evidências, marque se o escalonamento fez sentido:
 
 O comentário é opcional, mas ajuda a corrigir a regra depois. A avaliação mostra quem
 avaliou e quando, e pode ser trocada a qualquer momento (vale a última). Para mudar só o
-comentário, edite o texto e clique de novo na avaliação já escolhida. **Desfazer
-avaliação** volta para *Não avaliado* e apaga o comentário.
+comentário, edite o texto e clique em **Salvar comentário** (o botão só habilita depois de
+avaliar e quando o texto mudou). **Desfazer avaliação** volta para *Não avaliado* e apaga o
+comentário.
 
-Os escalonamentos marcados como indevidos são a fila de correção das regras de
-escalonamento.
+Marcar **Indevido** abre automaticamente um report na tela **Reports**, na categoria
+*Escalonamento indevido*, com o motivo, os gatilhos, as evidências e o seu comentário. O
+link **Report #N aberto** aparece no escalonamento e abre o report ali mesmo. Marcar
+indevido de novo ou trocar o comentário atualiza o mesmo report, sem abrir outro. Se a
+avaliação mudar depois (procedente ou desfeita), o report continua na fila e a mudança
+fica anotada no histórico dele. Quando foi o vendedor quem assumiu pelo painel, não há
+mensagem do cliente para analisar e nenhum report é aberto.
 
 ## Aprovar ou reprovar uma resposta
 

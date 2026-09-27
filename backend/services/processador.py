@@ -1171,16 +1171,6 @@ class ProcessadorMensagem:
             )
         return escalonamento
 
-    _LABEL_MOTIVO_ESCALONAMENTO = {
-        MotivoEscalonamento.SOLICITADO_CLIENTE: "Cliente pediu para falar com atendente",
-        MotivoEscalonamento.RECLAMACAO: "Reclamação/insatisfação do cliente",
-        MotivoEscalonamento.PROJETO_COMPLEXO: "Projeto complexo (quantidade/porte/leitor facial)",
-        MotivoEscalonamento.BAIXA_CONFIANCA: "Baixa confiança do classificador (mensagens repetidamente ambíguas)",
-        MotivoEscalonamento.BASE_INSUFICIENTE: "Base de conhecimento sem conteúdo suficiente",
-        MotivoEscalonamento.MANUAL_VENDEDOR: "Assumido manualmente pelo vendedor",
-        MotivoEscalonamento.MODELO_NAO_RECONHECIDO: "Modelo não reconhecido no catálogo após tentativas",
-    }
-
     def _montar_resumo_escalonamento(
         self, db: Session, atendimento: Atendimento, motivo: MotivoEscalonamento
     ) -> str:
@@ -1232,7 +1222,7 @@ class ProcessadorMensagem:
         if pendentes:
             linhas.append("Pendente: " + ", ".join(c.chave for c in pendentes))
 
-        linhas.append(f"Motivo do escalonamento: {self._LABEL_MOTIVO_ESCALONAMENTO[motivo]}")
+        linhas.append(f"Motivo do escalonamento: {escalonamentos_svc.LABEL_MOTIVO_ESCALONAMENTO[motivo]}")
         return "\n".join(linhas)
 
     # ------------------------------------------------------------------

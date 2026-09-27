@@ -45,6 +45,10 @@ function AcompanhamentoPage({ atendimentoIdInicial, onAtendimentoIdInicialConsum
   const [recarregarEscalonamentos, setRecarregarEscalonamentos] = useState(0)
   const [mensagemDestacadaId, setMensagemDestacadaId] = useState(null)
   const listaMensagensRef = useRef(null)
+  // Ids de escalonamento já vistos neste atendimento: a faixa abre sozinha quando chega um
+  // não avaliado que ainda não tinha aparecido (ao abrir o atendimento ou num takeover
+  // novo), e não reabre a cada avaliação nem depois de o operador fechá-la.
+  const escalonamentosVistosRef = useRef(new Set())
 
   const [mensagemReprovando, setMensagemReprovando] = useState(null)
   const [justificativaReprovacao, setJustificativaReprovacao] = useState('')
@@ -119,6 +123,21 @@ function AcompanhamentoPage({ atendimentoIdInicial, onAtendimentoIdInicialConsum
       setMensagensAtendimento([])
     }
   }, [atendimentoSelecionado])
+
+  // Troca de atendimento: a faixa começa fechada e só abre se houver não avaliado.
+  const atendimentoSelecionadoId = atendimentoSelecionado?.id
+  useEffect(() => {
+    escalonamentosVistosRef.current = new Set()
+    setMostrarEscalonamentos(false)
+  }, [atendimentoSelecionadoId])
+
+  const aoCarregarEscalonamentos = (lista) => {
+    setEscalonamentos(lista)
+    const vistos = escalonamentosVistosRef.current
+    const chegouNaoAvaliado = lista.some((e) => !vistos.has(e.id) && !e.avaliacao)
+    lista.forEach((e) => vistos.add(e.id))
+    if (chegouNaoAvaliado) setMostrarEscalonamentos(true)
+  }
 
   useEffect(() => {
     if (mensagemReprovando) {
@@ -629,7 +648,7 @@ function AcompanhamentoPage({ atendimentoIdInicial, onAtendimentoIdInicialConsum
                     key={atendimentoSelecionado.id}
                     atendimentoId={atendimentoSelecionado.id}
                     recarregarChave={recarregarEscalonamentos}
-                    onCarregados={setEscalonamentos}
+                    onCarregados={aoCarregarEscalonamentos}
                     onIrParaMensagem={irParaMensagem}
                     mensagemVisivel={mensagemVisivel}
                     onAbrirProcessamento={setProcessamentoSelecionado}

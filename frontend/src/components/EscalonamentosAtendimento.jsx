@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react'
-import { ThumbsUp, ThumbsDown, Undo2, MessageSquare, Brain } from 'lucide-react'
+import { ThumbsUp, ThumbsDown, Undo2, MessageSquare, Brain, Flag, Save } from 'lucide-react'
 import { api } from '../services/api'
+import ReportDetalhe from './ReportDetalhe'
+import { labelStatus } from '../constants/reports'
 import { formatDatetimeBRT } from '../utils/datetime'
 import { labelMotivoEscalonamento } from '../utils/atendimento'
 import {
@@ -61,6 +63,11 @@ function AvaliacaoEscalonamento({ escalonamento, onAtualizado }) {
     }
   }
 
+  // Trocar só o comentário reusa o PATCH com a avaliação atual. O backend grava o
+  // comentário sem espaços nas pontas, então a comparação também.
+  const comentarioMudou = comentario.trim() !== (escalonamento.avaliacao_comentario || '')
+  const podeSalvarComentario = Boolean(escalonamento.avaliacao) && comentarioMudou && !salvando
+
   const botao = (valor, rotulo, Icone, classesAtivo) => {
     const ativo = escalonamento.avaliacao === valor
     return (
@@ -99,6 +106,18 @@ function AvaliacaoEscalonamento({ escalonamento, onAtualizado }) {
         {escalonamento.avaliacao && (
           <button
             type="button"
+            onClick={() => salvar(escalonamento.avaliacao)}
+            disabled={!podeSalvarComentario}
+            className="flex items-center gap-1 px-2.5 py-1 text-xs rounded bg-white border border-gray-300 text-gray-700 hover:bg-gray-50 transition disabled:opacity-50 disabled:cursor-not-allowed"
+            title={comentarioMudou ? 'Grava o comentário sem mudar a avaliação' : 'Edite o comentário para salvar'}
+          >
+            <Save size={12} />
+            Salvar comentário
+          </button>
+        )}
+        {escalonamento.avaliacao && (
+          <button
+            type="button"
             onClick={() => salvar(null)}
             disabled={salvando}
             className="flex items-center gap-1 px-2 py-1 text-xs text-gray-500 hover:text-inforrel-primary transition disabled:opacity-50"
@@ -110,13 +129,56 @@ function AvaliacaoEscalonamento({ escalonamento, onAtualizado }) {
         )}
         {salvando && <span className="text-xs text-gray-400">Salvando...</span>}
       </div>
-      {escalonamento.avaliacao && (
+      {!escalonamento.avaliacao && (escalonamento.mensagem_id || escalonamento.processamento_id) && (
         <p className="text-[11px] text-gray-400">
-          Para mudar o comentário, edite e clique de novo na avaliação escolhida.
+          Indevido abre um report na fila de Reports para corrigir a regra.
         </p>
       )}
       {erro && <p className="text-xs text-red-600">{erro}</p>}
     </div>
+  )
+}
+
+/**
+ * Report aberto quando o escalonamento foi avaliado como indevido. Continua aparecendo se a
+ * avaliação mudar depois: o report é histórico de triagem e não é apagado.
+ */
+function ReportDoEscalonamento({ escalonamento, onAtualizado }) {
+  const [aberto, setAberto] = useState(false)
+  const reportId = escalonamento.report_id
+
+  if (!reportId) {
+    // Takeover manual não tem mensagem nem processamento, e todo report precisa de um dos dois.
+    const semOrigem = !escalonamento.mensagem_id && !escalonamento.processamento_id
+    if (escalonamento.avaliacao !== 'indevido' || !semOrigem) return null
+    return (
+      <p className="mt-1.5 text-[11px] text-gray-400">
+        Sem report: o vendedor assumiu pelo painel e não há mensagem do cliente para analisar.
+      </p>
+    )
+  }
+
+  const status = escalonamento.report_status
+  const rotulo = !status || status === 'aberto' ? `Report #${reportId} aberto` : `Report #${reportId} (${labelStatus(status)})`
+  return (
+    <>
+      <button
+        type="button"
+        onClick={() => setAberto(true)}
+        className="mt-1.5 flex items-center gap-1 text-xs text-inforrel-secondary hover:text-inforrel-primary hover:underline"
+        title="Abrir o report na fila de triagem"
+      >
+        <Flag size={12} />
+        {rotulo}
+      </button>
+      {aberto && (
+        <ReportDetalhe
+          reportId={reportId}
+          onClose={() => setAberto(false)}
+          onAtualizado={(r) => r?.status && onAtualizado({ ...escalonamento, report_status: r.status })}
+        />
+      )}
+    </>
   )
 }
 
@@ -197,6 +259,7 @@ function ItemEscalonamento({ escalonamento, onAtualizado, onIrParaMensagem, mens
       )}
 
       <AvaliacaoEscalonamento escalonamento={escalonamento} onAtualizado={onAtualizado} />
+      <ReportDoEscalonamento escalonamento={escalonamento} onAtualizado={onAtualizado} />
     </li>
   )
 }

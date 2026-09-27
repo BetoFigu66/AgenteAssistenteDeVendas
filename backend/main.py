@@ -1317,12 +1317,18 @@ async def avaliar_escalonamento(
     avaliado_por: str = Depends(usuario_nome_atual),
 ):
     """REQ-004.5C: marca o escalonamento como procedente/indevido (vale a última
-    avaliação) ou desfaz com `avaliacao: null`."""
+    avaliação) ou desfaz com `avaliacao: null`. "Indevido" abre um report na fila de
+    triagem (um só por escalonamento; `report_id` na resposta), exceto no takeover
+    manual, que não tem mensagem de origem."""
     with db.get_session() as session:
-        escalonamento = session.query(Escalonamento).filter_by(id=escalonamento_id).first()
+        # FOR UPDATE: dois cliques "indevido" simultâneos não podem abrir dois reports.
+        escalonamento = (
+            session.query(Escalonamento).filter_by(id=escalonamento_id).with_for_update().first()
+        )
         if not escalonamento:
             raise HTTPException(status_code=404, detail="Escalonamento não encontrado")
         escalonamentos_svc.avaliar_escalonamento(
+            session,
             escalonamento,
             avaliacao=payload.avaliacao,
             comentario=payload.comentario,

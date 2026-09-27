@@ -12,20 +12,26 @@ import pytest
 from database import Database
 from fastapi.testclient import TestClient
 from models import (
+    CategoriaReport,
     Contato,
     Escalonamento,
     EventoAtendimento,
     GatilhoEscalonamento,
+    HistoricoStatusReport,
     Mensagem,
     ModoOperacao,
     MotivoEscalonamento,
     OrigemMensagem,
+    ReportProblema,
+    SeveridadeReport,
+    StatusReport,
     TipoEventoAtendimento,
 )
 from services.atendimentos import obter_ou_criar_atendimento
 from services.classificador import EntidadesExtraidas, Intencao, NivelConfianca, ResultadoClassificacao
 from services.conversacao.regras_globais import _gatilhos_projeto_complexo
 from services.dev_limpeza_telefone import apagar_dados_telefone
+from services.escalonamentos import CAMPO_HISTORICO_AVALIACAO, VALOR_NAO_AVALIADO
 from services.identificador import ResultadoIdentificacao, StatusIdentificacao, identificar_por_telefone
 from services.parametro_service import ParametroService
 from services.processador import ProcessadorMensagem
@@ -503,5 +509,164 @@ def test_endpoints_de_escalonamento_exigem_login(client, db_session):
 
         db_session.expire_all()
         assert db_session.get(Escalonamento, esc_id).avaliacao is None
+    finally:
+        _limpar(db_session, telefone)
+
+
+# ----------------------------------------------------------------------
+# Avaliação "indevido" abre report (decisão do Beto, 27/09/2026)
+# ----------------------------------------------------------------------
+
+
+def _reports_do_escalonamento(db_session, esc_id):
+    """Reports ligados ao escalonamento, pelo vínculo e pela descrição (que cita o id):
+    o segundo filtro pega um report duplicado que o vínculo sozinho esconderia."""
+    db_session.expire_all()
+    return (
+        db_session.query(ReportProblema)
+        .filter(ReportProblema.descricao.like(f"Escalonamento #{esc_id} %"))
+        .order_by(ReportProblema.id)
+        .all()
+    )
+
+
+def _historico_avaliacao(db_session, report_id):
+    return [
+        (h.valor_anterior, h.valor_novo, h.ator)
+        for h in db_session.query(HistoricoStatusReport)
+        .filter_by(report_id=report_id, campo=CAMPO_HISTORICO_AVALIACAO)
+        .order_by(HistoricoStatusReport.id)
+        .all()
+    ]
+
+
+def _escalonamento_com_mensagem(db_session, telefone):
+    """Escalonamento pelo caminho real (`processar()`), ligado à mensagem e ao processamento."""
+    _limpar(db_session, telefone)
+    asyncio.run(ProcessadorMensagem().processar(db_session, telefone, "quero falar com um atendente"))
+    db_session.commit()
+    _, escalonamentos = _escalonamentos(db_session, telefone)
+    assert len(escalonamentos) == 1
+    return escalonamentos[0]
+
+
+def test_indevido_abre_report_ligado_a_mensagem_e_processamento(client, db_session):
+    telefone = "+5511999964013"
+    try:
+        esc = _escalonamento_com_mensagem(db_session, telefone)
+        assert esc.mensagem_id is not None and esc.processamento_id is not None
+
+        # Procedente não abre report.
+        r = client.patch(f"/api/escalonamentos/{esc.id}/avaliacao", json={"avaliacao": "procedente"})
+        assert r.status_code == 200
+        assert r.json()["report_id"] is None
+        assert _reports_do_escalonamento(db_session, esc.id) == []
+
+        r = client.patch(
+            f"/api/escalonamentos/{esc.id}/avaliacao",
+            json={"avaliacao": "indevido", "comentario": "cliente só queria o catálogo"},
+        )
+        assert r.status_code == 200, r.text
+        body = r.json()
+        assert body["report_id"] is not None
+        assert body["report_status"] == "aberto"
+
+        reports = _reports_do_escalonamento(db_session, esc.id)
+        assert [rep.id for rep in reports] == [body["report_id"]]
+        rep = reports[0]
+        assert rep.categoria == CategoriaReport.ESCALONAMENTO_INDEVIDO
+        assert rep.severidade == SeveridadeReport.MEDIA
+        assert rep.status == StatusReport.ABERTO
+        assert rep.autor == "Pytest Runner"
+        assert rep.mensagem_id == esc.mensagem_id
+        assert rep.processamento_id == esc.processamento_id
+        assert "Cliente pediu para falar com atendente (solicitado_cliente)" in rep.descricao
+        assert "Cliente pediu para falar com uma pessoa (intencao_escalar_humano)" in rep.descricao
+        assert "- origem_classificacao:" in rep.descricao
+        assert "Comentário do avaliador: cliente só queria o catálogo" in rep.descricao
+        # Vir de "procedente" para "indevido" na criação não é nota: o report nasce agora.
+        assert _historico_avaliacao(db_session, rep.id) == []
+
+        # Aparece na fila existente, filtrável pela categoria nova.
+        fila = client.get("/api/reports", params={"categoria": "escalonamento_indevido", "limit": 200}).json()
+        assert rep.id in [x["id"] for x in fila["reports"]]
+    finally:
+        _limpar(db_session, telefone)
+
+
+def test_indevido_de_novo_ou_so_comentario_nao_duplica_report(client, db_session):
+    telefone = "+5511999964014"
+    try:
+        esc_id = _escalonamento_com_mensagem(db_session, telefone).id
+        url = f"/api/escalonamentos/{esc_id}/avaliacao"
+
+        report_id = client.patch(url, json={"avaliacao": "indevido", "comentario": "primeiro"}).json()["report_id"]
+        assert report_id is not None
+        r = client.patch(url, json={"avaliacao": "indevido", "comentario": "comentário corrigido"})
+        assert r.status_code == 200
+        assert r.json()["report_id"] == report_id
+        client.patch(url, json={"avaliacao": "indevido", "comentario": "comentário corrigido"})
+
+        reports = _reports_do_escalonamento(db_session, esc_id)
+        assert [rep.id for rep in reports] == [report_id]
+        # A descrição acompanha o comentário atual enquanto a avaliação é "indevido".
+        assert "Comentário do avaliador: comentário corrigido" in reports[0].descricao
+        assert "primeiro" not in reports[0].descricao
+        assert _historico_avaliacao(db_session, report_id) == []
+    finally:
+        _limpar(db_session, telefone)
+
+
+def test_indevido_em_takeover_manual_nao_abre_report(client, db_session):
+    """Takeover manual não tem mensagem nem processamento, e `reports_problema` exige um
+    dos dois: a avaliação fica gravada, sem report."""
+    telefone = "+5511999964016"
+    try:
+        atendimento_id = _atendimento_escalado_manual(client, db_session, telefone)
+        esc_id = client.get(f"/api/atendimentos/{atendimento_id}/escalonamentos").json()["escalonamentos"][0]["id"]
+        r = client.patch(f"/api/escalonamentos/{esc_id}/avaliacao", json={"avaliacao": "indevido"})
+        assert r.status_code == 200, r.text
+        assert r.json()["avaliacao"] == "indevido"
+        assert r.json()["report_id"] is None
+        assert _reports_do_escalonamento(db_session, esc_id) == []
+    finally:
+        _limpar(db_session, telefone)
+
+
+def test_mudar_de_indevido_mantem_report_e_anota_no_historico(client, db_session):
+    telefone = "+5511999964015"
+    try:
+        esc_id = _escalonamento_com_mensagem(db_session, telefone).id
+        url = f"/api/escalonamentos/{esc_id}/avaliacao"
+
+        report_id = client.patch(url, json={"avaliacao": "indevido", "comentario": "lido errado"}).json()["report_id"]
+
+        r = client.patch(url, json={"avaliacao": "procedente", "comentario": "revendo, estava certo"})
+        assert r.json()["report_id"] == report_id
+        r = client.patch(url, json={"avaliacao": None})
+        assert r.json()["avaliacao"] is None
+        # Desfazer não desvincula: o report continua sendo deste escalonamento.
+        assert r.json()["report_id"] == report_id
+        r = client.patch(url, json={"avaliacao": "indevido", "comentario": "indevido afinal"})
+        assert r.json()["report_id"] == report_id
+
+        reports = _reports_do_escalonamento(db_session, esc_id)
+        assert [rep.id for rep in reports] == [report_id]
+        assert reports[0].status == StatusReport.ABERTO
+        assert "Comentário do avaliador: indevido afinal" in reports[0].descricao
+        assert _historico_avaliacao(db_session, report_id) == [
+            ("indevido", "procedente", "Pytest Runner"),
+            ("procedente", VALOR_NAO_AVALIADO, "Pytest Runner"),
+            (VALOR_NAO_AVALIADO, "indevido", "Pytest Runner"),
+        ]
+
+        # A descrição congela enquanto não é "indevido": procedente não reescreve o texto.
+        client.patch(url, json={"avaliacao": "procedente", "comentario": "não deve entrar"})
+        db_session.expire_all()
+        assert "não deve entrar" not in db_session.get(ReportProblema, report_id).descricao
+
+        # O histórico aparece no contexto que a tela de report já lê.
+        campos = [h["campo"] for h in client.get(f"/api/reports/{report_id}/contexto").json()["historico_status"]]
+        assert campos.count(CAMPO_HISTORICO_AVALIACAO) == 4
     finally:
         _limpar(db_session, telefone)

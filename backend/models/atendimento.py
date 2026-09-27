@@ -20,6 +20,7 @@ if TYPE_CHECKING:
     from .mensagem import Mensagem
     from .orcamento import Orcamento
     from .pessoa import Pessoa
+    from .report import ReportProblema
 
 
 class StatusAtendimento(str, enum.Enum):
@@ -378,8 +379,15 @@ class Escalonamento(Base):
     avaliacao_comentario: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     avaliado_por: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
     avaliado_em: Mapped[Optional[datetime]] = mapped_column(UTCDateTime, nullable=True)
+    # Report aberto quando a avaliação foi "indevido" (decisão do Beto, 27/09/2026). Fica
+    # mesmo que a avaliação mude depois: o report é histórico de triagem. É também o que
+    # impede abrir um segundo report para o mesmo escalonamento.
+    report_id: Mapped[Optional[int]] = mapped_column(
+        ForeignKey("reports_problema.id", ondelete="SET NULL"), nullable=True, index=True
+    )
 
     atendimento: Mapped["Atendimento"] = relationship(back_populates="escalonamentos")
+    report: Mapped[Optional["ReportProblema"]] = relationship()
 
     def to_dict(self) -> dict:
         """Converte o modelo para dicionário."""
@@ -398,6 +406,8 @@ class Escalonamento(Base):
             "avaliacao_comentario": self.avaliacao_comentario,
             "avaliado_por": self.avaliado_por,
             "avaliado_em": serialize_utc_datetime(self.avaliado_em),
+            "report_id": self.report_id,
+            "report_status": self.report.status.value if self.report is not None else None,
         }
 
 

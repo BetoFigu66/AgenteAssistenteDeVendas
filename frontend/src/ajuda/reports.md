@@ -1,8 +1,12 @@
 # Triagem de Reports
 
-Fila dos problemas registrados sobre respostas do assistente. Um report nasce de duas
-formas: automaticamente, quando alguém **reprova** uma mensagem no Acompanhamento, ou
+Fila dos problemas registrados sobre respostas do assistente. Um report nasce de três
+formas: automaticamente, quando alguém **reprova** uma mensagem no Acompanhamento ou
+avalia um escalonamento como **indevido** (categoria *Escalonamento indevido*), ou
 manualmente, pelo botão **Reportar**.
+
+No report de escalonamento indevido, se a avaliação do escalonamento mudar depois, a
+mudança aparece no histórico do report como *Avaliação do escalonamento*.
 
 O objetivo desta tela é transformar esses relatos em melhorias concretas na base de
 conhecimento e no comportamento do assistente.
