@@ -26,6 +26,7 @@ from .atendimento import (
     TipoDocumento,
     TipoEventoAtendimento,
 )
+from .ajuda import AjudaConsulta, AjudaConteudo, AjudaContexto
 from .base import Base, UTCDateTime, Vector
 from .catalogo import AtributoAdicionalModelo, Categoria, Modelo, Produto, modelos_categorias
 from .contato import Contato
@@ -46,6 +47,9 @@ from .report import (
 from .user import User
 
 __all__ = [
+    "AjudaConsulta",
+    "AjudaConteudo",
+    "AjudaContexto",
     "Atendimento",
     "AtendimentoInfo",
     "AtividadeEmpresa",

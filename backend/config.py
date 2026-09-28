@@ -108,6 +108,30 @@ class Settings(BaseSettings):
     QA_TOP_K: int = 3
     QA_APENAS_APROVADOS: bool = True
 
+    # Ajuda contextual do painel (FAQ por tela) — base independente de QA/RAG,
+    # atende o operador interno, nunca o cliente. Ver backend/services/ajuda/.
+    AJUDA_ENABLED: bool = True
+    AJUDA_TOP_K: int = 5
+    # Bem mais baixo que QA_SCORE_MINIMO_FULLTEXT (0.25) de proposito: perguntas
+    # de ajuda sao curtas, e ts_rank cai com documentos curtos — medido em base
+    # real, acertos legitimos ficam na casa de 0.06 a 0.10. O filtro de verdade e
+    # o operador `@@` (os termos precisam casar); este limiar so barra ruido.
+    AJUDA_FULLTEXT_MIN: float = 0.03
+    # Calibrado medindo similaridade real (text-embedding-3-small) contra a pergunta
+    # "Como altero o valor de um parametro?":
+    #   0.94 "como altero o valor de um parametro"   <- quase identica
+    #   0.76 "alterar parametro"
+    #   0.74 "como mudo o parametro"                 <- sinonimo: o caso que justifica
+    #                                                   esta camada, e que o full-text
+    #                                                   nao pega (radical diferente)
+    #   0.45 "trocar configuracao do sistema"        <- generico demais
+    #   0.33 "como aprovo uma mensagem"              <- outra tela
+    #   0.22 "qual a cor do ceu"
+    # Verdadeiros positivos ficaram >= 0.74 e falsos <= 0.45; 0.65 cai no meio do vao,
+    # com margem dos dois lados. Mais baixo que o 0.80 de `pares_qa` de proposito: la um
+    # falso positivo vai para o cliente, aqui so mostra ajuda errada a um operador.
+    AJUDA_EMBEDDING_MIN: float = 0.65
+
     # Consulta CNPJ
     RECEITAWS_BASE_URL: str = "https://www.receitaws.com.br/v1/cnpj"
 

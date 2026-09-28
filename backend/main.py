@@ -47,6 +47,7 @@ from models import (
     User,
 )
 from pydantic import BaseModel
+from routers.ajuda import router as ajuda_router
 from routers.pares_qa import router as pares_qa_router
 from services import atendimentos as atendimentos_svc
 from services import auth as auth_svc
@@ -148,6 +149,7 @@ app.add_middleware(
 )
 
 app.include_router(pares_qa_router)
+app.include_router(ajuda_router)
 
 
 # ============================================================================
