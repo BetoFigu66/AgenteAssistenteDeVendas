@@ -135,7 +135,10 @@ Definido em `artefatos/analista_de_requisitos/catalogo_conversacao/README.md:36-
 ## C) Conceitos de IA/RAG
 
 ### Par Q&A (`ParQA`)
-Par pergunta+resposta curado manualmente, com precedência sobre o RAG genérico (REQ-013: hierarquia é 1º Q&A curada, 2º RAG por documentos, 3º qualificação/fluxo, 4º escalonamento). `backend/models.py:665`, `backend/services/rag/qa_service.py:34`. Nomenclatura consistente entre modelo, serviço e REQ — sem ambiguidade.
+Par pergunta+resposta curado manualmente, com precedência sobre o RAG genérico (REQ-013: hierarquia é 1º Q&A curada, 2º RAG por documentos, 3º qualificação/fluxo, 4º escalonamento). `backend/models.py:665`, `backend/services/rag/qa_service.py:34`. Nomenclatura consistente entre modelo, serviço e REQ — sem ambiguidade. **Não confundir com** `AjudaConteudo` (abaixo): o Par Q&A responde ao *cliente* no WhatsApp; o conteúdo de ajuda responde ao *operador* no painel. Em texto solto, qualificar: "par Q&A do bot" vs "conteúdo de ajuda do painel".
+
+### Conteúdo de Ajuda (`AjudaConteudo`) / Base de Ajuda
+Par pergunta+resposta de ajuda **interna** do painel (módulo `ajuda_*`: `backend/models/ajuda.py`, router `backend/routers/ajuda.py`, aba "Base de Ajuda" no frontend). Aparece só no botão **?** das telas, para o operador — base deliberadamente separada de `pares_qa`, para que instrução de painel nunca vaze para um cliente no WhatsApp. Existe ainda uma segunda camada de ajuda **estática**: os `.md` de `frontend/src/ajuda/` (explicação completa da tela, versionada, sem tabela). Resumo: `pares_qa` → cliente; `ajuda_conteudos` → FAQ do operador; `ajuda/*.md` → texto fixo da tela.
 
 ### Chunk / Documento / Trecho
 Três nomes para a mesma unidade de conteúdo indexado (linha de `documentos_conhecimento`), em estágios diferentes: **"documento"**/**"chunk"** na ingestão e no modelo de dados (`DocumentoConhecimento`, `models.py:613`); **"trecho"** na recuperação e na auditoria exibida ao processador (`DocumentoRecuperado`, `retrieval.py:34`; campo `rag_trechos` em `ProcessamentoMensagem`). Sem convenção explícita hoje de qual usar onde — sugestão: "documento" para o registro persistido, "trecho" para o resultado de busca.

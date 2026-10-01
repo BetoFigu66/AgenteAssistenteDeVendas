@@ -1015,6 +1015,32 @@ Roda também como check `ajuda-telas-desatualizada` (`warning`, não bloqueia co
 aparece no `python scripts/qa_check.py` e no pre-commit. Renomear variável não dispara;
 renomear um botão dispara.
 
+### FAQ de ajuda (perguntas e respostas por tela)
+
+Além do texto `.md` fixo, o botão **?** também responde perguntas digitadas, usando a
+base `ajuda_conteudos` (módulo `backend/models/ajuda.py` + `routers/ajuda.py` +
+`services/ajuda/busca.py`). É uma base **separada de `pares_qa`** de propósito:
+`pares_qa` responde ao cliente no WhatsApp; `ajuda_conteudos` responde ao operador no
+painel. Não misturar as duas.
+
+A administração é pela aba **Base de Ajuda** do painel (criar/editar/desativar, ver as
+perguntas sem resposta — "lacunas" — e reindexar a busca semântica). A busca tenta
+full-text primeiro e cai para embeddings (`AJUDA_*` em `config.py`) quando não encontra
+por palavras; sem `EMBEDDING_API_KEY` só o full-text funciona, sem quebrar nada.
+
+```bash
+# Carga inicial / popular ambiente novo (idempotente, roda de backend/)
+python scripts/seed_ajuda.py             # grava; edita data/seed_ajuda_conteudos.json
+python scripts/seed_ajuda.py --dry-run   # só mostra o plano
+
+# Depois do seed, a fonte da verdade é a aba Base de Ajuda — o JSON não acompanha
+# edições feitas pelo painel.
+```
+
+Endpoints principais: `POST /api/ajuda/perguntar`, `GET /api/ajuda/sugestoes`,
+`GET /api/ajuda/contextos`, CRUD em `/api/ajuda/conteudos`, `POST
+/api/ajuda/conteudos/reindexar`, `GET /api/ajuda/consultas`.
+
 ---
 
 ## WSL (Windows Subsystem for Linux)

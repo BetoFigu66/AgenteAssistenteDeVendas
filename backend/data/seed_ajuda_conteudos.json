@@ -1,0 +1,146 @@
+[
+  {
+    "contexto": null,
+    "prioridade": 10,
+    "pergunta": "Qual a diferença entre os modos de execução?",
+    "resposta": "O modo fica no canto direito do cabeçalho e vale para o sistema inteiro:\n\n- **Simulação**: toda resposta do assistente fica pendente até alguém aprovar. Modo de testes.\n- **Conversa Controlada**: também exige aprovação de cada resposta, para clientes reais sob supervisão.\n- **Execução Normal**: o assistente responde sozinho, sem aprovação.\n\nPassar para Execução Normal pede confirmação e mostra as decisões humanas dos últimos 7 dias, para ajudar a avaliar se o assistente já está maduro."
+  },
+  {
+    "contexto": null,
+    "prioridade": 8,
+    "pergunta": "O que é escalonamento?",
+    "resposta": "É quando o atendimento passa a ser conduzido por uma pessoa e o assistente para de responder nele. Acontece quando o cliente pede um atendente, reclama, ou o caso é complexo demais (quantidade alta de equipamentos, leitor facial, empresa grande).\n\nO atendimento aparece com o selo **HUMANO** no Acompanhamento, e o bloco *Por que escalou* mostra o motivo e as evidências."
+  },
+  {
+    "contexto": null,
+    "prioridade": 5,
+    "pergunta": "Como troco minha senha?",
+    "resposta": "O painel ainda não tem tela para isso. Peça a quem administra o sistema para redefinir sua senha."
+  },
+  {
+    "contexto": "chat",
+    "prioridade": 10,
+    "pergunta": "Como testo uma conversa sem mandar mensagem real para o cliente?",
+    "resposta": "Use um número de teste no painel **Telefones** e escreva como se fosse o cliente. A conversa passa pelo mesmo processamento das reais.\n\nAtenção: se o canal de saída estiver ligado ao WhatsApp, uma resposta **aprovada** é entregue ao número usado. Para testar sem risco, use números que não existem."
+  },
+  {
+    "contexto": "chat",
+    "prioridade": 8,
+    "pergunta": "Por que o assistente não respondeu à foto que eu enviei?",
+    "resposta": "O assistente não lê anexos. Fotos, áudios, documentos e localização entram na conversa como anotação entre colchetes (por exemplo `[mídia recebida sem texto: image/jpeg]`) e **não geram resposta**.\n\nPara responder, assuma o atendimento em modo **Humano** no Acompanhamento e escreva você."
+  },
+  {
+    "contexto": "chat",
+    "prioridade": 6,
+    "pergunta": "Como apago uma conversa de teste?",
+    "resposta": "O botão **Apagar conversa**, no cabeçalho azul, remove o contato, os atendimentos e as mensagens daquele telefone.\n\nPede confirmação, mas **não pode ser desfeito** — use apenas com telefones de teste. Só funciona em ambiente de desenvolvimento."
+  },
+  {
+    "contexto": "chat",
+    "prioridade": 4,
+    "pergunta": "O que é o campo Score RAG?",
+    "resposta": "Define o quanto um trecho da base de conhecimento precisa ser relevante para o assistente usá-lo na resposta. Vai de 0 a 1.\n\nÉ um atalho para o parâmetro `rag_score_minimo`, e a mudança vale para o **sistema inteiro**, não só para a conversa aberta."
+  },
+  {
+    "contexto": "acompanhamento",
+    "prioridade": 10,
+    "pergunta": "Como aprovo uma mensagem pendente?",
+    "resposta": "Mensagens com fundo amarelo e o selo **Pendente** ainda não foram enviadas. No cartão da mensagem, clique em **Aprovar**.\n\nO sistema pergunta um feedback opcional (\"correto, mas...\") — deixe em branco para pular. Depois de aprovada, o selo fica verde."
+  },
+  {
+    "contexto": "acompanhamento",
+    "prioridade": 9,
+    "pergunta": "O que acontece quando eu reprovo uma mensagem?",
+    "resposta": "A justificativa é obrigatória e **abre automaticamente um report** na aba Triagem de Reports.\n\nNa mesma janela você pode, opcionalmente, registrar a resposta correta: ela vira um rascunho na Base Q&A, para revisão antes de entrar em uso."
+  },
+  {
+    "contexto": "acompanhamento",
+    "prioridade": 8,
+    "pergunta": "Como assumo a conversa no lugar do assistente?",
+    "resposta": "No painel da direita, em **Modo de Operação**, escolha **Humano (manual)**. O assistente para de responder e libera o campo de digitação no rodapé.\n\nVale só para aquele atendimento e tem efeito na próxima mensagem do cliente. Assumir também fica registrado como um escalonamento."
+  },
+  {
+    "contexto": "acompanhamento",
+    "prioridade": 7,
+    "pergunta": "Onde vejo por que o atendimento escalou para humano?",
+    "resposta": "Na faixa laranja **Por que escalou**, abaixo do Modo de Operação. Ela mostra o motivo, os **gatilhos** (o que disparou concretamente) e as **evidências** (os valores que o sistema leu e o limite vigente).\n\n**Ver mensagem de origem** rola a conversa até a mensagem que causou o escalonamento."
+  },
+  {
+    "contexto": "acompanhamento",
+    "prioridade": 6,
+    "pergunta": "O que significa marcar um escalonamento como indevido?",
+    "resposta": "Significa que o sistema chamou uma pessoa sem necessidade — por exemplo, leu \"1) 2) 3)\" de uma lista como quantidade de equipamentos.\n\nMarcar **Indevido** abre um report na categoria *Escalonamento indevido*, com o motivo, os gatilhos, as evidências e o seu comentário, para que a regra seja corrigida."
+  },
+  {
+    "contexto": "acompanhamento",
+    "prioridade": 5,
+    "pergunta": "Por que uma mensagem pendente aparece em vermelho?",
+    "resposta": "O selo *há N min* mostra há quanto tempo a mensagem espera aprovação. Fica vermelho quando passa do tempo limite definido no parâmetro `sla_aprovacao_minutos` (padrão: 10 minutos)."
+  },
+  {
+    "contexto": "reports",
+    "prioridade": 10,
+    "pergunta": "Como filtro só os reports que ainda não foram resolvidos?",
+    "resposta": "A opção **Apenas não-finalizados** já vem marcada e deixa de fora resolvidos e descartados.\n\nEla fica desativada quando você escolhe um **Status** específico, porque aí o filtro de status manda."
+  },
+  {
+    "contexto": "reports",
+    "prioridade": 8,
+    "pergunta": "Como transformo um report em resposta para o assistente?",
+    "resposta": "Use **Criar par Q&A** no detalhe do report: a pergunta do cliente já vem preenchida, você escreve a resposta ideal e escolhe o contexto.\n\nO par vai para a **Base Q&A** como rascunho, ligado a esse report, e só passa a valer depois de aprovado lá."
+  },
+  {
+    "contexto": "reports",
+    "prioridade": 5,
+    "pergunta": "Para que serve o download do YAML?",
+    "resposta": "O **Download YAML** gera um pacote com o report, a conversa em volta, uma nova busca na Base Q&A e na base de conhecimento, e sugestões de documentos.\n\nServe para o curador de conhecimento analisar o caso fora do painel, com calma."
+  },
+  {
+    "contexto": "qa-base",
+    "prioridade": 10,
+    "pergunta": "Por que o par que eu cadastrei não está sendo usado nas respostas?",
+    "resposta": "Provavelmente ele ainda está **Pendente**. Todo par novo nasce como rascunho e não é usado no atendimento até ser aprovado.\n\nClique no ícone verde da linha para aprovar. É nesse momento que o sistema processa a pergunta para reconhecê-la mesmo escrita com outras palavras."
+  },
+  {
+    "contexto": "qa-base",
+    "prioridade": 7,
+    "pergunta": "Qual a diferença entre rascunho e aprovado?",
+    "resposta": "**Rascunho** (Pendente) está cadastrado mas fora de uso. **Aprovado** está valendo e pode ser usado numa resposta ao cliente.\n\nRascunhos também chegam de outras telas: da reprovação de uma mensagem no Acompanhamento e do botão *Criar par Q&A* de um report."
+  },
+  {
+    "contexto": "qa-base",
+    "prioridade": 5,
+    "pergunta": "Como evito cadastrar perguntas duplicadas?",
+    "resposta": "Antes de salvar, o sistema procura perguntas parecidas entre os pares já aprovados e mostra os candidatos com o percentual de semelhança.\n\nAjuste a pergunta ou confirme com **Criar mesmo assim**. Duplicatas competem entre si na hora de responder, então vale evitar."
+  },
+  {
+    "contexto": "parametros",
+    "prioridade": 10,
+    "pergunta": "Como altero o valor de um parâmetro?",
+    "resposta": "Edite o campo **Valor** na linha e clique em **Salvar** (o botão só habilita depois que algo muda). O novo valor passa a valer nas próximas mensagens, sem reiniciar o sistema.\n\nAnote o valor anterior antes: não há botão de desfazer nesta tela."
+  },
+  {
+    "contexto": "parametros",
+    "prioridade": 8,
+    "pergunta": "O que acontece se eu aumentar o score mínimo?",
+    "resposta": "O assistente fica mais exigente: responde menos, mas erra menos. Diminuir tem o efeito inverso — responde mais, com mais risco de trazer a resposta errada.\n\nPrefira mudanças pequenas, uma de cada vez, observando o efeito no Acompanhamento antes de seguir."
+  },
+  {
+    "contexto": "parametros",
+    "prioridade": 5,
+    "pergunta": "Por que um parâmetro que eu esperava não aparece na lista?",
+    "resposta": "A lista mostra só os parâmetros já gravados no banco. Um parâmetro que nunca foi ajustado pode não aparecer e estar funcionando com o valor padrão do sistema."
+  },
+  {
+    "contexto": "ajuda-base",
+    "prioridade": 10,
+    "pergunta": "Como cadastro uma nova pergunta de ajuda?",
+    "resposta": "Clique em **Novo conteúdo**, escreva a pergunta **como o usuário faria** (\"como aprovo uma mensagem?\", não \"Aprovação de mensagens\"), escreva a resposta em passos curtos e escolha a tela.\n\nDeixe a tela em *Global* quando a dúvida valer em qualquer lugar do painel. O conteúdo entra em uso na hora, sem aprovação."
+  },
+  {
+    "contexto": "ajuda-base",
+    "prioridade": 8,
+    "pergunta": "O que significa o selo \"sem índice semântico\"?",
+    "resposta": "Que aquele conteúdo só é encontrado por palavra-chave, sem a busca por significado. Acontece quando o serviço de índice estava indisponível no momento de salvar — o conteúdo é gravado mesmo assim, para não travar seu trabalho.\n\nUse o botão **Reindexar** no topo para resolver todos de uma vez."
+  }
+]

@@ -15,6 +15,8 @@ responder e ajusta o comportamento dele.
   do assistente.
 - **Base Q&A**: perguntas e respostas prontas que o assistente usa para responder.
 - **Parâmetros**: ajustes finos de funcionamento, alteráveis sem reiniciar o sistema.
+- **Base de Ajuda**: onde se escreve a ajuda deste painel — o conteúdo que aparece no
+  botão **?** de cada tela. É ajuda interna, não vai para clientes.
 
 ## O que aparece no topo da tela
 
@@ -49,7 +51,11 @@ entregue, em nenhum modo; a janela de confirmação avisa quando é esse o caso.
 5. Reprovar uma resposta, ou avaliar um escalonamento como indevido, abre um report na
    fila de Triagem.
 
-## Ajuda das outras telas
+## Ajuda em cada tela
 
-Cada tela tem seu próprio botão de ajuda, com o ícone **?** ao lado do título.
-Ele explica o que aquela tela faz e como executar as ações mais comuns.
+Cada tela tem seu próprio botão de ajuda, com o ícone **?** ao lado do título. Ao abrir,
+você pode **digitar uma pergunta** ("como aprovo uma mensagem?") ou clicar numa das
+perguntas frequentes sugeridas. Abaixo fica sempre a explicação completa da tela.
+
+Se a sua pergunta não tiver resposta, ela é registrada para virar conteúdo de ajuda —
+quem cuida disso vê a lista na aba **Base de Ajuda**.

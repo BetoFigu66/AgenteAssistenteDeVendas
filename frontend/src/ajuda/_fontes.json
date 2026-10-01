@@ -53,12 +53,19 @@
       ],
       "hash": "eba159e129443db0"
     },
+    "ajuda-base": {
+      "componentes": [
+        "src/components/AjudaBasePage.jsx",
+        "src/components/BotaoAjuda.jsx"
+      ],
+      "hash": "32c08783875cd87e"
+    },
     "geral": {
       "componentes": [
         "src/App.jsx",
         "src/components/Header.jsx"
       ],
-      "hash": "828fc6b4df4f7a15"
+      "hash": "6660f02d5dbe10b0"
     }
   }
 }

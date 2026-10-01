@@ -649,6 +649,100 @@ export const api = {
     }
     return response.json()
   },
+
+  // Ajuda contextual do painel (FAQ por tela). Base própria, separada dos pares Q&A
+  // que respondem ao cliente no WhatsApp — ver backend/models/ajuda.py.
+  async perguntarAjuda(pergunta, contexto) {
+    const response = await apiFetch(`${API_URL}/api/ajuda/perguntar`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ pergunta, contexto: contexto || null }),
+    })
+    if (!response.ok) {
+      const detail = await response.json().catch(() => null)
+      throw new ApiError(detail?.detail || 'Erro ao consultar a ajuda', response.status, 'server')
+    }
+    return response.json()
+  },
+
+  async sugestoesAjuda(contexto, limite = 8) {
+    const params = new URLSearchParams({ limite: String(limite) })
+    if (contexto) params.append('contexto', contexto)
+    const response = await apiFetch(`${API_URL}/api/ajuda/sugestoes?${params}`)
+    if (!response.ok) throw new ApiError('Erro ao carregar sugestões', response.status, 'server')
+    return response.json()
+  },
+
+  async listarContextosAjuda() {
+    const response = await apiFetch(`${API_URL}/api/ajuda/contextos`)
+    if (!response.ok) throw new ApiError('Erro ao listar contextos', response.status, 'server')
+    return response.json()
+  },
+
+  async listarConteudosAjuda({ contexto, ativo, q, page = 1, limit = 50 } = {}) {
+    const params = new URLSearchParams()
+    if (contexto) params.append('contexto', contexto)
+    if (ativo !== undefined && ativo !== null && ativo !== '') params.append('ativo', ativo)
+    if (q && q.trim()) params.append('q', q.trim())
+    params.append('page', page)
+    params.append('limit', limit)
+    const response = await apiFetch(`${API_URL}/api/ajuda/conteudos?${params}`)
+    if (!response.ok) throw new ApiError('Erro ao listar conteúdos de ajuda', response.status, 'server')
+    return response.json()
+  },
+
+  async criarConteudoAjuda(dados) {
+    const response = await apiFetch(`${API_URL}/api/ajuda/conteudos`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(dados),
+    })
+    if (!response.ok) {
+      const detail = await response.json().catch(() => null)
+      throw new ApiError(detail?.detail || 'Erro ao criar conteúdo de ajuda', response.status, 'server')
+    }
+    return response.json()
+  },
+
+  async atualizarConteudoAjuda(id, dados) {
+    const response = await apiFetch(`${API_URL}/api/ajuda/conteudos/${id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(dados),
+    })
+    if (!response.ok) {
+      const detail = await response.json().catch(() => null)
+      throw new ApiError(detail?.detail || 'Erro ao atualizar conteúdo de ajuda', response.status, 'server')
+    }
+    return response.json()
+  },
+
+  async desativarConteudoAjuda(id) {
+    const response = await apiFetch(`${API_URL}/api/ajuda/conteudos/${id}`, { method: 'DELETE' })
+    if (!response.ok) {
+      const detail = await response.json().catch(() => null)
+      throw new ApiError(detail?.detail || 'Erro ao desativar conteúdo', response.status, 'server')
+    }
+    return response.json()
+  },
+
+  async reindexarConteudosAjuda() {
+    const response = await apiFetch(`${API_URL}/api/ajuda/conteudos/reindexar`, { method: 'POST' })
+    if (!response.ok) {
+      const detail = await response.json().catch(() => null)
+      throw new ApiError(detail?.detail || 'Erro ao reindexar', response.status, 'server')
+    }
+    return response.json()
+  },
+
+  async listarConsultasAjuda({ encontrou, contexto, limit = 100 } = {}) {
+    const params = new URLSearchParams({ limit: String(limit) })
+    if (encontrou !== undefined && encontrou !== null) params.append('encontrou', encontrou)
+    if (contexto) params.append('contexto', contexto)
+    const response = await apiFetch(`${API_URL}/api/ajuda/consultas?${params}`)
+    if (!response.ok) throw new ApiError('Erro ao listar consultas', response.status, 'server')
+    return response.json()
+  },
 }
 
 export { ApiError }
