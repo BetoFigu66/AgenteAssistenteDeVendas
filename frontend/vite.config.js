@@ -1,5 +1,16 @@
+import { readFileSync } from 'node:fs'
 import { defineConfig, loadEnv } from 'vite'
 import react from '@vitejs/plugin-react'
+
+// Versão do frontend (AAAA.MM.DD-HHMM da última mudança, ver scripts/versao.py na raiz),
+// embutida no bundle no build. Fica em frontend/ para entrar no contexto do Docker.
+function lerVersaoFront() {
+  try {
+    return readFileSync(new URL('./VERSAO', import.meta.url), 'utf-8').trim() || 'desconhecida'
+  } catch {
+    return 'desconhecida'
+  }
+}
 
 export default defineConfig(({ mode }) => {
   // Padrão: backend Docker em 8000 (docker-compose up).
@@ -24,6 +35,9 @@ export default defineConfig(({ mode }) => {
 
   return {
     plugins: [react()],
+    define: {
+      __VERSAO_FRONT__: JSON.stringify(lerVersaoFront()),
+    },
     server: {
       port: devPort,
       strictPort: true,

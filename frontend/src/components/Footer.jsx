@@ -1,4 +1,18 @@
+import { useEffect, useState } from 'react'
+import { api } from '../services/api'
+
+// Injetada pelo Vite no build (vite.config.js, lida de frontend/VERSAO).
+const VERSAO_FRONT = __VERSAO_FRONT__
+
 function Footer() {
+  const [versaoBack, setVersaoBack] = useState('...')
+
+  useEffect(() => {
+    api.obterVersaoBackend()
+      .then(setVersaoBack)
+      .catch(() => setVersaoBack('indisponível'))
+  }, [])
+
   return (
     <footer className="bg-inforrel-dark text-white py-6 mt-auto">
       <div className="container mx-auto px-4 max-w-5xl">
@@ -10,7 +24,10 @@ function Footer() {
             </p>
           </div>
           <div className="text-center md:text-right text-sm text-gray-400">
-            <p>POC - Assistente de Vendas v0.1.0</p>
+            <p>POC - Assistente de Vendas</p>
+            <p title="Data e hora da última mudança de cada lado">
+              Front {VERSAO_FRONT} · Back {versaoBack}
+            </p>
             <p>© {new Date().getFullYear()} Todos os direitos reservados</p>
           </div>
         </div>

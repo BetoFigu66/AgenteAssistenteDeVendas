@@ -5,6 +5,8 @@
 module.exports = {
   root: true,
   env: { browser: true, es2021: true },
+  // Constante injetada pelo Vite no build (vite.config.js, `define`).
+  globals: { __VERSAO_FRONT__: 'readonly' },
   extends: [
     'eslint:recommended',
     'plugin:react/recommended',

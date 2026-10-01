@@ -16,6 +16,15 @@ function apiFetch(url, options = {}) {
 }
 
 export const api = {
+  // Versão do backend (data e hora da última mudança), exibida no rodapé. O /health é
+  // público, então funciona também na tela de login.
+  async obterVersaoBackend() {
+    const response = await apiFetch(`${API_URL}/health`)
+    if (!response.ok) throw new ApiError('Versão do backend indisponível', response.status, 'server')
+    const dados = await response.json()
+    return dados.version
+  },
+
   // Autenticação
   async login(login, senha) {
     const response = await apiFetch(`${API_URL}/api/auth/login`, {
