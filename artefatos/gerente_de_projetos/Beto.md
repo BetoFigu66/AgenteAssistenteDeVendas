@@ -6,7 +6,7 @@ Arquivo enxuto, **sem histórico**: só o estado atual, o que depende de mim e a
 soltas. Item resolvido sai daqui (o histórico fica no git e nos arquivos de janela).
 Detalhe de cada item: `janelas/2026-09-25_progresso.md`.
 
-**Atualizado:** 27/09/2026 09:31
+**Atualizado:** 01/10/2026 10:47
 
 ## Onde estamos
 
@@ -16,6 +16,9 @@ Detalhe de cada item: `janelas/2026-09-25_progresso.md`.
 - Twilio trial: colheita e reply-to feitos. **Modo de teste ainda ligado**
   (`CANAL_SAIDA=twilio`).
 - Nada em andamento com o Claude.
+- **Versão:** cada lado tem `VERSAO` (data e hora da última mudança), exibida no rodapé
+  como "Front X · Back Y". Antes de commitar: `python scripts/versao.py atualizar`; o
+  pre-commit bloqueia se esquecer.
 - Frontend do Docker (porta 3000) serve build antigo: para ver as telas novas, `npm run dev`
   ou rebuild do container `frontend`. Nada foi testado no navegador ainda.
 
@@ -24,31 +27,35 @@ Detalhe de cada item: `janelas/2026-09-25_progresso.md`.
 1. **Revisar os 17 commits antes do push** (já estão em `develop`; regra 3 da FITec:
    revisão humana antes de integrar). `git log --oneline 612fe4d..047696b`. Comece por `273b0bd` (segurança do download de
    mídia), `f51ea13` (confirmação do nome) e `2f76496` (tabela de escalonamentos).
-2. **Celular, ~25 min:** latência, rajada, reply-to fora de ordem, citar a própria
+2. **Ver a versão no rodapé:** o backend do Docker ainda respondia a versão antiga às
+   10:43 (o `--reload` pode não ter pego, e o `docker.exe` falhou por falta de memória no
+   Windows). Reiniciar o container `backend` e reconstruir o `frontend`. Revisar também
+   `b503f63` (versão) e `b7ea758` (lint do seu `ae47499`).
+3. **Celular, ~25 min:** latência, rajada, reply-to fora de ordem, citar a própria
    mensagem, figurinha, pedido de humano. Lista no topo de
    `janelas/2026-09-23_plano_twilio_4_dias.md`. **Ao terminar:**
    `./scripts/twilio_modo_teste.sh desligar`.
-3. **Página de manutenção no deploy (I2):** aprovar o formato (script com bandeira + aviso
+4. **Página de manutenção no deploy (I2):** aprovar o formato (script com bandeira + aviso
    TwiML no `/webhook`).
-4. **Isolar o container (I3):** aprovar código `:ro` + `logs/` em volume + usuário
+5. **Isolar o container (I3):** aprovar código `:ro` + `logs/` em volume + usuário
    não-root.
-5. **Correções de produto (I4), sim/não:** compatibilidade não vai para validação técnica;
+6. **Correções de produto (I4), sim/não:** compatibilidade não vai para validação técnica;
    reclamação não detectada; "45 funcionários", "1) 2) 3)" e dígitos de CNPJ viram
    quantidade; "sou pessoa física" vira pedido de humano.
-6. **Catraca recebe pergunta de relógio:** opção 1 (texto por produto, Kika), 2 (genérico
+7. **Catraca recebe pergunta de relógio:** opção 1 (texto por produto, Kika), 2 (genérico
    para os outros) ou 3 (limitar repetição). Sugestão: 2 agora, 3 com N=2.
-7. **Negócio:** a Inforrel vende câmera? Leitor facial é sempre projeto complexo? Duas
+8. **Negócio:** a Inforrel vende câmera? Leitor facial é sempre projeto complexo? Duas
    cortesias seguidas devem escalar?
-8. **Testador:** aceitar/rejeitar as respostas (`artefatos/qa/2026-09-25_cenarios_testador.md`)
+9. **Testador:** aceitar/rejeitar as respostas (`artefatos/qa/2026-09-25_cenarios_testador.md`)
    e autorizar os três ajustes (reimportar cenário, default `now()`, CNPJ fictício real).
-9. **Escalonamento indevido no takeover manual não abre report** (não há mensagem para
+10. **Escalonamento indevido no takeover manual não abre report** (não há mensagem para
    ligar; a regra do banco exige uma). Concorda, ou afrouxar a regra?
-10. **Testar no navegador:** bloco "Por que escalou", avaliação, "Salvar comentário",
+11. **Testar no navegador:** bloco "Por que escalou", avaliação, "Salvar comentário",
     link para o report (no Chat abre janela sobre janela).
-11. **Dois comportamentos da tela achados na revisão das ajudas:** o modal da Base Q&A diz
+12. **Dois comportamentos da tela achados na revisão das ajudas:** o modal da Base Q&A diz
     que o embedding é refeito "na próxima aprovação", mas é refeito ao salvar; editar
     `modo_execucao` em Parâmetros pula a confirmação do REQ-011.18. Corrigir?
-12. **Revisar decisões embutidas nos commits** (listadas no corpo de cada commit e no
+13. **Revisar decisões embutidas nos commits** (listadas no corpo de cada commit e no
    progresso): nome do perfil, escalonamentos, fixtures.
 
 ## Ideias (ainda não viraram tarefa)
