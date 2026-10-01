@@ -18,7 +18,7 @@ from __future__ import annotations
 
 import pytest
 from database import Database
-from models import AjudaConsulta, AjudaConteudo, AjudaContexto, ParQA
+from models import AjudaConsulta, AjudaConteudo, ParQA
 from services.embeddings.base import EmbeddingProvider, EmbeddingResponse
 
 DIMENSOES = 1536

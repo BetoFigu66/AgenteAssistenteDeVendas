@@ -413,6 +413,51 @@ def _check_ajuda_telas_desatualizada(raiz: Path) -> CheckResult:
 
 
 @registrar_check(
+    id="versao-atualizada",
+    titulo="Versao do backend/frontend atualizada junto com a mudanca",
+    severidade="error",
+    escopos=["pre-commit"],
+)
+def _check_versao_atualizada(raiz: Path) -> CheckResult:
+    """
+    Bloqueia o commit que muda o sistema de um lado sem atualizar o `VERSAO` dele.
+
+    A regra (o que conta como mudanca de cada lado, o formato AAAA.MM.DD-HHMM) fica em
+    `scripts/versao.py`; aqui so se chama `verificar()`. So roda no pre-commit porque
+    olha os arquivos staged.
+    """
+    import importlib.util
+
+    script = raiz / "scripts" / "versao.py"
+    spec = importlib.util.spec_from_file_location("versao", script) if script.exists() else None
+    if spec is None or spec.loader is None:
+        return CheckResult(passou=True, mensagem="scripts/versao.py nao encontrado; check ignorado.")
+
+    modulo = importlib.util.module_from_spec(spec)
+    try:
+        spec.loader.exec_module(modulo)
+        problemas = modulo.verificar()
+    except Exception as exc:  # pragma: no cover - defensivo
+        return CheckResult(
+            passou=False,
+            mensagem=f"Erro ao verificar a versao: {exc}",
+            dica_correcao="Rode 'python scripts/versao.py verificar' para reproduzir o erro.",
+        )
+
+    return CheckResult(
+        passou=not problemas,
+        findings=problemas,
+        comandos_uteis=["python scripts/versao.py atualizar"] if problemas else [],
+        mensagem=(
+            f"{len(problemas)} lado(s) com mudanca sem versao atualizada"
+            if problemas
+            else "Versoes em dia com as mudancas staged."
+        ),
+        dica_correcao="Rode 'python scripts/versao.py atualizar' e repita o commit.",
+    )
+
+
+@registrar_check(
     id="pgvector-op-sem-return-type",
     titulo="Operador pgvector <=> sem return_type=Float() explícito",
     severidade="error",

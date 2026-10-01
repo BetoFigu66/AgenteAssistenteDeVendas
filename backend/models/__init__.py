@@ -8,6 +8,7 @@ import plano usado no resto do código (`from models import Atendimento`, etc.)
 — dividir os arquivos não deveria exigir tocar em nenhum outro módulo.
 """
 
+from .ajuda import AjudaConsulta, AjudaConteudo, AjudaContexto
 from .atendimento import (
     GATILHO_UNICO_POR_MOTIVO,
     Atendimento,
@@ -26,7 +27,6 @@ from .atendimento import (
     TipoDocumento,
     TipoEventoAtendimento,
 )
-from .ajuda import AjudaConsulta, AjudaConteudo, AjudaContexto
 from .base import Base, UTCDateTime, Vector
 from .catalogo import AtributoAdicionalModelo, Categoria, Modelo, Produto, modelos_categorias
 from .contato import Contato

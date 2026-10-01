@@ -135,9 +135,24 @@ async def lifespan(app: FastAPI):
     logger.info("Encerrando aplicação...")
 
 
+_ARQUIVO_VERSAO = Path(__file__).resolve().parent / "VERSAO"
+
+
+def versao_backend() -> str:
+    """Versão do backend (`AAAA.MM.DD-HHMM` da última mudança, ver `scripts/versao.py`).
+
+    Lida a cada chamada, e não só no import: o `--reload` só observa `.py`, e a versão
+    exibida no painel tem que acompanhar o arquivo mesmo sem reinício.
+    """
+    try:
+        return _ARQUIVO_VERSAO.read_text(encoding="utf-8").strip() or "desconhecida"
+    except OSError:
+        return "desconhecida"
+
+
 app = FastAPI(
     title="Assistente de Vendas API", description="API para integração com WhatsApp via Twilio",
-    version="0.1.0", lifespan=lifespan
+    version=versao_backend(), lifespan=lifespan
 )
 
 app.add_middleware(
@@ -2630,7 +2645,7 @@ async def atualizar_parametro(nome: str, body: ParametroValorUpdate, ator: str =
 @app.get("/health")
 async def health_check():
     """Health check endpoint."""
-    return {"status": "healthy", "version": "0.1.0"}
+    return {"status": "healthy", "version": versao_backend()}
 
 
 if __name__ == "__main__":
