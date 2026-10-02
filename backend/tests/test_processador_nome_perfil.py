@@ -261,6 +261,20 @@ def test_confirmacao_e_cnpj_na_mesma_mensagem_tratam_as_duas_coisas(db_session, 
         _limpar(db_session, telefone)
 
 
+def test_confirmacao_por_extenso_com_documento_nao_vira_nome(db_session, processador):
+    """Teste do Beto (02/10): "Sim, pode me chamar assim, meu cnpj é <CPF>" gravava o nome
+    "Sim Pode Me Chamar Assim Meu É", que o classificador tirava do texto em volta do
+    documento. A primeira parte é a confirmação do nome do perfil."""
+    telefone = "+5511999977230"
+    try:
+        _conversar(processador, db_session, telefone, "oi", "Sim, pode me chamar assim, meu cnpj é 52998224725")
+
+        assert _contato(db_session, telefone).nome == "Ana Souza"
+        assert _desfecho(db_session, telefone) == "confirmado"
+    finally:
+        _limpar(db_session, telefone)
+
+
 def test_orcamento_no_primeiro_contato_pergunta_o_nome_e_retoma_a_pergunta_do_orcamento(db_session, processador):
     """No modo orçamento a saudação nunca pediu CNPJ/CPF; só ganha a confirmação do nome.
     Depois do "sim", a pergunta pendente do orçamento volta."""

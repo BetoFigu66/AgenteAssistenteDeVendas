@@ -72,3 +72,31 @@ def test_nao_extrai_stopword_como_nome():
     # desde que NÃO seja "A" ou "A Empresa Inforrel".
     for n in ent.nomes:
         assert n.lower() not in {"a", "a empresa", "a empresa inforrel"}
+
+
+@pytest.mark.parametrize(
+    "texto",
+    [
+        # Resposta à confirmação do nome do perfil junto com o documento (teste do Beto, 02/10)
+        "Sim, pode me chamar assim, meu cnpj é 52998224725",
+        "Oi, quero um orçamento, cnpj 11.444.777/0001-61",
+        "segue o cnpj 11444777000161",
+        "Bom dia! Meu CPF é 529.982.247-25",
+        "sim, 11.444.777/0001-61",
+    ],
+)
+def test_frase_junto_com_documento_nao_vira_nome(texto):
+    """Sem gatilho, o texto que sobra em volta do documento só vira nome se parecer nome."""
+    assert extrair_entidades(texto).nomes == []
+
+
+@pytest.mark.parametrize(
+    "texto, nome_esperado",
+    [
+        ("52998224725 Maria da Silva", "Maria Da Silva"),
+        ("Meu CPF é 529.982.247-25, Maria Silva", "Maria Silva"),
+        ("Bob Figueiredo, cpf 52998224725", "Bob Figueiredo"),
+    ],
+)
+def test_nome_junto_com_documento_sem_gatilho(texto, nome_esperado):
+    assert extrair_entidades(texto).nomes == [nome_esperado]

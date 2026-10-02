@@ -253,8 +253,8 @@ _REGEX_NOME = re.compile(
 _REGEX_DATA_ISOLADA = re.compile(r"\b\d{1,2}[/\-.]\d{1,2}[/\-.]\d{4}\b")
 
 # Palavras que não devem ser confundidas com nome próprio quando o regex capturar.
-# Não aplicada em _limpar_nome (ver docstring) — mantida caso sirva para outra
-# validação futura (ex.: rejeitar entidades antes de chegar ao regex de nome).
+# Não aplicada em _limpar_nome (ver docstring). Entra em `_PALAVRAS_NAO_NOME_LIVRE`,
+# que valida o nome inferido sem gatilho.
 _STOPWORDS_NOME = {
     "e",
     "o",
@@ -307,12 +307,47 @@ def _extrair_nome_sem_gatilho(texto: str, cpfs: List[str], cnpjs: List[str]) -> 
         restante,
         flags=re.IGNORECASE,
     )
-    restante = re.sub(r"[,;]+", " ", restante)
-    restante = re.sub(r"\s+", " ", restante).strip()
+    # O que sobra raramente é só o nome ("Sim, pode me chamar assim, meu cpf é X" deixava
+    # "Sim Pode Me Chamar Assim Meu É"). Cada trecho entre pontuações é avaliado à parte
+    # e vale o primeiro que parecer nome: "Meu CPF é X, Maria Silva" → "Maria Silva".
+    for trecho in re.split(r"[,;.!?:\n]+", restante):
+        palavras = trecho.split()
+        if _parece_nome_livre(palavras):
+            return _limpar_nome(" ".join(palavras))
+    return None
 
-    if not restante:
-        return None
-    return _limpar_nome(restante)
+
+# Conectores aceitos no meio de um nome ("Maria da Silva"), nunca na ponta.
+_CONECTORES_NOME = frozenset({"da", "de", "do", "das", "dos", "e"})
+_MAXIMO_PALAVRAS_NOME_LIVRE = 5
+
+# Palavras que, num trecho sem gatilho, mostram que ele é frase e não nome: saudação,
+# confirmação, pronome, verbo e vocabulário da conversa. Basta uma para descartar o trecho.
+_PALAVRAS_NAO_NOME_LIVRE = (_STOPWORDS_NOME - _CONECTORES_NOME) | frozenset({
+    "oi", "ola", "olá", "bom", "boa", "dia", "tarde", "noite", "tudo", "bem", "obrigado",
+    "obrigada", "valeu", "sim", "não", "nao", "ok", "pode", "isso", "claro", "certo", "blz",
+    "beleza", "assim", "mesmo", "chamar", "chamo", "me", "eu", "é", "eh", "sou", "aqui",
+    "segue", "seguem", "esta", "está", "estou", "o", "um", "uma", "minhas", "meus", "nosso",
+    "nossa", "quero", "queria", "gostaria", "preciso", "orçamento", "orcamento", "catraca",
+    "catracas", "relógio", "relogio", "ponto", "número", "numero", "data", "documento",
+})
+
+
+def _parece_nome_livre(palavras: List[str]) -> bool:
+    """True se as palavras de um trecho sem gatilho podem ser um nome de pessoa."""
+    if not 1 <= len(palavras) <= _MAXIMO_PALAVRAS_NOME_LIVRE:
+        return False
+    if palavras[0].lower() in _CONECTORES_NOME or palavras[-1].lower() in _CONECTORES_NOME:
+        return False
+    for palavra in palavras:
+        minuscula = palavra.lower()
+        if minuscula in _CONECTORES_NOME:
+            continue
+        if not palavra.replace("'", "").replace("-", "").isalpha() or len(palavra) < 2:
+            return False
+        if minuscula in _PALAVRAS_NAO_NOME_LIVRE:
+            return False
+    return True
 
 
 def _normalizar_entidade_llm(valor: Any) -> Optional[str]:
