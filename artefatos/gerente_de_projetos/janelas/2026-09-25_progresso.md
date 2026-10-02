@@ -64,7 +64,7 @@ Entre parênteses, a minha recomendação.
 **B. Implementação já decidida ou que só precisa de "sim"**
 - [x] **I1. Confirmação do nome do WhatsApp** (commit `f51ea13`, 504 passando). Decisões a revisar no corpo do commit.
 - **I2. Página de manutenção no deploy.** Escolher o formato (opções em "Frentes novas").
-- **I3. Isolar a escrita do container.** Escolher o formato (opções em "Frentes novas").
+- [x] **I3. Isolar a escrita do container.** Beto escolheu (b) em 02/10; implementado e verificado no container (escrita fora de `logs/` dá `Read-only file system`, uid 1000).
 - **I4. Correções de produto achadas pela varredura** (sim/não para cada):
   compatibilidade não vai para validação técnica; reclamação não é detectada; "45
   funcionários" e "1) 2) 3)" viram quantidade; "sou pessoa física" vira pedido de humano.
