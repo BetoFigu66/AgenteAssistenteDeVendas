@@ -809,6 +809,9 @@ class MensagemRequest(BaseModel):
     # Equivalente na interface web ao "Responder" do WhatsApp: qual mensagem da conversa
     # está sendo respondida. O WhatsApp manda um SID; aqui o navegador já sabe o id.
     resposta_a_mensagem_id: Optional[int] = None
+    # Equivalente ao `ProfileName` do webhook: o nome do perfil do WhatsApp, que o
+    # simulador do Chat deixa digitar. Passa pela mesma validação e confirmação.
+    nome_perfil: Optional[str] = None
 
 
 class MensagemResponse(BaseModel):
@@ -830,6 +833,7 @@ async def enviar_mensagem(request: MensagemRequest):
             conteudo=request.mensagem,
             message_sid=None,
             responde_a_mensagem_id=request.resposta_a_mensagem_id,
+            nome_perfil=request.nome_perfil,
         )
         resposta = resultado.resposta
     except Exception as e:

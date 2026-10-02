@@ -74,7 +74,11 @@ Em conversas vindas do WhatsApp, o assistente pode perguntar logo no início **"
 chamar assim ou seu nome é outro?"**, usando o nome do perfil do cliente. O nome só é
 gravado depois da resposta: "sim" confirma, outro nome substitui, e um "não" sem nome
 faz o assistente perguntar o nome uma vez. Conversas iniciadas aqui no Chat não têm
-nome de perfil, então essa pergunta não aparece nelas.
+nome de perfil, a menos que você preencha o campo **Nome do perfil (WhatsApp)**, logo
+acima do campo de digitação: enquanto ele estiver preenchido, cada mensagem enviada leva
+esse nome como se fosse o perfil do WhatsApp, e o assistente faz a mesma pergunta. O
+campo vale por telefone e não é gravado: some ao recarregar a página. Vazio, a conversa
+segue sem nome de perfil.
 
 ## Campo Score RAG
 

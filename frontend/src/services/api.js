@@ -106,7 +106,8 @@ export const api = {
 
   // `respostaAMensagemId` é o equivalente web do "Responder" do WhatsApp: diz a qual
   // mensagem da conversa esta responde. Null quando é uma mensagem solta.
-  async enviarMensagem(telefone, mensagem, respostaAMensagemId = null) {
+  // `nomePerfil` simula o `ProfileName` que o WhatsApp manda; null quando não há.
+  async enviarMensagem(telefone, mensagem, respostaAMensagemId = null, nomePerfil = null) {
     try {
       const response = await apiFetch(`${API_URL}/api/mensagem`, {
         method: 'POST',
@@ -117,6 +118,7 @@ export const api = {
           telefone,
           mensagem,
           resposta_a_mensagem_id: respostaAMensagemId,
+          nome_perfil: nomePerfil,
         }),
       })
       if (!response.ok) {

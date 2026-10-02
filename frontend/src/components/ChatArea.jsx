@@ -1,11 +1,14 @@
 import { useState, useRef, useEffect, useMemo } from 'react'
-import { Send, MessageCircle, AlertTriangle, Trash2, Reply, X } from 'lucide-react'
+import { Send, MessageCircle, AlertTriangle, Trash2, Reply, X, UserCircle } from 'lucide-react'
 import Message from './Message'
 import ConversaInfo from './ConversaInfo'
 import BotaoAjuda from './BotaoAjuda'
 import { api } from '../services/api'
 
-function ChatArea({ telefone, mensagens, dadosConversa, loading, erro, onEnviarMensagem, onApagarConversa }) {
+function ChatArea({
+  telefone, mensagens, dadosConversa, loading, erro, onEnviarMensagem, onApagarConversa,
+  nomePerfil, onNomePerfilChange,
+}) {
   const [inputMensagem, setInputMensagem] = useState('')
   // Mensagem que o próximo envio vai citar — equivalente ao "Responder" do WhatsApp
   // para quando a conversa só existe aqui na web (CANAL_SAIDA=simulado).
@@ -174,6 +177,20 @@ function ChatArea({ telefone, mensagens, dadosConversa, loading, erro, onEnviarM
             </button>
           </div>
         )}
+        {/* Simula o `ProfileName` do WhatsApp: vai em toda mensagem enquanto preenchido. */}
+        <label className="mb-2 flex items-center gap-2 text-xs text-gray-500">
+          <UserCircle size={14} className="shrink-0" />
+          <span className="shrink-0">Nome do perfil (WhatsApp):</span>
+          <input
+            type="text"
+            value={nomePerfil}
+            onChange={(e) => onNomePerfilChange(e.target.value)}
+            placeholder="vazio = sem nome de perfil"
+            disabled={!telefone}
+            maxLength={100}
+            className="input flex-1 py-1 text-xs"
+          />
+        </label>
         <form onSubmit={handleSubmit} className="flex gap-2">
           <input
             type="text"

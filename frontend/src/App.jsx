@@ -39,6 +39,9 @@ function AppLogado() {
   const [dadosConversa, setDadosConversa] = useState(null)
   const [loading, setLoading] = useState(false)
   const [erro, setErro] = useState(null)
+  // Nome do perfil do WhatsApp simulado, por telefone. Só em memória, de propósito:
+  // é um dado do teste, não do contato, e some ao recarregar a página.
+  const [nomesPerfil, setNomesPerfil] = useState({})
 
   useEffect(() => {
     carregarTelefones()
@@ -105,7 +108,8 @@ function AppLogado() {
     try {
       setLoading(true)
       setErro(null)
-      await api.enviarMensagem(telefoneAtual, mensagem, respostaAMensagemId)
+      const nomePerfil = (nomesPerfil[telefoneAtual] || '').trim() || null
+      await api.enviarMensagem(telefoneAtual, mensagem, respostaAMensagemId, nomePerfil)
       await carregarHistorico(telefoneAtual)
       await carregarDadosConversa(telefoneAtual)
       // Reordena pelo backend (última mensagem desc) — a conversa que acabou
@@ -219,6 +223,8 @@ function AppLogado() {
                 erro={erro}
                 onEnviarMensagem={enviarMensagem}
                 onApagarConversa={apagarConversa}
+                nomePerfil={nomesPerfil[telefoneAtual] || ''}
+                onNomePerfilChange={(nome) => setNomesPerfil(prev => ({ ...prev, [telefoneAtual]: nome }))}
               />
             </div>
           </div>
