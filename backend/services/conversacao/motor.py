@@ -102,6 +102,9 @@ def _compor_fragmentos(fragmentos: list[RespostaGerada]) -> Optional[RespostaGer
         return fragmentos[0]
     return RespostaGerada(
         texto="\n\n".join(f.texto for f in fragmentos if f.texto),
+        # As mensagens de cada fragmento viram partes da resposta composta, que
+        # `RespostaGerada.mensagens()` divide de novo, uma pergunta por mensagem.
+        partes=[parte for f in fragmentos for parte in f.mensagens()],
         template_usado="+".join(f.template_usado for f in fragmentos if f.template_usado) or None,
         personalizado_via_llm=any(f.personalizado_via_llm for f in fragmentos),
         llm_tokens_input=sum(f.llm_tokens_input or 0 for f in fragmentos) or None,

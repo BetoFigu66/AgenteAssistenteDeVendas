@@ -50,19 +50,19 @@ def test_reply_por_id_da_interface_web(db_session, processador):
     try:
         ParametroService(db_session).set(MODO_EXECUCAO, ModoExecucao.EXECUCAO_NORMAL.value)
         primeiro = asyncio.run(processador.processar(db_session, telefone, "Quero orçamento de catraca"))
-        assert primeiro.mensagem_saida_id is not None
+        assert primeiro.mensagens_saida_ids
 
         asyncio.run(
             processador.processar(
                 db_session,
                 telefone,
                 "17/06/1966",
-                responde_a_mensagem_id=primeiro.mensagem_saida_id,
+                responde_a_mensagem_id=primeiro.mensagens_saida_ids[-1],
             )
         )
 
         msg_in = _msg_in_mais_recente(db_session, telefone)
-        assert msg_in.resposta_a_mensagem_id == primeiro.mensagem_saida_id
+        assert msg_in.resposta_a_mensagem_id == primeiro.mensagens_saida_ids[-1]
     finally:
         _limpar(db_session, telefone)
 
@@ -75,7 +75,7 @@ def test_reply_por_sid_do_whatsapp(db_session, processador):
         ParametroService(db_session).set(MODO_EXECUCAO, ModoExecucao.EXECUCAO_NORMAL.value)
         primeiro = asyncio.run(processador.processar(db_session, telefone, "Quero orçamento de catraca"))
 
-        msg_out = db_session.query(Mensagem).filter_by(id=primeiro.mensagem_saida_id).first()
+        msg_out = db_session.query(Mensagem).filter_by(id=primeiro.mensagens_saida_ids[-1]).first()
         msg_out.message_sid = "SM_pergunta_teste_001"
         db_session.commit()
 
@@ -124,14 +124,14 @@ def test_nao_aceita_citar_mensagem_de_outra_conversa(db_session, processador):
     try:
         ParametroService(db_session).set(MODO_EXECUCAO, ModoExecucao.EXECUCAO_NORMAL.value)
         de_a = asyncio.run(processador.processar(db_session, telefone_a, "Quero orçamento de catraca"))
-        assert de_a.mensagem_saida_id is not None
+        assert de_a.mensagens_saida_ids
 
         asyncio.run(
             processador.processar(
                 db_session,
                 telefone_b,
                 "17/06/1966",
-                responde_a_mensagem_id=de_a.mensagem_saida_id,
+                responde_a_mensagem_id=de_a.mensagens_saida_ids[-1],
             )
         )
 
@@ -153,7 +153,7 @@ def test_sem_reply_nao_preenche_nada(db_session, processador):
 
 
 def test_modo_humano_nao_devolve_mensagem_de_saida(db_session, processador):
-    """`mensagem_saida_id` é o que o webhook usa para montar o `statusCallback` — sem
+    """`mensagens_saida_ids` é o que o webhook usa para montar o `statusCallback` — sem
     resposta gerada não existe mensagem de saída para rastrear."""
     telefone = "+5511999977007"
     try:
@@ -162,7 +162,7 @@ def test_modo_humano_nao_devolve_mensagem_de_saida(db_session, processador):
         # Em conversa_controlada a resposta é suprimida na entrega, mas a mensagem de
         # saída existe (fica pendente de aprovação) — é ela que será entregue no /aprovar.
         assert resultado.resposta == ""
-        assert resultado.mensagem_saida_id is not None
+        assert resultado.mensagens_saida_ids
     finally:
         ParametroService(db_session).set(MODO_EXECUCAO, ModoExecucao.EXECUCAO_NORMAL.value)
         _limpar(db_session, telefone)

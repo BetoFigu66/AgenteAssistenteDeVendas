@@ -673,6 +673,9 @@ class FinalizandoState(EstadoAtendimento):
             rag_utilizada=resposta_duvida.rag_utilizada,
             trechos_rag=resposta_duvida.trechos_rag,
             rag_score_maximo=resposta_duvida.rag_score_maximo,
+            # A retomada é uma pergunta: sai numa mensagem própria se a resposta à dúvida
+            # também perguntar algo (ver `RespostaGerada.mensagens`).
+            partes=[*resposta_duvida.mensagens(), *resposta_retomada.mensagens()],
         )
 
     async def _gerar_resumo(self, ctx: ContextoAcao) -> RespostaGerada:

@@ -14,7 +14,7 @@ Fluxo:
 import logging
 import re
 import time
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import date, datetime, timedelta
 from typing import Any, Optional, Sequence
 
@@ -191,11 +191,15 @@ class ResultadoProcessamento:
     processamento_id: Optional[int] = None
     intencao: Optional[str] = None
     origem_classificacao: Optional[str] = None
-    # Id da `Mensagem` de saída (origem=SYSTEM) persistida neste turno, ou `None`
-    # quando nada foi gerado (modo HUMANO, ou resposta vazia). O webhook precisa dele
-    # para montar a URL de `statusCallback` e para marcar o envio — só existe depois do
-    # commit aqui dentro, então tem que subir junto com a resposta.
-    mensagem_saida_id: Optional[int] = None
+    # Ids das `Mensagem` de saída (origem=SYSTEM) persistidas neste turno, uma por parte
+    # da resposta e na ordem de envio; vazia quando nada foi gerado (modo HUMANO, ou
+    # resposta vazia). O webhook precisa deles para montar a URL de `statusCallback` de
+    # cada uma e para marcar o envio. Só existem depois do commit aqui dentro, então
+    # sobem junto com a resposta.
+    mensagens_saida_ids: list[int] = field(default_factory=list)
+    # Os textos de cada mensagem a entregar já, alinhados com `mensagens_saida_ids`;
+    # vazia quando a resposta ficou pendente de aprovação. `resposta` é a junção deles.
+    partes_resposta: list[str] = field(default_factory=list)
 
 
 class ProcessadorMensagem:
@@ -389,7 +393,8 @@ class ProcessadorMensagem:
             f"template={resposta.template_usado or 'nenhum'}"
             f" rag={resposta.rag_utilizada}"
             f" llm={resposta.personalizado_via_llm}"
-            f' texto="{resposta.texto[:80].replace(chr(10), " ")}"',
+            f' texto="{resposta.texto[:80].replace(chr(10), " ")}"'
+            f" mensagens={len(resposta.mensagens())}",
         )
         duracao_ms = int((time.monotonic() - inicio_ms) * 1000)
         processamento = self._criar_processamento(
@@ -456,31 +461,43 @@ class ProcessadorMensagem:
         # pelo próprio sistema, para não poluir a fila de pendências do painel com
         # mensagens que já foram entregues (permite feedback retroativo — REQ-011.17 —
         # sem confundir com "aguardando decisão").
+        #
+        # Uma `Mensagem` por parte da resposta (cada pergunta numa mensagem própria), cada
+        # uma com a sua aprovação: reprovar uma pergunta ruim não derruba as outras.
+        msgs_out: list[Mensagem] = []
         if not modo_humano:
-            msg_out = Mensagem(
-                telefone=telefone_norm,
-                conteudo=resposta.texto,
-                origem=OrigemMensagem.SYSTEM,
-                contato_id=contato.id if contato else None,
-                atendimento_id=atendimento.id if atendimento else None,
-                aprovador_id=None,
-                timestamp_aprovacao=None,
-            )
-            if resposta.texto and not requer_aprovacao:
-                sistema_user = self._obter_user_sistema(db)
-                msg_out.aprovador_id = sistema_user.id
-                msg_out.timestamp_aprovacao = utc_now()
-            db.add(msg_out)
+            textos_saida = resposta.mensagens() or [""]
+            sistema_user = self._obter_user_sistema(db) if resposta.texto and not requer_aprovacao else None
+            for texto_saida in textos_saida:
+                msg_out = Mensagem(
+                    telefone=telefone_norm,
+                    conteudo=texto_saida,
+                    origem=OrigemMensagem.SYSTEM,
+                    contato_id=contato.id if contato else None,
+                    atendimento_id=atendimento.id if atendimento else None,
+                    aprovador_id=None,
+                    timestamp_aprovacao=None,
+                )
+                if sistema_user is not None:
+                    msg_out.aprovador_id = sistema_user.id
+                    msg_out.timestamp_aprovacao = utc_now()
+                db.add(msg_out)
+                # Flush um a um para os ids saírem na ordem de envio, que é a ordem em
+                # que o histórico as mostra.
+                db.flush()
+                msgs_out.append(msg_out)
         db.commit()
-        mensagem_saida_id = msg_out.id if not modo_humano and resposta.texto else None
+        mensagens_saida_ids = [m.id for m in msgs_out] if resposta.texto else []
 
         # REQ-011.5/011.10: em simulacao/conversa_controlada, a resposta gerada fica
         # pendente no painel — não sai automaticamente pelo canal (webhook Twilio ou
         # simulador `/api/mensagem`). `msg_out` acima já preserva o texto completo para
         # quem for aprovar depois; só o valor devolvido ao chamador é suprimido aqui.
         resposta_entrega_imediata = resposta.texto
+        partes_entrega_imediata = [m.conteudo for m in msgs_out] if resposta.texto else []
         if not modo_humano and requer_aprovacao and resposta.texto:
             resposta_entrega_imediata = ""
+            partes_entrega_imediata = []
             dlog.log(
                 "aprovacao",
                 f"modo={modo_execucao.value} → resposta pendente, não entregue automaticamente",
@@ -493,7 +510,8 @@ class ProcessadorMensagem:
             processamento_id=processamento.id,
             intencao=resultado_class.intencao_principal.value,
             origem_classificacao=resultado_class.origem,
-            mensagem_saida_id=mensagem_saida_id,
+            mensagens_saida_ids=mensagens_saida_ids,
+            partes_resposta=partes_entrega_imediata,
         )
 
     @staticmethod

@@ -37,6 +37,39 @@ class RespostaGerada:
     fallback_req003: bool = False
     resultado_fallback: Optional[str] = None
     justificativa_curta: Optional[str] = None
+    # As partes de que a resposta foi composta, na ordem (vazia = não composta). É a
+    # matéria-prima de `mensagens()`. `texto` continua sendo a resposta inteira (partes
+    # unidas por "\n\n"), que é o que a auditoria e o testador de conversas comparam.
+    partes: List[str] = field(default_factory=list)
+
+    def mensagens(self) -> List[str]:
+        """Os textos a enviar, um por mensagem de WhatsApp, na ordem.
+
+        Cada pergunta sai numa mensagem própria, para o cliente poder citar cada uma no
+        "Responder" e responder em qualquer ordem. Partes sem pergunta (saudação,
+        "Sim, vendemos.") não viram mensagem sozinhas: vão junto com a pergunta que vem
+        depois delas, ou com a última mensagem se nenhuma pergunta vier depois.
+        """
+        if not self.partes:
+            return [self.texto] if self.texto else []
+        mensagens: List[str] = []
+        acumulado: List[str] = []
+        for parte in self.partes:
+            if not parte:
+                continue
+            acumulado.append(parte)
+            if "?" in parte:
+                mensagens.append(_SEPARADOR_PARTES.join(acumulado))
+                acumulado = []
+        if acumulado:
+            if mensagens:
+                mensagens[-1] = _SEPARADOR_PARTES.join([mensagens[-1], *acumulado])
+            else:
+                mensagens.append(_SEPARADOR_PARTES.join(acumulado))
+        return mensagens
+
+
+_SEPARADOR_PARTES = "\n\n"
 
 
 _PROMPT_SISTEMA_PERSONALIZACAO = \
@@ -154,8 +187,10 @@ class GeradorRespostas:
         resposta_base = separador.join(textos)
         codigo_composto = "+".join(codigos)
 
+        # Sem LLM, cada parte vira uma mensagem de WhatsApp. Personalizada, o LLM devolve
+        # um texto só e não há onde cortar: vai numa mensagem única.
         if not personalizar or not self._usar_llm:
-            return RespostaGerada(texto=resposta_base, template_usado=codigo_composto)
+            return RespostaGerada(texto=resposta_base, template_usado=codigo_composto, partes=textos)
 
         prompt_usuario = f"Resposta padrão base: {resposta_base}"
         if mensagem_cliente:
@@ -178,7 +213,7 @@ class GeradorRespostas:
             )
         except Exception as e:
             logger.warning(f"[Gerador] Falha ao personalizar composta via LLM: {e}")
-            return RespostaGerada(texto=resposta_base, template_usado=codigo_composto)
+            return RespostaGerada(texto=resposta_base, template_usado=codigo_composto, partes=textos)
 
     async def gerar_com_rag(
         self,

@@ -392,19 +392,19 @@ RESPOSTA_FALLBACK = "Desculpe, tive um problema ao processar sua mensagem. Pode 
 _TWIML_VAZIO = '<?xml version="1.0" encoding="UTF-8"?>\n<Response></Response>'
 
 
-def _twiml(texto: str, status_callback: Optional[str] = None) -> str:
-    """Monta a resposta TwiML com uma única tag `<Message>`.
+def _twiml(mensagens: list[tuple[str, Optional[str]]]) -> str:
+    """Monta a resposta TwiML com uma tag `<Message>` por mensagem, na ordem dada.
 
-    Uma tag só, de propósito: cada `<Message>` vira uma mensagem separada no WhatsApp,
-    e mensagens separadas são citáveis separadamente. Enquanto a resposta é uma só, o
-    "Responder" do cliente aponta para algo inequívoco. Se um dia compusermos várias
-    perguntas num turno, é aqui que o desempate do reply-to começa a ficar ambíguo.
+    Cada item é `(texto, status_callback)`. Cada `<Message>` vira uma mensagem separada
+    no WhatsApp, citável separadamente: é por isso que uma resposta com várias perguntas
+    sai em várias tags, para o "Responder" do cliente apontar para uma pergunta só, e
+    cada tag tem o próprio `statusCallback`, de onde vem o SID que resolve o reply-to.
     """
-    atributos = f" statusCallback={quoteattr(status_callback)}" if status_callback else ""
-    return (
-        '<?xml version="1.0" encoding="UTF-8"?>\n<Response>\n'
-        f"    <Message{atributos}>{escape(texto)}</Message>\n</Response>"
-    )
+    tags = []
+    for texto, status_callback in mensagens:
+        atributos = f" statusCallback={quoteattr(status_callback)}" if status_callback else ""
+        tags.append(f"    <Message{atributos}>{escape(texto)}</Message>\n")
+    return '<?xml version="1.0" encoding="UTF-8"?>\n<Response>\n' + "".join(tags) + "</Response>"
 
 
 async def _processar_via_cerebro(
@@ -428,45 +428,55 @@ async def _processar_via_cerebro(
         )
 
 
-def _entregar_resposta_do_webhook(mensagem_saida_id: Optional[int], texto: str, veio_da_twilio: bool) -> str:
+def _entregar_resposta_do_webhook(mensagens_saida_ids: list[int], textos: list[str], veio_da_twilio: bool) -> str:
     """Decide como a resposta automática chega ao cliente e devolve o TwiML a responder.
+
+    `textos` traz uma entrada por mensagem de WhatsApp, alinhada com
+    `mensagens_saida_ids` (a resposta pode ter sido dividida, uma pergunta por mensagem).
 
     Quatro situações, nesta ordem:
 
-    1. **Não veio da Twilio** (testador de conversas, curl, simulador): devolve o texto
+    1. **Não veio da Twilio** (testador de conversas, curl, simulador): devolve os textos
        no TwiML. É o canal de leitura desses clientes — `testador_conversas` lê
        exatamente essa resposta — e nada sai para WhatsApp nenhum.
     2. **Canal simulado**: TwiML vazio. É a trava do `CANAL_SAIDA=simulado` valendo
-       também aqui: a mensagem fica gravada, e o cliente real não recebe nada.
-    3. **Canal Twilio, modo twiml**: o texto sai na própria resposta, com
-       `statusCallback` para capturarmos o SID depois (único caminho que a conta trial
-       aceita).
-    4. **Canal Twilio, modo rest**: envia pela API e devolve TwiML vazio.
+       também aqui: as mensagens ficam gravadas, e o cliente real não recebe nada.
+    3. **Canal Twilio, modo twiml**: os textos saem na própria resposta, cada um com o
+       seu `statusCallback` para capturarmos o SID depois (único caminho que a conta
+       trial aceita).
+    4. **Canal Twilio, modo rest**: envia cada uma pela API, em ordem, e devolve TwiML
+       vazio.
     """
     canal = obter_canal()
 
     if not veio_da_twilio:
-        return _twiml(texto)
+        return _twiml([(texto, None) for texto in textos])
 
     if not canal.entrega_real:
         logger.info("[Webhook] CANAL_SAIDA=simulado — resposta gravada, não entregue ao WhatsApp.")
         return _TWIML_VAZIO
 
     with db.get_session() as session:
-        msg_out = session.query(Mensagem).filter_by(id=mensagem_saida_id).first() if mensagem_saida_id else None
-        if msg_out is None:
+        por_id = {
+            m.id: m for m in session.query(Mensagem).filter(Mensagem.id.in_(mensagens_saida_ids)).all()
+        } if mensagens_saida_ids else {}
+        msgs_out = [por_id[i] for i in mensagens_saida_ids if i in por_id]
+        if not msgs_out or len(msgs_out) != len(textos):
             # Resposta gerada mas sem linha correspondente não deveria acontecer.
             # Entregar sem conseguir registrar o envio deixaria o painel mentindo.
             logger.error("[Webhook] Resposta sem mensagem de saída persistida — não entregue.")
             return _TWIML_VAZIO
 
         if canal.entrega_na_resposta_do_webhook():
-            marcar_entregue_por_twiml(msg_out)
-            callback = canal.url_status_callback(msg_out.id)
+            itens = []
+            for msg_out in msgs_out:
+                marcar_entregue_por_twiml(msg_out)
+                itens.append((msg_out.conteudo, canal.url_status_callback(msg_out.id)))
             session.commit()
-            return _twiml(texto, status_callback=callback)
+            return _twiml(itens)
 
-        entregar_mensagem(session, msg_out, canal=canal)
+        for msg_out in msgs_out:
+            entregar_mensagem(session, msg_out, canal=canal)
         session.commit()
     return _TWIML_VAZIO
 
@@ -728,19 +738,19 @@ async def webhook_twilio(
             responde_a_message_sid=OriginalRepliedMessageSid,
             nome_perfil=ProfileName,
         )
-        resposta = resultado.resposta
-        mensagem_saida_id = resultado.mensagem_saida_id
+        textos = resultado.partes_resposta
+        mensagens_saida_ids = resultado.mensagens_saida_ids
     except Exception as e:
         logger.exception(f"Erro ao processar webhook: {e}")
-        resposta = RESPOSTA_FALLBACK
-        mensagem_saida_id = None
+        textos = [RESPOSTA_FALLBACK]
+        mensagens_saida_ids = []
 
     # Sem resposta (modo HUMANO, ou pendente de aprovação): TwiML vazio — nada sai para
     # o cliente e um humano responde pela UI.
-    if not resposta:
+    if not textos:
         return PlainTextResponse(content=_TWIML_VAZIO, media_type="application/xml")
 
-    twiml_response = _entregar_resposta_do_webhook(mensagem_saida_id, resposta, veio_da_twilio)
+    twiml_response = _entregar_resposta_do_webhook(mensagens_saida_ids, textos, veio_da_twilio)
     return PlainTextResponse(content=twiml_response, media_type="application/xml")
 
 
