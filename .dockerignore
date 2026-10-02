@@ -9,6 +9,9 @@ backend/.venv
 **/.mypy_cache
 **/.ruff_cache
 
+# Dados reais (payloads, fotos e áudios de clientes): nunca entram na imagem
+backend/logs/
+
 # Frontend tem build separado (context ./frontend)
 frontend/
 

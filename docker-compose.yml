@@ -25,8 +25,13 @@ services:
       dockerfile: Dockerfile
     ports:
       - "8000:8000"
+    # I3: o container não escreve no disco da máquina. O código entra só para leitura
+    # (o --reload continua funcionando) e o que o backend grava (debug, payloads e
+    # anexos da Twilio) vai para o volume `backend_logs`. Ler com `docker exec`/`docker cp`
+    # (docs/comandos_uteis.md, "Logs do backend no Docker").
     volumes:
-      - ./backend:/app
+      - ./backend:/app:ro
+      - backend_logs:/app/logs
     command: ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
     environment:
       - DEBUG=true
@@ -67,3 +72,4 @@ services:
 
 volumes:
   postgres_data:
+  backend_logs:

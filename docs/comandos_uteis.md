@@ -155,6 +155,23 @@ docker-compose up --build
 docker system prune
 ```
 
+### Logs do backend no Docker (volume `backend_logs`)
+
+Desde 02/10 (I3) o container do backend não escreve no disco da máquina: o código entra por bind mount **só leitura** (`./backend:/app:ro`), o processo roda como o usuário `app` (uid 1000, sem root) e o que ele grava em `logs/` (debug diário, `payloads_twilio.jsonl`, `midias_twilio/`) vai para o volume nomeado `agenteassistentedevendas_backend_logs`, montado em `/app/logs`. O `--reload` continua funcionando, porque ele só lê o código.
+
+Consequência prática: `backend/logs/` no seu disco passa a ter só o que o backend **nativo** (porta 8001, fora do Docker) grava, mais o histórico anterior a 02/10. O do container se lê assim:
+
+```bash
+C=agenteassistentedevendas-backend-1
+
+docker exec $C ls -l /app/logs                                   # o que existe
+docker exec $C sh -c 'tail -f /app/logs/debug_*.log'             # acompanhar
+docker exec $C python scripts/analisar_payloads_twilio.py        # roda lá dentro, lê /app/logs
+docker cp $C:/app/logs/payloads_twilio.jsonl /tmp/               # trazer um arquivo para fora
+```
+
+Do WSL, use `docker.exe` no lugar de `docker` (e `| tr -d '\r'` na saída). O volume sobrevive a `docker-compose down` e a rebuild; só some com `docker-compose down -v` ou `docker volume rm`. Gravar fora de `logs/` dá `Read-only file system`, que é o comportamento esperado: se um recurso novo precisar gravar arquivo, ele tem que gravar em `logs/` ou ganhar um volume próprio no `docker-compose.yml`.
+
 ### Docker no Windows: PowerShell vs WSL
 
 **Recomendação:** usar **um só** ambiente para `docker-compose` (PowerShell **ou** WSL), alinhado ao `cloudflared` no Windows (`localhost:3000`).
@@ -1431,7 +1448,8 @@ TWILIO_VALIDAR_ASSINATURA=true                # usa o Auth Token, não a API Key
 #    https://app.auxvendas.com/webhook   (POST)
 
 # 4. mandar uma mensagem do celular e acompanhar
-tail -f backend/logs/*.log | grep -E "StatusCallback|CanalTwilio"
+docker exec agenteassistentedevendas-backend-1 sh -c 'tail -f /app/logs/*.log' | grep -E "StatusCallback|CanalTwilio"
+# (backend nativo, fora do Docker: tail -f backend/logs/*.log | grep ...)
 ```
 
 O sinal de que funcionou é a mensagem de saída ficar com `message_sid` preenchido:
@@ -1483,10 +1501,13 @@ Travas do download (achados A1 a A3 da revisão de 25/09, porque o webhook é p�
 - `MessageSid` precisa ter o formato da Twilio (`MM`/`SM` + 32 hex), senão nada é baixado;
 - no máximo 10 anexos por mensagem e 110 MB por anexo.
 
-Tudo isso fica em `backend/logs/`, que o git ignora: são fotos, áudios e coordenadas reais de quem
+Tudo isso fica em `logs/`: no container, o volume `backend_logs` (ver "Logs do backend no Docker"); no backend nativo, `backend/logs/`, que o git ignora. São fotos, áudios e coordenadas reais de quem
 testou. **Não copiar nada dali para dentro do repositório** sem anonimizar (ver fixtures abaixo).
 
 ```bash
+# Colheita feita pelo container: rodar lá dentro
+docker exec agenteassistentedevendas-backend-1 python scripts/analisar_payloads_twilio.py
+
 # O que chegou x o que o código declara (lê os parâmetros dos endpoints por introspecção)
 cd backend && source venv/bin/activate
 python scripts/analisar_payloads_twilio.py                       # usa TWILIO_CAPTURA_ARQUIVO
@@ -1509,7 +1530,7 @@ essas fixtures para conferir o webhook contra o que a Twilio de fato manda.
 
 Se houver nova colheita (número próprio, outro tipo de mensagem), a regeneração é manual:
 
-1. Escolher a linha em `backend/logs/payloads_twilio.jsonl` e copiá-la para um arquivo novo em
+1. Escolher a linha em `payloads_twilio.jsonl` (do container: `docker cp agenteassistentedevendas-backend-1:/app/logs/payloads_twilio.jsonl /tmp/`, nunca para dentro do repositório) e copiá-la para um arquivo novo em
    `backend/tests/fixtures/twilio/<tipo>.json`.
 2. Anonimizar seguindo as regras do `README.md` da pasta: telefone vira `+5511900000001` (em `From`,
    `WaId`, `To` do status, `ChannelToAddress`), `ProfileName` vira "Cliente Teste", SIDs trocados por

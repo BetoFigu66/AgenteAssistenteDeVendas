@@ -1,7 +1,9 @@
 # Fixtures de payloads reais da Twilio (anonimizadas)
 
 Origem: colheita de 25/09/2026 no WhatsApp Sandbox da Twilio, gravada por
-`TWILIO_CAPTURAR_PAYLOADS` em `backend/logs/payloads_twilio.jsonl` (fora do git).
+`TWILIO_CAPTURAR_PAYLOADS` em `backend/logs/payloads_twilio.jsonl` (fora do git). Desde
+02/10 o backend do Docker grava no volume `backend_logs`, não mais em `backend/logs/`
+(ver "Logs do backend no Docker" em `docs/comandos_uteis.md`).
 Cada arquivo é uma chamada real, com o formulário exatamente como a Twilio mandou,
 exceto pela anonimização abaixo. Servem para os testes de webhook conferirem o código
 contra o que a Twilio de fato envia, e não contra o que supomos que ela envia.

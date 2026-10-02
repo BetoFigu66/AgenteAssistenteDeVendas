@@ -157,7 +157,23 @@ def _iter_arquivos(raiz: Path, nome_exato: Optional[str] = None, sufixo: Optiona
     escopos=["sempre", "pre-commit"],
 )
 def _check_gitkeep_redundantes(raiz: Path) -> CheckResult:
-    """`.gitkeep` so faz sentido em diretorios vazios. Acusa os demais."""
+    """`.gitkeep` so faz sentido em diretorios vazios. Acusa os demais.
+
+    "Vazio" e do ponto de vista do git: arquivos ignorados nao contam. E o caso de
+    `backend/logs/`, que tem conteudo local mas precisa existir num clone novo
+    (ponto de montagem do volume `backend_logs` dentro do bind mount so leitura).
+    """
+    import subprocess
+
+    def _ignorado(caminho: Path) -> bool:
+        try:
+            return subprocess.run(
+                ["git", "check-ignore", "-q", str(caminho)],
+                cwd=raiz, capture_output=True, timeout=10,
+            ).returncode == 0
+        except (OSError, subprocess.TimeoutExpired):
+            return False
+
     redundantes: List[str] = []
     comandos: List[str] = []
     for gitkeep in _iter_arquivos(raiz, nome_exato=".gitkeep"):
@@ -165,6 +181,7 @@ def _check_gitkeep_redundantes(raiz: Path) -> CheckResult:
             irmaos = [p for p in gitkeep.parent.iterdir() if p.name != ".gitkeep"]
         except OSError:
             continue
+        irmaos = [p for p in irmaos if not _ignorado(p)]
         if irmaos:
             root = str(gitkeep.relative_to(raiz)).replace("\\", "/")
             redundantes.append(root)
