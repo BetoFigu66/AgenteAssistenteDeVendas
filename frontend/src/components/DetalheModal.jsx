@@ -20,7 +20,10 @@ function DetalheModal({ titulo, onClose, children }) {
             <X size={20} />
           </button>
         </div>
-        <div className="p-5 overflow-y-auto flex-1">{children}</div>
+        {/* text-gray-800 explicito: o modal nao usa portal e herda `color` do ponto
+            onde foi montado (ex.: botao dentro de cabecalho escuro com text-white
+            deixaria inputs e textos sem cor propria invisiveis no fundo branco) */}
+        <div className="p-5 overflow-y-auto flex-1 text-gray-800">{children}</div>
       </div>
     </div>
   )

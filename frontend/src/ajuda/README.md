@@ -3,6 +3,23 @@
 Conteúdo exibido pelo botão **?** (`src/components/BotaoAjuda.jsx`) ao lado do título
 de cada tela do painel. Substitui a necessidade de um manual do usuário separado.
 
+## As duas camadas do botão `?`
+
+O modal de ajuda combina dois conteúdos com donos diferentes:
+
+| Camada | Onde vive | Quem edita | Para que serve |
+|---|---|---|---|
+| **FAQ** (perguntas e respostas) | tabela `ajuda_conteudos`, via API `/api/ajuda` | aba **Base de Ajuda** do painel | dúvidas pontuais ("como aprovo uma mensagem?") |
+| **Texto da tela** (`.md` deste diretório) | `frontend/src/ajuda/<contexto>.md`, versionado | desenvolvedor, junto com o código | explicação completa da tela |
+
+O FAQ aparece primeiro (campo de pergunta + sugestões); o texto `.md` fica aberto por
+padrão e se recolhe sozinho quando uma resposta chega. Se a API estiver fora, o `.md`
+continua funcionando — a busca degrada, a documentação não.
+
+**Não confundir `ajuda_conteudos` com `pares_qa`**: aquela responde ao *cliente* no
+WhatsApp; esta responde ao *operador* no painel. São bases separadas justamente para
+que instrução de painel nunca seja enviada a um cliente.
+
 ## Como adicionar ajuda a uma tela
 
 1. Crie `<contexto>.md` neste diretório (ex.: `orcamentos.md`).
@@ -42,6 +59,7 @@ Se nenhum arquivo existir, o botão simplesmente não é renderizado.
 | `reports.md` | Triagem de Reports |
 | `qa-base.md` | Base Q&A |
 | `parametros.md` | Parâmetros |
+| `ajuda-base.md` | Base de Ajuda |
 
 ## Como escrever
 
