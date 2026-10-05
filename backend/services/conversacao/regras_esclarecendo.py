@@ -17,7 +17,7 @@ Ver `docs/arquitetura_motor_conversacao_2026-07.md` para o funcionamento geral d
 
 from typing import Optional
 
-from models import AtributoAdicionalModelo, FaseAtendimento, Modelo
+from models import AtributoAdicionalModelo, FaseAtendimento, Modelo, ModoOperacao
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -365,6 +365,8 @@ async def _executar_disparar_fechamento(ctx: ContextoAcao):
     p = ctx.processador
     if p._info_atendimento(ctx.db, atendimento.id, CHAVE_FECHAMENTO_PENDENTE) == "aguardando":
         return None  # já perguntado, aguardando resposta — não insiste de novo
+    if pilha.abertas(atendimento):
+        return None  # há pergunta nossa em aberto: a retomada (D1) vem no lugar
 
     p._salvar_info_atendimento(ctx.db, atendimento.id, CHAVE_FECHAMENTO_PENDENTE, "aguardando")
     if ctx.dlog:
@@ -373,6 +375,38 @@ async def _executar_disparar_fechamento(ctx: ContextoAcao):
             f"dúvida respondida sem qualificação aberta → pergunta de fechamento (atendimento {atendimento.id})",
         )
     return (MensagemId.PERGUNTA_FECHAMENTO_ATENDIMENTO, None)
+
+
+async def _executar_retomar_pergunta_apos_duvida(ctx: ContextoAcao):
+    """D1 (decisão do Beto, ago/2026): respondida uma dúvida com uma pergunta nossa
+    ainda aberta, reapresenta essa pergunta, como a Finalizando já fazia com o
+    orçamento (`_retomar_apos_duvida`). Sem isso a pergunta ficava esquecida na pilha.
+
+    Não retoma se a dúvida escalou para humano, se a resposta à dúvida já é uma pergunta
+    (clarificação, REQ-003.7) ou se alguma pergunta foi feita neste mesmo turno."""
+    atendimento = ctx.atendimento
+    if not atendimento or atendimento.fase != FaseAtendimento.ESCLARECENDO:
+        return None
+    if not ctx.fragmentos_ate_agora or atendimento.modo_operacao == ModoOperacao.HUMANO:
+        return None
+    if ctx.fragmentos_ate_agora[-1].template_usado == MensagemId.RAG_PEDIR_CLARIFICACAO.name:
+        return None
+    pergunta = pilha.topo(atendimento)
+    if pergunta is None or pergunta.leva_ultima == pilha.leva_atual(ctx):
+        return None
+    pilha.empilhar(ctx, pergunta.chave, pergunta.texto, pergunta.dados)
+    if ctx.dlog:
+        ctx.dlog.log("esclarecendo", f"dúvida respondida com pergunta aberta → retoma {pergunta.chave} (D1)")
+    return (MensagemId.RETOMAR_PERGUNTA, {"pergunta": pergunta.texto})
+
+
+def _builder_retomar_pergunta_apos_duvida(ctx: ContextoAcao) -> GrupoAcoes:
+    intencoes = set(ctx.resultado_class.intencoes)
+    if not (intencoes & _INTENCOES_DUVIDA_PURA):
+        return GrupoAcoes()
+    if Intencao.PEDIR_ORCAMENTO in intencoes or Intencao.PERGUNTAR_DISPONIBILIDADE in intencoes:
+        return GrupoAcoes()
+    return GrupoAcoes(pos=[Acao("retomar_pergunta_apos_duvida", _executar_retomar_pergunta_apos_duvida)])
 
 
 def _builder_disparar_fechamento(ctx: ContextoAcao) -> GrupoAcoes:
@@ -420,6 +454,12 @@ REGISTRO_ESCLARECENDO: list[RegraIntencao] = [
         fase=FaseAtendimento.ESCLARECENDO,
         builder=_builder_categoria_pergunta(Intencao.FORA_CONTEXTO),
         nome="categoria_pergunta_fora_contexto",
+    ),
+    RegraIntencao(
+        intencao=None,
+        fase=FaseAtendimento.ESCLARECENDO,
+        builder=_builder_retomar_pergunta_apos_duvida,
+        nome="retomar_pergunta_apos_duvida",
     ),
     RegraIntencao(
         intencao=None,

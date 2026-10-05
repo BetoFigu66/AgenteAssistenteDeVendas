@@ -8,8 +8,10 @@ acessam `.informacoes` (chave/valor) e `.itens` (modelo_id) por duck typing.
 """
 
 from dataclasses import dataclass, field
+from types import SimpleNamespace
 from typing import Optional
 
+from models import StatusPergunta
 from models_comportamento import ComportamentoAtendimento
 from services.conversacao.campos_pendentes import (
     campos_pendentes,
@@ -203,15 +205,15 @@ def test_catraca_com_software_nao_reconhecido_tambem_pergunta_homologacao():
 
 
 def test_homologado_software_deixa_de_ser_pendente_apos_ser_perguntado_sem_resposta():
-    """REQ-002.14C/15: a pergunta de homologação é um alerta opcional — depois de
-    perguntada uma vez (marcador `homologado_software__perguntado`), não bloqueia mais o
-    fluxo mesmo sem resposta do cliente."""
+    """REQ-002.14C/15: a pergunta de homologação é um alerta opcional — perguntada uma
+    vez e sem resposta, esgota na pilha (`max_tentativas=1`) e não bloqueia mais o
+    fluxo."""
     atendimento = _atendimento(
         tipo_produto="catraca",
-        infos=[
-            _InfoStub(chave="software_controle_acesso", valor="EVO"),
-            _InfoStub(chave="homologado_software__perguntado", valor="true"),
-        ],
+        infos=[_InfoStub(chave="software_controle_acesso", valor="EVO")],
+    )
+    atendimento.perguntas_pendentes.append(
+        SimpleNamespace(chave="homologado_software", status=StatusPergunta.ESGOTADA.value, aberta=False, ordem=1)
     )
     pendentes = campos_pendentes(atendimento)
     assert CAMPO_HOMOLOGADO_SOFTWARE not in pendentes

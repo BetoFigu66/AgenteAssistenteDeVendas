@@ -11,14 +11,13 @@ from __future__ import annotations
 
 from typing import Optional
 
-from models import Atendimento
+from models import Atendimento, StatusPergunta
 
 from .catalogo_campos import (
     CAMPOS,
     DESTINO_ITEM_ATENDIMENTO_MODELO_ID,
     Pergunta,
     campos_do_produto,
-    chave_perguntado,
 )
 
 
@@ -28,19 +27,18 @@ def nao_perguntar_de_novo(campo: Pergunta, atendimento: Atendimento) -> bool:
     Nome espelha o efeito `nao_perguntar_de_novo` do catálogo de conversação
     (`catalogo_conversacao/README.md`).
 
-    Campos **não obrigatórios** (`campo.obrigatorio = False`) também contam como
-    "não perguntar de novo" quando já foram perguntados uma vez
-    (`chave_perguntado`), mesmo sem valor capturado — são alertas/orientações que
-    não devem insistir nem bloquear o fluxo (ver `Pergunta.obrigatorio`).
+    Também conta como "não perguntar de novo" o campo cuja pergunta esgotou as
+    tentativas na pilha (`Pergunta.max_tentativas`), mesmo sem valor capturado: são
+    alertas/orientações que não devem insistir nem bloquear o fluxo.
     """
     if campo.destino == DESTINO_ITEM_ATENDIMENTO_MODELO_ID:
         return atendimento.modelo_ja_resolvido()
     valores = atendimento.valores_capturados()
     if bool(valores.get(campo.chave)):
         return True
-    if not campo.obrigatorio and bool(valores.get(chave_perguntado(campo))):
-        return True
-    return False
+    return any(
+        p.chave == campo.chave and p.status == StatusPergunta.ESGOTADA.value for p in atendimento.perguntas_pendentes
+    )
 
 
 def campos_pendentes(atendimento: Atendimento) -> list[Pergunta]:

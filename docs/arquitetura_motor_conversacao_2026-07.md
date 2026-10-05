@@ -199,6 +199,12 @@ Leitura parcial: "sim, biometria" responde a duas perguntas (confirma o nome e e
 
 Escada de erro (D3): `DefinicaoPergunta.max_tentativas`. Só conta como tentativa falha a mensagem que podia ser a resposta (inválida, ou sem outro assunto) e que nenhuma pergunta reconheceu. Esgotada, a pergunta sai da pilha e `ao_sair` decide o efeito (o nome de perfil vira `ignorado`, como antes).
 
+Nos campos do catálogo a escada é `Pergunta.max_tentativas` (substitui `obrigatorio=False` e o marcador `<chave>__perguntado`): o alerta de homologação tem 1 tentativa, e a pergunta esgotada deixa de bloquear `campos_pendentes()`. O modelo tem 2, mas quem conta é a resolução contra o catálogo (`SinalDeModelo.conta_tentativa` é falso), no contador da própria pergunta (substitui `modelo_tentativas_falhas`). REQ-004.9 (confiança baixa duas vezes) só conta com a pilha vazia.
+
+D1, retomada depois de uma dúvida: a Finalizando já reapresentava a pergunta do orçamento (`_retomar_apos_duvida`). Em Esclarecendo, a Regra `retomar_pergunta_apos_duvida` faz o mesmo com o topo da pilha ("Voltando à minha pergunta: ..."), e a pergunta de fechamento não dispara enquanto houver pergunta aberta. A confirmação do nome de perfil nunca é retomada: pela regra de 26/09, a primeira mensagem que não trata do nome a encerra.
+
+Fora da pilha, de propósito: a clarificação da RAG (`rag_clarificacao_pendente`, REQ-003.7). A tentativa dela é a base não ter conteúdo, e não um tratador que não leu a resposta; e uma pergunta de texto livre aberta competiria com todas as outras na fila serial.
+
 Reply-to que cita uma pergunta que não aceita a mensagem não encerra a busca: a resolução segue sem o atalho (o cliente pode ter citado a mensagem errada). O classificador LLM recebe a pergunta do topo da pilha como contexto (`classificar(contexto=...)`, gancho que existia e ninguém preenchia).
 
 ## 7. Camada de comportamento: `estados/` (GRASP Information Expert)

@@ -84,10 +84,14 @@ class Tratador:
     intencoes_aceitas: frozenset[Intencao] = frozenset()
 
     def aceita_intencoes(self, entrada: EntradaTratador) -> bool:
-        """A mensagem pode ser uma resposta a esta pergunta? Também decide se uma leitura
-        que não reconheceu conta como tentativa de captura falha (D3): uma dúvida ou um
-        pedido de outro assunto não é tentativa de responder."""
+        """A mensagem pode ser uma resposta a esta pergunta?"""
         return set(entrada.intencoes) <= (_INTENCOES_NEUTRAS | self.intencoes_aceitas)
+
+    def conta_tentativa(self, entrada: EntradaTratador) -> bool:
+        """Uma mensagem que este tratador não leu conta como tentativa de captura falha
+        (D3)? Por padrão, só se ela podia ser a resposta: uma dúvida ou um pedido de
+        outro assunto não é tentativa de responder."""
+        return self.aceita_intencoes(entrada)
 
     def interpretar(self, entrada: EntradaTratador) -> Leitura:
         if not (entrada.conteudo or "").strip() or not self.aceita_intencoes(entrada):
@@ -179,6 +183,11 @@ class SinalDeModelo(Tratador):
 
     def aceita_intencoes(self, entrada: EntradaTratador) -> bool:
         return True
+
+    def conta_tentativa(self, entrada: EntradaTratador) -> bool:
+        # Quem conta é a resolução contra o catálogo: tentativa é sinal de modelo sem
+        # correspondência, não mensagem sem sinal.
+        return False
 
     def _interpretar(self, entrada: EntradaTratador) -> Leitura:
         e = entrada.entidades

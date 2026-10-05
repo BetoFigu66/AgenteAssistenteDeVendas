@@ -282,7 +282,7 @@ class TratadorNomePerfil(Tratador):
 
     nome = "nome_perfil"
 
-    def aceita_intencoes(self, entrada: EntradaTratador) -> bool:
+    def conta_tentativa(self, entrada: EntradaTratador) -> bool:
         return True
 
     def interpretar(self, entrada: EntradaTratador) -> Leitura:

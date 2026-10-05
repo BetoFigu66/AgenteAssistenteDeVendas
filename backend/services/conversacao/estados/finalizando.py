@@ -41,22 +41,13 @@ from services.conversacao.catalogo_campos import (
     CAMPO_QUANTIDADE,
     CAMPO_SOFTWARE_ACESSO,
     CAMPO_SOFTWARE_PONTO,
-    CAMPOS,
     Pergunta,
-    chave_perguntado,
 )
 from services.conversacao.categoria_pergunta import responder_categoria_pergunta
 from services.conversacao.confirmacao_nome_perfil import CHAVES_CONFIRMACAO_NOME_PERFIL
-from services.conversacao.tratadores import entrada_de
 from services.respostas import MensagemId, RespostaGerada, renderizar_mensagem
 
 from .base import EstadoAtendimento
-
-# Fase F (F2): chave de AtendimentoInfo que conta tentativas sem correspondência de
-# modelo_produto; após _MODELO_MAX_TENTATIVAS, escala para atendimento humano em vez de
-# continuar perguntando (REQ-002.21, CAMPO-modelo — nunca aceita texto livre como modelo).
-_MODELO_TENTATIVAS_CHAVE = "modelo_tentativas_falhas"
-_MODELO_MAX_TENTATIVAS = 2
 
 # Fase G (G1): marca que o resumo (F4) já foi apresentado — um CONFIRMAR só conclui o
 # handoff se for reply a um resumo que o cliente de fato viu; sem isso, a primeira
@@ -202,19 +193,12 @@ class FinalizandoState(EstadoAtendimento):
         atendimento = ctx.atendimento
         resultado_class = ctx.resultado_class
 
-        campo_perguntado = proxima_pergunta(atendimento)
-        tentou_modelo = bool(
-            campo_perguntado
-            and campo_perguntado.chave == CAMPO_MODELO.chave
-            and resultado_class.entidades.tipo_leitor_mencionado
-        )
-
         # F2/F3: se a mensagem for uma dúvida (categoria_pergunta) e não trouxer nenhum sinal
         # NOVO de modelo (marca/aplicação/tecnologia), não tenta resolver modelo usando só
         # sinais antigos já persistidos (ex.: `tecnologia_leitura` capturado numa mensagem
         # anterior) — isso sequestrava perguntas legítimas do cliente (ex.: "pode explicar
         # as diferenças entre as marcas?"), respondendo com MODELO_NAO_RECONHECIDO em vez de
-        # tratar a dúvida, e ainda consumia uma tentativa de `_MODELO_MAX_TENTATIVAS`.
+        # tratar a dúvida, e ainda consumia uma das tentativas de `CAMPO_MODELO.max_tentativas`.
         entidades = resultado_class.entidades
         tem_sinal_modelo_fresco = bool(
             entidades.marca or entidades.aplicacao or entidades.tipo_leitor_mencionado or entidades.atributos
@@ -237,19 +221,6 @@ class FinalizandoState(EstadoAtendimento):
 
         if eh_duvida:
             return await self._retomar_apos_duvida(ctx)
-
-        # Campos não obrigatórios (ex.: alerta de homologação — REQ-002.14C/15) só são
-        # perguntados uma vez: a resposta, se veio, a pilha já capturou. O que ainda está
-        # aberto na pilha foi perguntado e não respondido; marcamos como "perguntado" e
-        # `campos_pendentes()` deixa de bloquear o fluxo por causa dele. Como antes, só
-        # conta se a mensagem podia ser resposta (uma intenção de outro assunto não gasta
-        # a única vez).
-        if not tentou_modelo:
-            entrada = entrada_de(ctx.conteudo, resultado_class.intencoes, resultado_class.entidades)
-            for pergunta in pilha.abertas(atendimento):
-                campo = CAMPOS.get(pergunta.chave)
-                if campo is not None and not campo.obrigatorio and campo.tratador.aceita_intencoes(entrada):
-                    p._salvar_info_atendimento(ctx.db, atendimento.id, chave_perguntado(campo), "true")
 
         pendentes = campos_pendentes(atendimento)
         if not pendentes:
@@ -303,7 +274,7 @@ class FinalizandoState(EstadoAtendimento):
 
     async def _resolver_modelo(self, ctx: ContextoAcao) -> bool:
         """F2: resolve `modelo_produto` para uma linha real de `Modelo`, ou escala para
-        atendimento humano após `_MODELO_MAX_TENTATIVAS` sem correspondência — nunca aceita
+        atendimento humano após `CAMPO_MODELO.max_tentativas` sem correspondência — nunca aceita
         o texto do cliente como modelo (REQ-002.3B, CAMPO-modelo).
 
         Usa tipo de produto, tecnologia de leitura, marca e aplicação extraídos da
@@ -421,9 +392,6 @@ class FinalizandoState(EstadoAtendimento):
         if candidato:
             item = self._item_atendimento_atual(ctx, candidato.produto_id)
             item.modelo_id = candidato.id
-            # Era a única função que misturava as duas estratégias: `commit()` aqui e
-            # `flush()` na linha seguinte, dentro do helper (achado B1).
-            p._remover_info_atendimento(db, atendimento.id, _MODELO_TENTATIVAS_CHAVE)
             if dlog:
                 dlog.log(
                     "finalizando",
@@ -431,8 +399,12 @@ class FinalizandoState(EstadoAtendimento):
                 )
             return False
 
-        tentativas = int(p._info_atendimento(db, atendimento.id, _MODELO_TENTATIVAS_CHAVE) or 0) + 1
-        p._salvar_info_atendimento(db, atendimento.id, _MODELO_TENTATIVAS_CHAVE, str(tentativas))
+        # D3: a tentativa falha fica na própria pergunta da pilha (antes era a chave
+        # `modelo_tentativas_falhas` em `AtendimentoInfo`).
+        pergunta_modelo = self._pergunta_modelo(ctx)
+        pergunta_modelo.tentativas_captura += 1
+        tentativas = pergunta_modelo.tentativas_captura
+        db.flush()
         if dlog:
             sinais = ", ".join(
                 f"{k}={v}"
@@ -449,7 +421,7 @@ class FinalizandoState(EstadoAtendimento):
                 f"modelo sem correspondência ({sinais}) tentativa={tentativas}",
             )
 
-        if tentativas >= _MODELO_MAX_TENTATIVAS:
+        if tentativas >= CAMPO_MODELO.max_tentativas:
             # Débito técnico corrigido nesta migração: antes mutava `modo_operacao`
             # direto, sem passar pelo helper central de escalonamento (inconsistente com
             # todo o resto do sistema) — ver MotivoEscalonamento.MODELO_NAO_RECONHECIDO.
@@ -459,7 +431,7 @@ class FinalizandoState(EstadoAtendimento):
                 evidencias={
                     **escalonamentos_svc.evidencias_da_classificacao(resultado_class),
                     "tentativas": tentativas,
-                    "tentativas_maximas": _MODELO_MAX_TENTATIVAS,
+                    "tentativas_maximas": CAMPO_MODELO.max_tentativas,
                     # Só o extraído desta mensagem. `sinais` (o filtro do catálogo) também
                     # carrega o acumulado em AtendimentoInfo, onde podem morar chaves que não
                     # são de modelo (ex.: `cpf_pendente`) e não devem ir para a evidência.
@@ -478,6 +450,16 @@ class FinalizandoState(EstadoAtendimento):
             return False
 
         return True
+
+    @staticmethod
+    def _pergunta_modelo(ctx: ContextoAcao):
+        """A pergunta do modelo aberta na pilha. Se ela não está lá (atendimento anterior
+        à pilha), é registrada agora: a resposta deste turno a reapresenta."""
+        aberta = next((p for p in pilha.abertas(ctx.atendimento) if p.chave == CAMPO_MODELO.chave), None)
+        if aberta is not None:
+            return aberta
+        perguntar_campo(ctx, CAMPO_MODELO)
+        return next(p for p in pilha.abertas(ctx.atendimento) if p.chave == CAMPO_MODELO.chave)
 
     def _item_atendimento_atual(self, ctx: ContextoAcao, produto_id: int) -> ItemAtendimento:
         """MVP: um único item por atendimento (só relógio de ponto) — get-or-create."""

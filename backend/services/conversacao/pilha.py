@@ -99,6 +99,7 @@ def _definicao_de_campo(campo: Pergunta) -> DefinicaoPergunta:
         tratador=campo.tratador,
         grava=grava,
         fecha_na_captura=grava,
+        max_tentativas=campo.max_tentativas,
     )
 
 
@@ -135,7 +136,7 @@ def fila_serial(atendimento: Optional[Atendimento]) -> list[PerguntaPendente]:
 # ----------------------------------------------------------------------
 
 
-def _leva(ctx: ContextoAcao) -> int:
+def leva_atual(ctx: ContextoAcao) -> int:
     """Identificador do turno: o id da mensagem do cliente que provocou as perguntas.
 
     Sem ele (chamada direta do motor, como fazem vários testes), cada contexto vira um
@@ -172,7 +173,7 @@ def empilhar(ctx: ContextoAcao, chave: str, texto: str, dados: Optional[dict] = 
     como reapresentação quando foi feita num turno anterior. Exige `ctx.atendimento`.
     """
     atendimento = ctx.atendimento
-    leva = _leva(ctx)
+    leva = leva_atual(ctx)
     pilha = abertas(atendimento)
     proxima_ordem = max((p.ordem for p in atendimento.perguntas_pendentes), default=0) + 1
 
@@ -348,7 +349,7 @@ def _registrar_tentativas_falhas(ctx: ContextoAcao, leituras: list[tuple[Pergunt
     outra coisa não é tratado como quem não sabe responder."""
     for pergunta, leitura in leituras:
         defn = definicao(pergunta.chave)
-        tentou = leitura.status == StatusLeitura.INVALIDO or defn.tratador.aceita_intencoes(_entrada(ctx, pergunta))
+        tentou = leitura.status == StatusLeitura.INVALIDO or defn.tratador.conta_tentativa(_entrada(ctx, pergunta))
         if not tentou:
             continue
         pergunta.tentativas_captura += 1
@@ -423,6 +424,15 @@ async def resolver_resposta(ctx: ContextoAcao) -> Optional[RespostaGerada]:
     """
     if ctx.atendimento is None:
         return None
+    resposta = await _resolver(ctx)
+    # Contadores e status mudados aqui precisam ir ao banco já: a sessão não faz
+    # autoflush, e um `refresh` do atendimento (o cascade inclui as perguntas) os
+    # descartaria.
+    ctx.db.flush()
+    return resposta
+
+
+async def _resolver(ctx: ContextoAcao) -> Optional[RespostaGerada]:
     sincronizar(ctx)
     pilha = abertas(ctx.atendimento)
     if not pilha:

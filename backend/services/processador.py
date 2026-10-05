@@ -821,11 +821,14 @@ class ProcessadorMensagem:
         resultado_fallback = ROTULO_FALLBACK_NAO_ENTENDI
         justificativa_curta = "Nenhuma ação do motor, QA ou escalonamento respondeu — fallback genérico."
 
+        # Com pergunta aberta na pilha, quem conta as respostas não entendidas é a escada
+        # de cada pergunta (D3); REQ-004.9 vale para a conversa sem pergunta pendente.
         if (
             resultado_class is not None
             and resultado_class.confianca_nivel == NivelConfianca.BAIXA
             and db is not None
             and atendimento is not None
+            and not pilha.abertas(atendimento)
         ):
             aguardando = bool(self._info_atendimento(db, atendimento.id, _CONFIANCA_BAIXA_TENTATIVA_CHAVE))
             if aguardando:

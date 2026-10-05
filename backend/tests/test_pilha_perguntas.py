@@ -513,3 +513,54 @@ def test_nao_ao_nome_reabre_a_pergunta_como_pedido_de_nome(db_session):
         assert conversa.info("nome_perfil_confirmacao") == "outro_nome"
     finally:
         _limpar(db_session, telefone)
+
+
+# ----------------------------------------------------------------------
+# Passo 3: D1 (retomar depois de uma dúvida) e escada D3 nos campos
+# ----------------------------------------------------------------------
+
+
+def test_duvida_em_esclarecendo_retoma_a_pergunta_aberta(db_session):
+    """D1: com a data de nascimento pendente, uma dúvida fora de contexto é respondida
+    e a pergunta da data volta, no lugar do "posso ajudar em mais alguma coisa?"."""
+    from services.identificador import ResultadoIdentificacao, StatusIdentificacao
+
+    telefone = "+5511999977330"
+    cpf = "529.982.247-25"
+
+    def _decidir(intencao, conteudo, identificacao, **entidades):
+        resultado = ResultadoClassificacao(
+            intencoes=[intencao],
+            confianca=0.9,
+            confianca_nivel=NivelConfianca.ALTA,
+            entidades=EntidadesExtraidas(**entidades),
+            origem="regra",
+        )
+        return asyncio.run(
+            ProcessadorMensagem()._decidir_resposta(
+                db=db_session, telefone=telefone, conteudo=conteudo, identificacao=identificacao,
+                resultado_class=resultado,
+            )
+        )
+
+    try:
+        novo = ResultadoIdentificacao(status=StatusIdentificacao.NOVO, contatos=[], empresas=[])
+        assert _decidir(Intencao.FORNECER_CPF, f"meu cpf é {cpf}", novo, cpfs=[cpf]).template_usado == (
+            "PERGUNTAR_DATA_NASCIMENTO"
+        )
+        db_session.commit()
+
+        from models import Contato
+
+        contato = db_session.query(Contato).filter_by(telefone=telefone).first()
+        conhecido = ResultadoIdentificacao(status=StatusIdentificacao.SEM_EMPRESA, contatos=[contato], empresas=[])
+        resposta = _decidir(Intencao.FORA_CONTEXTO, "vocês abrem sábado?", conhecido)
+
+        assert resposta.template_usado.endswith("+RETOMAR_PERGUNTA")
+        assert resposta.mensagens()[-1] == (
+            "Voltando à minha pergunta: qual é a sua data de nascimento? (formato DD/MM/AAAA)"
+        )
+        (data,) = pilha.abertas(contato.atendimentos[0])
+        assert data.chave == "data_nascimento" and data.reapresentacoes == 1
+    finally:
+        _limpar(db_session, telefone)

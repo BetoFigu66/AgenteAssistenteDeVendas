@@ -90,9 +90,10 @@ def test_homologado_software_aplicavel_para_qualquer_software_real():
     assert CAMPO_HOMOLOGADO_SOFTWARE.se_aplica("catraca", {}) is False
 
 
-def test_homologado_software_nao_e_obrigatorio():
-    """A pergunta é um alerta/orientação — não bloqueia a qualificação (REQ-002.14C/15)."""
-    assert CAMPO_HOMOLOGADO_SOFTWARE.obrigatorio is False
+def test_homologado_software_e_perguntado_uma_vez_so():
+    """A pergunta é um alerta/orientação — não bloqueia a qualificação (REQ-002.14C/15):
+    uma tentativa, depois a pilha desiste dela."""
+    assert CAMPO_HOMOLOGADO_SOFTWARE.max_tentativas == 1
 
 
 def test_quantidade_nao_aplicavel_a_relogio_ponto():

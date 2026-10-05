@@ -171,11 +171,15 @@ async def _executar_fornecer_cpf(ctx: ContextoAcao):
         data_nascimento=data_nasc,
     )
     if resposta.template_usado == MensagemId.PERGUNTAR_DATA_NASCIMENTO.name:
-        _registrar_pergunta_data(ctx, entidades.cpfs[0], resposta.texto)
+        _registrar_pergunta_data(ctx, entidades.cpfs[0])
     return resposta
 
 
-def _registrar_pergunta_data(ctx: ContextoAcao, cpf: str, texto: str) -> None:
+# A pergunta em si, sem o "Anotei seu CPF." que a abre: é o que se reapresenta.
+_PERGUNTA_DATA = "qual é a sua data de nascimento? (formato DD/MM/AAAA)"
+
+
+def _registrar_pergunta_data(ctx: ContextoAcao, cpf: str) -> None:
     """Põe a pergunta da data na pilha do atendimento PF que `_processar_cpf_fornecido`
     acabou de criar ou reaproveitar."""
     p = ctx.processador
@@ -186,7 +190,7 @@ def _registrar_pergunta_data(ctx: ContextoAcao, cpf: str, texto: str) -> None:
         return
     ctx.atendimento = atendimento
     ctx.contato = contato
-    pilha.empilhar(ctx, CHAVE_DATA_NASCIMENTO, texto, {"cpf": cpf})
+    pilha.empilhar(ctx, CHAVE_DATA_NASCIMENTO, _PERGUNTA_DATA, {"cpf": cpf})
 
 
 def _builder_data_nascimento_capturada(ctx: ContextoAcao) -> GrupoAcoes:

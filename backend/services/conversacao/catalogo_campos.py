@@ -16,7 +16,7 @@ lida com banco desde a Etapa 1 do redesenho State pattern; ver
 
 from __future__ import annotations
 
-from typing import ClassVar, Mapping
+from typing import ClassVar, Mapping, Optional
 
 from services.respostas import MensagemId
 
@@ -55,12 +55,13 @@ class Pergunta:
       livre. Ver risco/decisão #1 em §8 do plano de MVP: `produto` (categoria) já vai
       para `ItemAtendimento`; o modelo específico segue a mesma lógica.
     """
-    obrigatorio: ClassVar[bool] = True
-    """Se `False`, o campo é perguntado **no máximo uma vez** (marcado como
-    "perguntado" — ver `chave_perguntado()`) e, a partir daí, deixa de bloquear
-    `campos_pendentes()`/o resumo final, mesmo sem resposta do cliente. Usado para
-    perguntas de alerta/orientação que não fazem parte dos dados obrigatórios do
-    orçamento (ex.: `PerguntaHomologadoSoftware` — REQ-002.14C/15)."""
+    max_tentativas: ClassVar[Optional[int]] = None
+    """Escada de erro (D3) da pilha de perguntas pendentes: quantas respostas não lidas o
+    campo aceita antes de desistir. `None` = insiste até ter resposta (dado obrigatório
+    do orçamento). `1` = perguntado uma vez só: sem resposta reconhecida na mensagem
+    seguinte, a pergunta esgota e o campo deixa de bloquear `campos_pendentes()`/o resumo
+    final. Usado para alertas/orientações (ex.: `PerguntaHomologadoSoftware` —
+    REQ-002.14C/15). Substitui o antigo `obrigatorio=False` + marcador `__perguntado`."""
 
     def _aplicavel(self, tipo_produto: str, valores: Valores) -> bool:
         """Hook de aplicabilidade condicional — default sempre aplicável dentro de
@@ -73,13 +74,6 @@ class Pergunta:
         if tipo_produto not in self.produtos_aplicaveis:
             return False
         return self._aplicavel(tipo_produto, valores)
-
-
-def chave_perguntado(campo: Pergunta) -> str:
-    """Chave de `AtendimentoInfo` usada para marcar que um campo **não obrigatório**
-    (`Pergunta.obrigatorio = False`) já foi perguntado ao cliente ao menos uma vez —
-    independente de ter recebido resposta. Ver `Pergunta.obrigatorio`."""
-    return f"{campo.chave}__perguntado"
 
 
 # ---------------------------------------------------------------------------
@@ -117,6 +111,9 @@ class PerguntaModelo(Pergunta):
     )
     ordem = 10
     destino = DESTINO_ITEM_ATENDIMENTO_MODELO_ID
+    # REQ-002.21: 2 tentativas de resolução sem correspondência no catálogo, depois
+    # escala. Quem conta é a resolução (`FinalizandoState._resolver_modelo`), não a pilha.
+    max_tentativas = 2
     mensagem_id = MensagemId.PEDIR_MODELO
     tratador = SinalDeModelo()
 
@@ -298,9 +295,9 @@ CAMPO_QUANTIDADE = PerguntaQuantidade()
 # o sistema exibe um alerta/orientação perguntando se o cliente já verificou a
 # homologação entre o modelo desejado e aquele software. É apenas um
 # alerta: a resposta é opcional e NÃO bloqueia a qualificação
-# (`Pergunta.obrigatorio = False`) — o sistema só controla que a pergunta foi
-# feita (ver `chave_perguntado()`), reforçando a importância de o cliente
-# confirmar a compatibilidade antes da compra.
+# (`max_tentativas = 1`) — o sistema só garante que a pergunta foi feita,
+# reforçando a importância de o cliente confirmar a compatibilidade antes da
+# compra.
 # ---------------------------------------------------------------------------
 
 
@@ -319,7 +316,7 @@ class PerguntaHomologadoSoftware(Pergunta):
         "adquirindo é homologado/compatível. Você já verificou isso?"
     )
     ordem = 35
-    obrigatorio = False
+    max_tentativas = 1
     mensagem_id = MensagemId.PEDIR_HOMOLOGADO_SOFTWARE
     tratador = SimNao()
 
