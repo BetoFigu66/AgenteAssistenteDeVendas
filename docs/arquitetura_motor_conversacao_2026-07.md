@@ -205,6 +205,12 @@ D1, retomada depois de uma dúvida: a Finalizando já reapresentava a pergunta d
 
 Fora da pilha, de propósito: a clarificação da RAG (`rag_clarificacao_pendente`, REQ-003.7). A tentativa dela é a base não ter conteúdo, e não um tratador que não leu a resposta; e uma pergunta de texto livre aberta competiria com todas as outras na fila serial.
 
+Leitura discriminante por resposta (`Leitura.discriminante`): um tratador ambíguo pode produzir uma leitura que só serve à sua pergunta. "Conheço o Topdata" (tratador `Conhece`) e "pode me chamar assim" (nome de perfil) alcançam a pergunta mesmo abaixo do topo ou fora da vez na fila serial; o "sim" puro continua ambíguo.
+
+Projeto complexo (`projeto_complexo.py`, decisão do Beto de 05/10/2026): com o atendimento no Finalizando (ou entrando nele no turno), o gatilho não transfere na hora. Fica registrado em `AtendimentoInfo[escalonamento_adiado]` e a coleta segue perguntando só o que nunca foi perguntado (`proxima_nunca_perguntada`, depois o documento); sem mais nada, transfere com a evidência guardada no gatilho. O número que a pilha capturou como faixa de pessoas conta como faixa e deixa de contar como quantidade de equipamentos.
+
+Documento (CNPJ/CPF, `documento_fiscal.py`): pedido no início do atendimento, junto com o nome, em mensagem própria; se não vier, uma vez mais só no Finalizando, antes do resumo. Não entra na pilha (ver o docstring do módulo).
+
 Reply-to que cita uma pergunta que não aceita a mensagem não encerra a busca: a resolução segue sem o atalho (o cliente pode ter citado a mensagem errada). O classificador LLM recebe a pergunta do topo da pilha como contexto (`classificar(contexto=...)`, gancho que existia e ninguém preenchia).
 
 ## 7. Camada de comportamento: `estados/` (GRASP Information Expert)

@@ -88,7 +88,7 @@ def test_novo_pedir_orcamento_transita_fase_e_pergunta_modelo(db_session, proces
                 resultado_class=resultado_class,
             )
         )
-        assert resposta.template_usado == "SAUDACAO_NOVO_CONTATO+INICIAR_FINALIZANDO+PEDIR_MODELO"
+        assert resposta.template_usado == "SAUDACAO_NOVO_CONTATO+PEDIR_DOCUMENTO+INICIAR_FINALIZANDO+PEDIR_MODELO"
 
         contato = db_session.query(Contato).filter_by(telefone=telefone).first()
         atendimento = contato.atendimentos[0]
@@ -114,7 +114,7 @@ def test_novo_pedir_orcamento_sem_produto_ainda_pede_tipo(db_session, processado
                 resultado_class=resultado_class,
             )
         )
-        assert resposta.template_usado == "SAUDACAO_NOVO_CONTATO+PEDIR_TIPO_PRODUTO"
+        assert resposta.template_usado == "SAUDACAO_NOVO_CONTATO+PEDIR_DOCUMENTO+PEDIR_TIPO_PRODUTO"
 
         contato = db_session.query(Contato).filter_by(telefone=telefone).first()
         atendimento = contato.atendimentos[0]
@@ -144,7 +144,7 @@ def test_composta_orcamento_com_software_junto_captura_no_mesmo_turno(db_session
                 resultado_class=resultado_class,
             )
         )
-        assert resposta.template_usado == "SAUDACAO_NOVO_CONTATO+INICIAR_FINALIZANDO+PEDIR_MODELO"
+        assert resposta.template_usado == "SAUDACAO_NOVO_CONTATO+PEDIR_DOCUMENTO+INICIAR_FINALIZANDO+PEDIR_MODELO"
 
         contato = db_session.query(Contato).filter_by(telefone=telefone).first()
         atendimento = contato.atendimentos[0]

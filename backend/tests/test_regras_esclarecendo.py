@@ -357,7 +357,7 @@ def test_pedir_orcamento_suprime_categoria_pergunta_redundante_no_mesmo_turno(db
                 identificacao=identificacao, resultado_class=resultado,
             )
         )
-        assert resposta.template_usado == "SAUDACAO_NOVO_CONTATO+INICIAR_FINALIZANDO+PEDIR_MODELO"
+        assert resposta.template_usado == "SAUDACAO_NOVO_CONTATO+PEDIR_DOCUMENTO+INICIAR_FINALIZANDO+PEDIR_MODELO"
         assert "categoria_pergunta" not in (resposta.template_usado or "")
     finally:
         _limpar(db_session, telefone)

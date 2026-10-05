@@ -55,7 +55,9 @@ def test_execucao_normal_envia_direto_e_auto_aprova(db_session, processador):
 
         msg_out = _msg_out_mais_recente(db_session, telefone)
         assert msg_out is not None
-        assert msg_out.conteudo == resultado.resposta
+        # A resposta pode sair em várias mensagens (uma pergunta por mensagem); a mais
+        # recente é a última parte.
+        assert msg_out.conteudo == resultado.partes_resposta[-1]
         assert msg_out.pendente_aprovacao is False
         assert msg_out.aprovador_id is not None
     finally:

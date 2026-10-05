@@ -48,6 +48,10 @@ class Leitura:
     # O pedaço que a leitura parcial consumiu, quando dá para dizer qual ("sim"). Se
     # outra pergunta aberta também aceitaria esse pedaço, não há como saber de quem ele é.
     trecho: Optional[str] = None
+    # Esta leitura em particular se identifica sozinha, mesmo vinda de um tratador
+    # ambíguo: "conheço o Topdata" só responde a "Você conhece?", ao contrário de "sim".
+    # `None` = vale o `discriminante` do tratador.
+    discriminante: Optional[bool] = None
 
     @property
     def reconheceu(self) -> bool:
@@ -127,6 +131,25 @@ class SimNao(Tratador):
         if _RE_SIM.search(entrada.conteudo):
             return Leitura(StatusLeitura.RECONHECEU, "sim")
         return NAO_RECONHECEU
+
+
+_RE_CONHECO = re.compile(r"\bconhe[cç]", re.IGNORECASE)
+
+
+class Conhece(SimNao):
+    """Resposta a "Você conhece esses <produtos>?". Além do sim/não, quem responde
+    ecoando o verbo ("conheço o Topdata", "não conheço") ou citando uma marca está
+    respondendo, e o sim/não puro não lia isso: a pergunta ficava aberta."""
+
+    nome = "conhece"
+
+    def _interpretar(self, entrada: EntradaTratador) -> Leitura:
+        if _RE_CONHECO.search(entrada.conteudo):
+            valor = "não" if _RE_NAO.search(entrada.conteudo) else "sim"
+            return Leitura(StatusLeitura.RECONHECEU, valor, discriminante=True)
+        if entrada.entidades.marca:
+            return Leitura(StatusLeitura.RECONHECEU, "sim", discriminante=True)
+        return super()._interpretar(entrada)
 
 
 _RE_NUMERO_SOLTO = re.compile(r"\b(\d{1,6})\b")

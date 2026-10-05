@@ -29,7 +29,7 @@ from models import (
 )
 from services.atendimentos import obter_ou_criar_atendimento
 from services.classificador import EntidadesExtraidas, Intencao, NivelConfianca, ResultadoClassificacao
-from services.conversacao.regras_globais import _gatilhos_projeto_complexo
+from services.conversacao.projeto_complexo import gatilhos as _gatilhos_projeto_complexo
 from services.dev_limpeza_telefone import apagar_dados_telefone
 from services.escalonamentos import CAMPO_HISTORICO_AVALIACAO, VALOR_NAO_AVALIADO
 from services.identificador import ResultadoIdentificacao, StatusIdentificacao, identificar_por_telefone

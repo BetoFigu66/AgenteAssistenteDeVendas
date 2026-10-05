@@ -15,7 +15,7 @@ from services.dev_limpeza_telefone import apagar_dados_telefone
 from services.identificador import ResultadoIdentificacao, StatusIdentificacao
 from services.processador import ProcessadorMensagem
 
-from tests.apoio_pilha import registrar_proxima_pergunta
+from tests.apoio_pilha import documento_ja_pedido, registrar_proxima_pergunta
 
 
 def _resultado(intencao: Intencao, **entidades_kwargs) -> ResultadoClassificacao:
@@ -64,6 +64,8 @@ def _iniciar_finalizando_com_software(db_session, processador, telefone, softwar
         )
     )
     contato = db_session.query(Contato).filter_by(telefone=telefone).first()
+    # O assunto destes testes é a coleta, não o pedido de CNPJ/CPF.
+    documento_ja_pedido(db_session, contato.atendimentos[0])
     return contato
 
 
@@ -143,7 +145,7 @@ def _iniciar_finalizando_catraca(db_session, processador, telefone):
 
 
 def test_f1_resposta_solta_faixa_funcionarios_sem_palavra_gatilho(db_session, processador):
-    """F1: "80" sozinho (sem a palavra "funcionários") deve ser capturado quando a
+    """F1: "30" sozinho (sem a palavra "funcionários") deve ser capturado quando a
     pergunta pendente atual é faixa_funcionarios — os extratores D3/D4 exigem gatilho."""
     telefone = "+5511999981001"
     try:
@@ -157,7 +159,7 @@ def test_f1_resposta_solta_faixa_funcionarios_sem_palavra_gatilho(db_session, pr
             processador._decidir_resposta(
                 db=db_session,
                 telefone=telefone,
-                conteudo="80",
+                conteudo="30",
                 identificacao=identificacao,
                 resultado_class=resultado,
             )
@@ -165,7 +167,7 @@ def test_f1_resposta_solta_faixa_funcionarios_sem_palavra_gatilho(db_session, pr
         assert resposta.template_usado == "RESUMO_FINALIZANDO"
         db_session.refresh(atendimento)
         valores = {info.chave: info.valor for info in atendimento.informacoes}
-        assert valores.get("faixa_funcionarios") == "80"
+        assert valores.get("faixa_funcionarios") == "30"
     finally:
         _limpar(db_session, telefone)
 
@@ -398,7 +400,7 @@ def test_f4_resumo_quando_tudo_capturado(db_session, processador):
             processador._decidir_resposta(
                 db=db_session,
                 telefone=telefone,
-                conteudo="80",
+                conteudo="30",
                 identificacao=identificacao,
                 resultado_class=resultado,
             )
@@ -406,7 +408,7 @@ def test_f4_resumo_quando_tudo_capturado(db_session, processador):
         assert resposta_faixa.template_usado == "RESUMO_FINALIZANDO"
         assert modelo.descricao in resposta_faixa.texto
         assert "nenhum" in resposta_faixa.texto.lower()
-        assert "80" in resposta_faixa.texto
+        assert "30" in resposta_faixa.texto
     finally:
         _limpar(db_session, telefone)
 

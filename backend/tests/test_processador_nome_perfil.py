@@ -276,8 +276,9 @@ def test_confirmacao_por_extenso_com_documento_nao_vira_nome(db_session, process
 
 
 def test_orcamento_no_primeiro_contato_pergunta_o_nome_e_retoma_a_pergunta_do_orcamento(db_session, processador):
-    """No modo orçamento a saudação nunca pediu CNPJ/CPF; só ganha a confirmação do nome.
-    Depois do "sim", a pergunta pendente do orçamento volta."""
+    """No modo orçamento a saudação ganha a confirmação do nome e, desde 05/10 (decisão
+    do Beto), o pedido de CNPJ/CPF junto. Depois do "sim", a pergunta pendente do
+    orçamento volta."""
     telefone = "+5511999977216"
     try:
         abertura, resposta = _conversar(
@@ -286,7 +287,7 @@ def test_orcamento_no_primeiro_contato_pergunta_o_nome_e_retoma_a_pergunta_do_or
 
         primeira_parte, *resto = abertura.split("\n\n")
         assert primeira_parte == f"Olá, Ana Souza! 👋 Sou o assistente da Inforrel.\n{_PERGUNTA_CONFIRMACAO}"
-        assert _PEDE_DOCUMENTO not in abertura
+        assert _PEDE_DOCUMENTO in abertura
         pergunta_orcamento = resto[-1]
         assert resposta == f"Combinado, Ana Souza! 😊\n\n{pergunta_orcamento}"
         assert _contato(db_session, telefone).nome == "Ana Souza"

@@ -153,7 +153,8 @@ def test_twilio_modo_rest_envia_pela_api_e_devolve_twiml_vazio(monkeypatch, clie
         assert r.status_code == 200
         assert "<Message" not in r.text
 
-        assert len(canal.enviados) == 1
+        # Saudação + pedido de documento numa mensagem, a pergunta do orçamento na outra.
+        assert len(canal.enviados) == 2
         msg = _msg_out(telefone)
         assert msg.message_sid == f"SM_fake_{msg.id}"
         assert msg.timestamp_envio is not None

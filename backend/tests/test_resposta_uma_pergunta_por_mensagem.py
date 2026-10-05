@@ -97,8 +97,9 @@ def _processar(monkeypatch, telefone, modo):
         return resultado
 
 
-def test_tres_perguntas_viram_tres_mensagens_pendentes(monkeypatch):
-    """O caso que motivou a mudança: confirmação do nome + disponibilidade + faixa."""
+def test_cada_pergunta_vira_uma_mensagem_pendente(monkeypatch):
+    """O caso que motivou a mudança: confirmação do nome + documento (desde 05/10) +
+    disponibilidade + faixa."""
     telefone = "+5511999977201"
     try:
         resultado = _processar(monkeypatch, telefone, ModoExecucao.SIMULACAO)
@@ -108,11 +109,12 @@ def test_tres_perguntas_viram_tres_mensagens_pendentes(monkeypatch):
         with Database().get_session() as session:
             msgs = _mensagens_saida(session, telefone)
             assert [m.id for m in msgs] == resultado.mensagens_saida_ids
-            assert len(msgs) == 3
+            assert len(msgs) == 4
             assert msgs[0].conteudo.startswith("Olá, Bob Figu!")
             assert msgs[0].conteudo.endswith("Posso te chamar assim ou seu nome é outro?")
-            assert msgs[1].conteudo.startswith("Sim, vendemos.")
-            assert msgs[2].conteudo == "Qual a faixa de pessoas que vão usar o relógio de ponto?"
+            assert "CNPJ da sua empresa ou seu CPF?" in msgs[1].conteudo
+            assert msgs[2].conteudo.startswith("Sim, vendemos.")
+            assert msgs[3].conteudo == "Qual a faixa de pessoas que vão usar o relógio de ponto?"
             for msg in msgs:
                 assert msg.conteudo.count("?") == 1
                 assert msg.aprovador_id is None and msg.timestamp_aprovacao is None
@@ -127,7 +129,7 @@ def test_execucao_normal_auto_aprova_cada_mensagem(monkeypatch):
 
         with Database().get_session() as session:
             msgs = _mensagens_saida(session, telefone)
-            assert len(msgs) == 3
+            assert len(msgs) == 4
             assert resultado.partes_resposta == [m.conteudo for m in msgs]
             assert resultado.resposta == "\n\n".join(resultado.partes_resposta)
             assert all(m.aprovador_id is not None for m in msgs)
@@ -178,7 +180,7 @@ def test_chamada_local_recebe_uma_tag_por_mensagem(monkeypatch, client, _canal_l
     try:
         r = _post_webhook(client, telefone)
         assert r.status_code == 200
-        assert r.text.count("<Message>") == 3
+        assert r.text.count("<Message>") == 4
     finally:
         _limpar(telefone)
 
@@ -194,8 +196,8 @@ def test_twilio_modo_twiml_tem_status_callback_por_mensagem(monkeypatch, client,
 
         with Database().get_session() as session:
             msgs = _mensagens_saida(session, telefone)
-            assert len(msgs) == 3
-            assert r.text.count("<Message statusCallback=") == 3
+            assert len(msgs) == 4
+            assert r.text.count("<Message statusCallback=") == 4
             # Na ordem de envio, cada tag apontando para a sua mensagem.
             posicoes = [r.text.index(f"mensagem_id={m.id}") for m in msgs]
             assert posicoes == sorted(posicoes)

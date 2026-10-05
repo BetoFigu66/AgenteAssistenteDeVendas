@@ -15,6 +15,8 @@ from services.dev_limpeza_telefone import apagar_dados_telefone
 from services.identificador import ResultadoIdentificacao, StatusIdentificacao
 from services.processador import ProcessadorMensagem
 
+from tests.apoio_pilha import documento_ja_pedido
+
 
 def _resultado(intencao: Intencao, **entidades_kwargs) -> ResultadoClassificacao:
     return ResultadoClassificacao(
@@ -78,6 +80,7 @@ def _atendimento_pronto_para_resumo(db_session, processador, telefone):
         ItemAtendimento(atendimento_id=atendimento.id, produto_id=produto.id, modelo_id=modelo.id, quantidade=1)
     )
     db_session.commit()
+    documento_ja_pedido(db_session, atendimento)
     return contato, atendimento
 
 
@@ -229,7 +232,7 @@ def test_tipo_produto_pode_ser_informado_apos_ja_estar_em_finalizando(db_session
                 identificacao=identificacao_1, resultado_class=resultado_1,
             )
         )
-        assert resposta_1.template_usado == "SAUDACAO_NOVO_CONTATO+PEDIR_TIPO_PRODUTO"
+        assert resposta_1.template_usado == "SAUDACAO_NOVO_CONTATO+PEDIR_DOCUMENTO+PEDIR_TIPO_PRODUTO"
         contato = db_session.query(Contato).filter_by(telefone=telefone).first()
         atendimento = contato.atendimentos[0]
         assert atendimento.fase == FaseAtendimento.FINALIZANDO

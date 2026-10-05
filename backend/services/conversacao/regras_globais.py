@@ -4,24 +4,23 @@ independente da Fase efetiva do atendimento: ESCALAR_HUMANO, RECLAMAR, FORNECER_
 FORNECER_CPF, a data de nascimento que completa o fluxo PF (pergunta da pilha), FORNECER_NOME
 (efeito colateral silencioso), a resposta que só trata da confirmação do nome de perfil
 (`confirmacao_nome_perfil.py`) e a resposta à pergunta de fechamento do atendimento
-(REQ-016.10, `regras_encerramento.py`). São wrappers finos em cima dos helpers já
-existentes e testados em `ProcessadorMensagem` — nenhuma lógica de negócio nova aqui.
+(REQ-016.10, `regras_encerramento.py`), além do projeto complexo (`projeto_complexo.py`).
+São wrappers finos em cima dos helpers já existentes e testados em `ProcessadorMensagem`.
 
 Ver `docs/arquitetura_motor_conversacao_2026-07.md` para o funcionamento geral do motor.
 """
 
 from __future__ import annotations
 
-from models import Contato, GatilhoEscalonamento, ModoOperacao, MotivoEscalonamento
+from models import Contato, MotivoEscalonamento
 
 from services import escalonamentos as escalonamentos_svc
-from services.classificador import EntidadesExtraidas, Intencao
+from services.classificador import Intencao
 from services.cpf.validacao import mascarar_cpf
 from services.identificador import normalizar_telefone
-from services.parametro_service import ParametroService
 from services.respostas import MensagemId
 
-from . import pilha
+from . import pilha, projeto_complexo
 from .acoes import Acao, ContextoAcao, GrupoAcoes, garantir_atendimento_dispatch
 from .confirmacao_nome_perfil import REGRA_RESPOSTA_SO_AO_NOME
 from .motor import RegraIntencao
@@ -35,14 +34,6 @@ CHAVE_DATA_NASCIMENTO = "data_nascimento"
 pilha.registrar_definicao(
     pilha.DefinicaoPergunta(chave=CHAVE_DATA_NASCIMENTO, tratador=DataNascimento(), grava=False)
 )
-
-# REQ-004.8 (Fase 5): limiar de funcionários pra considerar "projeto complexo" — o
-# próprio requisito deixa em aberto ("a definir com o vendedor"); default aqui só serve
-# se o Parametro (seed da migração) não existir por algum motivo.
-_LIMIAR_FUNCIONARIOS_PARAM = "escalonamento_limiar_funcionarios"
-_LIMIAR_FUNCIONARIOS_DEFAULT = 50
-_QUANTIDADE_MINIMA_PROJETO_COMPLEXO = 4
-
 
 async def _executar_escalar_humano(ctx: ContextoAcao):
     """REQ-004.6: pedido explícito do cliente — escala de verdade (bug crítico
@@ -76,73 +67,6 @@ async def _executar_reclamar(ctx: ContextoAcao):
     if ctx.dlog:
         ctx.dlog.log("rota", "RECLAMAR → RECLAMACAO_ESCALADA + modo=HUMANO")
     return (MensagemId.RECLAMACAO_ESCALADA, None)
-
-
-def _gatilhos_projeto_complexo(
-    entidades: EntidadesExtraidas, limiar_funcionarios: int
-) -> list[GatilhoEscalonamento]:
-    """REQ-004.8: as condições de projeto complexo que esta mensagem satisfaz (todas, não
-    só a primeira, para o registro do REQ-004.5B). Lista vazia = não é projeto complexo."""
-    gatilhos = []
-    if any(q >= _QUANTIDADE_MINIMA_PROJETO_COMPLEXO for q in entidades.quantidades):
-        gatilhos.append(GatilhoEscalonamento.QUANTIDADE_MINIMA)
-    if entidades.faixa_funcionarios is not None and entidades.faixa_funcionarios >= limiar_funcionarios:
-        gatilhos.append(GatilhoEscalonamento.FAIXA_FUNCIONARIOS)
-    if entidades.tipo_leitor_mencionado == "facial":
-        gatilhos.append(GatilhoEscalonamento.LEITOR_FACIAL)
-    return gatilhos
-
-
-def _executor_projeto_complexo(gatilhos: list[GatilhoEscalonamento], limiar_funcionarios: int):
-    """Monta a Ação com os gatilhos e o limiar que o builder avaliou, para o registro
-    guardar exatamente o que decidiu (o limiar é parâmetro e pode mudar)."""
-
-    async def _executar(ctx: ContextoAcao):
-        entidades = ctx.resultado_class.entidades
-        atendimento = await garantir_atendimento_dispatch(ctx)
-        await ctx.processador._escalar_atendimento(
-            ctx.db,
-            atendimento,
-            MotivoEscalonamento.PROJETO_COMPLEXO,
-            ator="sistema:projeto_complexo",
-            dlog=ctx.dlog,
-            gatilhos=gatilhos,
-            evidencias={
-                **escalonamentos_svc.evidencias_da_classificacao(ctx.resultado_class),
-                # As três condições com valor e limiar, disparadas ou não: é o que
-                # permite dizer depois se o gatilho leu certo a mensagem.
-                "quantidades": list(entidades.quantidades),
-                "quantidade_minima": _QUANTIDADE_MINIMA_PROJETO_COMPLEXO,
-                "faixa_funcionarios": entidades.faixa_funcionarios,
-                "limiar_funcionarios": limiar_funcionarios,
-                "tipo_leitor_mencionado": entidades.tipo_leitor_mencionado,
-            },
-        )
-        if ctx.dlog:
-            ctx.dlog.log(
-                "rota",
-                "projeto complexo ("
-                + ", ".join(g.value for g in gatilhos)
-                + ") → PROJETO_COMPLEXO_ESCALADO + modo=HUMANO",
-            )
-        return (MensagemId.PROJETO_COMPLEXO_ESCALADO, None)
-
-    return _executar
-
-
-def _builder_projeto_complexo(ctx: ContextoAcao) -> GrupoAcoes:
-    """REQ-004.8: escala quando o cliente sinaliza "cliente grande/projeto complexo" —
-    quantidade de equipamentos >= 4, faixa de funcionários acima do limiar configurável,
-    ou menção a leitor facial (controle de acesso em porta é sempre considerado
-    complexo). Não repete se o atendimento já está em modo humano."""
-    if ctx.atendimento and ctx.atendimento.modo_operacao == ModoOperacao.HUMANO:
-        return GrupoAcoes()
-
-    limiar = ParametroService(ctx.db).get_int(_LIMIAR_FUNCIONARIOS_PARAM, _LIMIAR_FUNCIONARIOS_DEFAULT)
-    gatilhos = _gatilhos_projeto_complexo(ctx.resultado_class.entidades, limiar)
-    if not gatilhos:
-        return GrupoAcoes()
-    return GrupoAcoes(exclusivo=[Acao("projeto_complexo", _executor_projeto_complexo(gatilhos, limiar))])
 
 
 async def _executar_fornecer_cnpj(ctx: ContextoAcao):
@@ -258,7 +182,7 @@ REGRAS_GLOBAIS: list[RegraIntencao] = [
     RegraIntencao(
         intencao=None,
         fase=None,
-        builder=_builder_projeto_complexo,
+        builder=projeto_complexo.builder,
         nome="projeto_complexo",
     ),
     RegraIntencao(

@@ -401,7 +401,9 @@ def test_perguntas_da_leva_entram_na_ordem_de_leitura_e_cada_uma_na_sua_mensagem
         primeiro = conversa.diz(_SAUDACAO_RELOGIO)
         perguntas = pilha.abertas(conversa.atendimento)
         assert [p.chave for p in perguntas] == ["nome_perfil", "conhece_marcas", "faixa_funcionarios"]
-        assert [p.mensagens_ids for p in perguntas] == [[i] for i in primeiro.mensagens_saida_ids]
+        # A 2ª mensagem é o pedido de documento, que não entra na pilha.
+        msg_nome, _msg_documento, msg_conhece, msg_faixa = primeiro.mensagens_saida_ids
+        assert [p.mensagens_ids for p in perguntas] == [[msg_nome], [msg_conhece], [msg_faixa]]
     finally:
         _limpar(db_session, telefone)
 
@@ -440,7 +442,7 @@ def test_responder_citando_a_pergunta_tira_a_ambiguidade(db_session):
     telefone = "+5511999977322"
     try:
         conversa = _Conversa(db_session, telefone)
-        _, msg_conhece, _ = conversa.diz(_SAUDACAO_RELOGIO).mensagens_saida_ids
+        _, _, msg_conhece, _ = conversa.diz(_SAUDACAO_RELOGIO).mensagens_saida_ids
 
         resposta = conversa.diz("sim", citando=msg_conhece)
         assert "Fiquei confuso" not in " ".join(resposta.partes_resposta)
@@ -455,7 +457,7 @@ def test_citar_a_pergunta_errada_cai_na_resolucao_normal(db_session):
     telefone = "+5511999977323"
     try:
         conversa = _Conversa(db_session, telefone)
-        _, _, msg_faixa = conversa.diz(_SAUDACAO_RELOGIO).mensagens_saida_ids
+        _, _, _, msg_faixa = conversa.diz(_SAUDACAO_RELOGIO).mensagens_saida_ids
 
         conversa.diz("Carlos", citando=msg_faixa)
         assert conversa.info("nome_perfil_confirmacao") == "outro_nome"

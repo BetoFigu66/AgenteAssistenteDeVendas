@@ -46,6 +46,7 @@ from services.respostas import MensagemId
 
 from . import pilha
 from .acoes import Acao, ContextoAcao, GrupoAcoes
+from .documento_fiscal import CHAVE_DOC_PENDENTE
 from .motor import RegraIntencao
 from .tratadores import NAO_RECONHECEU, EntradaTratador, Leitura, StatusLeitura, Tratador
 
@@ -60,10 +61,6 @@ CONFIRMADO = "confirmado"
 OUTRO_NOME = "outro_nome"
 PEDIDO_NOME = "pedido_nome"
 IGNORADO = "ignorado"
-
-# Mesma chave de `estados/esclarecendo.py::_CHAVE_DOC_PENDENTE` (import direto seria
-# circular: `estados/esclarecendo.py` importa este módulo).
-_CHAVE_DOC_PENDENTE = "documento_fiscal_pendente"
 
 # Uma "palavra" de confirmação. A mensagem inteira pode ser uma sequência delas
 # ("sim, pode", "pode sim!", "claro 👍").
@@ -85,6 +82,9 @@ _RE_CONFIRMACAO_NO_INICIO = re.compile(
 
 # Emoji de positivo (joinha, ok, check), com variação de tom de pele ou seletor de emoji.
 _RE_EMOJI_POSITIVO = re.compile("[\U0001F44D\U0001F44C✅✔☑]️?[\U0001F3FB-\U0001F3FF]?")
+
+# A mensagem fala de como chamar o cliente: só a pergunta do nome quer isso.
+_RE_FALA_DO_NOME = re.compile(r"\b(?:chamar|chama|nome)\b", re.IGNORECASE)
 
 _RE_NEGACAO_PURA = re.compile(r"^\s*(?:n[aã]o|n)(?:\s*,?\s*obrigad[oa])?\s*[.!]*\s*$", re.IGNORECASE)
 
@@ -235,6 +235,9 @@ class DecisaoNome:
     so_ao_nome: bool
     # A confirmação que abre uma mensagem maior ("sim" em "sim, biometria").
     trecho_confirmacao: Optional[str] = None
+    # A resposta só pode ser sobre o nome ("pode me chamar assim", "meu nome é Carlos"),
+    # ao contrário de um "sim" puro, que serve a qualquer pergunta sim/não.
+    inequivoca: bool = False
 
     def __str__(self) -> str:
         # O que fica em `PerguntaPendente.valor_capturado`.
@@ -257,14 +260,15 @@ def interpretar_resposta(entrada: EntradaTratador, status: str, proposto: Option
     confirmacao_pura = eh_confirmacao_pura(conteudo)
     confirmou = status == AGUARDANDO and bool(proposto) and (confirmacao_pura or _comeca_com_confirmacao(conteudo))
 
+    fala_do_nome = bool(_RE_FALA_DO_NOME.search(conteudo))
     if nomes_digitados:
         nome = nomes_digitados[0]
-        return DecisaoNome(nome, CONFIRMADO if nome == proposto else OUTRO_NOME, sem_outro_assunto)
+        return DecisaoNome(nome, CONFIRMADO if nome == proposto else OUTRO_NOME, sem_outro_assunto, inequivoca=True)
     if confirmou:
         # "sim, biometria" confirma e responde a pergunta do orçamento: o resto é do fluxo normal.
         prefixo = _RE_CONFIRMACAO_NO_INICIO.match(conteudo) or _RE_EMOJI_POSITIVO.match(conteudo.lstrip())
         trecho = prefixo.group(0).strip() if prefixo and not confirmacao_pura else None
-        return DecisaoNome(proposto, CONFIRMADO, sem_outro_assunto and confirmacao_pura, trecho)
+        return DecisaoNome(proposto, CONFIRMADO, sem_outro_assunto and confirmacao_pura, trecho, fala_do_nome)
     if sem_outro_assunto and (nome := _nome_solto(conteudo)):
         return DecisaoNome(nome, CONFIRMADO if nome == proposto else OUTRO_NOME, True)
     if status == AGUARDANDO and sem_outro_assunto and _RE_NEGACAO_PURA.match(conteudo):
@@ -291,7 +295,11 @@ class TratadorNomePerfil(Tratador):
             return NAO_RECONHECEU
         # "sim, biometria": o nome fica com o "sim" e o resto é de outra pergunta.
         return Leitura(
-            StatusLeitura.RECONHECEU, decisao, parcial=not decisao.so_ao_nome, trecho=decisao.trecho_confirmacao
+            StatusLeitura.RECONHECEU,
+            decisao,
+            parcial=not decisao.so_ao_nome,
+            trecho=decisao.trecho_confirmacao,
+            discriminante=True if decisao.inequivoca else None,
         )
 
 
@@ -371,7 +379,7 @@ async def _executar_resposta_so_ao_nome(ctx: ContextoAcao):
         return (MensagemId.NOME_ANOTADO, contexto)
 
     sem_documento = not (ctx.empresa or ctx.pessoa)
-    doc_pedido = p._info_atendimento(ctx.db, atendimento.id, _CHAVE_DOC_PENDENTE) == "solicitado"
+    doc_pedido = p._info_atendimento(ctx.db, atendimento.id, CHAVE_DOC_PENDENTE) == "solicitado"
     contexto["pedir_documento"] = sem_documento and doc_pedido
     return (MensagemId.NOME_ANOTADO, contexto)
 

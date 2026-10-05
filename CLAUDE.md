@@ -130,6 +130,8 @@ Separate system (own venv, own CLI) that exercises the real backend end-to-end l
 - Never promise a delivery deadline (`Intencao.PERGUNTAR_PRAZO` always routes to a non-committal template).
 - Always defer system-compatibility questions to technical validation rather than answering definitively.
 - Escalate to a human whenever the customer asks for one, or on a complaint (`Intencao.ESCALAR_HUMANO`/`RECLAMAR`).
+- A "projeto complexo" escalation (REQ-004.8) found during Finalizando waits until every pending question was asked once (`services/conversacao/projeto_complexo.py`); the others stay immediate.
+- CNPJ/CPF is asked at the start of the atendimento, together with the name; if not given, once more only in Finalizando, before the summary (`services/conversacao/documento_fiscal.py`).
 
 ## Working conventions
 

@@ -29,3 +29,14 @@ def registrar_proxima_pergunta(db_session, atendimento):
     perguntar_campo(ctx, campo)
     db_session.commit()
     return campo
+
+
+def documento_ja_pedido(db_session, atendimento):
+    """Marca o CNPJ/CPF como já pedido nas duas vezes (início e Finalizando), para
+    testes cujo assunto é o resumo ou o handoff, e não o pedido de documento
+    (`services/conversacao/documento_fiscal.py`, testado à parte)."""
+    from services.conversacao.documento_fiscal import CHAVE_DOC_PENDENTE, PEDIDO_FINALIZANDO
+    from services.processador import ProcessadorMensagem
+
+    ProcessadorMensagem()._salvar_info_atendimento(db_session, atendimento.id, CHAVE_DOC_PENDENTE, PEDIDO_FINALIZANDO)
+    db_session.commit()

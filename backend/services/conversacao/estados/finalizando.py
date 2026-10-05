@@ -30,9 +30,9 @@ from sqlalchemy.orm import Session
 
 from services import atendimentos as atendimentos_svc
 from services import escalonamentos as escalonamentos_svc
-from services.conversacao import pilha
+from services.conversacao import documento_fiscal, pilha, projeto_complexo
 from services.conversacao.acoes import ContextoAcao
-from services.conversacao.campos_pendentes import campos_pendentes, proxima_pergunta
+from services.conversacao.campos_pendentes import campos_pendentes, proxima_nunca_perguntada, proxima_pergunta
 from services.conversacao.catalogo_campos import (
     CAMPO_FAIXA_FUNCIONARIOS,
     CAMPO_HOMOLOGADO_SOFTWARE,
@@ -44,7 +44,6 @@ from services.conversacao.catalogo_campos import (
     Pergunta,
 )
 from services.conversacao.categoria_pergunta import responder_categoria_pergunta
-from services.conversacao.confirmacao_nome_perfil import CHAVES_CONFIRMACAO_NOME_PERFIL
 from services.respostas import MensagemId, RespostaGerada, renderizar_mensagem
 
 from .base import EstadoAtendimento
@@ -222,6 +221,9 @@ class FinalizandoState(EstadoAtendimento):
         if eh_duvida:
             return await self._retomar_apos_duvida(ctx)
 
+        if projeto_complexo.adiado(ctx):
+            return await self._coletar_antes_de_transferir(ctx)
+
         pendentes = campos_pendentes(atendimento)
         if not pendentes:
             tipo_produto_conhecido = bool(p._info_atendimento(ctx.db, atendimento.id, "tipos_produto"))
@@ -235,6 +237,9 @@ class FinalizandoState(EstadoAtendimento):
             # Regra exclusiva própria da fase Finalizando (ver regras_finalizando.py) —
             # se chegamos até este ponto, é porque não era o caso (resumo ainda não
             # apresentado, ou já concluído antes).
+            if documento_fiscal.repedido_devido(ctx):
+                # O documento pedido no início não veio: última tentativa, antes do resumo.
+                return await p._gerador.gerar(*documento_fiscal.repedir(ctx))
             return await self._gerar_resumo(ctx)
 
         campo = proxima_pergunta(atendimento)
@@ -242,6 +247,22 @@ class FinalizandoState(EstadoAtendimento):
         if ctx.dlog:
             ctx.dlog.log("finalizando", f"próxima pergunta pendente: {campo.chave} ({mensagem_id.name})")
         return await p._gerador.gerar(mensagem_id, ctx_campo)
+
+    async def _coletar_antes_de_transferir(self, ctx: ContextoAcao) -> RespostaGerada:
+        """Projeto complexo com transferência adiada (`projeto_complexo.py`): pergunta, uma
+        de cada vez, o que ainda nunca foi perguntado (campos do catálogo, depois o
+        documento). O que já foi perguntado não se repete. Sem mais nada, transfere."""
+        campo = proxima_nunca_perguntada(ctx.atendimento)
+        if campo is not None:
+            mensagem_id, ctx_campo = perguntar_campo(ctx, campo)
+            if ctx.dlog:
+                ctx.dlog.log("finalizando", f"transferência adiada → pergunta {campo.chave} antes")
+            return await ctx.processador._gerador.gerar(mensagem_id, ctx_campo)
+        if documento_fiscal.repedido_devido(ctx):
+            return await ctx.processador._gerador.gerar(*documento_fiscal.repedir(ctx))
+        if ctx.dlog:
+            ctx.dlog.log("finalizando", "tudo perguntado uma vez → transfere o projeto complexo")
+        return await projeto_complexo.escalar_adiado(ctx)
 
     async def concluir(self, ctx: ContextoAcao) -> RespostaGerada:
         """G1-G3: cliente confirmou o resumo (F4) — transita para `EM_ORCAMENTACAO` e faz o
@@ -327,15 +348,16 @@ class FinalizandoState(EstadoAtendimento):
         # `_atualizar_infos_atendimento`) + extraídos agora. `valores` já reflete o
         # acumulado até esta mensagem, então é a fonte primária; `entidades.atributos` só
         # cobre o caso raro em que o mesmo turno ainda não foi persistido.
-        atributos_mensagem: dict[str, str] = {}
-        for chave, valor in valores.items():
-            if chave in ("marca", "aplicacao", "tipo_leitor_mencionado", "tipos_produto", "quantidades"):
-                continue
-            # Estado da pergunta do nome de perfil do WhatsApp: não é atributo de modelo e,
-            # se entrasse, viraria filtro e nenhum modelo casaria.
-            if chave in CHAVES_CONFIRMACAO_NOME_PERFIL:
-                continue
-            atributos_mensagem[chave] = valor
+        #
+        # Lista de permissão, não de proibição: só entram as chaves que existem como
+        # atributo no catálogo. `AtendimentoInfo` guarda de tudo (faixa de funcionários,
+        # software, estado do pedido de documento...), e uma chave dessas virava filtro e
+        # nenhum modelo casava. Era o que impedia resolver o modelo no fluxo "vocês
+        # vendem X?", que pergunta a faixa antes do modelo.
+        chaves_de_atributo = {linha[0] for linha in db.query(AtributoAdicionalModelo.chave).distinct()}
+        atributos_mensagem: dict[str, str] = {
+            chave: valor for chave, valor in valores.items() if chave in chaves_de_atributo
+        }
         for chave, valor in entidades.atributos.items():
             atributos_mensagem.setdefault(chave, valor)
         if tipo_leitor:

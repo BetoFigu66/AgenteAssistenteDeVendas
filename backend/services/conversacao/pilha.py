@@ -314,10 +314,34 @@ def _candidatas(
     return [p for p in pilha if _discriminante(p) or p.leva_ultima == leva_topo], "topo"
 
 
+def _leitura_discriminante(captura: Captura) -> bool:
+    if captura.leitura.discriminante is not None:
+        return captura.leitura.discriminante
+    return _discriminante(captura.pergunta)
+
+
+def _ler_candidatas(
+    ctx: ContextoAcao, pilha: list[PerguntaPendente], usar_reply_to: bool = True
+) -> tuple[list[PerguntaPendente], str, list[tuple[PerguntaPendente, Leitura]]]:
+    """Lê a mensagem contra as candidatas. Fora delas (abaixo do topo, ou fora da vez na
+    fila serial), só conta uma leitura que se identifica sozinha ("conheço o Topdata"
+    para "Você conhece?")."""
+    candidatas, criterio = _candidatas(ctx, pilha, usar_reply_to)
+    leituras = [(p, leitura) for p in candidatas if (leitura := _ler(ctx, p)) is not None]
+    if criterio in ("topo", "fila serial"):
+        for pergunta in pilha:
+            if pergunta in candidatas:
+                continue
+            leitura = _ler(ctx, pergunta)
+            if leitura is not None and leitura.reconheceu and leitura.discriminante:
+                leituras.append((pergunta, leitura))
+    return candidatas, criterio, leituras
+
+
 def _desempatar(reconhecidas: list[Captura]) -> list[Captura]:
     """Desempate 2: quem se identifica sozinho ganha de quem é ambíguo; entre os que
     sobram, a leva mais recente."""
-    discriminantes = [c for c in reconhecidas if _discriminante(c.pergunta)]
+    discriminantes = [c for c in reconhecidas if _leitura_discriminante(c)]
     if discriminantes:
         reconhecidas = discriminantes
     if len(reconhecidas) > 1:
@@ -438,13 +462,11 @@ async def _resolver(ctx: ContextoAcao) -> Optional[RespostaGerada]:
     if not pilha:
         return None
     serial_antes = bool(fila_serial(ctx.atendimento))
-    candidatas, criterio = _candidatas(ctx, pilha)
-    leituras = [(p, leitura) for p in candidatas if (leitura := _ler(ctx, p)) is not None]
+    candidatas, criterio, leituras = _ler_candidatas(ctx, pilha)
     if criterio == "reply-to" and not any(leitura.reconheceu for _, leitura in leituras):
         # A pergunta citada não aceita a mensagem: o cliente pode ter citado a mensagem
         # errada. Segue a resolução normal, sem o atalho.
-        candidatas, criterio = _candidatas(ctx, pilha, usar_reply_to=False)
-        leituras = [(p, leitura) for p in candidatas if (leitura := _ler(ctx, p)) is not None]
+        candidatas, criterio, leituras = _ler_candidatas(ctx, pilha, usar_reply_to=False)
     capturas = [Captura(p, leitura) for p, leitura in leituras if leitura.reconheceu]
     parciais = [c for c in capturas if c.leitura.parcial and not _trecho_disputado(ctx, c, candidatas)]
     reconhecidas = _desempatar([c for c in capturas if c not in parciais])

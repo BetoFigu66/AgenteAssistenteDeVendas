@@ -19,12 +19,13 @@ from services.conversacao.confirmacao_nome_perfil import (
     registrar_pergunta,
     saudacao_primeiro_contato,
 )
+from services.conversacao.documento_fiscal import CHAVE_DOC_PENDENTE
 from services.identificador import StatusIdentificacao
 from services.respostas import MensagemId
 
 from .base import EstadoAtendimento
 
-_CHAVE_DOC_PENDENTE = "documento_fiscal_pendente"
+_CHAVE_DOC_PENDENTE = CHAVE_DOC_PENDENTE
 
 
 class EsclarecendoState(EstadoAtendimento):

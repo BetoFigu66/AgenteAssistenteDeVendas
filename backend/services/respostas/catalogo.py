@@ -70,6 +70,7 @@ class MensagemId(IntEnum):
     PILHA_ANOTADO = 50
     RETOMAR_PERGUNTA = 51
     PILHA_PERGUNTA = 52
+    PEDIR_DOCUMENTO = 53
 
 
 @dataclass(frozen=True)
@@ -161,6 +162,13 @@ CATALOGO: dict[int, MensagemTemplate] = {
         id=MensagemId.RETOMAR_PERGUNTA,
         codigo="RETOMAR_PERGUNTA",
         mensagem="Voltando à minha pergunta: {pergunta}",
+    ),
+    # Pedido de CNPJ/CPF em mensagem própria, nos fluxos de orçamento (no início e,
+    # se não veio, uma vez mais no Finalizando). Ver `conversacao/documento_fiscal.py`.
+    MensagemId.PEDIR_DOCUMENTO: MensagemTemplate(
+        id=MensagemId.PEDIR_DOCUMENTO,
+        codigo="PEDIR_DOCUMENTO",
+        mensagem="Para te atender melhor, poderia me informar o CNPJ da sua empresa ou seu CPF?",
     ),
     MensagemId.CONFIRMAR_EMPRESA: MensagemTemplate(
         id=MensagemId.CONFIRMAR_EMPRESA,

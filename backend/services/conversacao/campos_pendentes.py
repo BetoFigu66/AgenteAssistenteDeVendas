@@ -65,6 +65,14 @@ def campos_pendentes(atendimento: Atendimento) -> list[Pergunta]:
     ]
 
 
+def proxima_nunca_perguntada(atendimento: Atendimento) -> Optional[Pergunta]:
+    """O primeiro campo pendente que nunca foi perguntado neste atendimento (não tem
+    registro na pilha, aberto ou não). Usado quando cada pergunta deve sair uma vez só
+    (transferência de projeto complexo adiada)."""
+    perguntados = {p.chave for p in atendimento.perguntas_pendentes}
+    return next((c for c in campos_pendentes(atendimento) if c.chave not in perguntados), None)
+
+
 def proxima_pergunta(atendimento: Atendimento) -> Optional[Pergunta]:
     """C2 — O campo a perguntar agora.
 
