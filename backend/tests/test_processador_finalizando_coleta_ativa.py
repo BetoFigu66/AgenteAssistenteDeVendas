@@ -15,6 +15,8 @@ from services.dev_limpeza_telefone import apagar_dados_telefone
 from services.identificador import ResultadoIdentificacao, StatusIdentificacao
 from services.processador import ProcessadorMensagem
 
+from tests.apoio_pilha import registrar_proxima_pergunta
+
 
 def _resultado(intencao: Intencao, **entidades_kwargs) -> ResultadoClassificacao:
     return ResultadoClassificacao(
@@ -67,7 +69,8 @@ def _iniciar_finalizando_com_software(db_session, processador, telefone, softwar
 
 def _resolver_modelo_manual(db_session, atendimento):
     """Simula uma resolução de modelo bem-sucedida (F2 feliz) sem depender de dados reais
-    no catálogo — cria o Produto/Modelo de teste e vincula via ItemAtendimento."""
+    no catálogo — cria o Produto/Modelo de teste e vincula via ItemAtendimento — e a
+    pergunta do campo seguinte, que o sistema faria no mesmo turno."""
     produto = db_session.query(Produto).filter_by(descricao="Relógio de Ponto (teste F)").first()
     if produto is None:
         produto = Produto(descricao="Relógio de Ponto (teste F)", ativo=True)
@@ -89,6 +92,8 @@ def _resolver_modelo_manual(db_session, atendimento):
     )
     db_session.add(item)
     db_session.commit()
+    # No fluxo real, o turno que resolve o modelo já pergunta o campo seguinte.
+    registrar_proxima_pergunta(db_session, atendimento)
     return modelo
 
 
@@ -115,6 +120,8 @@ def _resolver_modelo_catraca_manual(db_session, atendimento):
     )
     db_session.add(item)
     db_session.commit()
+    # No fluxo real, o turno que resolve o modelo já pergunta o campo seguinte.
+    registrar_proxima_pergunta(db_session, atendimento)
     return modelo
 
 

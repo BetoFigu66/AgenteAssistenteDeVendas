@@ -20,6 +20,8 @@ from typing import ClassVar, Mapping
 
 from services.respostas import MensagemId
 
+from .tratadores import Numero, SimNao, SinalDeModelo, Software, Tratador
+
 Valores = Mapping[str, str]
 
 # Destinos possíveis de `Pergunta.destino` — onde a Fase C deve gravar o valor capturado.
@@ -40,6 +42,10 @@ class Pergunta:
     pergunta: ClassVar[str]
     ordem: ClassVar[int]
     mensagem_id: ClassVar[MensagemId]
+    tratador: ClassVar[Tratador]
+    """Como ler a resposta a esta pergunta (`tratadores.py`), usado pela pilha de
+    perguntas pendentes. Substitui o `if/elif` sobre `campo.chave` que a Finalizando
+    fazia para cada campo."""
     destino: ClassVar[str] = DESTINO_ATENDIMENTO_INFO
     """Onde o valor capturado deve ser persistido (Fase C):
 
@@ -112,6 +118,7 @@ class PerguntaModelo(Pergunta):
     ordem = 10
     destino = DESTINO_ITEM_ATENDIMENTO_MODELO_ID
     mensagem_id = MensagemId.PEDIR_MODELO
+    tratador = SinalDeModelo()
 
 
 CAMPO_MODELO = PerguntaModelo()
@@ -130,6 +137,7 @@ class PerguntaSoftwarePonto(Pergunta):
     pergunta = "Qual software de ponto vocês usam hoje? (ex.: Domínio, Alterdata, TOTVS, ou nenhum)"
     ordem = 20
     mensagem_id = MensagemId.PEDIR_SOFTWARE_PONTO
+    tratador = Software()
 
 
 CAMPO_SOFTWARE_PONTO = PerguntaSoftwarePonto()
@@ -156,6 +164,7 @@ class PerguntaSoftwareAcesso(Pergunta):
     )
     ordem = 20
     mensagem_id = MensagemId.PEDIR_SOFTWARE_ACESSO
+    tratador = Software()
 
 
 CAMPO_SOFTWARE_ACESSO = PerguntaSoftwareAcesso()
@@ -180,6 +189,7 @@ class PerguntaInteresseSistemaNuvem(Pergunta):
     pergunta = "Têm interesse em adquirir um sistema de controle de acesso na nuvem?"
     ordem = 25
     mensagem_id = MensagemId.PEDIR_INTERESSE_SISTEMA_NUVEM
+    tratador = SimNao()
 
     def _aplicavel(self, tipo_produto: str, valores: Valores) -> bool:
         """Aplica apenas se o cliente declarou não ter software de controle de acesso."""
@@ -217,6 +227,7 @@ class PerguntaFaixaFuncionarios(Pergunta):
     pergunta = "Qual a faixa de pessoas que vão usar {produto}?"
     ordem = 30
     mensagem_id = MensagemId.PEDIR_FAIXA_FUNCIONARIOS
+    tratador = Numero()
 
     def _aplicavel(self, tipo_produto: str, valores: Valores) -> bool:
         """Regras de negócio para perguntar a faixa de pessoas:
@@ -269,6 +280,7 @@ class PerguntaQuantidade(Pergunta):
     pergunta = "Quantas unidades você precisa?"
     ordem = 40
     mensagem_id = MensagemId.PEDIR_QUANTIDADE
+    tratador = Numero()
 
     def _aplicavel(self, tipo_produto: str, valores: Valores) -> bool:
         """Quantidade de equipamentos é perguntada para todos os produtos de acesso
@@ -309,6 +321,7 @@ class PerguntaHomologadoSoftware(Pergunta):
     ordem = 35
     obrigatorio = False
     mensagem_id = MensagemId.PEDIR_HOMOLOGADO_SOFTWARE
+    tratador = SimNao()
 
     def _aplicavel(self, tipo_produto: str, valores: Valores) -> bool:
         """Aplica sempre que o cliente já tiver algum software de controle de acesso

@@ -12,7 +12,6 @@ aqui via `responder_categoria_pergunta(intencao, ctx)`.
 
 from __future__ import annotations
 
-import re
 import unicodedata
 from typing import Optional
 
@@ -31,9 +30,9 @@ from sqlalchemy.orm import Session
 
 from services import atendimentos as atendimentos_svc
 from services import escalonamentos as escalonamentos_svc
-from services.classificador import Intencao
+from services.conversacao import pilha
 from services.conversacao.acoes import ContextoAcao
-from services.conversacao.campos_pendentes import PERGUNTA_PRIORITARIA_CHAVE, campos_pendentes
+from services.conversacao.campos_pendentes import campos_pendentes, proxima_pergunta
 from services.conversacao.catalogo_campos import (
     CAMPO_FAIXA_FUNCIONARIOS,
     CAMPO_HOMOLOGADO_SOFTWARE,
@@ -42,12 +41,14 @@ from services.conversacao.catalogo_campos import (
     CAMPO_QUANTIDADE,
     CAMPO_SOFTWARE_ACESSO,
     CAMPO_SOFTWARE_PONTO,
+    CAMPOS,
     Pergunta,
     chave_perguntado,
 )
 from services.conversacao.categoria_pergunta import responder_categoria_pergunta
 from services.conversacao.confirmacao_nome_perfil import CHAVES_CONFIRMACAO_NOME_PERFIL
-from services.respostas import MensagemId, RespostaGerada
+from services.conversacao.tratadores import entrada_de
+from services.respostas import MensagemId, RespostaGerada, renderizar_mensagem
 
 from .base import EstadoAtendimento
 
@@ -56,36 +57,6 @@ from .base import EstadoAtendimento
 # continuar perguntando (REQ-002.21, CAMPO-modelo — nunca aceita texto livre como modelo).
 _MODELO_TENTATIVAS_CHAVE = "modelo_tentativas_falhas"
 _MODELO_MAX_TENTATIVAS = 2
-
-# Fase F (F1): captura "solta" para a pergunta pendente atual quando os extratores por
-# palavra-gatilho (D3/D4) não reconheceram nada — ex.: "80" sozinho, ou um nome de
-# software fora de `_SOFTWARES_PONTO_CONHECIDOS`. Só entra em jogo quando a intenção
-# classificada é DESCONHECIDO (nenhuma regra bateu) — ver `_capturar_resposta_direta_pendente`.
-_SOFTWARE_NENHUM_REGEX = re.compile(r"\b(n[aã]o|nenhum)\b", re.IGNORECASE)
-_NUMERO_SOLTO_REGEX = re.compile(r"\b(\d{1,5})\b")
-_RESPOSTA_SIM_REGEX = re.compile(r"\b(sim|s|claro|ok|parece|interesse|quero|pode ser)\b", re.IGNORECASE)
-_RESPOSTA_NAO_REGEX = re.compile(r"\b(n[aã]o|n)\b", re.IGNORECASE)
-
-# Quais intenções, ALÉM de DESCONHECIDO, podem ser a resposta à pergunta pendente.
-#
-# O gate original aceitava só DESCONHECIDO, com um motivo legítimo: não deixar uma intenção
-# reconhecida ("quero orçamento" repetido) ser sequestrada como se fosse resposta. Só que o
-# classificador reconhece "sim" isolado como CONFIRMAR e "não" isolado como NEGAR
-# (`classificador.py`, regras ancoradas em `^...$`), que é exatamente a forma da resposta a
-# um campo sim/não. O gate grosso descartava essas respostas em silêncio, e o bot repetia a
-# pergunta que o cliente acabara de responder.
-#
-# A regra passa a ser por campo: cada pergunta declara que tipo de resposta espera. É a
-# versão mínima do "poder discriminante" do tratador — quando a pilha de perguntas pendentes
-# entrar, este mapa morre e vira atributo do tratador de cada campo.
-_INTENCOES_RESPOSTA_POR_CAMPO: dict[str, frozenset[Intencao]] = {
-    CAMPO_INTERESSE_SISTEMA_NUVEM.chave: frozenset({Intencao.CONFIRMAR, Intencao.NEGAR}),
-    CAMPO_HOMOLOGADO_SOFTWARE.chave: frozenset({Intencao.CONFIRMAR, Intencao.NEGAR}),
-    # "não" para "qual software vocês usam?" é a resposta "não temos". O ramo do campo já
-    # sabia traduzir a negação para "nenhum"; a mensagem é que não chegava até ele.
-    CAMPO_SOFTWARE_PONTO.chave: frozenset({Intencao.NEGAR}),
-    CAMPO_SOFTWARE_ACESSO.chave: frozenset({Intencao.NEGAR}),
-}
 
 # Fase G (G1): marca que o resumo (F4) já foi apresentado — um CONFIRMAR só conclui o
 # handoff se for reply a um resumo que o cliente de fato viu; sem isso, a primeira
@@ -131,6 +102,18 @@ def _contexto_para_campo(campo: Pergunta, atendimento: Atendimento) -> Optional[
         )
         return {"software": software or "que vocês já usam"}
     return None
+
+
+def perguntar_campo(ctx: ContextoAcao, campo: Pergunta) -> tuple[MensagemId, Optional[dict]]:
+    """Monta a pergunta de um campo e a registra na pilha (ver `pilha.py`).
+
+    Todo lugar que pergunta um campo do catálogo passa por aqui: é o que garante que o
+    sistema sabe o que perguntou, em vez de recalcular no turno seguinte.
+    """
+    contexto = _contexto_para_campo(campo, ctx.atendimento)
+    texto, _ = renderizar_mensagem(campo.mensagem_id, contexto)
+    pilha.empilhar(ctx, campo.chave, texto)
+    return campo.mensagem_id, contexto
 
 
 def _normalizar_sem_acento(texto: str) -> str:
@@ -190,15 +173,10 @@ class FinalizandoState(EstadoAtendimento):
                 ctx.dlog.log("finalizando", "sem campos pendentes ainda → PEDIR_TIPO_PRODUTO")
             return [(MensagemId.PEDIR_TIPO_PRODUTO, None)]
 
-        if primeira_pergunta is not None:
-            campo = primeira_pergunta
-            ctx.processador._salvar_info_atendimento(
-                ctx.db, atendimento.id, PERGUNTA_PRIORITARIA_CHAVE, primeira_pergunta.chave
-            )
-        else:
-            campo = pendentes[0]
-        mensagem_id = campo.mensagem_id
-        ctx_campo = _contexto_para_campo(campo, atendimento)
+        # `primeira_pergunta` fura a ordem do catálogo só nesta pergunta; daqui em diante a
+        # pilha lembra que foi ela a perguntada (`proxima_pergunta`).
+        campo = primeira_pergunta if primeira_pergunta is not None else proxima_pergunta(atendimento)
+        mensagem_id, ctx_campo = perguntar_campo(ctx, campo)
         ctx_abertura = abertura_contexto if abertura_contexto is not None else ctx_campo
         if ctx.dlog:
             ctx.dlog.log("finalizando", f"próxima pergunta: {campo.chave} ({mensagem_id.name})")
@@ -210,12 +188,13 @@ class FinalizandoState(EstadoAtendimento):
         intenção classificada.
 
         `_atualizar_infos_atendimento` (D2/D3/D4) já rodou antes desta chamada e capturou o
-        que os extratores por palavra-gatilho reconheceram. A partir daqui: (a) tenta
+        que os extratores por palavra-gatilho reconheceram, e a pilha
+        (`pilha.resolver_resposta`, antes do motor) já capturou a resposta solta à pergunta
+        feita ("80", "Domínio", "sim"). A partir daqui: (a) tenta
         resolver `modelo_produto` contra o catálogo real (F2) — a extração de
         `tipo_leitor_mencionado` independe da intenção classificada, então roda mesmo se a
         mensagem também parecer uma dúvida; (b) se for dúvida (categoria_pergunta), responde via
-        Q&A/RAG e retoma a pergunta pendente (F3); (c) senão, tenta uma captura solta para
-        a pergunta pendente atual (F1); (d) recalcula o que falta e pergunta, fecha com o
+        Q&A/RAG e retoma a pergunta pendente (F3); (c) recalcula o que falta e pergunta, fecha com o
         resumo (F4), ou — se o resumo já tinha sido apresentado e o cliente confirma —
         conclui o handoff para o time humano (Fase G).
         """
@@ -223,10 +202,10 @@ class FinalizandoState(EstadoAtendimento):
         atendimento = ctx.atendimento
         resultado_class = ctx.resultado_class
 
-        pendentes_antes = campos_pendentes(atendimento)
+        campo_perguntado = proxima_pergunta(atendimento)
         tentou_modelo = bool(
-            pendentes_antes
-            and pendentes_antes[0].chave == CAMPO_MODELO.chave
+            campo_perguntado
+            and campo_perguntado.chave == CAMPO_MODELO.chave
             and resultado_class.entidades.tipo_leitor_mencionado
         )
 
@@ -245,6 +224,9 @@ class FinalizandoState(EstadoAtendimento):
             return await self._retomar_apos_duvida(ctx)
 
         modelo_nao_reconhecido = await self._resolver_modelo(ctx)
+        # O modelo é o único campo que a pilha não grava (vai para o catálogo): se acabou
+        # de ser resolvido, sai da pilha já neste turno.
+        pilha.sincronizar(ctx)
         if atendimento.modo_operacao == ModoOperacao.HUMANO:
             # F2: acabou de escalar por falta de correspondência de modelo — não continua.
             return await p._gerador.gerar(MensagemId.ESCALADO_HUMANO)
@@ -256,8 +238,18 @@ class FinalizandoState(EstadoAtendimento):
         if eh_duvida:
             return await self._retomar_apos_duvida(ctx)
 
+        # Campos não obrigatórios (ex.: alerta de homologação — REQ-002.14C/15) só são
+        # perguntados uma vez: a resposta, se veio, a pilha já capturou. O que ainda está
+        # aberto na pilha foi perguntado e não respondido; marcamos como "perguntado" e
+        # `campos_pendentes()` deixa de bloquear o fluxo por causa dele. Como antes, só
+        # conta se a mensagem podia ser resposta (uma intenção de outro assunto não gasta
+        # a única vez).
         if not tentou_modelo:
-            self._capturar_resposta_direta_pendente(ctx)
+            entrada = entrada_de(ctx.conteudo, resultado_class.intencoes, resultado_class.entidades)
+            for pergunta in pilha.abertas(atendimento):
+                campo = CAMPOS.get(pergunta.chave)
+                if campo is not None and not campo.obrigatorio and campo.tratador.aceita_intencoes(entrada):
+                    p._salvar_info_atendimento(ctx.db, atendimento.id, chave_perguntado(campo), "true")
 
         pendentes = campos_pendentes(atendimento)
         if not pendentes:
@@ -274,9 +266,8 @@ class FinalizandoState(EstadoAtendimento):
             # apresentado, ou já concluído antes).
             return await self._gerar_resumo(ctx)
 
-        campo = pendentes[0]
-        mensagem_id = campo.mensagem_id
-        ctx_campo = _contexto_para_campo(campo, atendimento)
+        campo = proxima_pergunta(atendimento)
+        mensagem_id, ctx_campo = perguntar_campo(ctx, campo)
         if ctx.dlog:
             ctx.dlog.log("finalizando", f"próxima pergunta pendente: {campo.chave} ({mensagem_id.name})")
         return await p._gerador.gerar(mensagem_id, ctx_campo)
@@ -328,8 +319,8 @@ class FinalizandoState(EstadoAtendimento):
         p = ctx.processador
         dlog = ctx.dlog
 
-        pendentes = campos_pendentes(atendimento)
-        if not pendentes or pendentes[0].chave != CAMPO_MODELO.chave:
+        campo_perguntado = proxima_pergunta(atendimento)
+        if campo_perguntado is None or campo_perguntado.chave != CAMPO_MODELO.chave:
             return False
 
         entidades = resultado_class.entidades
@@ -494,133 +485,12 @@ class FinalizandoState(EstadoAtendimento):
         item = next(iter(atendimento.itens), None)
         if item is None:
             item = ItemAtendimento(atendimento_id=atendimento.id, produto_id=produto_id, quantidade=1)
-            ctx.db.add(item)
+            # Pela coleção, e não `db.add`: a coleção já carregada não enxergaria o item
+            # novo, `modelo_ja_resolvido()` seguiria falso no resto do turno e o bot
+            # perguntava de novo o modelo que tinha acabado de resolver.
+            atendimento.itens.append(item)
             ctx.db.flush()
         return item
-
-    def _capturar_resposta_direta_pendente(self, ctx: ContextoAcao) -> None:
-        """F1: cobre respostas soltas que os extratores por palavra-gatilho (D3/D4) não
-        reconhecem sozinhos — ex.: "80" sozinho para faixa de funcionários, ou um nome de
-        software fora de `_SOFTWARES_PONTO_CONHECIDOS` (aceito livremente, ao contrário de
-        modelo — CAMPO-software-ponto não exige catálogo). Só atua sobre a pergunta
-        pendente atual (a que acabamos de fazer).
-
-        Uma intenção reconhecida (ex.: "quero orçamento" repetido) não deve ser sequestrada
-        como se fosse resposta, mas "só DESCONHECIDO" era grosso demais: "sim" e "não"
-        isolados são classificados como CONFIRMAR/NEGAR e são justamente a forma da resposta
-        a um campo sim/não. Quem decide agora é o campo pendente, via
-        `_INTENCOES_RESPOSTA_POR_CAMPO`.
-        """
-        resultado_class = ctx.resultado_class
-        atendimento = ctx.atendimento
-        conteudo = ctx.conteudo
-        p = ctx.processador
-        dlog = ctx.dlog
-        db = ctx.db
-
-        pendentes = campos_pendentes(atendimento)
-        if not pendentes:
-            return
-        campo = pendentes[0]
-
-        intencao = resultado_class.intencao_principal
-        if intencao != Intencao.DESCONHECIDO and intencao not in _INTENCOES_RESPOSTA_POR_CAMPO.get(
-            campo.chave, frozenset()
-        ):
-            if dlog:
-                dlog.log("finalizando", f"intenção {intencao.value} não responde a {campo.chave} — captura ignorada")
-            return
-
-        if campo.chave == CAMPO_FAIXA_FUNCIONARIOS.chave:
-            match = _NUMERO_SOLTO_REGEX.search(conteudo)
-            if match:
-                p._salvar_info_atendimento(db, atendimento.id, campo.chave, match.group(1))
-                if dlog:
-                    dlog.log("finalizando", f"faixa_funcionarios capturado (resposta solta): {match.group(1)}")
-
-        elif campo.chave in (CAMPO_SOFTWARE_PONTO.chave, CAMPO_SOFTWARE_ACESSO.chave):
-            valor = self._ler_software(conteudo, intencao)
-            if valor is None:
-                return
-            p._salvar_info_atendimento(db, atendimento.id, campo.chave, valor)
-            if dlog:
-                dlog.log("finalizando", f"{campo.chave} capturado (resposta livre): {valor}")
-
-        elif campo.chave == CAMPO_INTERESSE_SISTEMA_NUVEM.chave:
-            valor = self._ler_sim_nao(conteudo, intencao)
-            if valor:
-                p._salvar_info_atendimento(db, atendimento.id, campo.chave, valor)
-                if dlog:
-                    dlog.log("finalizando", f"interesse_sistema_nuvem capturado: {valor}")
-
-        elif campo.chave == CAMPO_QUANTIDADE.chave:
-            match = _NUMERO_SOLTO_REGEX.search(conteudo)
-            if match:
-                p._salvar_info_atendimento(db, atendimento.id, campo.chave, match.group(1))
-                if dlog:
-                    dlog.log("finalizando", f"quantidade capturada (resposta solta): {match.group(1)}")
-
-        elif campo.chave == CAMPO_HOMOLOGADO_SOFTWARE.chave:
-            valor = self._ler_sim_nao(conteudo, intencao)
-            if valor:
-                p._salvar_info_atendimento(db, atendimento.id, campo.chave, valor)
-                if dlog:
-                    dlog.log("finalizando", f"homologado_software capturado: {valor}")
-
-        # Campos não obrigatórios (ex.: alerta de homologação — REQ-002.14C/15) só são
-        # perguntados uma vez: esta é a única tentativa de captura da resposta (acima).
-        # Marcamos como "perguntado" aqui — depois deste turno, mesmo sem resposta
-        # reconhecida, `campos_pendentes()` deixa de bloquear o fluxo por causa dele.
-        if not campo.obrigatorio:
-            self._marcar_pergunta_opcional_se_necessario(ctx, campo)
-
-    @staticmethod
-    def _ler_software(conteudo: str, intencao: Intencao) -> Optional[str]:
-        """Lê o nome do software, ou a sentinela "nenhum" quando o cliente nega ter um.
-
-        Mesma ideia de `_ler_sim_nao`: a intenção classificada é evidência primária. Aqui
-        isso não é refinamento, é correção de um buraco. O classificador reconhece como
-        NEGAR não só "não", mas também "errado" e "incorreto"
-        (`classificador.py`, regra ancorada). O regex local só cobre "não"/"nenhum", então
-        um "errado" atravessava e era gravado **como se fosse o nome do software do
-        cliente**, indo parar no resumo e no handoff ao vendedor.
-
-        Devolve `None` quando não há o que capturar, para o chamador não gravar vazio.
-        """
-        texto = conteudo.strip()
-        if not texto:
-            return None
-        if intencao == Intencao.NEGAR or _SOFTWARE_NENHUM_REGEX.search(texto):
-            return "nenhum"
-        return texto
-
-    @staticmethod
-    def _ler_sim_nao(conteudo: str, intencao: Intencao) -> Optional[str]:
-        """Lê uma resposta sim/não, usando a intenção classificada como evidência primária.
-
-        O classificador já reconhece as formas isoladas ("sim", "ok", "isso mesmo", "não")
-        com regras ancoradas; desprezar isso e reprocessar o texto por regex aqui seria
-        refazer, pior, o trabalho dele. Os regexes locais ficam como segunda linha, para as
-        formas embutidas numa frase maior ("sim, temos interesse"), que o classificador
-        deixa como DESCONHECIDO.
-
-        A negação é avaliada antes do afirmativo de propósito: `_RESPOSTA_SIM_REGEX` contém
-        "quero", então testar o sim primeiro fazia "não quero" ser lido como "sim".
-        """
-        if intencao == Intencao.NEGAR:
-            return "não"
-        if intencao == Intencao.CONFIRMAR:
-            return "sim"
-        if _RESPOSTA_NAO_REGEX.search(conteudo):
-            return "não"
-        if _RESPOSTA_SIM_REGEX.search(conteudo):
-            return "sim"
-        return None
-
-    def _marcar_pergunta_opcional_se_necessario(self, ctx: ContextoAcao, campo: Pergunta) -> None:
-        if campo.obrigatorio:
-            return
-        ctx.processador._salvar_info_atendimento(ctx.db, ctx.atendimento.id, chave_perguntado(campo), "true")
 
     async def _retomar_apos_duvida(self, ctx: ContextoAcao) -> RespostaGerada:
         """F3: se a mensagem em Finalizando for uma dúvida (categoria_pergunta), responde via
@@ -649,15 +519,13 @@ class FinalizandoState(EstadoAtendimento):
                 dlog.log("finalizando", "dúvida pediu clarificação → não retoma pergunta pendente no mesmo turno")
             return resposta_duvida
 
-        pendentes = campos_pendentes(atendimento)
-        if not pendentes:
+        campo = proxima_pergunta(atendimento)
+        if campo is None:
             if dlog:
                 dlog.log("finalizando", "dúvida em Finalizando, sem pendências → só responde a dúvida")
             return resposta_duvida
 
-        campo = pendentes[0]
-        mensagem_id = campo.mensagem_id
-        ctx_campo = _contexto_para_campo(campo, atendimento)
+        mensagem_id, ctx_campo = perguntar_campo(ctx, campo)
         resposta_pergunta = await p._gerador.gerar(mensagem_id, ctx_campo)
         resposta_retomada = await p._gerador.gerar(
             MensagemId.RETOMAR_PERGUNTA_PENDENTE, {"pergunta": resposta_pergunta.texto}

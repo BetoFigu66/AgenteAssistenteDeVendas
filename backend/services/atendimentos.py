@@ -26,6 +26,8 @@ from sqlalchemy import func, text
 from sqlalchemy.orm import Session
 from utils.datetime_utils import utc_now
 
+from services.conversacao.pilha import descartar_todas
+
 logger = logging.getLogger(__name__)
 
 
@@ -150,6 +152,8 @@ def encerrar_atendimento(
         raise ValueError(f"Atendimento {atendimento.id} já está encerrado")
     estado_anterior = atendimento.status.value
     atendimento.status = StatusAtendimento.ENCERRADO
+    # Pergunta em aberto não sobrevive ao atendimento: o próximo começa sem pilha.
+    descartar_todas(atendimento)
     atendimento.motivo_encerramento = motivo.value
     atendimento.encerrado_em = utc_now()
     atendimento.encerrado_por = ator

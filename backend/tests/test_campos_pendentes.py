@@ -42,6 +42,7 @@ class _ItemStub:
 class _AtendimentoStub(ComportamentoAtendimento):
     informacoes: list = field(default_factory=list)
     itens: list = field(default_factory=list)
+    perguntas_pendentes: list = field(default_factory=list)
 
 
 def _atendimento(*, tipo_produto=None, infos=None, modelo_id=None):

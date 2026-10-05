@@ -66,6 +66,9 @@ class MensagemId(IntEnum):
     DISPONIBILIDADE_PRODUTO = 46
     CONFIRMAR_NOME_PERFIL = 47
     NOME_ANOTADO = 48
+    PILHA_CONFUSO = 49
+    PILHA_ANOTADO = 50
+    RETOMAR_PERGUNTA = 51
 
 
 @dataclass(frozen=True)
@@ -130,6 +133,27 @@ CATALOGO: dict[int, MensagemTemplate] = {
         codigo="NOME_ANOTADO",
         mensagem="Combinado, {nome}! 😊{linha_seguinte}",
         transformers=("montar_nome_anotado",),
+    ),
+    # Pilha de perguntas pendentes (`services/conversacao/pilha.py`): resposta ambígua
+    # entre várias perguntas abertas aciona a fila serial (decisão do Beto, 05/10). A
+    # resposta ambígua é descartada, não adivinhada.
+    MensagemId.PILHA_CONFUSO: MensagemTemplate(
+        id=MensagemId.PILHA_CONFUSO,
+        codigo="PILHA_CONFUSO",
+        mensagem=(
+            "Fiquei confuso, não sei a qual das perguntas você respondeu. "
+            "Vamos retomar uma por uma: {pergunta}"
+        ),
+    ),
+    MensagemId.PILHA_ANOTADO: MensagemTemplate(
+        id=MensagemId.PILHA_ANOTADO,
+        codigo="PILHA_ANOTADO",
+        mensagem="Anotado! {pergunta}",
+    ),
+    MensagemId.RETOMAR_PERGUNTA: MensagemTemplate(
+        id=MensagemId.RETOMAR_PERGUNTA,
+        codigo="RETOMAR_PERGUNTA",
+        mensagem="Voltando à minha pergunta: {pergunta}",
     ),
     MensagemId.CONFIRMAR_EMPRESA: MensagemTemplate(
         id=MensagemId.CONFIRMAR_EMPRESA,

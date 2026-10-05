@@ -70,6 +70,15 @@ class ContextoAcao:
     # — permite que uma Ação de último recurso (ex.: pedir documento fiscal) só aja
     # quando nada mais respondeu nada ainda.
     fragmentos_ate_agora: list[RespostaGerada] = field(default_factory=list)
+    # Mensagem do cliente sendo processada e a mensagem nossa que ela cita ("Responder"),
+    # quando cita. A primeira identifica o turno na pilha de perguntas pendentes; a
+    # segunda é o desempate 0 de qual pergunta foi respondida (ver `pilha.py`).
+    mensagem_id: Optional[int] = None
+    resposta_a_mensagem_id: Optional[int] = None
+    # Turno usado pela pilha quando não há `mensagem_id` (chamada direta do motor).
+    leva_sem_mensagem: Optional[int] = None
+    # Pergunta da pilha que esta mensagem respondeu, já gravada (`pilha.Captura`).
+    captura_pilha: Optional[object] = None
 
     def nome_digitado(self) -> Optional[str]:
         """Nome que o cliente escreveu nesta mensagem, se escreveu. O nome de perfil do

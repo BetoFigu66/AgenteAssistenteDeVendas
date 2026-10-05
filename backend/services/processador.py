@@ -53,6 +53,7 @@ from services import escalonamentos as escalonamentos_svc
 from services.classificador import NivelConfianca, ResultadoClassificacao, classificar
 from services.cnpj import ConsultaCnpjError, obter_ou_criar_empresa
 from services.cnpj.receitaws import validar_cnpj
+from services.conversacao import pilha
 from services.conversacao.acoes import ContextoAcao
 from services.conversacao.campos_pendentes import campos_pendentes
 from services.conversacao.catalogo_campos import (
@@ -373,6 +374,8 @@ class ProcessadorMensagem:
                     resultado_class=resultado_class,
                     dlog=dlog,
                     nome_perfil=nome_perfil_valido,
+                    mensagem_id=msg_in.id,
+                    resposta_a_mensagem_id=msg_in.resposta_a_mensagem_id,
                 )
             except Exception as e:
                 logger.exception(f"[Processador] Erro gerando resposta: {e}")
@@ -486,6 +489,9 @@ class ProcessadorMensagem:
                 # que o histórico as mostra.
                 db.flush()
                 msgs_out.append(msg_out)
+            # As perguntas feitas neste turno passam a saber em que mensagem foram: é o
+            # que o "Responder" do cliente vai citar.
+            pilha.vincular_mensagens(db, atendimento.id if atendimento else None, msg_in.id, msgs_out)
         db.commit()
         mensagens_saida_ids = [m.id for m in msgs_out] if resposta.texto else []
 
@@ -667,6 +673,8 @@ class ProcessadorMensagem:
         resultado_class,
         dlog: Optional[DebugLogger] = None,
         nome_perfil: Optional[str] = None,
+        mensagem_id: Optional[int] = None,
+        resposta_a_mensagem_id: Optional[int] = None,
     ) -> RespostaGerada:
         """Decide o que responder com base na identificação e intenção.
 
@@ -695,6 +703,8 @@ class ProcessadorMensagem:
                 processador=self,
                 dlog=dlog,
                 nome_perfil=nome_perfil,
+                mensagem_id=mensagem_id,
+                resposta_a_mensagem_id=resposta_a_mensagem_id,
             )
             resposta = await resolver_e_executar(ctx, REGRAS_GLOBAIS, {})
             if resposta is not None:
@@ -736,10 +746,18 @@ class ProcessadorMensagem:
             atendimento=atendimento,
             dlog=dlog,
             nome_perfil=nome_perfil,
+            mensagem_id=mensagem_id,
+            resposta_a_mensagem_id=resposta_a_mensagem_id,
         )
-        # Fora do motor de propósito: a resposta à pergunta do nome de perfil precisa ser
-        # gravada mesmo quando uma Regra `exclusivo` (ex.: FORNECER_CNPJ) responde.
         if atendimento:
+            # Antes do motor: a resposta a uma pergunta da pilha é gravada antes de qualquer
+            # Regra decidir o que dizer, para todas enxergarem o valor novo. Só responde por
+            # conta própria quando a resposta foi ambígua ou a fila serial está andando.
+            resposta_pilha = await pilha.resolver_resposta(ctx)
+            if resposta_pilha is not None:
+                return resposta_pilha
+            # Fora do motor de propósito: a resposta à pergunta do nome de perfil precisa ser
+            # gravada mesmo quando uma Regra `exclusivo` (ex.: FORNECER_CNPJ) responde.
             tratar_resposta_confirmacao_nome(ctx)
         resposta = await resolver_e_executar(ctx, REGRAS_GLOBAIS, REGISTRO_POR_FASE)
         if resposta is not None:
@@ -1008,6 +1026,8 @@ class ProcessadorMensagem:
             self._remover_info_atendimento(db, atendimento.id, chave)
         for item in list(atendimento.itens):
             db.delete(item)
+        # As perguntas da qualificação antiga não valem para o novo interesse.
+        pilha.descartar_todas(atendimento)
         fase_anterior = atendimento.fase.value
         atendimento.fase = FaseAtendimento.ESCLARECENDO
         atendimentos_svc.registrar_evento_atendimento(

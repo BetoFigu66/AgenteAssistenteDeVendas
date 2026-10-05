@@ -38,7 +38,7 @@ from typing import Optional
 from models import FaseAtendimento, OrigemInfo
 
 from services.classificador import Intencao, _limpar_nome
-from services.conversacao.campos_pendentes import campos_pendentes
+from services.conversacao.campos_pendentes import proxima_pergunta
 from services.respostas import MensagemId
 
 from .acoes import Acao, ContextoAcao, GrupoAcoes
@@ -272,15 +272,12 @@ async def _executar_resposta_so_ao_nome(ctx: ContextoAcao):
     if atendimento.fase == FaseAtendimento.FINALIZANDO:
         # Import local: `estados/__init__.py` importa `estados/esclarecendo.py`, que
         # importa este módulo; no topo, o import ficaria circular.
-        from services.conversacao.estados.finalizando import _contexto_para_campo
+        from services.conversacao.estados.finalizando import perguntar_campo
 
-        pendentes = campos_pendentes(atendimento)
-        if pendentes:
-            campo = pendentes[0]
+        campo = proxima_pergunta(atendimento)
+        if campo is not None:
             contexto["segue_pergunta"] = True
-            return await p._gerador.gerar_composta(
-                [(MensagemId.NOME_ANOTADO, contexto), (campo.mensagem_id, _contexto_para_campo(campo, atendimento))]
-            )
+            return await p._gerador.gerar_composta([(MensagemId.NOME_ANOTADO, contexto), perguntar_campo(ctx, campo)])
         if not atendimento.tipo_produto_atual():
             contexto["segue_pergunta"] = True
             return await p._gerador.gerar_composta(

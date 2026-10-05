@@ -179,6 +179,20 @@ mensagem inteira:
 especial fora do eixo Intenção×Fase: só as `REGRAS_GLOBAIS` rodam (sem `REGISTRO_POR_FASE`,
 porque ainda não há uma Fase de atendimento único para desambiguar).
 
+## 6. Pilha de perguntas pendentes (out/2026)
+
+`backend/services/conversacao/pilha.py`, tabela `perguntas_pendentes`. É o registro do que o sistema perguntou e ainda espera resposta. Antes dela o motor recalculava a cada turno o que *devia* ter perguntado (`campos_pendentes()[0]`) e lia a resposta do cliente contra isso, não contra o que de fato perguntou; `pergunta_prioritaria_chave` era o remendo para o caso em que as duas coisas divergiam.
+
+Três peças: o **Planejador** decide o que perguntar (`campos_pendentes()`, `proxima_pergunta()`), o **Registro** guarda que a pergunta foi feita (`pilha.empilhar`, chamado por quem pergunta, ex.: `finalizando.perguntar_campo`) e o **Tratador** lê a resposta (`tratadores.py`: `SimNao`, `Numero`, `Software`, `SinalDeModelo`). O tratador interpreta e valida, não grava; quem grava é a pilha, pelo destino da definição da pergunta (`DefinicaoPergunta`).
+
+`pilha.resolver_resposta` roda em `_decidir_resposta` **antes do motor**, depois de `_atualizar_infos_atendimento`: grava a resposta para que todas as Regras já enxerguem o valor novo. Ordem de desempate de qual pergunta foi respondida: (0) reply-to, quando o cliente citou a mensagem que levou a pergunta (`PerguntaPendente.mensagens_ids`, preenchido por `pilha.vincular_mensagens` no fim de `processar()`); (1) validação do tratador; (2) poder discriminante + recência (tratadores ambíguos só casam com a leva mais recente); (3) fila serial.
+
+Fila serial (decisão do Beto, 05/10/2026): se mais de uma pergunta aceita a resposta, ela é descartada, o bot diz "Fiquei confuso..." e retoma as perguntas abertas uma por uma (`posicao_serial`). Enquanto a fila anda, a pilha é dona do turno: responde "Anotado!" e a próxima da fila, sem passar pelo motor. Esvaziada a fila, o fluxo normal volta.
+
+Reapresentar uma pergunta aberta a move para o topo (nova `ordem`), sem duplicar, e conta em `reapresentacoes`. Teto de 3 perguntas abertas (`TETO_PILHA`). A pilha é descartada ao encerrar o atendimento e ao reiniciar a qualificação (PERG-016-009B). Em modo HUMANO ela é preservada e não consumida.
+
+Uma pergunta feita vale até ser respondida, mesmo fora da aplicabilidade do catálogo ("vocês vendem X?" pergunta a faixa de pessoas antes de saber o software de ponto). `proxima_pergunta` dá prioridade ao que está aberto na pilha.
+
 ## 7. Camada de comportamento: `estados/` (GRASP Information Expert)
 
 `backend/services/conversacao/estados/` — `base.py` (`EstadoAtendimento`), `esclarecendo.py`

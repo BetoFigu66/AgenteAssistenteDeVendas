@@ -265,6 +265,11 @@ class Atendimento(Base, ComportamentoAtendimento):
         cascade="all, delete-orphan",
         order_by="Escalonamento.timestamp.desc()",
     )
+    perguntas_pendentes: Mapped[List["PerguntaPendente"]] = relationship(
+        back_populates="atendimento",
+        cascade="all, delete-orphan",
+        order_by="PerguntaPendente.ordem",
+    )
 
     def to_dict(self) -> dict:
         """Converte o modelo para dicionário."""
@@ -408,6 +413,93 @@ class Escalonamento(Base):
             "avaliado_em": serialize_utc_datetime(self.avaliado_em),
             "report_id": self.report_id,
             "report_status": self.report.status.value if self.report is not None else None,
+        }
+
+
+class StatusPergunta(str, enum.Enum):
+    """Ciclo de vida de uma `PerguntaPendente`."""
+
+    ABERTA = "aberta"
+    # O tratador reconheceu a resposta e o valor foi gravado no destino.
+    RESPONDIDA = "respondida"
+    # A escada de erro acabou (D3): `max_tentativas` capturas falhas.
+    ESGOTADA = "esgotada"
+    # Saiu da pilha sem resposta: estourou o teto, o atendimento encerrou, ou o campo foi
+    # preenchido por outro caminho (extrator por palavra-gatilho).
+    DESCARTADA = "descartada"
+
+
+class PerguntaPendente(Base):
+    """Uma pergunta que o sistema fez ao cliente e ainda espera resposta (a pilha).
+
+    É o "registro do turno": o fato de que *esta* pergunta foi feita, em *tal* mensagem,
+    e com qual tratador a resposta deve ser lida. Antes dele o sistema recalculava a cada
+    turno o que "devia" ter perguntado (`campos_pendentes()`), e não o que perguntou. Ver
+    `services/conversacao/pilha.py`.
+
+    Topo da pilha = maior `ordem`. Reapresentar uma pergunta a move para o topo (nova
+    `ordem`) em vez de duplicá-la. Perguntas feitas no mesmo turno compartilham a
+    `leva_ultima` (id da mensagem do cliente que as provocou) e, entre si, a `ordem` é a
+    ordem de leitura.
+    """
+
+    __tablename__ = "perguntas_pendentes"
+
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    atendimento_id: Mapped[int] = mapped_column(ForeignKey("atendimentos.id"), nullable=False, index=True)
+    # Identifica a definição da pergunta (campo do catálogo ou pergunta de fluxo) e,
+    # por ela, o tratador e o destino da resposta.
+    chave: Mapped[str] = mapped_column(String(60), nullable=False)
+    # Nome do tratador no momento da pergunta, só para auditoria.
+    tratador: Mapped[str] = mapped_column(String(40), nullable=False)
+    texto: Mapped[str] = mapped_column(Text, nullable=False)
+    status: Mapped[str] = mapped_column(String(20), default=StatusPergunta.ABERTA.value, nullable=False)
+    ordem: Mapped[int] = mapped_column(nullable=False)
+    leva_criacao: Mapped[int] = mapped_column(nullable=False)
+    leva_ultima: Mapped[int] = mapped_column(nullable=False)
+    # `Mensagem`(s) de saída que levaram esta pergunta ao cliente, a mais recente por
+    # último. É o que o reply-to do WhatsApp (desempate 0) procura.
+    mensagens_ids: Mapped[list] = mapped_column(JSONB, default=list, nullable=False)
+    # Lugar na fila serial (1, 2, ...), quando uma resposta ambígua a acionou.
+    posicao_serial: Mapped[Optional[int]] = mapped_column(nullable=True)
+    # D3: dois contadores distintos, para um cliente curioso (que pergunta outra coisa)
+    # não ser tratado como quem não sabe responder.
+    tentativas_captura: Mapped[int] = mapped_column(default=0, nullable=False)
+    reapresentacoes: Mapped[int] = mapped_column(default=0, nullable=False)
+    # Dados que a definição precisa para gravar a resposta (ex.: o CPF que aguarda a
+    # data de nascimento, o nome de perfil oferecido).
+    dados: Mapped[Optional[dict]] = mapped_column(JSONB, nullable=True)
+    valor_capturado: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    criado_em: Mapped[datetime] = mapped_column(UTCDateTime, default=utc_now, nullable=False)
+    atualizado_em: Mapped[datetime] = mapped_column(UTCDateTime, default=utc_now, onupdate=utc_now, nullable=False)
+    encerrado_em: Mapped[Optional[datetime]] = mapped_column(UTCDateTime, nullable=True)
+
+    __table_args__ = (Index("idx_perguntas_pendentes_atendimento_status", "atendimento_id", "status"),)
+
+    atendimento: Mapped["Atendimento"] = relationship(back_populates="perguntas_pendentes")
+
+    @property
+    def aberta(self) -> bool:
+        return self.status == StatusPergunta.ABERTA.value
+
+    def to_dict(self) -> dict:
+        return {
+            "id": self.id,
+            "atendimento_id": self.atendimento_id,
+            "chave": self.chave,
+            "tratador": self.tratador,
+            "texto": self.texto,
+            "status": self.status,
+            "ordem": self.ordem,
+            "leva_criacao": self.leva_criacao,
+            "leva_ultima": self.leva_ultima,
+            "mensagens_ids": list(self.mensagens_ids or []),
+            "posicao_serial": self.posicao_serial,
+            "tentativas_captura": self.tentativas_captura,
+            "reapresentacoes": self.reapresentacoes,
+            "valor_capturado": self.valor_capturado,
+            "criado_em": serialize_utc_datetime(self.criado_em),
+            "encerrado_em": serialize_utc_datetime(self.encerrado_em),
         }
 
 

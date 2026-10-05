@@ -3,7 +3,7 @@ Limpeza de dados de teste por telefone (ferramenta de desenvolvimento).
 
 Remove em cascata (ordem de FKs):
   reports → escalonamentos → eventos_atendimento → mensagens → processamentos → orçamentos/itens →
-  itens/infos de atendimento → atendimentos → contato →
+  itens/infos/perguntas pendentes de atendimento → atendimentos → contato →
   (atividades_empresa, socios_empresa, empresa) quando a empresa ficou órfã
 
 A empresa criada pela consulta de CNPJ é removida de forma CONDICIONAL (achado B4,
@@ -29,6 +29,7 @@ from models import (
     ItemOrcamento,
     Mensagem,
     Orcamento,
+    PerguntaPendente,
     ProcessamentoMensagem,
     ReportProblema,
     SocioEmpresa,
@@ -298,6 +299,11 @@ def apagar_dados_telefone(db: Session, telefone: str) -> dict[str, Any]:
             .filter(AtendimentoInfo.atendimento_id.in_(atendimento_ids))
             .delete(synchronize_session=False)
         )
+        removidos["perguntas_pendentes"] = (
+            db.query(PerguntaPendente)
+            .filter(PerguntaPendente.atendimento_id.in_(atendimento_ids))
+            .delete(synchronize_session=False)
+        )
         removidos["atendimentos"] = (
             db.query(Atendimento)
             .filter(Atendimento.id.in_(atendimento_ids))
@@ -306,6 +312,7 @@ def apagar_dados_telefone(db: Session, telefone: str) -> dict[str, Any]:
     else:
         removidos["itens_atendimento"] = 0
         removidos["atendimento_infos"] = 0
+        removidos["perguntas_pendentes"] = 0
         removidos["atendimentos"] = 0
 
     if contato_ids:

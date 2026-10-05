@@ -43,16 +43,6 @@ def nao_perguntar_de_novo(campo: Pergunta, atendimento: Atendimento) -> bool:
     return False
 
 
-PERGUNTA_PRIORITARIA_CHAVE = "pergunta_prioritaria_chave"
-"""Chave de `AtendimentoInfo` usada por fluxos que precisam perguntar um campo fora da
-ordem padrão do catálogo (ex.: `PERGUNTAR_DISPONIBILIDADE` pede a faixa de funcionários
-antes do modelo — ver `estados/finalizando.py::entrar`, parâmetro `primeira_pergunta`).
-Sem persistir essa prioridade, `campos_pendentes()` voltaria a colocar o campo de ordem
-mais baixa (ex.: `CAMPO_MODELO`) na frente em qualquer turno seguinte, mesmo que ele nunca
-tenha sido de fato perguntado ao cliente nesta conversa — reapresentando uma pergunta
-("cartográfico ou eletrônico?") sem relação com o que foi realmente perguntado."""
-
-
 def campos_pendentes(atendimento: Atendimento) -> list[Pergunta]:
     """C1 — Campos do catálogo ainda pendentes para este atendimento.
 
@@ -62,37 +52,42 @@ def campos_pendentes(atendimento: Atendimento) -> list[Pergunta]:
     quais campos pedir sem isso (isso acontece em Esclarecendo, antes da
     transição para Finalizando).
 
-    Se um campo foi marcado como prioritário (`PERGUNTA_PRIORITARIA_CHAVE`) e ainda está
-    pendente, ele é movido para o início da lista, mantendo a ordem relativa dos demais.
+    A ordem é a do catálogo. Qual campo perguntar agora é `proxima_pergunta`, que
+    considera também o que já foi perguntado (a pilha).
     """
     tipo_produto = atendimento.tipo_produto_atual()
     if tipo_produto is None:
         return []
 
     valores = atendimento.valores_capturados()
-    pendentes = [
+    return [
         campo
         for campo in campos_do_produto(tipo_produto)
         if campo.se_aplica(tipo_produto, valores) and not nao_perguntar_de_novo(campo, atendimento)
     ]
 
-    chave_prioritaria = valores.get(PERGUNTA_PRIORITARIA_CHAVE)
-    if chave_prioritaria:
-        campo_prioritario = CAMPOS.get(chave_prioritaria)
-        if campo_prioritario is not None and not nao_perguntar_de_novo(campo_prioritario, atendimento):
-            outros = [c for c in pendentes if c.chave != chave_prioritaria]
-            return [campo_prioritario, *outros]
-
-    return pendentes
-
 
 def proxima_pergunta(atendimento: Atendimento) -> Optional[Pergunta]:
-    """C2 — Primeiro campo pendente, na ordem de exibição sugerida do catálogo.
+    """C2 — O campo a perguntar agora.
 
-    Não é uma regra de sequência obrigatória — o cliente pode responder
-    qualquer campo antes de ser perguntado (cada `Pergunta` reconhece a
-    própria resposta). Isto só decide o que perguntar quando nada veio na
-    mensagem atual.
+    Se um campo já foi perguntado e segue sem resposta (está aberto na pilha), é ele, a
+    começar pelo topo: o cliente precisa ver de novo a pergunta que de fato recebeu.
+    Senão, o primeiro pendente na ordem do catálogo.
+
+    Uma pergunta feita vale até ser respondida mesmo fora da aplicabilidade do catálogo:
+    "vocês vendem X?" pergunta a faixa de pessoas logo de cara, antes de saber o
+    software de ponto do qual ela depende.
+
+    Era o buraco que `pergunta_prioritaria_chave` tapava: sem registro do que foi
+    perguntado, um fluxo que pedia a faixa de funcionários antes do modelo via o turno
+    seguinte voltar a "cartográfico ou eletrônico?", pergunta que o cliente nunca tinha
+    recebido.
     """
+    if atendimento.tipo_produto_atual() is None:
+        return None
+    for pergunta in sorted(atendimento.perguntas_pendentes, key=lambda p: p.ordem, reverse=True):
+        campo = CAMPOS.get(pergunta.chave)
+        if pergunta.aberta and campo is not None and not nao_perguntar_de_novo(campo, atendimento):
+            return campo
     pendentes = campos_pendentes(atendimento)
     return pendentes[0] if pendentes else None
