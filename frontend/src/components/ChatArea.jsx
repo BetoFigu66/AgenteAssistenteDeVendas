@@ -14,6 +14,7 @@ function ChatArea({
   // para quando a conversa só existe aqui na web (CANAL_SAIDA=simulado).
   const [citando, setCitando] = useState(null)
   const containerMensagensRef = useRef(null)
+  const inputMensagemRef = useRef(null)
   const [scoreMinimo, setScoreMinimo] = useState(null)
   const [salvandoScore, setSalvandoScore] = useState(false)
 
@@ -61,6 +62,12 @@ function ChatArea({
     }
     return indice
   }, [mensagens])
+
+  // "Responder" já deixa o cursor na caixa de digitação, como no WhatsApp.
+  const responder = (mensagem) => {
+    setCitando(mensagem)
+    inputMensagemRef.current?.focus()
+  }
 
   const handleSubmit = (e) => {
     e.preventDefault()
@@ -150,7 +157,7 @@ function ChatArea({
                 key={msg.id || index}
                 mensagem={msg}
                 mensagemCitada={mensagensPorId.get(msg.resposta_a_mensagem_id)}
-                onResponder={setCitando}
+                onResponder={responder}
               />
             ))}
           </>
@@ -193,6 +200,7 @@ function ChatArea({
         </label>
         <form onSubmit={handleSubmit} className="flex gap-2">
           <input
+            ref={inputMensagemRef}
             type="text"
             value={inputMensagem}
             onChange={(e) => setInputMensagem(e.target.value)}
