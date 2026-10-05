@@ -1,7 +1,7 @@
 """
 Regras globais do motor de roteamento (`services/conversacao/motor.py`) — avaliadas
 independente da Fase efetiva do atendimento: ESCALAR_HUMANO, RECLAMAR, FORNECER_CNPJ,
-FORNECER_CPF, FORNECER_DATA_NASCIMENTO (continuação do fluxo PF pendente), FORNECER_NOME
+FORNECER_CPF, a data de nascimento que completa o fluxo PF (pergunta da pilha), FORNECER_NOME
 (efeito colateral silencioso), a resposta que só trata da confirmação do nome de perfil
 (`confirmacao_nome_perfil.py`) e a resposta à pergunta de fechamento do atendimento
 (REQ-016.10, `regras_encerramento.py`). São wrappers finos em cima dos helpers já
@@ -12,18 +12,29 @@ Ver `docs/arquitetura_motor_conversacao_2026-07.md` para o funcionamento geral d
 
 from __future__ import annotations
 
-from models import GatilhoEscalonamento, ModoOperacao, MotivoEscalonamento, TipoDocumento
+from models import Contato, GatilhoEscalonamento, ModoOperacao, MotivoEscalonamento
 
 from services import escalonamentos as escalonamentos_svc
 from services.classificador import EntidadesExtraidas, Intencao
 from services.cpf.validacao import mascarar_cpf
+from services.identificador import normalizar_telefone
 from services.parametro_service import ParametroService
 from services.respostas import MensagemId
 
+from . import pilha
 from .acoes import Acao, ContextoAcao, GrupoAcoes, garantir_atendimento_dispatch
 from .confirmacao_nome_perfil import REGRA_RESPOSTA_SO_AO_NOME
 from .motor import RegraIntencao
 from .regras_encerramento import REGISTRO_ENCERRAMENTO
+from .tratadores import DataNascimento
+
+# Fluxo PF: o CPF chegou sem a data de nascimento. A pergunta da data vai para a pilha
+# com o CPF nos dados; a pilha só identifica a resposta (`grava=False`) e quem completa o
+# cadastro é a Regra `_builder_data_nascimento_capturada`, que precisa responder.
+CHAVE_DATA_NASCIMENTO = "data_nascimento"
+pilha.registrar_definicao(
+    pilha.DefinicaoPergunta(chave=CHAVE_DATA_NASCIMENTO, tratador=DataNascimento(), grava=False)
+)
 
 # REQ-004.8 (Fase 5): limiar de funcionários pra considerar "projeto complexo" — o
 # próprio requisito deixa em aberto ("a definir com o vendedor"); default aqui só serve
@@ -152,43 +163,55 @@ async def _executar_fornecer_cpf(ctx: ContextoAcao):
     if ctx.dlog:
         ctx.dlog.log("rota", f"cpf_fornecido={mascarar_cpf(entidades.cpfs[0])}")
     data_nasc = p._parse_data_entidade(entidades, ctx.conteudo)
-    return await p._processar_cpf_fornecido(
+    resposta = await p._processar_cpf_fornecido(
         ctx.db,
         ctx.telefone,
         entidades.cpfs[0],
         nome_informado=ctx.nome_digitado(),
         data_nascimento=data_nasc,
     )
+    if resposta.template_usado == MensagemId.PERGUNTAR_DATA_NASCIMENTO.name:
+        _registrar_pergunta_data(ctx, entidades.cpfs[0], resposta.texto)
+    return resposta
 
 
-def _builder_fornecer_data_nascimento(ctx: ContextoAcao) -> GrupoAcoes:
-    """Continuação do fluxo PF: data de nascimento isolada (sem CPF na mesma mensagem)
-    só significa algo se há um atendimento PF aguardando exatamente essa data
-    (`cpf_pendente` em `AtendimentoInfo`) — senão a Regra não contribui nada, deixando a
-    mensagem livre para as demais Regras tratarem normalmente. A checagem roda no
-    *builder* (síncrono), não no `executar` — precisa decidir se é `exclusivo` ou vazio
-    antes do motor montar a lista final de Ações."""
+def _registrar_pergunta_data(ctx: ContextoAcao, cpf: str, texto: str) -> None:
+    """Põe a pergunta da data na pilha do atendimento PF que `_processar_cpf_fornecido`
+    acabou de criar ou reaproveitar."""
     p = ctx.processador
-    data_nasc_avulsa = p._parse_data_entidade(ctx.resultado_class.entidades, ctx.conteudo)
-    if not data_nasc_avulsa:
+    telefone_norm = normalizar_telefone(ctx.telefone)
+    contato = ctx.db.query(Contato).filter(Contato.telefone.in_([telefone_norm, ctx.telefone])).first()
+    atendimento = p._atendimento_ativo(ctx.db, contato) if contato else None
+    if atendimento is None:
+        return
+    ctx.atendimento = atendimento
+    ctx.contato = contato
+    pilha.empilhar(ctx, CHAVE_DATA_NASCIMENTO, texto, {"cpf": cpf})
+
+
+def _builder_data_nascimento_capturada(ctx: ContextoAcao) -> GrupoAcoes:
+    """Continuação do fluxo PF: a pilha reconheceu a data de nascimento que estava
+    sendo esperada. A decisão de *se* a mensagem responde a essa pergunta é da pilha
+    (que sabe que ela foi feita, e com qual CPF); aqui só se completa o cadastro.
+
+    Se a mesma mensagem repete o CPF, `FORNECER_CPF` já completa com a data e esta Regra
+    não contribui, para o cadastro não rodar duas vezes."""
+    captura = ctx.captura_pilha
+    if captura is None or captura.pergunta.chave != CHAVE_DATA_NASCIMENTO:
+        return GrupoAcoes()
+    if ctx.resultado_class.entidades.cpfs:
         return GrupoAcoes()
 
+    p = ctx.processador
+    cpf_pendente = (captura.pergunta.dados or {}).get("cpf")
+    data_nascimento = captura.leitura.valor
     contato_pendente = ctx.identificacao.contato
-    if not contato_pendente:
-        return GrupoAcoes()
-
-    neg_pendente = p._atendimento_ativo(ctx.db, contato_pendente)
-    if not (neg_pendente and neg_pendente.tipo_documento == TipoDocumento.CPF and not neg_pendente.pessoa_id):
-        return GrupoAcoes()
-
-    cpf_pendente = p._info_atendimento(ctx.db, neg_pendente.id, "cpf_pendente")
-    if not cpf_pendente:
-        return GrupoAcoes()
-
     # `contato.nome` vira `Pessoa.nome` aqui, então um nome que veio do perfil do WhatsApp
     # (igual ao `ProfileName` desta mensagem), mesmo confirmado como forma de tratamento,
     # não é repassado como nome informado.
-    nome_do_cliente = contato_pendente.nome if contato_pendente.nome != ctx.nome_perfil else None
+    nome_do_cliente = (
+        contato_pendente.nome if contato_pendente and contato_pendente.nome != ctx.nome_perfil else None
+    )
 
     async def _executar(ctx: ContextoAcao):
         if ctx.dlog:
@@ -198,7 +221,7 @@ def _builder_fornecer_data_nascimento(ctx: ContextoAcao) -> GrupoAcoes:
             ctx.telefone,
             cpf_pendente,
             nome_informado=nome_do_cliente,
-            data_nascimento=data_nasc_avulsa,
+            data_nascimento=data_nascimento,
         )
 
     return GrupoAcoes(exclusivo=[Acao("fornecer_data_nascimento", _executar)])
@@ -253,9 +276,9 @@ REGRAS_GLOBAIS: list[RegraIntencao] = [
         nome="fornecer_cpf",
     ),
     RegraIntencao(
-        intencao=Intencao.FORNECER_DATA_NASCIMENTO,
+        intencao=None,
         fase=None,
-        builder=_builder_fornecer_data_nascimento,
+        builder=_builder_data_nascimento_capturada,
         nome="fornecer_data_nascimento",
     ),
     RegraIntencao(

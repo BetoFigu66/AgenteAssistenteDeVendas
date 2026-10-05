@@ -193,6 +193,14 @@ Reapresentar uma pergunta aberta a move para o topo (nova `ordem`), sem duplicar
 
 Uma pergunta feita vale até ser respondida, mesmo fora da aplicabilidade do catálogo ("vocês vendem X?" pergunta a faixa de pessoas antes de saber o software de ponto). `proxima_pergunta` dá prioridade ao que está aberto na pilha.
 
+Perguntas fora do catálogo registram a própria `DefinicaoPergunta` no módulo que as faz: `nome_perfil` (`confirmacao_nome_perfil.py`, substitui o antigo `tratar_resposta`), `conhece_marcas` ("Você conhece esses relógios?", `regras_esclarecendo.py`) e `data_nascimento` (`regras_globais.py`, o CPF fica em `PerguntaPendente.dados`; substitui a chave `cpf_pendente`). A data é o exemplo de definição que não grava (`grava=False`): a pilha só identifica a resposta, e a Regra global `fornecer_data_nascimento` encontra a captura em `ctx.captura_pilha` e completa o cadastro.
+
+Leitura parcial: "sim, biometria" responde a duas perguntas (confirma o nome e escolhe o modelo). O tratador do nome declara que consumiu só o "sim" (`Leitura.parcial`, `Leitura.trecho`), e a captura convive com a resposta principal. Se o pedaço consumido também servir a outra pergunta aberta ("sim, 30" com "Você conhece?" aberta), ele não é do nome por direito e a ambiguidade vai para a fila serial.
+
+Escada de erro (D3): `DefinicaoPergunta.max_tentativas`. Só conta como tentativa falha a mensagem que podia ser a resposta (inválida, ou sem outro assunto) e que nenhuma pergunta reconheceu. Esgotada, a pergunta sai da pilha e `ao_sair` decide o efeito (o nome de perfil vira `ignorado`, como antes).
+
+Reply-to que cita uma pergunta que não aceita a mensagem não encerra a busca: a resolução segue sem o atalho (o cliente pode ter citado a mensagem errada). O classificador LLM recebe a pergunta do topo da pilha como contexto (`classificar(contexto=...)`, gancho que existia e ninguém preenchia).
+
 ## 7. Camada de comportamento: `estados/` (GRASP Information Expert)
 
 `backend/services/conversacao/estados/` — `base.py` (`EstadoAtendimento`), `esclarecendo.py`

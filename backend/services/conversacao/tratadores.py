@@ -21,10 +21,12 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass, field
+from datetime import date
 from enum import Enum
-from typing import Any, Optional
+from typing import Any, Mapping, Optional
 
 from services.classificador import EntidadesExtraidas, Intencao
+from services.cpf.validacao import parse_data_nascimento
 
 
 class StatusLeitura(str, Enum):
@@ -39,6 +41,13 @@ class StatusLeitura(str, Enum):
 class Leitura:
     status: StatusLeitura
     valor: Any = None
+    # A resposta ocupa só um pedaço da mensagem e deixa o resto livre para outra
+    # pergunta: "sim, biometria" confirma o nome (o "sim") e escolhe o modelo. Uma
+    # leitura parcial não disputa com as outras na resolução de ambiguidade.
+    parcial: bool = False
+    # O pedaço que a leitura parcial consumiu, quando dá para dizer qual ("sim"). Se
+    # outra pergunta aberta também aceitaria esse pedaço, não há como saber de quem ele é.
+    trecho: Optional[str] = None
 
     @property
     def reconheceu(self) -> bool:
@@ -50,11 +59,13 @@ NAO_RECONHECEU = Leitura(StatusLeitura.NAO_RECONHECEU)
 
 @dataclass(frozen=True)
 class EntradaTratador:
-    """O que um tratador pode olhar: só a mensagem e a classificação dela."""
+    """O que um tratador pode olhar: a mensagem, a classificação dela e os dados que a
+    pergunta guardou ao ser feita (ex.: o nome de perfil oferecido)."""
 
     conteudo: str
     intencoes: tuple[Intencao, ...]
     entidades: EntidadesExtraidas = field(default_factory=EntidadesExtraidas)
+    dados: Mapping[str, Any] = field(default_factory=dict)
 
 
 # Intenções que nunca impedem uma mensagem de ser resposta: "não reconheci nada" e
@@ -73,6 +84,9 @@ class Tratador:
     intencoes_aceitas: frozenset[Intencao] = frozenset()
 
     def aceita_intencoes(self, entrada: EntradaTratador) -> bool:
+        """A mensagem pode ser uma resposta a esta pergunta? Também decide se uma leitura
+        que não reconheceu conta como tentativa de captura falha (D3): uma dúvida ou um
+        pedido de outro assunto não é tentativa de responder."""
         return set(entrada.intencoes) <= (_INTENCOES_NEUTRAS | self.intencoes_aceitas)
 
     def interpretar(self, entrada: EntradaTratador) -> Leitura:
@@ -173,9 +187,41 @@ class SinalDeModelo(Tratador):
         return NAO_RECONHECEU
 
 
-def entrada_de(conteudo: str, intencoes, entidades: Optional[EntidadesExtraidas] = None) -> EntradaTratador:
+_DATA_MINIMA = date(1900, 1, 1)
+
+
+class DataNascimento(Tratador):
+    """Data de nascimento. Discriminante: uma data por extenso só responde a uma
+    pergunta de data. Futuro ou antes de 1900 é inválido."""
+
+    nome = "data_nascimento"
+    discriminante = True
+    intencoes_aceitas = frozenset({Intencao.FORNECER_DATA_NASCIMENTO})
+
+    def _interpretar(self, entrada: EntradaTratador) -> Leitura:
+        data = None
+        if entrada.entidades.datas_nascimento:
+            try:
+                data = date.fromisoformat(entrada.entidades.datas_nascimento[0])
+            except ValueError:
+                data = None
+        data = data or parse_data_nascimento(entrada.conteudo)
+        if data is None:
+            return NAO_RECONHECEU
+        if not _DATA_MINIMA <= data < date.today():
+            return Leitura(StatusLeitura.INVALIDO, data)
+        return Leitura(StatusLeitura.RECONHECEU, data)
+
+
+def entrada_de(
+    conteudo: str,
+    intencoes,
+    entidades: Optional[EntidadesExtraidas] = None,
+    dados: Optional[Mapping[str, Any]] = None,
+) -> EntradaTratador:
     return EntradaTratador(
         conteudo=conteudo or "",
         intencoes=tuple(intencoes),
         entidades=entidades or EntidadesExtraidas(),
+        dados=dados or {},
     )

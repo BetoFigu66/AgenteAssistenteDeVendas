@@ -69,6 +69,7 @@ class MensagemId(IntEnum):
     PILHA_CONFUSO = 49
     PILHA_ANOTADO = 50
     RETOMAR_PERGUNTA = 51
+    PILHA_PERGUNTA = 52
 
 
 @dataclass(frozen=True)
@@ -148,7 +149,13 @@ CATALOGO: dict[int, MensagemTemplate] = {
     MensagemId.PILHA_ANOTADO: MensagemTemplate(
         id=MensagemId.PILHA_ANOTADO,
         codigo="PILHA_ANOTADO",
-        mensagem="Anotado! {pergunta}",
+        mensagem="Anotado! 👍",
+    ),
+    # Uma pergunta da pilha reapresentada tal como foi feita (o texto vem dela).
+    MensagemId.PILHA_PERGUNTA: MensagemTemplate(
+        id=MensagemId.PILHA_PERGUNTA,
+        codigo="PILHA_PERGUNTA",
+        mensagem="{pergunta}",
     ),
     MensagemId.RETOMAR_PERGUNTA: MensagemTemplate(
         id=MensagemId.RETOMAR_PERGUNTA,

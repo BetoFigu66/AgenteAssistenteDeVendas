@@ -187,8 +187,8 @@ def test_fila_serial_anota_e_retoma_a_proxima(db_session):
 
         asyncio.run(pilha.resolver_resposta(_ctx(db_session, atendimento, "50", leva=_LEVA + 1)))
         anotado = asyncio.run(pilha.resolver_resposta(_ctx(db_session, atendimento, "50", leva=_LEVA + 2)))
-        assert anotado.template_usado == "PILHA_ANOTADO"
-        assert anotado.texto == "Anotado! Quantas unidades você precisa?"
+        assert anotado.template_usado == "PILHA_ANOTADO+PILHA_PERGUNTA"
+        assert anotado.mensagens() == ["Anotado! 👍\n\nQuantas unidades você precisa?"]
         assert _valor(atendimento, "faixa_funcionarios") == "50"
 
         # A última da fila: grava e devolve o turno ao fluxo normal.
@@ -357,3 +357,159 @@ def test_modelo_resolvido_nao_e_perguntado_de_novo_no_mesmo_turno(db_session):
         db_session.delete(modelo)
         db_session.delete(produto)
         db_session.commit()
+
+
+# ----------------------------------------------------------------------
+# Passo 2: perguntas fora do catálogo (nome de perfil, "conhece?", data de nascimento)
+# ----------------------------------------------------------------------
+
+_SAUDACAO_RELOGIO = "Bom dia, gostaria de informações sobre relógio de ponto."
+
+
+class _Conversa:
+    """Conversa pelo `processar()` com nome de perfil, como chega do WhatsApp."""
+
+    def __init__(self, db_session, telefone):
+        self.db = db_session
+        self.telefone = telefone
+        self.processador = ProcessadorMensagem()
+        self.ultimo = None
+
+    def diz(self, texto, citando=None):
+        self.ultimo = asyncio.run(
+            self.processador.processar(
+                self.db, self.telefone, texto, nome_perfil="Bob Figu", responde_a_mensagem_id=citando
+            )
+        )
+        self.db.commit()
+        return self.ultimo
+
+    @property
+    def atendimento(self):
+        atendimento = self.db.get(Atendimento, self.ultimo.atendimento_id)
+        self.db.refresh(atendimento)
+        return atendimento
+
+    def info(self, chave):
+        return self.atendimento.valores_capturados().get(chave)
+
+
+def test_perguntas_da_leva_entram_na_ordem_de_leitura_e_cada_uma_na_sua_mensagem(db_session):
+    telefone = "+5511999977320"
+    try:
+        conversa = _Conversa(db_session, telefone)
+        primeiro = conversa.diz(_SAUDACAO_RELOGIO)
+        perguntas = pilha.abertas(conversa.atendimento)
+        assert [p.chave for p in perguntas] == ["nome_perfil", "conhece_marcas", "faixa_funcionarios"]
+        assert [p.mensagens_ids for p in perguntas] == [[i] for i in primeiro.mensagens_saida_ids]
+    finally:
+        _limpar(db_session, telefone)
+
+
+def test_sim_solto_com_tres_perguntas_abertas_vai_para_a_fila_serial(db_session):
+    """O caso que motivou a pilha: "sim" serve para o nome e para "conhece?". Decisão do
+    Beto (05/10): descartar e retomar uma por uma, na ordem de leitura."""
+    telefone = "+5511999977321"
+    try:
+        conversa = _Conversa(db_session, telefone)
+        conversa.diz(_SAUDACAO_RELOGIO)
+
+        confuso = conversa.diz("sim")
+        assert confuso.partes_resposta == [
+            "Fiquei confuso, não sei a qual das perguntas você respondeu. "
+            "Vamos retomar uma por uma: Posso te chamar de Bob Figu, ou seu nome é outro?"
+        ]
+        assert conversa.info("nome_perfil_confirmacao") == "aguardando"
+
+        nome = conversa.diz("sim")
+        assert nome.partes_resposta == ["Combinado, Bob Figu! 😊\n\nVocê conhece esses relógios?"]
+        assert conversa.info("nome_perfil_confirmacao") == "confirmado"
+
+        conhece = conversa.diz("não")
+        assert conhece.partes_resposta == ["Anotado! 👍\n\nQual a faixa de pessoas que vão usar o relógio de ponto?"]
+        assert conversa.info("conhece_marcas") == "não"
+
+        conversa.diz("30")
+        assert conversa.info("faixa_funcionarios") == "30"
+        assert pilha.fila_serial(conversa.atendimento) == []
+    finally:
+        _limpar(db_session, telefone)
+
+
+def test_responder_citando_a_pergunta_tira_a_ambiguidade(db_session):
+    telefone = "+5511999977322"
+    try:
+        conversa = _Conversa(db_session, telefone)
+        _, msg_conhece, _ = conversa.diz(_SAUDACAO_RELOGIO).mensagens_saida_ids
+
+        resposta = conversa.diz("sim", citando=msg_conhece)
+        assert "Fiquei confuso" not in " ".join(resposta.partes_resposta)
+        assert conversa.info("conhece_marcas") == "sim"
+        # O nome não foi respondido, e o "sim" não foi para ele.
+        assert conversa.info("nome_perfil_confirmacao") == "aguardando"
+    finally:
+        _limpar(db_session, telefone)
+
+
+def test_citar_a_pergunta_errada_cai_na_resolucao_normal(db_session):
+    telefone = "+5511999977323"
+    try:
+        conversa = _Conversa(db_session, telefone)
+        _, _, msg_faixa = conversa.diz(_SAUDACAO_RELOGIO).mensagens_saida_ids
+
+        conversa.diz("Carlos", citando=msg_faixa)
+        assert conversa.info("nome_perfil_confirmacao") == "outro_nome"
+        assert conversa.info("faixa_funcionarios") is None
+    finally:
+        _limpar(db_session, telefone)
+
+
+def test_sim_que_tambem_serviria_a_outra_pergunta_nao_fica_com_o_nome(db_session):
+    """"sim, 30": o "sim" pode ser do nome ou do "conhece?". Ambíguo, então fila serial,
+    com o nome nela (e não confirmado por adivinhação)."""
+    telefone = "+5511999977324"
+    try:
+        conversa = _Conversa(db_session, telefone)
+        conversa.diz(_SAUDACAO_RELOGIO)
+        conversa.diz("sim, 30")
+        assert conversa.info("nome_perfil_confirmacao") == "aguardando"
+        assert [p.chave for p in pilha.fila_serial(conversa.atendimento)][0] == "nome_perfil"
+    finally:
+        _limpar(db_session, telefone)
+
+
+def test_sim_na_frente_de_outra_resposta_confirma_o_nome_e_deixa_o_resto(db_session):
+    """Sem outra pergunta que aceite o "sim", ele é do nome, e o resto da mensagem
+    responde à outra pergunta."""
+    telefone = "+5511999977325"
+    try:
+        atendimento = _atendimento_catraca(db_session, telefone)
+        pilha.descartar_todas(atendimento)
+        ctx_pergunta = _ctx(db_session, atendimento, leva=_LEVA)
+        from services.conversacao.confirmacao_nome_perfil import registrar_pergunta
+
+        registrar_pergunta(ctx_pergunta, "Bob Figu")
+        pilha.empilhar(ctx_pergunta, "quantidade", "Quantas unidades você precisa?")
+
+        asyncio.run(pilha.resolver_resposta(_ctx(db_session, atendimento, "sim, 3", leva=_LEVA + 1)))
+        assert _valor(atendimento, "nome_perfil_confirmacao") == "confirmado"
+        assert _valor(atendimento, "quantidade") == "3"
+        assert pilha.abertas(atendimento) == []
+    finally:
+        _limpar(db_session, telefone)
+
+
+def test_nao_ao_nome_reabre_a_pergunta_como_pedido_de_nome(db_session):
+    telefone = "+5511999977326"
+    try:
+        conversa = _Conversa(db_session, telefone)
+        conversa.diz("Quero orçamento de relógio de ponto")
+        resposta = conversa.diz("não")
+        assert resposta.partes_resposta == ["Como posso te chamar? 😊"]
+        (nome,) = [p for p in pilha.abertas(conversa.atendimento) if p.chave == "nome_perfil"]
+        assert nome.texto == "Como posso te chamar?"
+
+        conversa.diz("Roberto")
+        assert conversa.info("nome_perfil_confirmacao") == "outro_nome"
+    finally:
+        _limpar(db_session, telefone)

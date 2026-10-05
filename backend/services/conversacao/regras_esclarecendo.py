@@ -29,13 +29,37 @@ from services.conversacao.estados.finalizando import FINALIZANDO, _produto_ids_p
 from services.identificador import StatusIdentificacao
 from services.respostas import MensagemId
 
+from . import pilha
 from .acoes import Acao, ContextoAcao, GrupoAcoes, garantir_atendimento_dispatch
 from .categoria_pergunta import _HANDLERS as _HANDLERS_CATEGORIA_PERGUNTA
 from .categoria_pergunta import _responder_fora_contexto as _responder_categoria_pergunta_fora_contexto
 from .motor import RegraIntencao
 from .regras_encerramento import CHAVE_FECHAMENTO_PENDENTE
+from .tratadores import SimNao
 
 _CHAVE_CATALOGO_PENDENTE = "catalogo_pendente"
+
+# "Você conhece esses relógios?", a pergunta que fecha `DISPONIBILIDADE_PRODUTO`. Mesma
+# frase do template: é por ela que a pilha acha a mensagem que levou a pergunta. A
+# resposta é só informativa para o vendedor (`AtendimentoInfo`).
+CHAVE_CONHECE_MARCAS = "conhece_marcas"
+_PERGUNTA_CONHECE = "Você conhece esses {produto_plural}?"
+
+
+def _aplicar_conhece_marcas(ctx: ContextoAcao, pergunta, leitura) -> None:
+    ctx.processador._salvar_info_atendimento(
+        ctx.db, ctx.atendimento.id, CHAVE_CONHECE_MARCAS, leitura.valor, pendente=False
+    )
+
+
+pilha.registrar_definicao(
+    pilha.DefinicaoPergunta(
+        chave=CHAVE_CONHECE_MARCAS,
+        tratador=SimNao(),
+        aplicar=_aplicar_conhece_marcas,
+        max_tentativas=1,
+    )
+)
 
 # Duplica `services.processador._RAG_CLARIFICACAO_PENDENTE_CHAVE` (import direto causaria
 # import circular: `processador.py` importa este módulo em nível de módulo). Mesmo valor —
@@ -160,12 +184,14 @@ async def _executar_pedir_orcamento(ctx: ContextoAcao):
     era_novo = ctx.identificacao.status == StatusIdentificacao.NOVO
 
     await garantir_atendimento_dispatch(ctx)
+    # A saudação vem antes de entrar em Finalizando porque é o que o cliente lê primeiro:
+    # as perguntas entram na pilha na ordem de leitura (é a ordem da fila serial).
+    saudacao = saudacao_primeiro_contato(ctx, modo="orcamento") if era_novo else None
     partes_finalizando = await FINALIZANDO.entrar(ctx)
 
-    if era_novo:
+    if saudacao:
         if ctx.dlog:
             ctx.dlog.log("rota", "NOVO + PEDIR_ORCAMENTO → composta (Finalizando)")
-        saudacao = saudacao_primeiro_contato(ctx, modo="orcamento")
         return await p._gerador.gerar_composta([saudacao, *partes_finalizando])
 
     if len(partes_finalizando) == 1:
@@ -209,6 +235,9 @@ async def _executar_perguntar_disponibilidade(ctx: ContextoAcao):
         "produto_plural": produto_plural,
     }
 
+    # Mesma ordem em que o cliente lê: saudação, "conhece?", primeira pergunta do orçamento.
+    saudacao = saudacao_primeiro_contato(ctx, modo="orcamento") if era_novo else None
+    pilha.empilhar(ctx, CHAVE_CONHECE_MARCAS, _PERGUNTA_CONHECE.format(produto_plural=produto_plural))
     partes_finalizando = await FINALIZANDO.entrar(
         ctx,
         mensagem_abertura=MensagemId.DISPONIBILIDADE_PRODUTO,
@@ -216,10 +245,9 @@ async def _executar_perguntar_disponibilidade(ctx: ContextoAcao):
         primeira_pergunta=CAMPO_FAIXA_FUNCIONARIOS,
     )
 
-    if era_novo:
+    if saudacao:
         if ctx.dlog:
             ctx.dlog.log("rota", "NOVO + PERGUNTAR_DISPONIBILIDADE → composta (Finalizando)")
-        saudacao = saudacao_primeiro_contato(ctx, modo="orcamento")
         return await p._gerador.gerar_composta([saudacao, *partes_finalizando])
 
     if len(partes_finalizando) == 1:

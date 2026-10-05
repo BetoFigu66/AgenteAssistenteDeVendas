@@ -20,11 +20,13 @@ Fluxo:
 
 1. Quem montaria o pedido de nome chama `saudacao_primeiro_contato` ou
    `nome_perfil_a_confirmar`/`registrar_pergunta` (ver `estados/esclarecendo.py` e
-   `regras_esclarecendo.py`).
-2. Na mensagem seguinte, `tratar_resposta` roda **antes** do motor
-   (`ProcessadorMensagem._decidir_resposta`): grava o nome e o desfecho. Fica fora do
-   motor de propósito, porque `FORNECER_CNPJ`/`FORNECER_CPF` são `exclusivo` e
-   descartariam uma Ação `pre` da mesma mensagem ("sim, o CNPJ é ...").
+   `regras_esclarecendo.py`). A pergunta entra na pilha de perguntas pendentes
+   (`pilha.py`, chave `nome_perfil`).
+2. Na mensagem seguinte, a pilha decide se é a resposta a ela (`TratadorNomePerfil`) e,
+   se for, `_aplicar` grava o nome e o desfecho. Roda **antes** do motor, de propósito:
+   `FORNECER_CNPJ`/`FORNECER_CPF` são `exclusivo` e descartariam uma Ação `pre` da mesma
+   mensagem ("sim, o CNPJ é ..."). Uma mensagem que não trata do nome, sem outra
+   pergunta da pilha respondida, esgota a única tentativa e o desfecho vira `ignorado`.
 3. Se a mensagem era só a resposta ao nome ("sim", "Carlos", "não"), a Regra global
    `REGRA_RESPOSTA_SO_AO_NOME` responde e retoma o que estava em aberto (pedido de
    documento ou pergunta do orçamento). Se trazia mais coisa, o fluxo normal responde.
@@ -33,16 +35,19 @@ Fluxo:
 from __future__ import annotations
 
 import re
+from dataclasses import dataclass
 from typing import Optional
 
-from models import FaseAtendimento, OrigemInfo
+from models import FaseAtendimento, OrigemInfo, StatusPergunta
 
 from services.classificador import Intencao, _limpar_nome
 from services.conversacao.campos_pendentes import proxima_pergunta
 from services.respostas import MensagemId
 
+from . import pilha
 from .acoes import Acao, ContextoAcao, GrupoAcoes
 from .motor import RegraIntencao
+from .tratadores import NAO_RECONHECEU, EntradaTratador, Leitura, StatusLeitura, Tratador
 
 CHAVE_NOME_PERFIL_PROPOSTO = "nome_perfil_proposto"
 CHAVE_NOME_PERFIL_CONFIRMACAO = "nome_perfil_confirmacao"
@@ -164,11 +169,21 @@ def nome_perfil_a_confirmar(ctx: ContextoAcao) -> Optional[str]:
     return ctx.nome_perfil
 
 
+CHAVE_PILHA = "nome_perfil"
+_TRECHO_CONFIRMACAO = "Posso te chamar assim ou seu nome é outro?"
+_PERGUNTA_NOME = "Como posso te chamar?"
+
+
 def registrar_pergunta(ctx: ContextoAcao, nome: str) -> None:
-    """Marca a pergunta de confirmação como feita, guardando o nome oferecido. Exige
-    `ctx.atendimento` (quem pergunta já garantiu o atendimento)."""
+    """Marca a pergunta de confirmação como feita, guardando o nome oferecido, e a põe
+    na pilha. Exige `ctx.atendimento` (quem pergunta já garantiu o atendimento)."""
     _salvar(ctx, CHAVE_NOME_PERFIL_PROPOSTO, nome, pendente=True)
     _salvar(ctx, CHAVE_NOME_PERFIL_CONFIRMACAO, AGUARDANDO, pendente=True)
+    # O texto é o da reapresentação, que precisa do nome; o vínculo com a mensagem usa
+    # a frase fixa do template (`_trecho_vinculo`).
+    pilha.empilhar(
+        ctx, CHAVE_PILHA, f"Posso te chamar de {nome}, ou seu nome é outro?", {"nome": nome, "status": AGUARDANDO}
+    )
     if ctx.dlog:
         ctx.dlog.log("nome_perfil", f"pergunta de confirmação feita nome={nome!r} (atendimento {ctx.atendimento.id})")
 
@@ -210,25 +225,32 @@ def _gravar_nome(ctx: ContextoAcao, nome: str, desfecho: str) -> None:
         ctx.dlog.log("nome_perfil", f"desfecho={desfecho} nome={nome!r} contato_id={contato_id}")
 
 
-def tratar_resposta(ctx: ContextoAcao) -> None:
-    """Interpreta a resposta à pergunta de confirmação, se ela estiver em aberto.
+@dataclass(frozen=True)
+class DecisaoNome:
+    """O que a resposta diz sobre o nome. `nome=None` quando o cliente recusou o nome do
+    perfil sem dar outro (o bot pergunta o nome)."""
+
+    nome: Optional[str]
+    desfecho: str
+    so_ao_nome: bool
+    # A confirmação que abre uma mensagem maior ("sim" em "sim, biometria").
+    trecho_confirmacao: Optional[str] = None
+
+    def __str__(self) -> str:
+        # O que fica em `PerguntaPendente.valor_capturado`.
+        return f"{self.desfecho}: {self.nome}" if self.nome else self.desfecho
+
+
+def interpretar_resposta(entrada: EntradaTratador, status: str, proposto: Optional[str]) -> Optional[DecisaoNome]:
+    """Lê a resposta à pergunta de confirmação. `None` = não tratou do nome.
 
     Ordem: nome escrito pelo cliente (classificador) → confirmação → nome solto
-    ("Carlos") → "não" → qualquer outra coisa, que é "ignorado" e não trava nada. Grava o
-    nome em `Contato.nome` e o desfecho em `nome_perfil_confirmacao`; marca
-    `ctx.resposta_so_ao_nome` quando a mensagem não trazia mais nada, para
+    ("Carlos") → "não". `so_ao_nome` diz se a mensagem não trazia mais nada, para
     `REGRA_RESPOSTA_SO_AO_NOME` responder.
     """
-    status = _status(ctx)
-    if status not in (AGUARDANDO, PEDIDO_NOME):
-        return
-
-    conteudo = ctx.conteudo or ""
-    entidades = ctx.resultado_class.entidades
-    sem_outro_assunto = set(ctx.resultado_class.intencoes) <= _INTENCOES_RESPOSTA_AO_NOME and not (
-        _tem_outras_entidades(entidades)
-    )
-    proposto = ctx.processador._info_atendimento(ctx.db, ctx.atendimento.id, CHAVE_NOME_PERFIL_PROPOSTO)
+    conteudo = entrada.conteudo or ""
+    entidades = entrada.entidades
+    sem_outro_assunto = set(entrada.intencoes) <= _INTENCOES_RESPOSTA_AO_NOME and not _tem_outras_entidades(entidades)
 
     # "sim, 11.222.333/0001-81" faz o classificador extrair "Sim" como nome sem gatilho.
     nomes_digitados = [n for n in entidades.nomes if not eh_confirmacao_pura(n)]
@@ -237,25 +259,88 @@ def tratar_resposta(ctx: ContextoAcao) -> None:
 
     if nomes_digitados:
         nome = nomes_digitados[0]
-        _gravar_nome(ctx, nome, CONFIRMADO if nome == proposto else OUTRO_NOME)
-        ctx.resposta_so_ao_nome = sem_outro_assunto
-    elif confirmou:
-        _gravar_nome(ctx, proposto, CONFIRMADO)
+        return DecisaoNome(nome, CONFIRMADO if nome == proposto else OUTRO_NOME, sem_outro_assunto)
+    if confirmou:
         # "sim, biometria" confirma e responde a pergunta do orçamento: o resto é do fluxo normal.
-        ctx.resposta_so_ao_nome = sem_outro_assunto and confirmacao_pura
-    elif sem_outro_assunto and (nome := _nome_solto(conteudo)):
-        _gravar_nome(ctx, nome, CONFIRMADO if nome == proposto else OUTRO_NOME)
-        ctx.resposta_so_ao_nome = True
-    elif status == AGUARDANDO and sem_outro_assunto and _RE_NEGACAO_PURA.match(conteudo):
+        prefixo = _RE_CONFIRMACAO_NO_INICIO.match(conteudo) or _RE_EMOJI_POSITIVO.match(conteudo.lstrip())
+        trecho = prefixo.group(0).strip() if prefixo and not confirmacao_pura else None
+        return DecisaoNome(proposto, CONFIRMADO, sem_outro_assunto and confirmacao_pura, trecho)
+    if sem_outro_assunto and (nome := _nome_solto(conteudo)):
+        return DecisaoNome(nome, CONFIRMADO if nome == proposto else OUTRO_NOME, True)
+    if status == AGUARDANDO and sem_outro_assunto and _RE_NEGACAO_PURA.match(conteudo):
+        return DecisaoNome(None, PEDIDO_NOME, True)
+    return None
+
+
+class TratadorNomePerfil(Tratador):
+    """Resposta à confirmação do nome de perfil (ou ao pedido de nome que segue um
+    "não"). A leitura não passa pelo filtro de intenções da base: "sim, quero orçamento"
+    confirma o nome e deixa o resto para o fluxo normal.
+
+    Qualquer mensagem que não trate do nome conta como tentativa (decisão do Beto,
+    26/09: quem respondeu outra coisa não é perguntado de novo)."""
+
+    nome = "nome_perfil"
+
+    def aceita_intencoes(self, entrada: EntradaTratador) -> bool:
+        return True
+
+    def interpretar(self, entrada: EntradaTratador) -> Leitura:
+        decisao = interpretar_resposta(entrada, entrada.dados.get("status", AGUARDANDO), entrada.dados.get("nome"))
+        if decisao is None:
+            return NAO_RECONHECEU
+        # "sim, biometria": o nome fica com o "sim" e o resto é de outra pergunta.
+        return Leitura(
+            StatusLeitura.RECONHECEU, decisao, parcial=not decisao.so_ao_nome, trecho=decisao.trecho_confirmacao
+        )
+
+
+def _aplicar(ctx: ContextoAcao, pergunta, leitura: Leitura) -> None:
+    decisao: DecisaoNome = leitura.valor
+    ctx.resposta_so_ao_nome = decisao.so_ao_nome
+    if decisao.desfecho == PEDIDO_NOME:
         _salvar(ctx, CHAVE_NOME_PERFIL_CONFIRMACAO, PEDIDO_NOME, pendente=True)
         ctx.pedir_nome_apos_negacao = True
-        ctx.resposta_so_ao_nome = True
+        # A pergunta muda ("Como posso te chamar?"): esta sai respondida e a nova entra.
+        pilha.encerrar(pergunta, StatusPergunta.RESPONDIDA, PEDIDO_NOME)
+        pilha.empilhar(ctx, CHAVE_PILHA, _PERGUNTA_NOME, {"nome": decisao.nome, "status": PEDIDO_NOME})
         if ctx.dlog:
             ctx.dlog.log("nome_perfil", "cliente recusou o nome do perfil sem dar outro → pergunta o nome")
-    else:
+        return
+    _gravar_nome(ctx, decisao.nome, decisao.desfecho)
+
+
+def _ao_sair(ctx: ContextoAcao, pergunta) -> None:
+    """Saiu da pilha sem resposta: não se pergunta de novo neste atendimento."""
+    if _status(ctx) in (AGUARDANDO, PEDIDO_NOME):
         _salvar(ctx, CHAVE_NOME_PERFIL_CONFIRMACAO, IGNORADO, pendente=False)
         if ctx.dlog:
             ctx.dlog.log("nome_perfil", "resposta não tratou do nome → ignorado, não pergunta de novo")
+
+
+def _confirmacao(ctx: ContextoAcao, pergunta):
+    if ctx.nome_resposta_confirmacao:
+        return (MensagemId.NOME_ANOTADO, {"nome": ctx.nome_resposta_confirmacao, "segue_pergunta": True})
+    return None
+
+
+def _trecho_vinculo(pergunta) -> str:
+    if (pergunta.dados or {}).get("status") == PEDIDO_NOME:
+        return _PERGUNTA_NOME
+    return _TRECHO_CONFIRMACAO
+
+
+pilha.registrar_definicao(
+    pilha.DefinicaoPergunta(
+        chave=CHAVE_PILHA,
+        tratador=TratadorNomePerfil(),
+        aplicar=_aplicar,
+        trecho_vinculo=_trecho_vinculo,
+        max_tentativas=1,
+        ao_sair=_ao_sair,
+        confirmacao=_confirmacao,
+    )
+)
 
 
 async def _executar_resposta_so_ao_nome(ctx: ContextoAcao):

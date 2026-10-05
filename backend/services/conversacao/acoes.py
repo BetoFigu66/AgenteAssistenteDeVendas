@@ -61,7 +61,7 @@ class ContextoAcao:
     # que não veio do WhatsApp). Nunca é gravado direto: vira `Contato.nome` só depois
     # que o cliente confirma (ver `confirmacao_nome_perfil.py`).
     nome_perfil: Optional[str] = None
-    # Preenchidos por `confirmacao_nome_perfil.tratar_resposta` antes do motor rodar,
+    # Preenchidos pela pilha (`confirmacao_nome_perfil._aplicar`) antes do motor rodar,
     # quando esta mensagem responde à pergunta "Posso te chamar assim ou seu nome é outro?".
     nome_resposta_confirmacao: Optional[str] = None
     resposta_so_ao_nome: bool = False

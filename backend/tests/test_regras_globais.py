@@ -17,6 +17,7 @@ import pytest
 from database import Database
 from models import Contato, Empresa, Pessoa, TipoDocumento
 from services.classificador import EntidadesExtraidas, Intencao, NivelConfianca, ResultadoClassificacao
+from services.conversacao import pilha
 from services.debug_log import DebugLogger
 from services.dev_limpeza_telefone import apagar_dados_telefone
 from services.identificador import ResultadoIdentificacao, StatusIdentificacao, identificar_por_telefone
@@ -104,8 +105,8 @@ def test_fornecer_cnpj_cria_atendimento_vinculado_a_empresa_existente(db_session
 
 def test_fornecer_cpf_sem_data_nascimento_pergunta_e_marca_pendente(db_session):
     """`_executar_fornecer_cpf` (regras_globais.py:99-111) sem data de nascimento na
-    mesma mensagem: pergunta a data e guarda o CPF em `AtendimentoInfo` (cpf_pendente)
-    pra completar depois."""
+    mesma mensagem: pergunta a data e guarda o CPF na pergunta da pilha, pra completar
+    depois."""
     telefone = "+5511999988002"
     try:
         identificacao = ResultadoIdentificacao(status=StatusIdentificacao.NOVO, contatos=[], empresas=[])
@@ -130,7 +131,9 @@ def test_fornecer_cpf_sem_data_nascimento_pergunta_e_marca_pendente(db_session):
         atendimento = contato.atendimentos[0]
         assert atendimento.tipo_documento == TipoDocumento.CPF
         assert atendimento.pessoa_id is None
-        assert p._info_atendimento(db_session, atendimento.id, "cpf_pendente") == _CPF_VALIDO
+        (pergunta,) = pilha.abertas(atendimento)
+        assert pergunta.chave == "data_nascimento"
+        assert pergunta.dados == {"cpf": _CPF_VALIDO}
     finally:
         _limpar(db_session, telefone)
 
@@ -205,7 +208,7 @@ def test_fornecer_data_nascimento_isolada_completa_cpf_pendente(db_session):
         contato = db_session.query(Contato).filter_by(telefone=telefone).first()
         atendimento = contato.atendimentos[0]
         assert atendimento.pessoa_id is not None
-        assert p._info_atendimento(db_session, atendimento.id, "cpf_pendente") is None
+        assert pilha.abertas(atendimento) == []
     finally:
         _limpar_com_pessoa(db_session, telefone, "529.982.247-25")
 

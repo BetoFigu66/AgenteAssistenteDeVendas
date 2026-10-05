@@ -64,7 +64,6 @@ from services.conversacao.catalogo_campos import (
     CAMPO_SOFTWARE_ACESSO,
     CAMPO_SOFTWARE_PONTO,
 )
-from services.conversacao.confirmacao_nome_perfil import tratar_resposta as tratar_resposta_confirmacao_nome
 from services.conversacao.motor import resolver_e_executar
 from services.conversacao.regras_esclarecendo import REGISTRO_ESCLARECENDO
 from services.conversacao.regras_finalizando import REGISTRO_FINALIZANDO
@@ -313,7 +312,17 @@ class ProcessadorMensagem:
 
         # 3. Classifica intenção e extrai entidades
         limiares_confianca = ParametroService(db).limiares_classificador()
-        resultado_class = await classificar(conteudo, llm=self._llm, limiares_confianca=limiares_confianca)
+        # O classificador não sabe o que o sistema acabou de perguntar, e um "sim" ou uma
+        # data só ganham sentido pela pergunta. As regras continuam sem contexto; o LLM
+        # recebe a pergunta do topo da pilha.
+        atendimento_em_curso = self._atendimento_ativo(db, identificacao.contato) if identificacao.contato else None
+        pergunta_aberta = pilha.topo(atendimento_em_curso)
+        contexto_classificacao = (
+            f"Última pergunta feita ao cliente: {pergunta_aberta.texto}" if pergunta_aberta else None
+        )
+        resultado_class = await classificar(
+            conteudo, llm=self._llm, contexto=contexto_classificacao, limiares_confianca=limiares_confianca
+        )
         logger.info(
             f"[Processador] Intenção: {resultado_class.intencao_principal.value}"
             f" (confiança={resultado_class.confianca:.2f}, via {resultado_class.origem})"
@@ -753,12 +762,12 @@ class ProcessadorMensagem:
             # Antes do motor: a resposta a uma pergunta da pilha é gravada antes de qualquer
             # Regra decidir o que dizer, para todas enxergarem o valor novo. Só responde por
             # conta própria quando a resposta foi ambígua ou a fila serial está andando.
+            # A resposta à confirmação do nome de perfil também passa por aqui, e precisa:
+            # tem que ser gravada mesmo quando uma Regra `exclusivo` (ex.: FORNECER_CNPJ)
+            # responde.
             resposta_pilha = await pilha.resolver_resposta(ctx)
             if resposta_pilha is not None:
                 return resposta_pilha
-            # Fora do motor de propósito: a resposta à pergunta do nome de perfil precisa ser
-            # gravada mesmo quando uma Regra `exclusivo` (ex.: FORNECER_CNPJ) responde.
-            tratar_resposta_confirmacao_nome(ctx)
         resposta = await resolver_e_executar(ctx, REGRAS_GLOBAIS, REGISTRO_POR_FASE)
         if resposta is not None:
             return resposta
@@ -1385,8 +1394,9 @@ class ProcessadorMensagem:
                 contato.nome = nome_informado
                 db.commit()
 
-            atendimento = self._obter_ou_criar_atendimento_pf_pendente(db, contato, cpf)
-            self._salvar_info_atendimento(db, atendimento.id, "cpf_pendente", cpf)
+            # O CPF fica guardado na pergunta da data, na pilha (ver
+            # `regras_globais._registrar_pergunta_data`).
+            self._obter_ou_criar_atendimento_pf_pendente(db, contato, cpf)
             return await self._gerador.gerar(MensagemId.PERGUNTAR_DATA_NASCIMENTO)
 
         pessoa, resultado_credito = await obter_ou_criar_pessoa(
@@ -1420,7 +1430,6 @@ class ProcessadorMensagem:
             pessoa=pessoa,
         )
         self._registrar_resultado_credito(db, atendimento, resultado_credito)
-        self._remover_info_atendimento(db, atendimento.id, "cpf_pendente")
 
         nome_exibicao = pessoa.nome or contato_existente.nome or "cliente"
         return await self._gerador.gerar(

@@ -46,22 +46,38 @@ TETO_PILHA = 3
 """Máximo de perguntas abertas. Passou disso, a mais antiga sai (descartada)."""
 
 
+ParteResposta = tuple[MensagemId, Optional[dict]]
+
+
 @dataclass(frozen=True)
 class DefinicaoPergunta:
     """O que a pilha precisa saber de uma pergunta para tratá-la.
 
-    `grava=False` quando a resposta é gravada por quem fez a pergunta, não pela pilha
-    (o modelo do produto é resolvido contra o catálogo pela Finalizando). `aplicar`
-    substitui a gravação padrão (`AtendimentoInfo[chave]`) quando o destino é outro.
-    `trecho_vinculo` é o pedaço de texto que identifica a pergunta dentro da mensagem de
-    saída, quando ele difere de `texto` (o que é reapresentado ao cliente).
+    - `grava`: a pilha grava a resposta (`aplicar`, ou `AtendimentoInfo[chave]` por
+      padrão). `False` quando quem age é uma Regra do motor, que encontra a resposta já
+      identificada em `ctx.captura_pilha` (ex.: a data que completa o cadastro PF).
+    - `fecha_na_captura`: reconhecer a resposta encerra a pergunta. `False` para o modelo
+      do produto, cuja resolução contra o catálogo ainda pode falhar (a Finalizando a
+      tira da pilha quando resolve).
+    - `trecho_vinculo`: o pedaço de texto que identifica a pergunta dentro da mensagem
+      de saída, quando difere de `texto` (o que é reapresentado ao cliente).
+    - `max_tentativas` / `ao_sair`: escada de erro (D3). Esgotadas as tentativas de
+      captura, a pergunta sai da pilha e `ao_sair` decide o que isso significa (pular,
+      escalar, marcar como ignorada). `ao_sair` também roda quando ela sai sem resposta
+      por estourar o teto.
+    - `confirmacao`: o que dizer ao capturar a resposta na fila serial, no lugar do
+      "Anotado!" genérico.
     """
 
     chave: str
     tratador: Tratador
     grava: bool = True
+    fecha_na_captura: bool = True
     aplicar: Optional[Callable[[ContextoAcao, PerguntaPendente, Leitura], None]] = None
-    trecho_vinculo: Optional[str] = None
+    trecho_vinculo: Optional[Callable[[PerguntaPendente], str]] = None
+    max_tentativas: Optional[int] = None
+    ao_sair: Optional[Callable[[ContextoAcao, PerguntaPendente], None]] = None
+    confirmacao: Optional[Callable[[ContextoAcao, PerguntaPendente], Optional[ParteResposta]]] = None
 
 
 _DEFINICOES: dict[str, DefinicaoPergunta] = {}
@@ -77,10 +93,12 @@ def definicao(chave: str) -> Optional[DefinicaoPergunta]:
 
 
 def _definicao_de_campo(campo: Pergunta) -> DefinicaoPergunta:
+    grava = campo.destino == DESTINO_ATENDIMENTO_INFO
     return DefinicaoPergunta(
         chave=campo.chave,
         tratador=campo.tratador,
-        grava=campo.destino == DESTINO_ATENDIMENTO_INFO,
+        grava=grava,
+        fecha_na_captura=grava,
     )
 
 
@@ -131,11 +149,20 @@ def _leva(ctx: ContextoAcao) -> int:
     return ctx.leva_sem_mensagem
 
 
-def _encerrar(pergunta: PerguntaPendente, status: StatusPergunta, valor: Optional[str] = None) -> None:
+def encerrar(
+    pergunta: PerguntaPendente,
+    status: StatusPergunta,
+    valor: Optional[str] = None,
+    ctx: Optional[ContextoAcao] = None,
+) -> None:
     pergunta.status = status.value
     pergunta.valor_capturado = valor
     pergunta.posicao_serial = None
     pergunta.encerrado_em = utc_now()
+    if ctx is not None and status in (StatusPergunta.ESGOTADA, StatusPergunta.DESCARTADA):
+        defn = definicao(pergunta.chave)
+        if defn is not None and defn.ao_sair is not None:
+            defn.ao_sair(ctx, pergunta)
 
 
 def empilhar(ctx: ContextoAcao, chave: str, texto: str, dados: Optional[dict] = None) -> PerguntaPendente:
@@ -182,7 +209,7 @@ def empilhar(ctx: ContextoAcao, chave: str, texto: str, dados: Optional[dict] = 
 
     excedentes = len(pilha) + 1 - TETO_PILHA
     for antiga in pilha[: max(excedentes, 0)]:
-        _encerrar(antiga, StatusPergunta.DESCARTADA)
+        encerrar(antiga, StatusPergunta.DESCARTADA, ctx=ctx)
         if ctx.dlog:
             ctx.dlog.log("pilha", f"teto de {TETO_PILHA} → descarta {antiga.chave}")
     # A sessão não faz autoflush: sem isto, quem recarregasse a coleção antes do commit
@@ -193,9 +220,10 @@ def empilhar(ctx: ContextoAcao, chave: str, texto: str, dados: Optional[dict] = 
 
 
 def descartar_todas(atendimento: Atendimento) -> None:
-    """Fecha a pilha (atendimento encerrado)."""
+    """Fecha a pilha (atendimento encerrado ou qualificação reiniciada). Sem `ao_sair`:
+    o atendimento que as perguntas serviam acabou."""
     for pergunta in abertas(atendimento):
-        _encerrar(pergunta, StatusPergunta.DESCARTADA)
+        encerrar(pergunta, StatusPergunta.DESCARTADA)
 
 
 def sincronizar(ctx: ContextoAcao) -> None:
@@ -210,7 +238,7 @@ def sincronizar(ctx: ContextoAcao) -> None:
         if campo is None or not nao_perguntar_de_novo(campo, atendimento):
             continue
         valor = valores.get(pergunta.chave)
-        _encerrar(pergunta, StatusPergunta.RESPONDIDA if valor else StatusPergunta.DESCARTADA, valor)
+        encerrar(pergunta, StatusPergunta.RESPONDIDA if valor else StatusPergunta.DESCARTADA, valor)
         if ctx.dlog:
             ctx.dlog.log("pilha", f"{pergunta.chave} não está mais pendente → sai da pilha")
 
@@ -236,7 +264,7 @@ def vincular_mensagens(db: Session, atendimento_id: Optional[int], leva: int, me
     )
     for pergunta in perguntas:
         defn = definicao(pergunta.chave)
-        trecho = (defn.trecho_vinculo if defn and defn.trecho_vinculo else None) or pergunta.texto
+        trecho = (defn.trecho_vinculo(pergunta) if defn and defn.trecho_vinculo else None) or pergunta.texto
         mensagem = next((m for m in mensagens if trecho and trecho in (m.conteudo or "")), None)
         if mensagem is not None and mensagem.id not in (pergunta.mensagens_ids or []):
             # Lista nova, e não `append`: JSONB não detecta mutação in-place.
@@ -254,12 +282,15 @@ class Captura:
     leitura: Leitura
 
 
+def _entrada(ctx: ContextoAcao, pergunta: PerguntaPendente):
+    return entrada_de(ctx.conteudo, ctx.resultado_class.intencoes, ctx.resultado_class.entidades, pergunta.dados)
+
+
 def _ler(ctx: ContextoAcao, pergunta: PerguntaPendente) -> Optional[Leitura]:
     defn = definicao(pergunta.chave)
     if defn is None:
         return None
-    entrada = entrada_de(ctx.conteudo, ctx.resultado_class.intencoes, ctx.resultado_class.entidades)
-    return defn.tratador.interpretar(entrada)
+    return defn.tratador.interpretar(_entrada(ctx, pergunta))
 
 
 def _discriminante(pergunta: PerguntaPendente) -> bool:
@@ -267,8 +298,10 @@ def _discriminante(pergunta: PerguntaPendente) -> bool:
     return bool(defn and defn.tratador.discriminante)
 
 
-def _candidatas(ctx: ContextoAcao, pilha: list[PerguntaPendente]) -> tuple[list[PerguntaPendente], str]:
-    citada = ctx.resposta_a_mensagem_id
+def _candidatas(
+    ctx: ContextoAcao, pilha: list[PerguntaPendente], usar_reply_to: bool = True
+) -> tuple[list[PerguntaPendente], str]:
+    citada = ctx.resposta_a_mensagem_id if usar_reply_to else None
     if citada is not None:
         citadas = [p for p in pilha if citada in (p.mensagens_ids or [])]
         if citadas:
@@ -280,67 +313,104 @@ def _candidatas(ctx: ContextoAcao, pilha: list[PerguntaPendente]) -> tuple[list[
     return [p for p in pilha if _discriminante(p) or p.leva_ultima == leva_topo], "topo"
 
 
-def identificar_resposta(ctx: ContextoAcao) -> tuple[Optional[Captura], list[PerguntaPendente]]:
-    """Qual pergunta aberta a mensagem responde. Não grava nada.
-
-    Devolve `(captura, [])` quando uma só pergunta reconheceu a mensagem, `(None,
-    empatadas)` quando sobrou mais de uma depois dos desempates, e `(None, [])` quando a
-    mensagem não responde a nenhuma (vai para o fluxo normal).
-    """
-    pilha = abertas(ctx.atendimento)
-    if not pilha:
-        return None, []
-    candidatas, criterio = _candidatas(ctx, pilha)
-
-    reconhecidas: list[Captura] = []
-    for pergunta in candidatas:
-        leitura = _ler(ctx, pergunta)
-        if leitura is None:
-            continue
-        if leitura.status == StatusLeitura.INVALIDO:
-            pergunta.tentativas_captura += 1
-            if ctx.dlog:
-                ctx.dlog.log("pilha", f"{pergunta.chave}: resposta inválida ({leitura.valor!r})")
-        elif leitura.reconheceu:
-            reconhecidas.append(Captura(pergunta, leitura))
-
+def _desempatar(reconhecidas: list[Captura]) -> list[Captura]:
+    """Desempate 2: quem se identifica sozinho ganha de quem é ambíguo; entre os que
+    sobram, a leva mais recente."""
     discriminantes = [c for c in reconhecidas if _discriminante(c.pergunta)]
     if discriminantes:
         reconhecidas = discriminantes
     if len(reconhecidas) > 1:
         leva_recente = max(c.pergunta.leva_ultima for c in reconhecidas)
         reconhecidas = [c for c in reconhecidas if c.pergunta.leva_ultima == leva_recente]
+    return reconhecidas
 
-    if ctx.dlog and candidatas:
-        ctx.dlog.log(
-            "pilha",
-            f"candidatas ({criterio})={[p.chave for p in candidatas]} "
-            f"reconheceram={[c.pergunta.chave for c in reconhecidas]}",
-        )
-    if len(reconhecidas) == 1:
-        return reconhecidas[0], []
-    return None, [c.pergunta for c in reconhecidas]
+
+def _trecho_disputado(ctx: ContextoAcao, captura: Captura, candidatas: list[PerguntaPendente]) -> bool:
+    """O pedaço que a leitura parcial consumiu ("sim") também serviria de resposta a
+    outra pergunta aberta? Então ele não é dela por direito: a leitura volta a disputar
+    como resposta inteira, e a ambiguidade vai para a fila serial."""
+    trecho = captura.leitura.trecho
+    if not trecho:
+        return False
+    for pergunta in candidatas:
+        defn = definicao(pergunta.chave)
+        if pergunta is captura.pergunta or defn is None:
+            continue
+        entrada = entrada_de(trecho, (), dados=pergunta.dados)
+        if defn.tratador.interpretar(entrada).reconheceu:
+            return True
+    return False
+
+
+def _registrar_tentativas_falhas(ctx: ContextoAcao, leituras: list[tuple[PerguntaPendente, Leitura]]) -> None:
+    """Escada de erro (D3). Só conta como tentativa falha a mensagem que podia ser a
+    resposta (inválida, ou sem outro assunto) e não foi lida: um cliente que pergunta
+    outra coisa não é tratado como quem não sabe responder."""
+    for pergunta, leitura in leituras:
+        defn = definicao(pergunta.chave)
+        tentou = leitura.status == StatusLeitura.INVALIDO or defn.tratador.aceita_intencoes(_entrada(ctx, pergunta))
+        if not tentou:
+            continue
+        pergunta.tentativas_captura += 1
+        if ctx.dlog:
+            ctx.dlog.log(
+                "pilha", f"{pergunta.chave}: tentativa falha {pergunta.tentativas_captura} ({leitura.status.value})"
+            )
+        if defn.max_tentativas is not None and pergunta.tentativas_captura >= defn.max_tentativas:
+            if ctx.dlog:
+                ctx.dlog.log("pilha", f"{pergunta.chave}: tentativas esgotadas → sai da pilha")
+            encerrar(pergunta, StatusPergunta.ESGOTADA, ctx=ctx)
 
 
 def capturar(ctx: ContextoAcao, captura: Captura) -> None:
     """Grava a resposta no destino declarado e tira a pergunta da pilha."""
     pergunta, leitura = captura.pergunta, captura.leitura
     defn = definicao(pergunta.chave)
-    if defn is None or not defn.grava:
+    if defn is None:
         return
     if defn.aplicar is not None:
         defn.aplicar(ctx, pergunta, leitura)
-    else:
+    elif defn.grava:
         ctx.processador._salvar_info_atendimento(ctx.db, ctx.atendimento.id, pergunta.chave, leitura.valor)
+    if not defn.fecha_na_captura:
+        return
     valor = None if leitura.valor is None else str(leitura.valor)
-    _encerrar(pergunta, StatusPergunta.RESPONDIDA, valor)
+    encerrar(pergunta, StatusPergunta.RESPONDIDA, valor)
     if ctx.dlog:
         ctx.dlog.log("pilha", f"{pergunta.chave} capturado: {valor!r}")
 
 
-async def _reapresentar(ctx: ContextoAcao, pergunta: PerguntaPendente, mensagem_id: MensagemId) -> RespostaGerada:
+async def _reapresentar(
+    ctx: ContextoAcao, pergunta: PerguntaPendente, antes: Optional[ParteResposta] = None
+) -> RespostaGerada:
+    """Pergunta de novo (move para o topo) precedida de `antes`, cada uma sua parte."""
     empilhar(ctx, pergunta.chave, pergunta.texto, pergunta.dados)
-    return await ctx.processador._gerador.gerar(mensagem_id, {"pergunta": pergunta.texto.strip()})
+    partes = [antes] if antes else []
+    partes.append((MensagemId.PILHA_PERGUNTA, {"pergunta": pergunta.texto.strip()}))
+    return await ctx.processador._gerador.gerar_composta(partes)
+
+
+async def _seguir_fila_serial(ctx: ContextoAcao, captura: Captura) -> Optional[RespostaGerada]:
+    """Depois de capturar uma resposta da fila serial: confirma e retoma a próxima."""
+    fila = fila_serial(ctx.atendimento)
+    # Quem acabou de ser respondida pode ter reaberto a própria pergunta de outro jeito
+    # (o nome de perfil recusado vira "Como posso te chamar?"): ela é a próxima da fila.
+    reaberta = next(
+        (p for p in abertas(ctx.atendimento) if p.chave == captura.pergunta.chave and p.posicao_serial is None),
+        None,
+    )
+    if reaberta is not None:
+        reaberta.posicao_serial = 0
+        return await _reapresentar(ctx, reaberta)
+    if not fila:
+        if ctx.dlog:
+            ctx.dlog.log("pilha", "fila serial esvaziada → fluxo normal")
+        return None
+    defn = definicao(captura.pergunta.chave)
+    confirmacao = defn.confirmacao(ctx, captura.pergunta) if defn and defn.confirmacao else None
+    if ctx.dlog:
+        ctx.dlog.log("pilha", f"fila serial: próxima {fila[0].chave}")
+    return await _reapresentar(ctx, fila[0], confirmacao or (MensagemId.PILHA_ANOTADO, None))
 
 
 async def resolver_resposta(ctx: ContextoAcao) -> Optional[RespostaGerada]:
@@ -348,36 +418,62 @@ async def resolver_resposta(ctx: ContextoAcao) -> Optional[RespostaGerada]:
 
     Devolve uma resposta pronta só quando a pilha é dona do turno: resposta ambígua
     (abre a fila serial) ou fila serial em andamento com mais perguntas para retomar.
-    Nos demais casos devolve `None` e o motor responde, já enxergando o valor capturado.
+    Nos demais casos devolve `None` e o motor responde, já enxergando o valor capturado
+    (e, para quem não grava, a resposta identificada em `ctx.captura_pilha`).
     """
     if ctx.atendimento is None:
         return None
     sincronizar(ctx)
+    pilha = abertas(ctx.atendimento)
+    if not pilha:
+        return None
     serial_antes = bool(fila_serial(ctx.atendimento))
-    captura, empatadas = identificar_resposta(ctx)
+    candidatas, criterio = _candidatas(ctx, pilha)
+    leituras = [(p, leitura) for p in candidatas if (leitura := _ler(ctx, p)) is not None]
+    if criterio == "reply-to" and not any(leitura.reconheceu for _, leitura in leituras):
+        # A pergunta citada não aceita a mensagem: o cliente pode ter citado a mensagem
+        # errada. Segue a resolução normal, sem o atalho.
+        candidatas, criterio = _candidatas(ctx, pilha, usar_reply_to=False)
+        leituras = [(p, leitura) for p in candidatas if (leitura := _ler(ctx, p)) is not None]
+    capturas = [Captura(p, leitura) for p, leitura in leituras if leitura.reconheceu]
+    parciais = [c for c in capturas if c.leitura.parcial and not _trecho_disputado(ctx, c, candidatas)]
+    reconhecidas = _desempatar([c for c in capturas if c not in parciais])
+    if ctx.dlog:
+        ctx.dlog.log(
+            "pilha",
+            f"candidatas ({criterio})={[p.chave for p in candidatas]} "
+            f"reconheceram={[c.pergunta.chave for c in reconhecidas]}"
+            + (f" parciais={[c.pergunta.chave for c in parciais]}" if parciais else ""),
+        )
+    # Uma leitura parcial ocupa só um pedaço da mensagem: é capturada junto da resposta
+    # principal, sem disputar com ela. Sozinha, é a resposta.
+    for parcial in parciais:
+        capturar(ctx, parcial)
+    if parciais and not reconhecidas:
+        ctx.captura_pilha = parciais[0]
+        return await _seguir_fila_serial(ctx, parciais[0]) if serial_antes else None
 
-    if empatadas:
-        for posicao, pergunta in enumerate(abertas(ctx.atendimento), start=1):
+    if len(reconhecidas) > 1:
+        # Desempate 3: a resposta é descartada, não adivinhada.
+        for posicao, pergunta in enumerate(pilha, start=1):
             pergunta.posicao_serial = posicao
         primeira = fila_serial(ctx.atendimento)[0]
         if ctx.dlog:
             ctx.dlog.log(
                 "pilha",
-                f"ambígua entre {[p.chave for p in empatadas]} → fila serial começando por {primeira.chave}",
+                f"ambígua entre {[c.pergunta.chave for c in reconhecidas]} "
+                f"→ fila serial começando por {primeira.chave}",
             )
-        return await _reapresentar(ctx, primeira, MensagemId.PILHA_CONFUSO)
+        empilhar(ctx, primeira.chave, primeira.texto, primeira.dados)
+        return await ctx.processador._gerador.gerar(MensagemId.PILHA_CONFUSO, {"pergunta": primeira.texto.strip()})
 
-    if captura is None:
+    if not reconhecidas:
+        _registrar_tentativas_falhas(ctx, leituras)
         return None
+
+    captura = reconhecidas[0]
     ctx.captura_pilha = captura
     capturar(ctx, captura)
-
     if serial_antes:
-        fila = fila_serial(ctx.atendimento)
-        if fila:
-            if ctx.dlog:
-                ctx.dlog.log("pilha", f"fila serial: próxima {fila[0].chave}")
-            return await _reapresentar(ctx, fila[0], MensagemId.PILHA_ANOTADO)
-        if ctx.dlog:
-            ctx.dlog.log("pilha", "fila serial esvaziada → fluxo normal")
+        return await _seguir_fila_serial(ctx, captura)
     return None
