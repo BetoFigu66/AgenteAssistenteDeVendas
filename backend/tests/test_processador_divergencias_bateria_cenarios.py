@@ -207,3 +207,31 @@ def test_compatibilidade_vai_para_validacao_tecnica(db_session, processador):
             assert "fornecedor do seu software" in r.resposta, r.resposta
     finally:
         _limpar(db_session, telefone)
+
+
+def test_pergunta_de_prazo_no_meio_da_coleta_nao_e_ignorada(db_session, processador):
+    """Bateria de 08/10 (`catraca_box_para_evento` T2): no Finalizando, "e entrega até o fim
+    do mês?" repetia a pergunta pendente sem tocar no prazo. Agora responde sem compromisso
+    e retoma a pergunta."""
+    telefone = "+5511999977107"
+    mensagens = ["quero orçamento de 2 relógios de ponto", "e entrega até o fim do mês?"]
+    try:
+        resultados = _conversar(processador, db_session, telefone, mensagens)
+        resposta = resultados[1].resposta
+        assert "prazo" in resposta.lower(), resposta
+        assert "Voltando ao orçamento" in resposta, resposta
+    finally:
+        _limpar(db_session, telefone)
+
+
+def test_tecnologia_dita_na_abertura_nao_e_perguntada_de_novo(db_session, processador):
+    """Bateria de 08/10 (`preco_e_prazo_na_mesma_mensagem`, `leva_para_diretoria...`): a
+    mensagem que abre a coleta já dizia "biométricos", e a 1ª pergunta era "cartográfico ou
+    eletrônico?". `entrar` não tentava resolver o modelo."""
+    telefone = "+5511999977108"
+    try:
+        mensagens = ["quero orçamento de 3 relógios de ponto biométricos"]
+        resultados = _conversar(processador, db_session, telefone, mensagens)
+        assert "cartográfico ou eletrônico" not in resultados[0].resposta, resultados[0].resposta
+    finally:
+        _limpar(db_session, telefone)

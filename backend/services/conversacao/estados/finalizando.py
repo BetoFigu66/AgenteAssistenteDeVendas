@@ -56,7 +56,9 @@ _RESUMO_APRESENTADO_CHAVE = "resumo_finalizando_apresentado"
 
 # Intenções de "dúvida pura" (categoria_pergunta) que, se batidas durante a coleta ativa, devem
 # ser respondidas via RAG/QA sem perder o progresso (F3) — ver `_retomar_apos_duvida`.
-_INTENCOES_RAG = frozenset({"perguntar_produto", "perguntar_preco", "fora_contexto"})
+# Dúvidas no meio da coleta: respondidas e a pergunta pendente é retomada (F3). O prazo
+# entra aqui para não ser ignorado (era: "e entrega até o fim do mês?" → repetia a pergunta).
+_INTENCOES_RAG = frozenset({"perguntar_produto", "perguntar_preco", "perguntar_prazo", "fora_contexto"})
 
 _LABEL_PRODUTO_PERGUNTA = {
     "catraca": "a catraca",
@@ -154,6 +156,10 @@ class FinalizandoState(EstadoAtendimento):
         atendimento = ctx.atendimento
         if atendimento.fase != FaseAtendimento.FINALIZANDO:
             self.transicionar_para(ctx, FaseAtendimento.FINALIZANDO, motivo="PEDIR_ORCAMENTO recebido (E1)")
+
+        # A mensagem que abre a coleta pode já dizer a tecnologia ("relógio de ponto facial"):
+        # sem isto, a 1ª pergunta era justamente "cartográfico ou eletrônico?".
+        await self._resolver_modelo(ctx, na_entrada=True)
 
         pendentes = campos_pendentes(atendimento)
         if not pendentes:
@@ -293,7 +299,7 @@ class FinalizandoState(EstadoAtendimento):
             )
         return await ctx.processador._gerador.gerar(MensagemId.ORCAMENTO_ENCAMINHADO)
 
-    async def _resolver_modelo(self, ctx: ContextoAcao) -> bool:
+    async def _resolver_modelo(self, ctx: ContextoAcao, na_entrada: bool = False) -> bool:
         """F2: resolve `modelo_produto` para uma linha real de `Modelo`, ou escala para
         atendimento humano após `CAMPO_MODELO.max_tentativas` sem correspondência — nunca aceita
         o texto do cliente como modelo (REQ-002.3B, CAMPO-modelo).
@@ -304,6 +310,11 @@ class FinalizandoState(EstadoAtendimento):
         Retorna `True` se houve tentativa sem correspondência (mas sem escalar) — o
         chamador deve usar `MODELO_NAO_RECONHECIDO` em vez de `PEDIR_MODELO`.
         Retorna `False` em todos os outros casos (resolvido, não tentou, ou escalou).
+
+        `na_entrada`: chamada por `entrar`, com a mensagem que abre a coleta ("quero um
+        relógio de ponto facial"). A pergunta de modelo ainda não foi feita, então não exige
+        que ela seja a pendente e uma falha não conta tentativa: só deixa de perguntar o que
+        o cliente já disse quando o catálogo resolve.
         """
         db = ctx.db
         atendimento = ctx.atendimento
@@ -311,9 +322,13 @@ class FinalizandoState(EstadoAtendimento):
         p = ctx.processador
         dlog = ctx.dlog
 
-        campo_perguntado = proxima_pergunta(atendimento)
-        if campo_perguntado is None or campo_perguntado.chave != CAMPO_MODELO.chave:
-            return False
+        if na_entrada:
+            if not any(c.chave == CAMPO_MODELO.chave for c in campos_pendentes(atendimento)):
+                return False
+        else:
+            campo_perguntado = proxima_pergunta(atendimento)
+            if campo_perguntado is None or campo_perguntado.chave != CAMPO_MODELO.chave:
+                return False
 
         entidades = resultado_class.entidades
         tipo_leitor = entidades.tipo_leitor_mencionado
@@ -419,6 +434,11 @@ class FinalizandoState(EstadoAtendimento):
                     "finalizando",
                     f"modelo resolvido: produto_id={candidato.id} ({candidato.descricao})",
                 )
+            return False
+
+        if na_entrada:
+            if dlog:
+                dlog.log("finalizando", "modelo sem correspondência na abertura da coleta → pergunta normalmente")
             return False
 
         # D3: a tentativa falha fica na própria pergunta da pilha (antes era a chave

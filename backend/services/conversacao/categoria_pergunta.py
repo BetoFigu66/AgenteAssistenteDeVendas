@@ -86,6 +86,14 @@ async def _responder_produto(ctx: ContextoAcao) -> RespostaGerada:
     )
 
 
+async def _responder_prazo(ctx: ContextoAcao) -> RespostaGerada:
+    """PERGUNTAR_PRAZO no meio da coleta (Finalizando): o mesmo template sem compromisso do
+    Esclarecendo (regra de negócio: nunca prometer prazo)."""
+    return await ctx.processador._gerador.gerar(
+        MensagemId.PRAZO_NAO_PROMETIDO, personalizar=True, mensagem_cliente=ctx.conteudo,
+    )
+
+
 async def _responder_fora_contexto(ctx: ContextoAcao) -> RespostaGerada:
     """FORA_CONTEXTO — e qualquer intenção de categoria_pergunta não mapeada
     explicitamente em `_HANDLERS` (mesmo fallback que o `else` implícito cobria antes)."""
@@ -99,6 +107,7 @@ async def _responder_fora_contexto(ctx: ContextoAcao) -> RespostaGerada:
 
 _HANDLERS = {
     Intencao.PERGUNTAR_PRECO: _responder_preco,
+    Intencao.PERGUNTAR_PRAZO: _responder_prazo,
     Intencao.PERGUNTAR_PRODUTO: _responder_produto,
 }
 
