@@ -1,0 +1,17 @@
+nome: bastao_de_ronda_vigilancia
+descricao: 'Cliente descreve a necessidade (ronda de vigilantes) sem saber o nome do produto. Fonte: docs/FoldersProdutos/folder-bastao-de-ronda.txt
+  (Viggia + TopRonda).'
+ativo: true
+turnos:
+- ordem: 1
+  mensagem_enviada: boa tarde, vocês têm alguma coisa pra controlar se o vigilante fez a ronda?
+  observacoes: 'PRECISA: reconhecer que existe solução (bastão de ronda) ou encaminhar para a equipe |
+    NÃO PODE: dizer que não trabalham com isso, citar preço, responder NAO_ENTENDI | exercita: REQ-002.1
+    (categoria 1 ou 3), REQ-003'
+  respostas_aceitas: []
+- ordem: 2
+  mensagem_enviada: e precisa de computador pra ver os relatórios?
+  observacoes: 'PRECISA: responder com base no folder (software TopRonda emite os relatórios) ou encaminhar
+    | NÃO PODE: inventar requisito técnico, afirmar compatibilidade com sistema de terceiro | exercita:
+    REQ-003, regra ''compatibilidade vai para validação técnica'''
+  respostas_aceitas: []

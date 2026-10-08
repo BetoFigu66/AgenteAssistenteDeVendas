@@ -1,0 +1,14 @@
+nome: pedido_humano_pelo_nome_do_vendedor
+descricao: Cliente pede para falar com uma pessoa citando o nome dela, sem a palavra 'atendente'.
+ativo: true
+turnos:
+- ordem: 1
+  mensagem_enviada: bom dia, quero falar com o Ivan
+  observacoes: 'PRECISA: escalar para humano (pedido explícito) | NÃO PODE: iniciar o questionário de
+    orçamento, responder NAO_ENTENDI | exercita: REQ-004.1/REQ-004.6, Intencao.ESCALAR_HUMANO'
+  respostas_aceitas:
+  - texto: 'Claro! Vou passar sua solicitação para um de nossos atendentes.
+
+      Em breve alguém entrará em contato por aqui. 🙋'
+    ativo: false
+    criado_por: proposta_claude

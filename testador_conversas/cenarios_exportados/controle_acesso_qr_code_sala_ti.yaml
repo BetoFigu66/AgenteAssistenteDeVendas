@@ -1,0 +1,15 @@
+nome: controle_acesso_qr_code_sala_ti
+descricao: 'Controle de acesso para sala de TI com QR Code. Fonte: docs/FoldersProdutos/folder-controle-de-acesso-QR-Code.txt
+  (Inner Acesso 2: biometria, cartão ou QR Code).'
+ativo: true
+turnos:
+- ordem: 1
+  mensagem_enviada: quero controlar quem entra na sala de TI, dá pra fazer com QR Code?
+  observacoes: 'PRECISA: reconhecer controle de acesso e responder/encaminhar (o folder confirma QR Code)
+    | NÃO PODE: responder NAO_ENTENDI, negar QR Code, citar preço | exercita: REQ-002.1, REQ-003'
+  respostas_aceitas: []
+- ordem: 2
+  mensagem_enviada: é só uma porta
+  observacoes: 'PRECISA: registrar a quantidade (1) e seguir a coleta ou encaminhar | NÃO PODE: responder
+    NAO_ENTENDI, perguntar sobre relógio de ponto | exercita: REQ-002'
+  respostas_aceitas: []

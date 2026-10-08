@@ -35,5 +35,5 @@ def exportar_cenario(cenario: Cenario) -> Path:
     }
     caminho = DIR_EXPORTACAO / f"{cenario.nome}.yaml"
     with caminho.open("w", encoding="utf-8") as f:
-        yaml.safe_dump(dados, f, allow_unicode=True, sort_keys=False)
+        yaml.safe_dump(dados, f, allow_unicode=True, sort_keys=False, width=100)
     return caminho

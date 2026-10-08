@@ -10,8 +10,9 @@ from cliente_backend import ClienteBackend
 from db import SessionLocal
 from exportar_yaml import DIR_EXPORTACAO, exportar_cenario
 from importar_yaml import YamlInvalidoError, importar_cenario_detalhado, listar_yamls
-from models import Cenario, NumeroTeste, ResultadoTurno, StatusNumero, Veredito
+from models import Cenario, Execucao, NumeroTeste, RespostaAceita, ResultadoTurno, StatusNumero, Veredito
 from runner import (
+    CRIADO_POR_PROPOSTA,
     DecisaoRevisor,
     TelefoneIndisponivelError,
     revisor_nao_interativo,
@@ -238,6 +239,110 @@ def cmd_importar(args: argparse.Namespace) -> None:
         db.close()
 
 
+def cmd_execucao_mostrar(args: argparse.Namespace) -> None:
+    """Mostra, turno a turno, o que a última execução de um cenário observou, com
+    o critério (`observacoes`) ao lado. É a entrada do julgamento feito fora do
+    CLI (o skill `testar-backend`), que depois chama `propor` nos aceitáveis."""
+    db = SessionLocal()
+    try:
+        cenario = db.query(Cenario).filter_by(nome=args.nome).first()
+        if cenario is None:
+            print(f"Cenário '{args.nome}' não encontrado.")
+            sys.exit(1)
+        execucao = (
+            db.query(Execucao).filter_by(cenario_id=cenario.id).order_by(Execucao.id.desc()).first()
+        )
+        if execucao is None:
+            print(f"Cenário '{args.nome}' nunca foi executado.")
+            sys.exit(1)
+        print(f"Execução {execucao.id} ({execucao.status.value}) de {cenario.nome}")
+        for r in execucao.resultados:
+            print("\n" + "-" * 70)
+            print(f"resultado {r.id} | turno {r.turno.ordem} | {r.veredito.value}")
+            print(f"critério:  {r.turno.observacoes}")
+            print(f"enviado:   {r.mensagem_enviada!r}")
+            print(f"observado: {r.resposta_observada!r}")
+            propostas = [a for a in r.turno.respostas_aceitas if not a.ativo and a.criado_por == CRIADO_POR_PROPOSTA]
+            if any(a.texto == r.resposta_observada for a in propostas):
+                print("(já há proposta pendente com este texto)")
+    finally:
+        db.close()
+
+
+def cmd_propor(args: argparse.Namespace) -> None:
+    """Registra a resposta observada num resultado como *proposta*: uma
+    `RespostaAceita` inativa, criada por `CRIADO_POR_PROPOSTA`. Não conta como
+    aceita até um humano aprovar (`propostas-aprovar`)."""
+    db = SessionLocal()
+    try:
+        resultado = db.get(ResultadoTurno, args.resultado_id)
+        if resultado is None:
+            print(f"Resultado {args.resultado_id} não encontrado.")
+            sys.exit(1)
+        if any(a.texto == resultado.resposta_observada for a in resultado.turno.respostas_aceitas):
+            print("Este texto já está registrado para o turno (aceito ou proposto).")
+            return
+        db.add(
+            RespostaAceita(
+                turno_id=resultado.turno_id,
+                texto=resultado.resposta_observada,
+                ativo=False,
+                criado_por=CRIADO_POR_PROPOSTA,
+            )
+        )
+        db.commit()
+        print(f"Proposta registrada para {resultado.turno.cenario.nome}, turno {resultado.turno.ordem}.")
+    finally:
+        db.close()
+
+
+def _query_propostas(db):
+    return (
+        db.query(RespostaAceita)
+        .filter_by(ativo=False, criado_por=CRIADO_POR_PROPOSTA)
+        .order_by(RespostaAceita.id)
+    )
+
+
+def cmd_propostas_listar(args: argparse.Namespace) -> None:
+    db = SessionLocal()
+    try:
+        propostas = _query_propostas(db).all()
+        if not propostas:
+            print("Nenhuma proposta pendente.")
+            return
+        for p in propostas:
+            print("\n" + "-" * 70)
+            print(f"proposta {p.id} | {p.turno.cenario.nome}, turno {p.turno.ordem}")
+            print(f"critério: {p.turno.observacoes}")
+            print(f"enviado:  {p.turno.mensagem_enviada!r}")
+            print(f"resposta: {p.texto!r}")
+    finally:
+        db.close()
+
+
+def cmd_propostas_decidir(args: argparse.Namespace) -> None:
+    """Aprova (vira resposta aceita ativa, `criado_por` = quem aprovou) ou
+    descarta (apaga) propostas pendentes."""
+    db = SessionLocal()
+    try:
+        for proposta_id in args.ids:
+            p = _query_propostas(db).filter(RespostaAceita.id == proposta_id).first()
+            if p is None:
+                print(f"Proposta {proposta_id} não encontrada (ou já decidida).")
+                continue
+            if args.aprovar:
+                p.ativo = True
+                p.criado_por = f"aprovado:{args.por}"
+                print(f"Aprovada {proposta_id}.")
+            else:
+                db.delete(p)
+                print(f"Descartada {proposta_id}.")
+        db.commit()
+    finally:
+        db.close()
+
+
 def _resolver_caminhos_importacao(alvo: str | None) -> list[Path]:
     """Aceita: nada (o diretório padrão), um diretório, um arquivo, ou só o nome
     do cenário (resolvido como `cenarios_exportados/<nome>.yaml`)."""
@@ -314,6 +419,26 @@ def main() -> None:
         help="Sobrescreve pelo YAML um cenário que já exista (o padrão é pular).",
     )
     p_imp.set_defaults(func=cmd_importar)
+
+    p_mostrar = sub.add_parser("execucao-mostrar", help="Mostra a última execução de um cenário, turno a turno")
+    p_mostrar.add_argument("nome")
+    p_mostrar.set_defaults(func=cmd_execucao_mostrar)
+
+    p_propor = sub.add_parser("propor", help="Propõe como aceita a resposta observada num resultado")
+    p_propor.add_argument("resultado_id", type=int)
+    p_propor.set_defaults(func=cmd_propor)
+
+    p_prop_l = sub.add_parser("propostas-listar", help="Lista propostas pendentes de aprovação humana")
+    p_prop_l.set_defaults(func=cmd_propostas_listar)
+
+    p_prop_a = sub.add_parser("propostas-aprovar", help="Aprova propostas (viram respostas aceitas)")
+    p_prop_a.add_argument("ids", type=int, nargs="+")
+    p_prop_a.add_argument("--por", required=True, help="Quem aprovou (ex.: beto, kika)")
+    p_prop_a.set_defaults(func=cmd_propostas_decidir, aprovar=True)
+
+    p_prop_d = sub.add_parser("propostas-descartar", help="Descarta (apaga) propostas")
+    p_prop_d.add_argument("ids", type=int, nargs="+")
+    p_prop_d.set_defaults(func=cmd_propostas_decidir, aprovar=False)
 
     args = parser.parse_args()
     args.func(args)

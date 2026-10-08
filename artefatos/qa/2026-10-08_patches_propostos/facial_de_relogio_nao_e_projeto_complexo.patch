@@ -1,0 +1,103 @@
+diff --git a/backend/services/conversacao/projeto_complexo.py b/backend/services/conversacao/projeto_complexo.py
+index ad13f4d..227e8d4 100644
+--- a/backend/services/conversacao/projeto_complexo.py
++++ b/backend/services/conversacao/projeto_complexo.py
+@@ -2,7 +2,9 @@
+ Projeto complexo (REQ-004.8): quando transferir para o time técnico, e quando esperar.
+ 
+ Os gatilhos: quantidade de equipamentos >= 4, faixa de funcionários acima do limiar
+-configurável, ou leitor facial (controle de acesso em porta é sempre complexo).
++configurável, ou leitor facial (controle de acesso em porta é sempre complexo). O facial de
++um relógio de ponto não é controle de acesso: sozinho, não transfere (o REQ-004.8 fala em
++"controle facial em porta").
+ 
+ Decisão do Beto (05/10/2026): a transferência por projeto complexo espera a coleta. Se o
+ atendimento está (ou entra) no Finalizando, o gatilho só fica registrado
+@@ -41,8 +43,21 @@ CHAVE_ADIADO = "escalonamento_adiado"
+ _INTENCOES_QUE_ABREM_COLETA = frozenset({Intencao.PEDIR_ORCAMENTO, Intencao.PERGUNTAR_DISPONIBILIDADE})
+ 
+ 
++# Produtos de ponto (`Produto.descricao`): facial neles é tecnologia do relógio.
++_PRODUTOS_PONTO = frozenset({"relógio de ponto", "ponto eletrônico", "software de ponto"})
++
++
++def so_ponto(entidades: EntidadesExtraidas, produtos_atendimento: list[str]) -> bool:
++    """O assunto é só relógio de ponto: os produtos desta mensagem, ou, se ela não cita
++    nenhum, os do atendimento."""
++    if entidades.tipos_produto:
++        return set(entidades.tipos_produto) == {"relogio_ponto"}
++    produtos = {p.strip().lower() for p in produtos_atendimento}
++    return bool(produtos) and produtos <= _PRODUTOS_PONTO
++
++
+ def gatilhos(
+-    entidades: EntidadesExtraidas, limiar_funcionarios: int, captura=None
++    entidades: EntidadesExtraidas, limiar_funcionarios: int, captura=None, ponto: bool = False
+ ) -> list[GatilhoEscalonamento]:
+     """As condições de projeto complexo que esta mensagem satisfaz (todas, não só a
+     primeira, para o registro do REQ-004.5B). Lista vazia = não é projeto complexo.
+@@ -64,7 +79,7 @@ def gatilhos(
+         encontrados.append(GatilhoEscalonamento.QUANTIDADE_MINIMA)
+     if faixa is not None and faixa >= limiar_funcionarios:
+         encontrados.append(GatilhoEscalonamento.FAIXA_FUNCIONARIOS)
+-    if entidades.tipo_leitor_mencionado == "facial":
++    if entidades.tipo_leitor_mencionado == "facial" and not ponto:
+         encontrados.append(GatilhoEscalonamento.LEITOR_FACIAL)
+     return encontrados
+ 
+@@ -144,7 +159,9 @@ def builder(ctx: ContextoAcao) -> GrupoAcoes:
+     if ctx.atendimento and ctx.atendimento.modo_operacao == ModoOperacao.HUMANO:
+         return GrupoAcoes()
+     limiar = ParametroService(ctx.db).get_int(LIMIAR_FUNCIONARIOS_PARAM, LIMIAR_FUNCIONARIOS_DEFAULT)
+-    encontrados = gatilhos(ctx.resultado_class.entidades, limiar, ctx.captura_pilha)
++    entidades = ctx.resultado_class.entidades
++    produtos = [i.produto.descricao for i in ctx.atendimento.itens] if ctx.atendimento else []
++    encontrados = gatilhos(entidades, limiar, ctx.captura_pilha, ponto=so_ponto(entidades, produtos))
+     if not encontrados:
+         return GrupoAcoes()
+     evidencias = _evidencias(ctx, limiar)
+diff --git a/backend/tests/test_escalonamento_registro.py b/backend/tests/test_escalonamento_registro.py
+index 71ed8a6..b57d578 100644
+--- a/backend/tests/test_escalonamento_registro.py
++++ b/backend/tests/test_escalonamento_registro.py
+@@ -30,6 +30,7 @@ from models import (
+ from services.atendimentos import obter_ou_criar_atendimento
+ from services.classificador import EntidadesExtraidas, Intencao, NivelConfianca, ResultadoClassificacao
+ from services.conversacao.projeto_complexo import gatilhos as _gatilhos_projeto_complexo
++from services.conversacao.projeto_complexo import so_ponto
+ from services.dev_limpeza_telefone import apagar_dados_telefone
+ from services.escalonamentos import CAMPO_HISTORICO_AVALIACAO, VALOR_NAO_AVALIADO
+ from services.identificador import ResultadoIdentificacao, StatusIdentificacao, identificar_por_telefone
+@@ -154,6 +155,32 @@ def test_gatilhos_projeto_complexo_lista_todas_as_condicoes(entidades, esperado)
+     assert _gatilhos_projeto_complexo(entidades, limiar_funcionarios=50) == esperado
+ 
+ 
++def test_facial_de_relogio_de_ponto_nao_e_projeto_complexo():
++    """REQ-004.8 fala em "controle facial em porta": o relógio de ponto facial segue a coleta
++    normal (era transferido já na 1ª mensagem, "preciso de um relógio de ponto facial")."""
++    facial = EntidadesExtraidas(tipo_leitor_mencionado="facial")
++    assert _gatilhos_projeto_complexo(facial, limiar_funcionarios=50, ponto=True) == []
++    facial_10 = EntidadesExtraidas(quantidades=[10], tipo_leitor_mencionado="facial")
++    assert _gatilhos_projeto_complexo(facial_10, limiar_funcionarios=50, ponto=True) == [
++        GatilhoEscalonamento.QUANTIDADE_MINIMA
++    ]
++
++
++@pytest.mark.parametrize(
++    "tipos, produtos_atendimento, esperado",
++    [
++        (["relogio_ponto"], [], True),
++        (["relogio_ponto", "catraca"], [], False),
++        (["controle_acesso"], ["Relógio de Ponto"], False),
++        ([], ["Relógio de Ponto"], True),
++        ([], ["Relógio de Ponto", "Catraca"], False),
++        ([], [], False),
++    ],
++)
++def test_so_ponto(tipos, produtos_atendimento, esperado):
++    assert so_ponto(EntidadesExtraidas(tipos_produto=tipos), produtos_atendimento) is esperado
++
++
+ # ----------------------------------------------------------------------
+ # Registro por motivo
+ # ----------------------------------------------------------------------

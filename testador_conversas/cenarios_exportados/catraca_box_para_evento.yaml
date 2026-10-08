@@ -1,0 +1,16 @@
+nome: catraca_box_para_evento
+descricao: 'Catraca para local de eventos, com urna de cartão de visitante. Fonte: docs/FoldersProdutos/folder-catraca-balcao-box.txt
+  (Catraca Box, urna coletora, braço articulado).'
+ativo: true
+turnos:
+- ordem: 1
+  mensagem_enviada: preciso de 2 catracas para a entrada de um centro de eventos, com urna pra recolher
+    o cartão de visitante
+  observacoes: 'PRECISA: reconhecer catraca, quantidade 2 e começar a coleta | NÃO PODE: perguntar sobre
+    relógio de ponto, citar preço ou prazo | exercita: REQ-002, extração de quantidade e produto'
+  respostas_aceitas: []
+- ordem: 2
+  mensagem_enviada: e entrega até o fim do mês?
+  observacoes: 'PRECISA: resposta sem compromisso de prazo, encaminhando à equipe | NÃO PODE: confirmar
+    data, citar dias ou ''pronta entrega'' | exercita: regra de negócio ''nunca prometer prazo'''
+  respostas_aceitas: []

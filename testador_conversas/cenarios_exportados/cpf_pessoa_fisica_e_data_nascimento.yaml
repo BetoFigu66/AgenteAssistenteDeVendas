@@ -6,15 +6,26 @@ turnos:
   mensagem_enviada: oi, não tenho empresa, sou pessoa física
   observacoes: 'PRECISA: aceitar que é pessoa física e pedir o CPF | NÃO PODE: insistir em CNPJ depois
     de o cliente dizer que é PF | exercita: REQ-015'
-  respostas_aceitas: []
+  respostas_aceitas:
+  - texto: 'Olá! 👋 Sou o assistente da Inforrel.
+
+      Para te atender melhor, poderia me informar o seu nome e o CNPJ da sua empresa ou seu CPF?'
+    ativo: false
+    criado_por: proposta_claude
 - ordem: 2
   mensagem_enviada: meu cpf é 52998224725
   observacoes: 'PRECISA: reconhecer o CPF como válido e seguir o fluxo de pessoa física | NÃO PODE: dizer
     que o CPF é inválido (o dígito verificador é válido) nem voltar a pedir CNPJ | exercita: REQ-015,
     validação de CPF'
-  respostas_aceitas: []
+  respostas_aceitas:
+  - texto: Anotei seu CPF. Para concluir o cadastro, qual é a sua data de nascimento? (formato DD/MM/AAAA)
+    ativo: false
+    criado_por: proposta_claude
 - ordem: 3
   mensagem_enviada: 15/03/1985
   observacoes: 'PRECISA: entender como data de nascimento e seguir | NÃO PODE: responder NAO_ENTENDI nem
     tratar a data como quantidade | exercita: REQ-015'
-  respostas_aceitas: []
+  respostas_aceitas:
+  - texto: Ótimo! Confirmei seus dados, cliente. Em que posso ajudar hoje?
+    ativo: false
+    criado_por: proposta_claude

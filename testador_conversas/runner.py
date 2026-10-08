@@ -38,6 +38,11 @@ Revisor = Callable[[str, str, list[str]], DecisaoRevisor]
 
 MOTIVO_NAO_INTERATIVO = "nao_interativo"
 
+# Resposta julgada aceitável pelo skill `testar-backend`, à espera de aprovação
+# humana: fica como `RespostaAceita` inativa com este `criado_por` até alguém
+# rodar `cli.py propostas-aprovar` (que a ativa) ou `propostas-descartar`.
+CRIADO_POR_PROPOSTA = "proposta_claude"
+
 
 def revisor_nao_interativo(
     mensagem_enviada: str, resposta_observada: str, aceitas: list[str]

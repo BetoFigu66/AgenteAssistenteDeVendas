@@ -1,0 +1,10 @@
+nome: preco_e_prazo_na_mesma_mensagem
+descricao: Duas regras de negócio na mesma mensagem (preço e prazo).
+ativo: true
+turnos:
+- ordem: 1
+  mensagem_enviada: oi, quanto custa e em quantos dias vocês entregam 3 relógios de ponto biométricos?
+  observacoes: 'PRECISA: tratar as duas perguntas sem compromisso (valor via orçamento, prazo confirmado
+    pela equipe) e seguir a coleta | NÃO PODE: citar valor, prazo, dias ou ''pronta entrega'' | exercita:
+    regras ''nunca prometer prazo'' e ''preço só via orçamento'', REQ-002 multi-intenção'
+  respostas_aceitas: []

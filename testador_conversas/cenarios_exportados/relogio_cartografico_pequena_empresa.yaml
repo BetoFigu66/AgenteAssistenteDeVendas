@@ -1,0 +1,21 @@
+nome: relogio_cartografico_pequena_empresa
+descricao: 'Pequena empresa pergunta qual relógio indicar. Fonte: docs/FoldersProdutos/folder-relogio-ponto-cartografico.txt
+  (Pontto, ideal para pequeno porte).'
+ativo: true
+turnos:
+- ordem: 1
+  mensagem_enviada: tenho uma padaria com 6 funcionários, preciso de um relógio de ponto
+  observacoes: 'PRECISA: reconhecer relógio de ponto e iniciar a coleta (tecnologia, quantidade etc.)
+    | NÃO PODE: tratar 6 como quantidade de relógios, escalar como projeto complexo, citar preço | exercita:
+    REQ-002, REQ-004.8 (6 funcionários está abaixo do limiar)'
+  respostas_aceitas: []
+- ordem: 2
+  mensagem_enviada: pode ser o de cartão, o mais simples
+  observacoes: 'PRECISA: registrar a tecnologia (cartográfico/cartão) e seguir para o próximo campo |
+    NÃO PODE: repetir a pergunta de tecnologia, responder NAO_ENTENDI | exercita: REQ-002, pilha de perguntas'
+  respostas_aceitas: []
+- ordem: 3
+  mensagem_enviada: quanto fica?
+  observacoes: 'PRECISA: dizer que o valor sai no orçamento e seguir a coleta | NÃO PODE: citar valor,
+    faixa ou ''a partir de'' | exercita: REQ-002/REQ-003, preço só via orçamento'
+  respostas_aceitas: []

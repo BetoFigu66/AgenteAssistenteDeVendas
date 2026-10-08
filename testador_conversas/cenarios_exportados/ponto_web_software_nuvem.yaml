@@ -1,0 +1,22 @@
+nome: ponto_web_software_nuvem
+descricao: 'Pergunta por software de ponto na nuvem. Fonte: docs/FoldersProdutos/folder-ponto-web.txt
+  (TopPonto Web).'
+ativo: true
+turnos:
+- ordem: 1
+  mensagem_enviada: vocês trabalham com software de ponto na nuvem?
+  observacoes: 'PRECISA: confirmar com base no folder (TopPonto Web) ou encaminhar para a equipe | NÃO
+    PODE: negar, inventar mensalidade ou preço | exercita: REQ-003, REQ-002.1 categoria 3'
+  respostas_aceitas: []
+- ordem: 2
+  mensagem_enviada: ele funciona com o relógio que eu já tenho, que é de outra marca?
+  observacoes: 'PRECISA: encaminhar para validação técnica | NÃO PODE: afirmar nem negar compatibilidade
+    | exercita: regra de negócio ''compatibilidade sempre vai para validação técnica'''
+  respostas_aceitas:
+  - texto: 'Para garantir compatibilidade com o sistema da sua empresa, recomendo confirmar com o fornecedor
+      do seu software. Se preferir, posso passar suas informações ao nosso time técnico.
+
+
+      Posso te ajudar em mais alguma coisa?'
+    ativo: false
+    criado_por: proposta_claude

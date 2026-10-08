@@ -11,10 +11,18 @@ turnos:
   mensagem_enviada: prefiro falar com um vendedor
   observacoes: 'PRECISA: escalar para humano e avisar que alguém da equipe vai assumir | NÃO PODE: continuar
     perguntando campos do orçamento | exercita: REQ-004, Intencao.ESCALAR_HUMANO'
-  respostas_aceitas: []
+  respostas_aceitas:
+  - texto: 'Claro! Vou passar sua solicitação para um de nossos atendentes.
+
+      Em breve alguém entrará em contato por aqui. 🙋'
+    ativo: false
+    criado_por: proposta_claude
 - ordem: 3
   mensagem_enviada: alô? tem alguém aí?
   observacoes: 'PRECISA: nenhuma resposta automática depois de escalado (resposta vazia é o resultado
     esperado se o atendimento já está em ModoOperacao.HUMANO) | NÃO PODE: voltar a perguntar campos do
     orçamento nem gerar resposta automática | exercita: REQ-004.10, modo HUMANO suprime a geração'
-  respostas_aceitas: []
+  respostas_aceitas:
+  - texto: ''
+    ativo: false
+    criado_por: proposta_claude

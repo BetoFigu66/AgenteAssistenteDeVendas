@@ -11,7 +11,10 @@ turnos:
   mensagem_enviada: biometria
   observacoes: 'PRECISA: registrar o tipo como resposta do campo perguntado e seguir | NÃO PODE: responder
     NAO_ENTENDI nem repetir a mesma pergunta | exercita: REQ-002'
-  respostas_aceitas: []
+  respostas_aceitas:
+  - texto: 'Qual software de ponto vocês usam hoje? (ex.: Domínio, Alterdata, TOTVS, ou nenhum)'
+    ativo: false
+    criado_por: proposta_claude
 - ordem: 3
   mensagem_enviada: na verdade esquece, o que eu preciso é catraca
   observacoes: 'PRECISA: trocar o produto do atendimento para catraca e passar a perguntar os campos da

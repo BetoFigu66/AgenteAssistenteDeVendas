@@ -6,17 +6,23 @@ turnos:
   mensagem_enviada: oi
   observacoes: 'PRECISA: saudação de contato novo e a primeira pergunta do fluxo guiado | NÃO PODE: responder
     NAO_ENTENDI nem pular direto para orçamento | exercita: REQ-002 (fluxo conversacional guiado)'
-  respostas_aceitas: []
+  respostas_aceitas:
+  - texto: 'Olá! 👋 Sou o assistente da Inforrel.
+
+      Para te atender melhor, poderia me informar o seu nome e o CNPJ da sua empresa ou seu CPF?'
+    ativo: false
+    criado_por: proposta_claude
 - ordem: 2
   mensagem_enviada: Bom dia! Tudo bem e você?
   observacoes: 'PRECISA: responder à cortesia e seguir de onde parou | NÃO PODE: repetir a apresentação
     de contato novo nem responder NAO_ENTENDI a uma cortesia | exercita: REQ-002'
   respostas_aceitas: []
 - ordem: 3
-  mensagem_enviada: |-
-    1) Biometria
+  mensagem_enviada: '1) Biometria
+
     2) Para instalar
-    3) Não tenho, 20 - 25 funcionários
+
+    3) Não tenho, 20 - 25 funcionários'
   observacoes: 'PRECISA: extrair os três dados da mesma mensagem (tipo=biometria, é para instalar, não
     tem software de ponto e a faixa é de 20 a 25 funcionários) e, em seguida, perguntar um campo ainda
     NÃO respondido | NÃO PODE: repetir a pergunta de software de ponto nem a de faixa de funcionários

@@ -12,10 +12,16 @@ turnos:
   observacoes: 'PRECISA: registrar que é com instalação e seguir para o próximo campo | NÃO PODE: ignorar
     a informação e perguntar de novo retirada ou instalação | exercita: REQ-002 (gap conhecido: não existe
     campo de instalação no catálogo)'
-  respostas_aceitas: []
+  respostas_aceitas:
+  - texto: 'Qual software de ponto vocês usam hoje? (ex.: Domínio, Alterdata, TOTVS, ou nenhum)'
+    ativo: false
+    criado_por: proposta_claude
 - ordem: 3
   mensagem_enviada: Rua das Acácias, 120 - Sala 3, Centro, Campinas
   observacoes: 'PRECISA: aceitar o endereço como informação útil e seguir o fluxo | NÃO PODE: responder
     NAO_ENTENDI ao endereço nem prometer data de instalação | exercita: REQ-002 (gap conhecido: endereço
     de instalação não tem campo; o que se verifica aqui é que ao menos não quebra o fluxo)'
-  respostas_aceitas: []
+  respostas_aceitas:
+  - texto: Para te atender melhor, poderia me informar o CNPJ da sua empresa ou seu CPF?
+    ativo: false
+    criado_por: proposta_claude

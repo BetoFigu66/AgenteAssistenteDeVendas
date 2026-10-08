@@ -6,7 +6,12 @@ turnos:
   mensagem_enviada: oi
   observacoes: 'PRECISA: saudação de contato novo e pedido de identificação | NÃO PODE: responder NAO_ENTENDI
     | exercita: REQ-002'
-  respostas_aceitas: []
+  respostas_aceitas:
+  - texto: 'Olá! 👋 Sou o assistente da Inforrel.
+
+      Para te atender melhor, poderia me informar o seu nome e o CNPJ da sua empresa ou seu CPF?'
+    ativo: false
+    criado_por: proposta_claude
 - ordem: 2
   mensagem_enviada: sou a Ana, meu cnpj é 99887766000105
   observacoes: 'PRECISA: extrair nome (Ana) e CNPJ da mesma mensagem | NÃO PODE: pedir de novo nome ou
