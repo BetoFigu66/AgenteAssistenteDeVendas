@@ -93,7 +93,8 @@ def test_primeira_confianca_baixa_persiste_auditoria_sem_estourar(db_session, pr
     varying(30)) e o webhook responde com o fallback de erro."""
     telefone = "+5511999977101"
     try:
-        _conversar(processador, db_session, telefone, ["bom dia", "tudo bem?"])
+        # "tudo bem?" era o exemplo original, mas virou cortesia (SAUDACAO) em 08/10.
+        _conversar(processador, db_session, telefone, ["bom dia", "pois é"])
 
         proc = _ultimo_processamento(db_session, telefone)
         assert proc.fallback_req003 is True
@@ -111,7 +112,8 @@ def test_rajada_nao_cai_no_fallback_de_erro_e_escala_na_segunda_baixa(db_session
     REQ-004.9 nunca persistia e o escalonamento na 2ª ocorrência nunca acontecia.
     """
     telefone = "+5511999977102"
-    mensagens = ["bom dia", "tudo bem?", "é o seguinte", "preciso de um controle de acesso", "pra uma academia"]
+    # "pois é" no lugar do "tudo bem?" do cenário, que virou cortesia (SAUDACAO) em 08/10.
+    mensagens = ["bom dia", "pois é", "é o seguinte", "preciso de um controle de acesso", "pra uma academia"]
     try:
         resultados = _conversar(processador, db_session, telefone, mensagens)
 

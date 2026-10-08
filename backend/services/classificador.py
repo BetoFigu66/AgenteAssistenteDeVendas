@@ -15,6 +15,7 @@ import re
 import time
 from dataclasses import dataclass, field
 from enum import Enum
+from functools import lru_cache
 from typing import Any, Dict, List, Optional
 
 from services.cpf.validacao import extrair_cpfs, formatar_cpf, normalizar_cpf, parse_data_nascimento
@@ -133,14 +134,17 @@ _REGRAS_INTENCAO: list[tuple[Intencao, re.Pattern]] = [
     (
         Intencao.SAUDACAO,
         re.compile(
-            r"\b(oi|ol[aá]|bom\s+dia|boa\s+tarde|boa\s+noite|e\s*a[ií]|hey|hi|hello|salve)\b",
+            r"\b(oi|ol[aá]|bom\s+dia|boa\s+tarde|boa\s+noite|e\s*a[ií]|hey|hi|hello|salve"
+            r"|tudo\s+(?:bem|bom|certo|joia|jóia)|como\s+vai)\b",
             re.IGNORECASE,
         ),
     ),
     (
         Intencao.ESCALAR_HUMANO,
         re.compile(
-            r"\b(atendente|humano|pessoa|vendedor(a)?|gerente|falar\s+com\s+algu[eé]m)\b",
+            # "pessoa física/jurídica" é o tipo de cliente, não pedido de humano.
+            r"\b(atendente|humano|pessoa(?!\s+(?:f[ií]sica|jur[ií]dica))|vendedor(a)?|gerente"
+            r"|falar\s+com\s+algu[eé]m)\b",
             re.IGNORECASE,
         ),
     ),
@@ -161,7 +165,10 @@ _REGRAS_INTENCAO: list[tuple[Intencao, re.Pattern]] = [
     (
         Intencao.RECLAMAR,
         re.compile(
-            r"\b(reclama[çc][aã]o|problema|defeito|n[aã]o\s+funciona|quebrou|parou\s+de\s+funcionar)\b",
+            r"\b(reclama[çc][aã]o|problema|defeito|n[aã]o\s+funciona|quebrou|parou\s+de\s+funcionar"
+            # Pós-venda (REQ-009): atraso de entrega e insatisfação com o atendimento.
+            r"|n[aã]o\s+(?:chegou|recebi|veio)|atrasad[oa]|absurdo|descaso"
+            r"|ningu[eé]m\s+(?:me\s+)?(?:responde|retorna|atende))\b",
             re.IGNORECASE,
         ),
     ),
@@ -175,7 +182,10 @@ _REGRAS_INTENCAO: list[tuple[Intencao, re.Pattern]] = [
     (
         Intencao.PEDIR_ORCAMENTO,
         re.compile(
-            r"\b(or[çc]amento|cota[çc][aã]o|quanto\s+sai|quanto\s+custa|pre[çc]o)\b",
+            r"\b(or[çc]amento|cota[çc][aã]o|quanto\s+sai|quanto\s+custa|pre[çc]o"
+            # "preciso de um relógio de ponto" é pedido de compra; o produto é obrigatório
+            # (`_pedir_orcamento_exige_produto`), senão "quero cancelar" viraria orçamento.
+            r"|(?:precis(?:o|amos)\s+de|preciso\s+[eé]|quero|queremos)(?!\s+(?:saber|informa|entender|conhecer|tirar)))\b",
             re.IGNORECASE,
         ),
     ),
@@ -228,6 +238,10 @@ _RE_PEDIR_ORCAMENTO_EXPLICITO = re.compile(
 )
 _RE_PERGUNTAR_DISPONIBILIDADE_VERBO = re.compile(
     r"\b(vende(?:m|mos)?|trabalha(?:m|mos)?(?:\s+com)?|informa[cç][aã]o|informa[cç][oõ]es)\b",
+    re.IGNORECASE,
+)
+_RE_NECESSIDADE_VERBO = re.compile(
+    r"\b(?:precis(?:o|amos)\s+de|preciso\s+[eé]|quero|queremos)\b(?!\s+(?:saber|informa|entender|conhecer|tirar))",
     re.IGNORECASE,
 )
 _RE_PEDIR_ORCAMENTO_VERBO = _RE_PERGUNTAR_DISPONIBILIDADE_VERBO
@@ -544,6 +558,17 @@ _APLICACOES_PALAVRAS = {
 }
 
 
+@lru_cache(maxsize=None)
+def _regex_termo(termo: str) -> re.Pattern:
+    return re.compile(rf"\b{re.escape(termo)}(?:s|es)?\b")
+
+
+def _tem_termo(texto_lower: str, termo: str) -> bool:
+    """Termo como palavra inteira (aceita plural), não como substring: "cancelar" não é
+    a cancela, "levo" não é o software EVO, "busca" não é o SCA, "reparo" não é REP."""
+    return _regex_termo(termo).search(texto_lower) is not None
+
+
 def extrair_entidades(texto: str) -> EntidadesExtraidas:
     """Extrai CNPJs, CPFs, datas de nascimento, emails, quantidades e tipos de produto via regex."""
     if not texto:
@@ -570,24 +595,24 @@ def extrair_entidades(texto: str) -> EntidadesExtraidas:
     texto_lower = texto.lower()
     tipos_produto = []
     for palavra, tipo in _TIPOS_PRODUTO_PALAVRAS.items():
-        if palavra in texto_lower and tipo not in tipos_produto:
+        if _tem_termo(texto_lower, palavra) and tipo not in tipos_produto:
             tipos_produto.append(tipo)
 
     # D3: software de controle de ponto mencionado espontaneamente.
     software_ponto = next(
-        (nome for palavra, nome in _SOFTWARES_PONTO_CONHECIDOS.items() if palavra in texto_lower),
+        (nome for palavra, nome in _SOFTWARES_PONTO_CONHECIDOS.items() if _tem_termo(texto_lower, palavra)),
         None,
     )
 
     # D3b: software de controle de acesso mencionado espontaneamente.
     software_acesso = next(
-        (nome for palavra, nome in _SOFTWARES_ACESSO_CONHECIDOS.items() if palavra in texto_lower),
+        (nome for palavra, nome in _SOFTWARES_ACESSO_CONHECIDOS.items() if _tem_termo(texto_lower, palavra)),
         None,
     )
 
     # D4: tecnologia de leitura mencionada espontaneamente (sinal cru para a Fase F resolver).
     tipo_leitor_mencionado = next(
-        (tipo for palavra, tipo in _TIPO_LEITOR_PALAVRAS.items() if palavra in texto_lower),
+        (tipo for palavra, tipo in _TIPO_LEITOR_PALAVRAS.items() if _tem_termo(texto_lower, palavra)),
         None,
     )
 
@@ -597,11 +622,11 @@ def extrair_entidades(texto: str) -> EntidadesExtraidas:
 
     # D5: marca e aplicação mencionadas espontaneamente em Esclarecendo.
     marca = next(
-        (nome for palavra, nome in _MARCAS_PALAVRAS.items() if palavra in texto_lower),
+        (nome for palavra, nome in _MARCAS_PALAVRAS.items() if _tem_termo(texto_lower, palavra)),
         None,
     )
     aplicacao = next(
-        (nome for palavra, nome in _APLICACOES_PALAVRAS.items() if palavra in texto_lower),
+        (nome for palavra, nome in _APLICACOES_PALAVRAS.items() if _tem_termo(texto_lower, palavra)),
         None,
     )
 
@@ -613,7 +638,7 @@ def extrair_entidades(texto: str) -> EntidadesExtraidas:
     for chave_atributo, mapeamento in _ATRIBUTOS_MENSAGEM_PALAVRAS.items():
         valores_encontrados: List[str] = []
         for palavra, valor in mapeamento.items():
-            if palavra in texto_lower and valor not in valores_encontrados:
+            if _tem_termo(texto_lower, palavra) and valor not in valores_encontrados:
                 valores_encontrados.append(valor)
         if valores_encontrados:
             atributos[chave_atributo] = ",".join(valores_encontrados)
@@ -734,8 +759,8 @@ def _pedir_orcamento_exige_produto(
     # Orçamento/cotação/preço explícito: produto não é obrigatório.
     if intencao == Intencao.PEDIR_ORCAMENTO and _RE_PEDIR_ORCAMENTO_EXPLICITO.search(texto):
         return True
-    # Se bateu em vender/trabalhar, produto é mandatório.
-    if _RE_PERGUNTAR_DISPONIBILIDADE_VERBO.search(texto):
+    # Se bateu em vender/trabalhar/precisar/querer, produto é mandatório.
+    if _RE_PERGUNTAR_DISPONIBILIDADE_VERBO.search(texto) or _RE_NECESSIDADE_VERBO.search(texto):
         return bool(entidades.tipos_produto)
     return True
 
