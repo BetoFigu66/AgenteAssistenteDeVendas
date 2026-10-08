@@ -1,5 +1,6 @@
 """Testes da extração passiva de software/tipo de leitor/faixa de funcionários/marca/aplicação (Fase D — D3/D4/D5)."""
 
+import pytest
 from services.classificador import extrair_entidades
 
 
@@ -137,3 +138,22 @@ def test_extrai_software_acesso_pacto():
 def test_nao_extrai_software_acesso_quando_nao_mencionado():
     e = extrair_entidades("Quero orçamento de catraca")
     assert e.software_acesso is None
+
+
+@pytest.mark.parametrize(
+    "texto, quantidades, faixa",
+    [
+        ("quero 2 relógios de ponto para 45 funcionários", [2], 45),
+        ("na verdade são 20 - 25 funcionários", [], 25),
+        ("somos uns 30 a 40 colaboradores", [], 40),
+        # Numeração de lista não é quantidade; o número dentro do item continua sendo.
+        ("1) Biometria\n2) Para instalar\n3) Não tenho, 20 - 25 funcionários", [], 25),
+        ("1. Facial\n2. 3 unidades", [3], None),
+    ],
+)
+def test_numero_de_pessoas_nao_vira_quantidade(texto, quantidades, faixa):
+    """O nº de funcionários não é unidade de equipamento: virava quantidade e disparava
+    o projeto complexo (quantidade >= 4) na 1ª mensagem."""
+    entidades = extrair_entidades(texto)
+    assert entidades.quantidades == quantidades
+    assert entidades.faixa_funcionarios == faixa

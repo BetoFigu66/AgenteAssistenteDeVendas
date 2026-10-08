@@ -479,6 +479,16 @@ _REGEX_FUNCIONARIOS = re.compile(
     r"\b(\d{1,5})\s*(?:funcion[áa]rios?|colaboradores?|pessoas?|empregados?)\b",
     re.IGNORECASE,
 )
+# Máscara da extração de quantidades: "45 funcionários" e "20 - 25 funcionários" são
+# pessoas, não unidades de equipamento (o 45 virava quantidade e disparava projeto complexo).
+_REGEX_MASCARA_FUNCIONARIOS = re.compile(
+    r"\b(?:\d{1,5}\s*(?:-|a|até|ate)\s*)?\d{1,5}\s*(?:funcion[áa]rios?|colaboradores?|pessoas?|empregados?)\b",
+    re.IGNORECASE,
+)
+
+# Marcador de item de lista no início da linha ("1) Biometria", "2. Para instalar"): é
+# numeração da resposta do cliente, não quantidade.
+_REGEX_MASCARA_ENUMERACAO = re.compile(r"^\s*\d{1,2}\s*[).](?!\d)", re.MULTILINE)
 
 # D5 (MVP Continuidade): marcas comercializadas pela Inforrel. O alias normaliza o
 # nome ao valor canônico usado no catálogo (Modelo.marca).
@@ -546,8 +556,11 @@ def extrair_entidades(texto: str) -> EntidadesExtraidas:
     data_nasc = parse_data_nascimento(texto)
     datas_nascimento = [data_nasc.isoformat()] if data_nasc else []
 
-    # Quantidades: máscara de datas antes, para não confundir dia/mês/ano com unidades.
+    # Quantidades: máscara de datas, de nº de pessoas e de numeração de lista antes, para
+    # não confundir dia/mês/ano, funcionários ou "1) 2) 3)" com unidades.
     texto_sem_datas = _REGEX_MASCARA_DATA.sub(" ", texto)
+    texto_sem_datas = _REGEX_MASCARA_FUNCIONARIOS.sub(" ", texto_sem_datas)
+    texto_sem_datas = _REGEX_MASCARA_ENUMERACAO.sub(" ", texto_sem_datas)
     quantidades = [
         int(m.group(1))
         for m in _REGEX_QUANTIDADE.finditer(texto_sem_datas)
