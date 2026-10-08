@@ -130,6 +130,19 @@ def _calcular_nivel_confianca(
 # Classificação por Regras
 # =============================================================================
 
+# Pergunta de compatibilidade com sistema/equipamento de terceiro. Regra de negócio:
+# nunca afirmar nem negar, sempre encaminhar para validação técnica.
+_PADRAO_COMPATIBILIDADE = (
+    r"\b(?:funcionam?\s+(?:com|ou\s+n[aã]o)|compat[ií]ve(?:l|is)|compatibilidade"
+    r"|integra(?:r|m|[çc][aã]o)?\s+com|comunica(?:r|m)?\s+com|qualquer\s+rep\s+serve)\b"
+)
+_RE_COMPATIBILIDADE = re.compile(_PADRAO_COMPATIBILIDADE, re.IGNORECASE)
+
+
+def pergunta_compatibilidade(texto: str) -> bool:
+    return _RE_COMPATIBILIDADE.search(texto) is not None
+
+
 _REGRAS_INTENCAO: list[tuple[Intencao, re.Pattern]] = [
     (
         Intencao.SAUDACAO,
@@ -144,7 +157,10 @@ _REGRAS_INTENCAO: list[tuple[Intencao, re.Pattern]] = [
         re.compile(
             # "pessoa física/jurídica" é o tipo de cliente, não pedido de humano.
             r"\b(atendente|humano|pessoa(?!\s+(?:f[ií]sica|jur[ií]dica))|vendedor(a)?|gerente"
-            r"|falar\s+com\s+algu[eé]m)\b",
+            r"|falar\s+com\s+algu[eé]m"
+            # "quero falar com o Ivan": pedido explícito, mesmo sem dizer "atendente". Exige o
+            # verbo de pedido antes, senão "vou falar com o RH" escalaria.
+            r"|(?:quero|queria|gostaria\s+de|preciso|prefiro|posso)\s+falar\s+com\s+(?:o|a|seu|sua)\s+\w+)\b",
             re.IGNORECASE,
         ),
     ),
@@ -165,7 +181,7 @@ _REGRAS_INTENCAO: list[tuple[Intencao, re.Pattern]] = [
     (
         Intencao.RECLAMAR,
         re.compile(
-            r"\b(reclama[çc][aã]o|problema|defeito|n[aã]o\s+funciona|quebrou|parou\s+de\s+funcionar"
+            r"\b(reclama[çc][aã]o|problema|defeito|(?<!ou\s)n[aã]o\s+funciona|quebrou|parou\s+de\s+funcionar"
             # Pós-venda (REQ-009): atraso de entrega e insatisfação com o atendimento.
             r"|n[aã]o\s+(?:chegou|recebi|veio)|atrasad[oa]|absurdo|descaso"
             r"|ningu[eé]m\s+(?:me\s+)?(?:responde|retorna|atende))\b",
@@ -208,7 +224,9 @@ _REGRAS_INTENCAO: list[tuple[Intencao, re.Pattern]] = [
             r"\b(catraca|rel[oó]gio\s+de\s+ponto|biom[eé]trico|cart[aã]o|facial|modelo"
             r"|caracter[ií]sticas?|diferen[cç]as?"
             r"|explic(?:ar|a|que)\s+(?:o\s+que|as\s+op[cç][oõ]es)"
-            r"|melhor\s+op[cç][aã]o|compar(?:ar|a[çc][aã]o)|vantagens?)\b",
+            r"|melhor\s+op[cç][aã]o|compar(?:ar|a[çc][aã]o)|vantagens?)\b"
+            # Compatibilidade é dúvida de produto (respondida com COMPATIBILIDADE_SISTEMA).
+            r"|" + _PADRAO_COMPATIBILIDADE,
             re.IGNORECASE,
         ),
     ),

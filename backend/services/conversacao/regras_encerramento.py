@@ -19,6 +19,7 @@ import re
 from models import MotivoEncerramento, StatusAtendimento
 
 from services import atendimentos as atendimentos_svc
+from services.classificador import Intencao
 from services.respostas import MensagemId
 
 from .acoes import Acao, ContextoAcao, GrupoAcoes
@@ -30,6 +31,16 @@ _REGEX_FECHAMENTO_NEGATIVO = re.compile(
     r"\b(n[aã]o|nao|obrigad[oa]|tudo\s+certo|era\s+s[oó]\s+isso|por\s+enquanto\s+n[aã]o|valeu)\b",
     re.IGNORECASE,
 )
+# Intenções que não trazem assunto novo: com elas, o "não" é resposta ao "mais alguma
+# coisa?". Qualquer outra (dúvida, orçamento, reclamação...) é conversa que continua.
+_INTENCOES_SEM_ASSUNTO = frozenset({Intencao.NEGAR, Intencao.CONFIRMAR, Intencao.SAUDACAO, Intencao.DESCONHECIDO})
+
+
+def _e_recusa_do_fechamento(ctx: ContextoAcao) -> bool:
+    """"não, obrigado" encerra; "então funciona ou não funciona?" não (encerrava)."""
+    if not _REGEX_FECHAMENTO_NEGATIVO.search(ctx.conteudo) or "?" in ctx.conteudo:
+        return False
+    return set(ctx.resultado_class.intencoes) <= _INTENCOES_SEM_ASSUNTO
 
 
 def _builder_resposta_fechamento(ctx: ContextoAcao) -> GrupoAcoes:
@@ -39,7 +50,7 @@ def _builder_resposta_fechamento(ctx: ContextoAcao) -> GrupoAcoes:
     if ctx.processador._info_atendimento(ctx.db, atendimento.id, CHAVE_FECHAMENTO_PENDENTE) != "aguardando":
         return GrupoAcoes()
 
-    if _REGEX_FECHAMENTO_NEGATIVO.search(ctx.conteudo):
+    if _e_recusa_do_fechamento(ctx):
 
         async def _executar_negativa(ctx: ContextoAcao):
             p = ctx.processador

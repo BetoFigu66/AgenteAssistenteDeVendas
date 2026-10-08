@@ -177,3 +177,33 @@ def test_pergunta_de_modelo_nao_se_repete_indefinidamente(db_session, processado
         assert resultados[1].resposta != resultados[2].resposta
     finally:
         _limpar(db_session, telefone)
+
+
+def test_cortesia_depois_da_saudacao_retoma_o_pedido_de_documento(db_session, processador):
+    """Bateria de 08/10 (`mensagens_quebradas_em_rajada`, `cortesia_isolada_sem_conteudo`):
+    "tudo bem?" logo depois do pedido de CNPJ/CPF era tomado como recusa do documento e
+    respondia NAO_ENTENDI. Agora retoma a pergunta, e o documento continua pedido."""
+    telefone = "+5511999977105"
+    try:
+        resultados = _conversar(processador, db_session, telefone, ["bom dia", "tudo bem?", "pois é"])
+
+        assert resultados[1].resposta.startswith("Voltando à minha pergunta:")
+        assert "CNPJ" in resultados[1].resposta
+        # O pedido segue valendo: a mensagem sem documento seguinte é que conta como recusa.
+        assert "não entendi" in resultados[2].resposta.lower()
+    finally:
+        _limpar(db_session, telefone)
+
+
+def test_compatibilidade_vai_para_validacao_tecnica(db_session, processador):
+    """Bateria de 08/10 (`compatibilidade_software_terceiro`): a pergunta caía na RAG
+    ("não tenho certeza...") e a insistência "funciona ou não funciona?" virava reclamação.
+    O template COMPATIBILIDADE_SISTEMA existia, mas nada o usava."""
+    telefone = "+5511999977106"
+    mensagens = ["vocês têm relógio de ponto que funciona com o Domínio?", "então funciona ou não funciona?"]
+    try:
+        resultados = _conversar(processador, db_session, telefone, mensagens)
+        for r in resultados:
+            assert "fornecedor do seu software" in r.resposta, r.resposta
+    finally:
+        _limpar(db_session, telefone)

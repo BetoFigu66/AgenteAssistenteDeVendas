@@ -21,7 +21,7 @@ from services.conversacao.confirmacao_nome_perfil import (
 )
 from services.conversacao.documento_fiscal import CHAVE_DOC_PENDENTE
 from services.identificador import StatusIdentificacao
-from services.respostas import MensagemId
+from services.respostas import MensagemId, renderizar_mensagem
 
 from .base import EstadoAtendimento
 
@@ -68,6 +68,16 @@ class EsclarecendoState(EstadoAtendimento):
 
         atendimento = await garantir_atendimento_dispatch(ctx)
         estado_doc = p._info_atendimento(ctx.db, atendimento.id, _CHAVE_DOC_PENDENTE)
+
+        if estado_doc == "solicitado" and set(ctx.resultado_class.intencoes) == {Intencao.SAUDACAO}:
+            # Cortesia pura ("tudo bem?") logo depois do pedido não é recusa do documento:
+            # retoma a pergunta, que continua "solicitado" (marcar "recusado" aqui dava
+            # NAO_ENTENDI e queimava o único pedido do início).
+            nome_contato = atendimento.contato.nome if atendimento.contato else None
+            pergunta, _ = renderizar_mensagem(MensagemId.PERGUNTAR_CNPJ, {"nome": nome_contato})
+            if ctx.dlog:
+                ctx.dlog.log("esclarecendo", "cortesia com documento pedido → retoma a pergunta")
+            return (MensagemId.RETOMAR_PERGUNTA, {"pergunta": pergunta})
 
         if estado_doc in ("solicitado", "recusado"):
             if estado_doc == "solicitado":

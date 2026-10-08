@@ -14,7 +14,7 @@ módulo é o "dono" só do sub-grupo de intenções que REQ-002.1 chama de categ
 
 from __future__ import annotations
 
-from services.classificador import Intencao
+from services.classificador import Intencao, pergunta_compatibilidade
 from services.rag import DocumentoRecuperado
 from services.respostas import MensagemId, RespostaGerada
 
@@ -66,8 +66,15 @@ async def _responder_preco(ctx: ContextoAcao) -> RespostaGerada:
 
 async def _responder_produto(ctx: ContextoAcao) -> RespostaGerada:
     """PERGUNTAR_PRODUTO: com atendimento garantido, aplica clarificação/escalonamento
-    (REQ-003.7); sem ele, cai no fallback genérico de sempre."""
+    (REQ-003.7); sem ele, cai no fallback genérico de sempre.
+
+    Compatibilidade com sistema de terceiro nunca vai para a RAG: a regra de negócio é
+    encaminhar para validação técnica, sem afirmar nem negar."""
     p = ctx.processador
+    if pergunta_compatibilidade(ctx.conteudo):
+        if ctx.dlog:
+            ctx.dlog.log("categoria_pergunta", "pergunta de compatibilidade → COMPATIBILIDADE_SISTEMA")
+        return await p._gerador.gerar(MensagemId.COMPATIBILIDADE_SISTEMA)
     if ctx.db is not None and ctx.atendimento is not None:
         return await p._responder_produto_com_clarificacao(
             ctx.db, ctx.atendimento, ctx.conteudo, dlog=ctx.dlog, resultado_class=ctx.resultado_class
