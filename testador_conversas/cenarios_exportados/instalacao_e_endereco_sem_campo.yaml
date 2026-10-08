@@ -6,14 +6,26 @@ turnos:
   mensagem_enviada: preciso de um relógio de ponto facial
   observacoes: 'PRECISA: reconhecer o produto e seguir a coleta de campos | NÃO PODE: responder NAO_ENTENDI
     nem citar preço | exercita: REQ-002'
-  respostas_aceitas: []
+  respostas_aceitas:
+  - texto: 'Olá! 👋 Sou o assistente da Inforrel.
+
+
+      Para te atender melhor, poderia me informar o CNPJ da sua empresa ou seu CPF?
+
+
+      Ótimo! Vou precisar de algumas informações para montar o orçamento.
+
+
+      Qual software de ponto vocês usam hoje? (ex.: Domínio, Alterdata, TOTVS, ou nenhum)'
+    ativo: false
+    criado_por: proposta_claude
 - ordem: 2
   mensagem_enviada: é para instalar, não é retirada
   observacoes: 'PRECISA: registrar que é com instalação e seguir para o próximo campo | NÃO PODE: ignorar
     a informação e perguntar de novo retirada ou instalação | exercita: REQ-002 (gap conhecido: não existe
     campo de instalação no catálogo)'
   respostas_aceitas:
-  - texto: 'Qual software de ponto vocês usam hoje? (ex.: Domínio, Alterdata, TOTVS, ou nenhum)'
+  - texto: Qual a faixa de pessoas que vão usar o relógio de ponto?
     ativo: false
     criado_por: proposta_claude
 - ordem: 3

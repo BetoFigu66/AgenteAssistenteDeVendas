@@ -8,7 +8,20 @@ turnos:
   observacoes: 'PRECISA: reconhecer relógio de ponto e iniciar a coleta (tecnologia, quantidade etc.)
     | NÃO PODE: tratar 6 como quantidade de relógios, escalar como projeto complexo, citar preço | exercita:
     REQ-002, REQ-004.8 (6 funcionários está abaixo do limiar)'
-  respostas_aceitas: []
+  respostas_aceitas:
+  - texto: 'Olá! 👋 Sou o assistente da Inforrel.
+
+
+      Para te atender melhor, poderia me informar o CNPJ da sua empresa ou seu CPF?
+
+
+      Ótimo! Vou precisar de algumas informações para montar o orçamento.
+
+
+      O relógio seria cartográfico ou eletrônico? Se eletrônico: cartão de proximidade, cartão de barras,
+      biometria ou reconhecimento facial?'
+    ativo: false
+    criado_por: proposta_claude
 - ordem: 2
   mensagem_enviada: pode ser o de cartão, o mais simples
   observacoes: 'PRECISA: registrar a tecnologia (cartográfico/cartão) e seguir para o próximo campo |

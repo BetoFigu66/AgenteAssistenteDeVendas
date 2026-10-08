@@ -6,7 +6,19 @@ turnos:
   mensagem_enviada: quero orçamento de relógio de ponto facial para 25 funcionários
   observacoes: 'PRECISA: entender produto (relógio de ponto facial) e 25 como número de funcionários |
     NÃO PODE: tratar 25 como quantidade de equipamentos | exercita: REQ-002, REQ-006'
-  respostas_aceitas: []
+  respostas_aceitas:
+  - texto: 'Olá! 👋 Sou o assistente da Inforrel.
+
+
+      Para te atender melhor, poderia me informar o CNPJ da sua empresa ou seu CPF?
+
+
+      Ótimo! Vou precisar de algumas informações para montar o orçamento.
+
+
+      Qual software de ponto vocês usam hoje? (ex.: Domínio, Alterdata, TOTVS, ou nenhum)'
+    ativo: false
+    criado_por: proposta_claude
 - ordem: 2
   mensagem_enviada: vou passar para a diretoria analisar
   observacoes: 'PRECISA: entender como aguardando decisão do cliente e manter o orçamento em aberto |

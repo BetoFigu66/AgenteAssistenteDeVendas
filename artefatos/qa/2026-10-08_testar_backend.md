@@ -21,7 +21,7 @@ Primeira sessão do skill `.claude/skills/testar-backend/`. Backend dedicado na 
 
 ## Placar
 
-Bateria base (16 cenários antigos): 1 turno aceito (o já existente). Bateria final (23 cenários, 62 turnos): **22 turnos propostos**, os demais inaceitáveis ou dependentes de decisão (abaixo). Para revisar: `cd testador_conversas && python cli.py propostas-listar`.
+Bateria base (16 cenários antigos): 1 turno aceito (o já existente). Bateria final (23 cenários, 62 turnos, rodada 4): **27 turnos propostos**, os demais inaceitáveis ou dependentes de decisão (abaixo). Para revisar: `cd testador_conversas && python cli.py propostas-listar`.
 
 ## Correções feitas (commits em `develop`, não revistos)
 
@@ -29,7 +29,9 @@ Bateria base (16 cenários antigos): 1 turno aceito (o já existente). Bateria f
 - `cc1aaf9` fix(classificador): reclamação de pós-venda não detectada ("não chegou", "absurdo", "ninguém me responde"); "sou pessoa física" transferia para humano (casava "pessoa"); "tudo bem?" dava NAO_ENTENDI; "preciso de relógio de ponto" ia para a RAG em vez de abrir a coleta; produto/software/marca casados por substring ("quero cancelar" virava o produto cancela, "levo" o software EVO, "busca" o SCA).
 - `86aba21` fix(conversa): compatibilidade agora responde com `COMPATIBILIDADE_SISTEMA` (o template existia e nada o usava; antes caía na RAG e "funciona ou não funciona?" virava reclamação); qualquer "não" na resposta ao "Posso te ajudar em mais alguma coisa?" encerrava o atendimento, inclusive dentro de uma pergunta nova; cortesia logo depois do pedido de CNPJ/CPF era tomada como recusa do documento; "quero falar com o Ivan" não escalava.
 
-Suíte do backend: 655 passed, 2 xfailed. `ruff` limpo.
+- `928dd20` fix(finalizando): a tecnologia dita na mensagem que abre a coleta ("3 relógios biométricos") era perguntada logo em seguida (`entrar` não tentava resolver o modelo); pergunta de prazo no meio da coleta era ignorada.
+
+Suíte do backend: 657 passed, 2 xfailed. `ruff` limpo.
 
 ## Pendências de decisão
 
@@ -41,8 +43,6 @@ Suíte do backend: 655 passed, 2 xfailed. `ruff` limpo.
 
 ## Bugs achados, ainda não corrigidos (sem decisão necessária, só não deu tempo)
 
-- **Tecnologia dita na 1ª mensagem é perguntada de novo** ("relógio de ponto facial", "3 relógios biométricos" → "O relógio seria cartográfico ou eletrônico?"). Causa: `FinalizandoState._resolver_modelo` (`estados/finalizando.py:314`) só tenta resolver quando a pergunta de modelo já foi feita; na 1ª mensagem ela ainda não foi.
-- **Pergunta de prazo no meio da coleta é ignorada** (`catraca_box_para_evento` T2: "e entrega até o fim do mês?" → repete a pergunta de modelo). A regra `perguntar_prazo` só está registrada para o Esclarecendo.
 - **Resposta "pode ser o de cartão, o mais simples" vai para a RAG** em vez de responder a pergunta de tecnologia ("cartão" casa `PERGUNTAR_PRODUTO`, vira dúvida).
 - **Saudação sem o nome**: quando a 1ª mensagem já abre orçamento, o pedido é só "CNPJ ou CPF" (`PEDIR_DOCUMENTO`), sem o nome; na saudação simples pede os dois. Regra do `CLAUDE.md`: nome e documento juntos no início.
 - **"Posso te ajudar em mais alguma coisa?" repetido** a cada resposta de compatibilidade (3 vezes seguidas no cenário).

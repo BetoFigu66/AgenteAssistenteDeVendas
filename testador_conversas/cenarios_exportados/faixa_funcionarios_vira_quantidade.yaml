@@ -7,7 +7,20 @@ turnos:
   observacoes: 'PRECISA: entender quantidade=2 equipamentos e 45 como número de funcionários | NÃO PODE:
     tratar 45 como unidades nem orçar 45 equipamentos | exercita: REQ-002, desambiguação entre quantidade
     e faixa de funcionários'
-  respostas_aceitas: []
+  respostas_aceitas:
+  - texto: 'Olá! 👋 Sou o assistente da Inforrel.
+
+
+      Para te atender melhor, poderia me informar o CNPJ da sua empresa ou seu CPF?
+
+
+      Ótimo! Vou precisar de algumas informações para montar o orçamento.
+
+
+      O relógio seria cartográfico ou eletrônico? Se eletrônico: cartão de proximidade, cartão de barras,
+      biometria ou reconhecimento facial?'
+    ativo: false
+    criado_por: proposta_claude
 - ordem: 2
   mensagem_enviada: na verdade são 20 - 25 funcionários
   observacoes: 'PRECISA: corrigir a faixa para 20 a 25 e manter a quantidade em 2 | NÃO PODE: mudar a
