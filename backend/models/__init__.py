@@ -14,6 +14,7 @@ from .atendimento import (
     Atendimento,
     AtendimentoInfo,
     AvaliacaoEscalonamento,
+    DuvidaPendente,
     Escalonamento,
     EventoAtendimento,
     FaseAtendimento,
@@ -25,6 +26,7 @@ from .atendimento import (
     OrigemInfo,
     PerguntaPendente,
     StatusAtendimento,
+    StatusDuvida,
     StatusPergunta,
     TipoDocumento,
     TipoEventoAtendimento,
@@ -37,7 +39,7 @@ from .mensagem import Mensagem, OrigemMensagem
 from .orcamento import ItemOrcamento, Orcamento, StatusOrcamento
 from .parametro import HistoricoConfiguracao, HistoricoModoExecucao, ModoExecucao, Parametro
 from .pessoa import Pessoa
-from .processamento import OrigemClassificacao, ProcessamentoMensagem
+from .processamento import ComparacaoLLM, OrigemClassificacao, ProcessamentoMensagem
 from .rag import DocumentoConhecimento, ParQA
 from .report import (
     CategoriaReport,
@@ -57,6 +59,7 @@ __all__ = [
     "AtividadeEmpresa",
     "AtributoAdicionalModelo",
     "AvaliacaoEscalonamento",
+    "DuvidaPendente",
     "Base",
     "Categoria",
     "CategoriaReport",
@@ -81,6 +84,7 @@ __all__ = [
     "MotivoEscalonamento",
     "Orcamento",
     "PerguntaPendente",
+    "ComparacaoLLM",
     "OrigemClassificacao",
     "OrigemInfo",
     "OrigemMensagem",
@@ -94,6 +98,7 @@ __all__ = [
     "SocioEmpresa",
     "StatusAtendimento",
     "StatusOrcamento",
+    "StatusDuvida",
     "StatusPergunta",
     "StatusReport",
     "TipoDocumento",

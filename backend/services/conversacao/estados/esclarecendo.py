@@ -27,6 +27,10 @@ from .base import EstadoAtendimento
 
 _CHAVE_DOC_PENDENTE = CHAVE_DOC_PENDENTE
 
+_INTENCOES_SO_DOCUMENTO = frozenset(
+    {Intencao.FORNECER_CNPJ, Intencao.FORNECER_CPF, Intencao.FORNECER_NOME, Intencao.DESCONHECIDO}
+)
+
 
 class EsclarecendoState(EstadoAtendimento):
     fase = FaseAtendimento.ESCLARECENDO
@@ -38,15 +42,19 @@ class EsclarecendoState(EstadoAtendimento):
         documento fiscal pendente pra quem ainda não tem empresa/pessoa vinculada.
 
         (c) só pergunta documento **uma vez**: se `documento_fiscal_pendente` já está
-        "solicitado" e chegamos aqui de novo, é porque esta mensagem não trouxe CNPJ/CPF (se
-        tivesse, a regra global `FORNECER_CNPJ`/`FORNECER_CPF`, que é `exclusivo`, já teria
-        resolvido antes — nunca chegaríamos até aqui) — não insiste de novo, marca "recusado"
+        "solicitado" e chegamos aqui sem empresa/pessoa, é porque esta mensagem não trouxe
+        CNPJ/CPF válido (se tivesse, a regra global `FORNECER_CNPJ`/`FORNECER_CPF`, que roda
+        antes no grupo `pre`, já teria vinculado o documento) — não insiste de novo, marca "recusado"
         e segue a conversa normalmente (fallback QA/NAO_ENTENDI). Não depende de reconhecer a
         recusa por palavra (ex.: "não quero fornecer ainda" não bate na regra `NEGAR`, que
         exige a mensagem inteira ser só "não")."""
         if ctx.fragmentos_ate_agora:
             return None
         if ctx.atendimento and ctx.atendimento.fase != FaseAtendimento.ESCLARECENDO:
+            return None
+        if ctx.registros and set(ctx.resultado_class.intencoes) <= _INTENCOES_SO_DOCUMENTO:
+            # A mensagem só trouxe o documento: o aviso de registro responde, e o motor
+            # completa com "Em que posso ajudar?" (sem isso caía no NAO_ENTENDI).
             return None
 
         p = ctx.processador

@@ -6,6 +6,10 @@ A Twilio manda em todo `/webhook` o nome que o cliente configurou no próprio Wh
 pontuação ("~~~") ou nada. Antes de usar esse valor para chamar o cliente pelo nome, ele
 passa por aqui, para nunca gerar coisas como "Olá, ~~~, tudo bem?".
 
+Os caracteres não alfabéticos são retirados antes de validar ("~~Joaquim Barbosa~~"
+vira "Joaquim Barbosa", "Ana 😊" vira "Ana"). Ficam só letras, espaços e o hífen ou
+apóstrofo entre duas letras ("Ana-Maria", "D'Ávila"), ver `_limpar_nome_perfil`.
+
 **Regra PROVISÓRIA.** Por ora só existe o critério de tamanho mínimo (ver
 `MINIMO_LETRAS_NOME_PERFIL`). A regra definitiva ainda será definida (ex.: lista de
 palavras que não são nome, "Empresa X", "Loja", números, apelidos de uma letra repetida)
@@ -27,10 +31,43 @@ TAMANHO_MAXIMO_NOME_PERFIL = 200
 WhatsApp limita o nome de perfil bem abaixo disso, então na prática é só uma trava."""
 
 
+_APOSTROFOS_E_HIFENS = "'’-‐"
+"""Pontuação que faz parte do nome quando fica entre duas letras ("Ana-Maria",
+"D'Ávila", "D’Ávila"). Fora disso, é retirada como qualquer outro símbolo."""
+
+
+def _limpar_nome_perfil(nome: str) -> str:
+    """Troca por espaço tudo que não é letra (emoji, dígito, pontuação, símbolo) e
+    colapsa os espaços. Trocar por espaço, e não apagar, mantém separados os nomes
+    que vêm grudados por pontuação ("Ana.Souza" vira "Ana Souza").
+
+    Marcas combinantes (categoria Unicode M) seguem a letra anterior, para não quebrar
+    letras que não têm forma pré-composta em NFC.
+    """
+    saida: list[str] = []
+    for i, c in enumerate(nome):
+        if c.isalpha():
+            saida.append(c)
+        elif unicodedata.category(c).startswith("M") and saida and saida[-1] != " ":
+            saida.append(c)
+        elif (
+            c in _APOSTROFOS_E_HIFENS
+            and saida
+            and saida[-1].isalpha()
+            and i + 1 < len(nome)
+            and nome[i + 1].isalpha()
+        ):
+            saida.append(c)
+        else:
+            saida.append(" ")
+    return " ".join("".join(saida).split())
+
+
 def _passa_regra_nome_perfil(nome: str) -> bool:
     """Regra provisória: pelo menos `MINIMO_LETRAS_NOME_PERFIL` letras.
 
-    `nome` já chega normalizado (NFC, sem espaços sobrando). É aqui que a regra
+    `nome` já chega normalizado e limpo (NFC, só letras, sem espaços sobrando). É aqui
+    que a regra
     definitiva deve entrar.
     """
     letras = sum(1 for c in nome if c.isalpha())
@@ -41,13 +78,13 @@ def nome_perfil_aproveitavel(nome_perfil: Optional[str]) -> Optional[str]:
     """Devolve o nome de perfil pronto para uso, ou `None` se não servir como nome.
 
     Normaliza antes de validar: Unicode NFC (um "é" decomposto em "e" + acento
-    combinante vira um caractere só) e espaços colapsados/aparados. O valor devolvido é
-    esse texto normalizado, sem outras alterações (um emoji junto do nome, como em
-    "Ana 😊", é mantido; quem decide se isso fica ou sai é a regra definitiva).
+    combinante vira um caractere só) e retira os caracteres não alfabéticos
+    (`_limpar_nome_perfil`). O valor devolvido é esse texto limpo: "~~Joaquim
+    Barbosa~~" volta como "Joaquim Barbosa".
     """
     if not nome_perfil:
         return None
-    nome = " ".join(unicodedata.normalize("NFC", nome_perfil).split())
+    nome = _limpar_nome_perfil(unicodedata.normalize("NFC", nome_perfil))
     if not nome or len(nome) > TAMANHO_MAXIMO_NOME_PERFIL:
         return None
     if not _passa_regra_nome_perfil(nome):

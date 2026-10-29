@@ -70,6 +70,11 @@ class ContextoAcao:
     # — permite que uma Ação de último recurso (ex.: pedir documento fiscal) só aja
     # quando nada mais respondeu nada ainda.
     fragmentos_ate_agora: list[RespostaGerada] = field(default_factory=list)
+    # Avisos de registro ("Anotei seu CPF.", "não consegui validar esse CNPJ") que abrem a
+    # resposta mas não contam como resposta ao que o cliente pediu: ficam fora de
+    # `fragmentos_ate_agora`, para a dúvida e a próxima pergunta seguirem na mesma
+    # resposta (ver `regras_globais._capturar_documento`).
+    registros: list[RespostaGerada] = field(default_factory=list)
     # Mensagem do cliente sendo processada e a mensagem nossa que ela cita ("Responder"),
     # quando cita. A primeira identifica o turno na pilha de perguntas pendentes; a
     # segunda é o desempate 0 de qual pergunta foi respondida (ver `pilha.py`).

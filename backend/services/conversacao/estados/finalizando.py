@@ -30,6 +30,7 @@ from sqlalchemy.orm import Session
 
 from services import atendimentos as atendimentos_svc
 from services import escalonamentos as escalonamentos_svc
+from services.classificador import Intencao
 from services.conversacao import documento_fiscal, pilha, projeto_complexo
 from services.conversacao.acoes import ContextoAcao
 from services.conversacao.campos_pendentes import campos_pendentes, proxima_nunca_perguntada, proxima_pergunta
@@ -44,6 +45,7 @@ from services.conversacao.catalogo_campos import (
     Pergunta,
 )
 from services.conversacao.categoria_pergunta import responder_categoria_pergunta
+from services.conversacao.tratadores import INTENCOES_DE_DADO
 from services.respostas import MensagemId, RespostaGerada, renderizar_mensagem
 
 from .base import EstadoAtendimento
@@ -59,6 +61,14 @@ _RESUMO_APRESENTADO_CHAVE = "resumo_finalizando_apresentado"
 # Dúvidas no meio da coleta: respondidas e a pergunta pendente é retomada (F3). O prazo
 # entra aqui para não ser ignorado (era: "e entrega até o fim do mês?" → repetia a pergunta).
 _INTENCOES_RAG = frozenset({"perguntar_produto", "perguntar_preco", "perguntar_prazo", "fora_contexto"})
+
+
+
+def _intencao_de_assunto(resultado_class) -> Optional[Intencao]:
+    """A primeira intenção que não é só a entrega de um dado: numa mensagem como "CPF ...,
+    pode me fornecer mais detalhes?", o assunto é a dúvida, não o CPF."""
+    return next((i for i in resultado_class.intencoes if i not in INTENCOES_DE_DADO), None)
+
 
 _LABEL_PRODUTO_PERGUNTA = {
     "catraca": "a catraca",
@@ -208,7 +218,10 @@ class FinalizandoState(EstadoAtendimento):
         tem_sinal_modelo_fresco = bool(
             entidades.marca or entidades.aplicacao or entidades.tipo_leitor_mencionado or entidades.atributos
         )
-        eh_duvida = resultado_class.intencao_principal.value in _INTENCOES_RAG
+        # Uma dúvida que vem junto de um dado ("CPF ..., pode me dar mais detalhes?") é
+        # dúvida: as intenções de dado não contam como o assunto principal da mensagem.
+        assunto = _intencao_de_assunto(resultado_class)
+        eh_duvida = assunto is not None and assunto.value in _INTENCOES_RAG
         if eh_duvida and not tem_sinal_modelo_fresco:
             return await self._retomar_apos_duvida(ctx)
 
@@ -243,9 +256,10 @@ class FinalizandoState(EstadoAtendimento):
             # Regra exclusiva própria da fase Finalizando (ver regras_finalizando.py) —
             # se chegamos até este ponto, é porque não era o caso (resumo ainda não
             # apresentado, ou já concluído antes).
-            if documento_fiscal.repedido_devido(ctx):
-                # O documento pedido no início não veio: última tentativa, antes do resumo.
-                return await p._gerador.gerar(*documento_fiscal.repedir(ctx))
+            pergunta_nf = documento_fiscal.pergunta_nf(ctx)
+            if pergunta_nf is not None:
+                # Documento da nota fiscal, uma vez só, antes do resumo.
+                return await p._gerador.gerar(*pergunta_nf)
             return await self._gerar_resumo(ctx)
 
         campo = proxima_pergunta(atendimento)
@@ -264,8 +278,9 @@ class FinalizandoState(EstadoAtendimento):
             if ctx.dlog:
                 ctx.dlog.log("finalizando", f"transferência adiada → pergunta {campo.chave} antes")
             return await ctx.processador._gerador.gerar(mensagem_id, ctx_campo)
-        if documento_fiscal.repedido_devido(ctx):
-            return await ctx.processador._gerador.gerar(*documento_fiscal.repedir(ctx))
+        pergunta_nf = documento_fiscal.pergunta_nf(ctx)
+        if pergunta_nf is not None:
+            return await ctx.processador._gerador.gerar(*pergunta_nf)
         if ctx.dlog:
             ctx.dlog.log("finalizando", "tudo perguntado uma vez → transfere o projeto complexo")
         return await projeto_complexo.escalar_adiado(ctx)
@@ -525,7 +540,8 @@ class FinalizandoState(EstadoAtendimento):
         p = ctx.processador
         dlog = ctx.dlog
 
-        resposta_duvida = await responder_categoria_pergunta(resultado_class.intencao_principal, ctx)
+        intencao_duvida = _intencao_de_assunto(resultado_class) or resultado_class.intencao_principal
+        resposta_duvida = await responder_categoria_pergunta(intencao_duvida, ctx)
 
         if atendimento.modo_operacao == ModoOperacao.HUMANO:
             # A dúvida acabou de escalar para atendimento humano (base insuficiente,
@@ -555,7 +571,7 @@ class FinalizandoState(EstadoAtendimento):
             MensagemId.RETOMAR_PERGUNTA_PENDENTE, {"pergunta": resposta_pergunta.texto}
         )
         if dlog:
-            dlog.log("finalizando", f"dúvida ({resultado_class.intencao_principal.value}) → retoma {campo.chave}")
+            dlog.log("finalizando", f"dúvida ({intencao_duvida.value}) → retoma {campo.chave}")
         return RespostaGerada(
             texto=f"{resposta_duvida.texto}\n\n{resposta_retomada.texto}",
             template_usado=f"{resposta_duvida.template_usado}+{resposta_retomada.template_usado}",

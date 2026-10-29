@@ -234,6 +234,28 @@ export const api = {
     }
   },
 
+  // Dúvidas do cliente que o agente não respondeu (a mensagem caiu numa ação exclusiva).
+  async obterDuvidasPendentes(atendimentoId) {
+    try {
+      const response = await apiFetch(`${API_URL}/api/atendimentos/${atendimentoId}/duvidas-pendentes`)
+      if (!response.ok) {
+        throw new ApiError('Erro ao obter dúvidas pendentes', response.status, 'server')
+      }
+      return response.json()
+    } catch (error) {
+      if (error instanceof ApiError) throw error
+      throw new ApiError('Backend não está respondendo', 0, 'network')
+    }
+  },
+
+  async resolverDuvidaPendente(duvidaId) {
+    const response = await apiFetch(`${API_URL}/api/duvidas-pendentes/${duvidaId}/resolver`, { method: 'POST' })
+    if (!response.ok) {
+      throw new ApiError('Erro ao marcar a dúvida como respondida', response.status, 'server')
+    }
+    return response.json()
+  },
+
   // REQ-004.5C: `avaliacao` é 'procedente' | 'indevido' | null (null desfaz). Autor vem da sessão.
   async avaliarEscalonamento(escalonamentoId, avaliacao, comentario) {
     const response = await apiFetch(`${API_URL}/api/escalonamentos/${escalonamentoId}/avaliacao`, {
@@ -752,6 +774,27 @@ export const api = {
     if (contexto) params.append('contexto', contexto)
     const response = await apiFetch(`${API_URL}/api/ajuda/consultas?${params}`)
     if (!response.ok) throw new ApiError('Erro ao listar consultas', response.status, 'server')
+    return response.json()
+  },
+
+  // Aba Sistema: configurações do .env (sem dados sensíveis) e situação do LLM.
+  async obterConfigSistema() {
+    const response = await apiFetch(`${API_URL}/api/config/sistema`)
+    if (!response.ok) throw new ApiError('Erro ao carregar as configurações', response.status, 'server')
+    return response.json()
+  },
+
+  async obterStatusLLM({ forcar = false } = {}) {
+    const response = await apiFetch(`${API_URL}/api/config/llm/status?forcar=${forcar ? 'true' : 'false'}`)
+    if (!response.ok) throw new ApiError('Erro ao verificar o LLM', response.status, 'server')
+    return response.json()
+  },
+
+  async listarComparacoesLLM({ limite = 30, situacao } = {}) {
+    const params = new URLSearchParams({ limite: String(limite) })
+    if (situacao) params.append('situacao', situacao)
+    const response = await apiFetch(`${API_URL}/api/comparacoes-llm?${params}`)
+    if (!response.ok) throw new ApiError('Erro ao listar as comparações', response.status, 'server')
     return response.json()
   },
 }

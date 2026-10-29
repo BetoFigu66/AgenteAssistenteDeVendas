@@ -11,8 +11,8 @@ pilha, pelo destino que a definição da pergunta declara. Motivos: manter este 
 `catalogo_campos.py` livres de ORM, deixar o mesmo tratador servir destinos diferentes, e
 validar antes de escrever.
 
-`discriminante` é o poder de a resposta se identificar sozinha (decisão D2): um CPF, uma
-data por extenso ou um nome de software reconhecido só podem responder a uma pergunta,
+`discriminante` é o poder de a resposta se identificar sozinha (decisão D2): um CPF ou um
+nome de software reconhecido só podem responder a uma pergunta,
 então casam em qualquer posição da pilha. "sim", "50" ou texto livre podem responder a
 qualquer coisa, então só casam com o topo.
 """
@@ -21,19 +21,17 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass, field
-from datetime import date
 from enum import Enum
 from typing import Any, Mapping, Optional
 
 from services.classificador import EntidadesExtraidas, Intencao
-from services.cpf.validacao import parse_data_nascimento
 
 
 class StatusLeitura(str, Enum):
     RECONHECEU = "reconheceu"
     NAO_RECONHECEU = "nao_reconheceu"
-    # Tem a forma de uma resposta, mas o valor não serve (ex.: data no futuro para
-    # data de nascimento). Conta como tentativa de captura falha (D3).
+    # Tem a forma de uma resposta, mas o valor não serve (ex.: número fora da
+    # faixa aceita). Conta como tentativa de captura falha (D3).
     INVALIDO = "invalido"
 
 
@@ -76,6 +74,14 @@ class EntradaTratador:
 # "oi" na frente da resposta.
 _INTENCOES_NEUTRAS = frozenset({Intencao.DESCONHECIDO, Intencao.SAUDACAO})
 
+# Intenções de quem entrega um dado ("meu nome é X, CPF ..."). Não mudam o assunto, então
+# a mesma mensagem ainda pode responder a outra pergunta, mas só por uma leitura
+# discriminante: "Sim, meu nome é Joaquim, CPF ... Não conheço" responde ao "Você
+# conhece?" pelo "conheço", e o "sim" solto continua sem ser lido como resposta.
+INTENCOES_DE_DADO = frozenset(
+    {Intencao.FORNECER_CPF, Intencao.FORNECER_CNPJ, Intencao.FORNECER_NOME, Intencao.FORNECER_DATA_NASCIMENTO}
+)
+
 
 class Tratador:
     """Base. `intencoes_aceitas` é a versão por tratador do antigo
@@ -98,9 +104,16 @@ class Tratador:
         return self.aceita_intencoes(entrada)
 
     def interpretar(self, entrada: EntradaTratador) -> Leitura:
-        if not (entrada.conteudo or "").strip() or not self.aceita_intencoes(entrada):
+        if not (entrada.conteudo or "").strip():
             return NAO_RECONHECEU
-        return self._interpretar(entrada)
+        if self.aceita_intencoes(entrada):
+            return self._interpretar(entrada)
+        if set(entrada.intencoes) <= (_INTENCOES_NEUTRAS | INTENCOES_DE_DADO | self.intencoes_aceitas):
+            leitura = self._interpretar(entrada)
+            discriminante = self.discriminante if leitura.discriminante is None else leitura.discriminante
+            if leitura.reconheceu and discriminante:
+                return leitura
+        return NAO_RECONHECEU
 
     def _interpretar(self, entrada: EntradaTratador) -> Leitura:
         raise NotImplementedError
@@ -142,6 +155,14 @@ class Conhece(SimNao):
     respondendo, e o sim/não puro não lia isso: a pergunta ficava aberta."""
 
     nome = "conhece"
+
+    def interpretar(self, entrada: EntradaTratador) -> Leitura:
+        """O verbo ecoado se identifica sozinho, então é lido mesmo com outra intenção na
+        mensagem: "Não conheço, pode me fornecer mais detalhes?" responde à pergunta e
+        ainda traz uma dúvida, que segue para ser respondida."""
+        if _RE_CONHECO.search(entrada.conteudo or ""):
+            return self._interpretar(entrada)
+        return super().interpretar(entrada)
 
     def _interpretar(self, entrada: EntradaTratador) -> Leitura:
         if _RE_CONHECO.search(entrada.conteudo):
@@ -217,32 +238,6 @@ class SinalDeModelo(Tratador):
         if e.marca or e.aplicacao or e.tipo_leitor_mencionado or e.atributos:
             return Leitura(StatusLeitura.RECONHECEU)
         return NAO_RECONHECEU
-
-
-_DATA_MINIMA = date(1900, 1, 1)
-
-
-class DataNascimento(Tratador):
-    """Data de nascimento. Discriminante: uma data por extenso só responde a uma
-    pergunta de data. Futuro ou antes de 1900 é inválido."""
-
-    nome = "data_nascimento"
-    discriminante = True
-    intencoes_aceitas = frozenset({Intencao.FORNECER_DATA_NASCIMENTO})
-
-    def _interpretar(self, entrada: EntradaTratador) -> Leitura:
-        data = None
-        if entrada.entidades.datas_nascimento:
-            try:
-                data = date.fromisoformat(entrada.entidades.datas_nascimento[0])
-            except ValueError:
-                data = None
-        data = data or parse_data_nascimento(entrada.conteudo)
-        if data is None:
-            return NAO_RECONHECEU
-        if not _DATA_MINIMA <= data < date.today():
-            return Leitura(StatusLeitura.INVALIDO, data)
-        return Leitura(StatusLeitura.RECONHECEU, data)
 
 
 def entrada_de(

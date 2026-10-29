@@ -14,7 +14,7 @@ módulo é o "dono" só do sub-grupo de intenções que REQ-002.1 chama de categ
 
 from __future__ import annotations
 
-from services.classificador import Intencao, pergunta_compatibilidade
+from services.classificador import Intencao, pedido_de_detalhes, pergunta_compatibilidade
 from services.rag import DocumentoRecuperado
 from services.respostas import MensagemId, RespostaGerada
 
@@ -64,6 +64,25 @@ async def _responder_preco(ctx: ContextoAcao) -> RespostaGerada:
     return resposta
 
 
+def _consulta_rag(ctx: ContextoAcao) -> str:
+    """O texto consultado na base. Um pedido genérico de detalhes ("pode me fornecer mais
+    detalhes?") não cita o produto e não acha nada na base; sem produto na própria
+    mensagem, consulta pelo produto do atendimento (o "bastão de ronda" que acabou de ser
+    apresentado)."""
+    if not pedido_de_detalhes(ctx.conteudo) or ctx.resultado_class.entidades.tipos_produto:
+        return ctx.conteudo
+    if ctx.atendimento is None:
+        return ctx.conteudo
+    tipos = ctx.processador._info_atendimento(ctx.db, ctx.atendimento.id, "tipos_produto")
+    if not tipos:
+        return ctx.conteudo
+    # Import tardio: `regras_esclarecendo` importa este módulo.
+    from .regras_esclarecendo import _PRODUTO_SINGULAR
+
+    tipo = tipos.split(",")[0].strip()
+    return _PRODUTO_SINGULAR.get(tipo, tipo.replace("_", " "))
+
+
 async def _responder_produto(ctx: ContextoAcao) -> RespostaGerada:
     """PERGUNTAR_PRODUTO: com atendimento garantido, aplica clarificação/escalonamento
     (REQ-003.7); sem ele, cai no fallback genérico de sempre.
@@ -77,7 +96,12 @@ async def _responder_produto(ctx: ContextoAcao) -> RespostaGerada:
         return await p._gerador.gerar(MensagemId.COMPATIBILIDADE_SISTEMA)
     if ctx.db is not None and ctx.atendimento is not None:
         return await p._responder_produto_com_clarificacao(
-            ctx.db, ctx.atendimento, ctx.conteudo, dlog=ctx.dlog, resultado_class=ctx.resultado_class
+            ctx.db,
+            ctx.atendimento,
+            ctx.conteudo,
+            dlog=ctx.dlog,
+            resultado_class=ctx.resultado_class,
+            consulta=_consulta_rag(ctx),
         )
     return await p._responder_com_rag(
         conteudo_cliente=ctx.conteudo,

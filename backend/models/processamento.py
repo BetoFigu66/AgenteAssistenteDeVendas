@@ -151,3 +151,67 @@ class ProcessamentoMensagem(Base):
             "erro": self.erro,
             "created_at": serialize_utc_datetime(self.created_at),
         }
+
+
+class ComparacaoLLM(Base):
+    """
+    O que o sistema faria sem o LLM e o que fez com ele, num ponto do processamento de
+    uma mensagem (`services/llm/comparacao.py`).
+
+    Uma linha por ponto que usou ou usaria o LLM: `classificacao` (regras sem confiança),
+    `resposta_rag` (resposta redigida a partir dos trechos da base) e `personalizacao`
+    (template reescrito no tom do cliente). `sem_llm` sempre vem preenchido; `com_llm`, só
+    quando o LLM respondeu (`situacao=ok`).
+    """
+
+    __tablename__ = "comparacoes_llm"
+
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    mensagem_id: Mapped[int] = mapped_column(
+        ForeignKey("mensagens.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    """A mensagem do cliente que provocou o uso."""
+    resposta_mensagem_id: Mapped[Optional[int]] = mapped_column(
+        ForeignKey("mensagens.id", ondelete="SET NULL"), nullable=True
+    )
+    """A mensagem de resposta que levou o texto (a primeira, quando o ponto não tem texto
+    próprio na resposta). Vazio no modo HUMANO, em que nada é gerado."""
+    processamento_id: Mapped[Optional[int]] = mapped_column(
+        ForeignKey("processamentos_mensagem.id", ondelete="SET NULL"), nullable=True
+    )
+    etapa: Mapped[str] = mapped_column(String(20), nullable=False)
+    situacao: Mapped[str] = mapped_column(String(20), nullable=False, index=True)
+    """`ok`, `erro` (o LLM falhou), `vazio` (respondeu nada) ou `indisponivel` (sem LLM
+    configurado)."""
+    sem_llm: Mapped[str] = mapped_column(Text, nullable=False)
+    """O que o sistema faria sem o LLM: as intenções das regras, ou o texto do template."""
+    com_llm: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    dados: Mapped[Optional[dict]] = mapped_column(JSON, nullable=True)
+    """Detalhes da etapa (ex.: intenções e confiança de cada lado na classificação)."""
+    erro: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    provedor: Mapped[Optional[str]] = mapped_column(String(30), nullable=True)
+    modelo: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
+    latencia_ms: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
+    tokens_input: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
+    tokens_output: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(UTCDateTime, default=utc_now, nullable=False, index=True)
+
+    def to_dict(self) -> dict:
+        return {
+            "id": self.id,
+            "mensagem_id": self.mensagem_id,
+            "resposta_mensagem_id": self.resposta_mensagem_id,
+            "processamento_id": self.processamento_id,
+            "etapa": self.etapa,
+            "situacao": self.situacao,
+            "sem_llm": self.sem_llm,
+            "com_llm": self.com_llm,
+            "dados": self.dados,
+            "erro": self.erro,
+            "provedor": self.provedor,
+            "modelo": self.modelo,
+            "latencia_ms": self.latencia_ms,
+            "tokens_input": self.tokens_input,
+            "tokens_output": self.tokens_output,
+            "created_at": serialize_utc_datetime(self.created_at),
+        }

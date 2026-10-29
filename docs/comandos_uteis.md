@@ -591,7 +591,20 @@ LLM_API_KEY=sua_chave_aqui
 
 **Importante:** Nunca commitar `.env`. Está no `.gitignore`.
 
-Para trocar de provider (ex: OpenAI, Gemini, Ollama), basta alterar `LLM_PROVIDER` e implementar a classe em `backend/services/llm/`.
+### LLM por API compatível com a da OpenAI (Cloudflare, Ollama, OpenRouter, Gemini, OpenAI)
+
+Um provedor só (`backend/services/llm/openai_compativel_provider.py`) atende qualquer serviço com `/chat/completions` no formato da OpenAI. Muda só o `.env`; depois de mudar, reiniciar o backend (o provedor é criado uma vez, na subida). A aba **Sistema** do painel mostra se o provedor novo respondeu (botão "Testar agora").
+
+| `LLM_PROVIDER` | `LLM_BASE_URL` | `LLM_API_KEY` | Observação |
+|---|---|---|---|
+| `cloudflare` | `https://api.cloudflare.com/client/v4/accounts/<id_da_conta>/ai/v1` (obrigatório) | token da API da Cloudflare com permissão Workers AI | modelo no formato `@cf/...` |
+| `ollama` | opcional (padrão `http://localhost:11434/v1`; no Docker, `http://host.docker.internal:11434/v1`) | dispensa | roda na máquina, nada sai dela |
+| `openrouter` | opcional | chave do OpenRouter | modelos grátis terminam em `:free` |
+| `gemini` | opcional | chave do AI Studio | no plano grátis os dados podem ser usados para treino: só conversa fictícia |
+| `openai` | opcional | chave da OpenAI | pago |
+| `openai_compativel` | obrigatório | conforme o serviço | qualquer outro |
+
+`LLM_TIMEOUT_SEGUNDOS` (padrão 30) limita a espera, porque a resposta sai dentro do webhook. `LLM_MODO_JSON=true` pede JSON pelo `response_format`; se o serviço recusar, o provedor repete sem ele e passa a ler o JSON do texto.
 
 ---
 

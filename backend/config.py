@@ -88,6 +88,14 @@ class Settings(BaseSettings):
     LLM_MODEL: str = "llama-3.1-8b-instant"
     LLM_API_KEY: Optional[str] = None
     LLM_TEMPERATURE: float = 0.3
+    # Provedor compatível com a API da OpenAI (`services/llm/openai_compativel_provider.py`):
+    # endereço da API. Opcional para openai, ollama, openrouter, gemini e groq_compativel
+    # (já conhecidos); obrigatório para `openai_compativel` e `cloudflare`.
+    LLM_BASE_URL: Optional[str] = None
+    LLM_TIMEOUT_SEGUNDOS: float = 30.0
+    # Pede a resposta em JSON pelo `response_format` (nem todo serviço aceita; se recusar,
+    # o provedor repete sem ele sozinho).
+    LLM_MODO_JSON: bool = True
 
     # Embeddings (RAG)
     EMBEDDING_PROVIDER: str = "openai"

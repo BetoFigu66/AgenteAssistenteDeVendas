@@ -15,7 +15,7 @@ import logging
 import re
 import time
 from dataclasses import dataclass, field
-from datetime import date, datetime, timedelta
+from datetime import datetime, timedelta
 from typing import Any, Optional, Sequence
 
 from config import settings
@@ -69,7 +69,7 @@ from services.conversacao.regras_esclarecendo import REGISTRO_ESCLARECENDO
 from services.conversacao.regras_finalizando import REGISTRO_FINALIZANDO
 from services.conversacao.regras_globais import REGRAS_GLOBAIS
 from services.cpf.persistencia import obter_ou_criar_pessoa
-from services.cpf.validacao import mascarar_cpf, parse_data_nascimento, validar_cpf
+from services.cpf.validacao import mascarar_cpf, validar_cpf
 from services.debug_log import DebugLogger
 from services.identificador import (
     ResultadoIdentificacao,
@@ -81,6 +81,7 @@ from services.identificador import (
     vincular_empresa_ao_contato,
 )
 from services.llm import LLMProvider
+from services.llm import comparacao as comparacao_llm
 from services.parametro_service import ParametroService
 from services.rag import BuscadorQA, BuscadorRag, QAServiceNulo, RetrievalServiceNulo
 from services.respostas import GeradorRespostas, MensagemId, RespostaGerada
@@ -244,6 +245,32 @@ class ProcessadorMensagem:
     # ------------------------------------------------------------------
 
     async def processar(
+        self,
+        db: Session,
+        telefone: str,
+        conteudo: str,
+        message_sid: Optional[str] = None,
+        responde_a_message_sid: Optional[str] = None,
+        responde_a_mensagem_id: Optional[int] = None,
+        nome_perfil: Optional[str] = None,
+    ) -> ResultadoProcessamento:
+        """Ver `_processar`. Aqui só se abre e fecha a coleta dos pontos que usam o LLM
+        (`services/llm/comparacao.py`), gravada junto com a resposta."""
+        token = comparacao_llm.iniciar()
+        try:
+            return await self._processar(
+                db,
+                telefone,
+                conteudo,
+                message_sid=message_sid,
+                responde_a_message_sid=responde_a_message_sid,
+                responde_a_mensagem_id=responde_a_mensagem_id,
+                nome_perfil=nome_perfil,
+            )
+        finally:
+            comparacao_llm.encerrar(token)
+
+    async def _processar(
         self,
         db: Session,
         telefone: str,
@@ -501,6 +528,14 @@ class ProcessadorMensagem:
             # As perguntas feitas neste turno passam a saber em que mensagem foram: é o
             # que o "Responder" do cliente vai citar.
             pilha.vincular_mensagens(db, atendimento.id if atendimento else None, msg_in.id, msgs_out)
+        # O que o sistema faria sem o LLM, ponto a ponto, ligado à pergunta e à resposta.
+        comparacao_llm.gravar(
+            db,
+            comparacao_llm.coletados(),
+            mensagem_id=msg_in.id,
+            processamento_id=processamento.id,
+            mensagens_saida=msgs_out if resposta.texto else [],
+        )
         db.commit()
         mensagens_saida_ids = [m.id for m in msgs_out] if resposta.texto else []
 
@@ -1076,6 +1111,7 @@ class ProcessadorMensagem:
         conteudo_cliente: str,
         dlog: Optional[DebugLogger] = None,
         resultado_class: Optional[ResultadoClassificacao] = None,
+        consulta: Optional[str] = None,
     ) -> RespostaGerada:
         """REQ-003.7: quando a base (Q&A/RAG) não tem conteúdo sobre o produto perguntado,
         faz no máximo 1 pergunta de clarificação antes de escalar para atendimento humano —
@@ -1091,6 +1127,7 @@ class ProcessadorMensagem:
             conteudo_cliente=conteudo_cliente,
             template_fallback=MensagemId.PRODUTO_SEM_CONTEXTO,
             dlog=dlog,
+            consulta=consulta,
         )
 
         if resposta.trechos_rag:
@@ -1284,12 +1321,18 @@ class ProcessadorMensagem:
         conteudo_cliente: str,
         template_fallback: MensagemId,
         dlog: Optional[DebugLogger] = None,
+        consulta: Optional[str] = None,
     ) -> RespostaGerada:
-        """Busca pares/trechos e gera resposta; Q&A tem prioridade sobre chunks."""
+        """Busca pares/trechos e gera resposta; Q&A tem prioridade sobre chunks.
+
+        `consulta` é o texto buscado na base quando difere da mensagem (ex.: o produto do
+        atendimento, para um "pode me fornecer mais detalhes?"); o LLM continua recebendo a
+        mensagem do cliente."""
         codigo_fallback = template_fallback.name
+        consulta = consulta or conteudo_cliente
         # Camada 1: Q&A pairs curados
         par = await self._qa.buscar_melhor(
-            conteudo_cliente, apenas_aprovados=settings.QA_APENAS_APROVADOS, dlog=dlog
+            consulta, apenas_aprovados=settings.QA_APENAS_APROVADOS, dlog=dlog
         )
         if par is not None:
             if dlog:
@@ -1303,7 +1346,7 @@ class ProcessadorMensagem:
                 rag_score_maximo=par.score,
             )
         # Camada 2: chunks de produto (RAG)
-        trechos = await self._retrieval.buscar_trechos(conteudo_cliente, dlog=dlog)
+        trechos = await self._retrieval.buscar_trechos(consulta, dlog=dlog)
         if not trechos:
             if dlog:
                 dlog.log("rag_decisao", f"sem trechos → fallback template={codigo_fallback}")
@@ -1312,8 +1355,9 @@ class ProcessadorMensagem:
             return resposta
         if dlog:
             dlog.log("rag_decisao", f"{len(trechos)} trechos → gerando com LLM+RAG")
+        pergunta = conteudo_cliente if consulta == conteudo_cliente else f"{conteudo_cliente} (sobre: {consulta})"
         return await self._gerador.gerar_com_rag(
-            pergunta_cliente=conteudo_cliente,
+            pergunta_cliente=pergunta,
             trechos=trechos,
             permitir_sugestao_produto=settings.RAG_SUGERIR_PRODUTOS,
             template_fallback=template_fallback,
@@ -1378,36 +1422,16 @@ class ProcessadorMensagem:
         telefone: str,
         cpf: str,
         nome_informado: Optional[str] = None,
-        data_nascimento: Optional[date] = None,
     ) -> RespostaGerada:
-        """Processa quando o cliente forneceu CPF: valida, persiste pessoa e vincula atendimento."""
+        """Processa quando o cliente forneceu CPF: valida, persiste pessoa e vincula atendimento.
+
+        A data de nascimento não é mais pedida (decisão do Beto, 11/10/2026): nada a
+        consultava, e o REQ-005 a lista entre os dados que não se pedem ativamente. O
+        cadastro PF se completa com o CPF sozinho."""
         if not validar_cpf(cpf):
             return await self._gerador.gerar(MensagemId.CPF_INVALIDO)
 
-        if data_nascimento is None:
-            telefone_norm = normalizar_telefone(telefone)
-            contato = (
-                db.query(Contato)
-                .filter(Contato.telefone.in_([telefone_norm, telefone]))
-                .first()
-            )
-            if not contato:
-                contato = criar_contato(db=db, telefone=telefone, nome=nome_informado)
-            elif nome_informado and not contato.nome:
-                contato.nome = nome_informado
-                db.commit()
-
-            # O CPF fica guardado na pergunta da data, na pilha (ver
-            # `regras_globais._registrar_pergunta_data`).
-            self._obter_ou_criar_atendimento_pf_pendente(db, contato, cpf)
-            return await self._gerador.gerar(MensagemId.PERGUNTAR_DATA_NASCIMENTO)
-
-        pessoa, resultado_credito = await obter_ou_criar_pessoa(
-            db,
-            cpf,
-            nome=nome_informado,
-            data_nascimento=data_nascimento,
-        )
+        pessoa, resultado_credito = await obter_ou_criar_pessoa(db, cpf, nome=nome_informado)
 
         telefone_norm = normalizar_telefone(telefone)
         contato_existente = (
@@ -1434,7 +1458,10 @@ class ProcessadorMensagem:
         )
         self._registrar_resultado_credito(db, atendimento, resultado_credito)
 
-        nome_exibicao = pessoa.nome or contato_existente.nome or "cliente"
+        # A forma de tratamento que o cliente deu ou confirmou nesta conversa vem antes
+        # do nome guardado na `Pessoa`, que pode ser de um atendimento antigo (ou ter sido
+        # gravado errado por uma extração de nome antiga).
+        nome_exibicao = nome_informado or contato_existente.nome or pessoa.nome or "cliente"
         return await self._gerador.gerar(
             MensagemId.CPF_CONSULTADO_OK,
             contexto={"nome": nome_exibicao},
@@ -1492,17 +1519,6 @@ class ProcessadorMensagem:
         """Retorna atendimento ativo ou cria um novo."""
         return atendimentos_svc.obter_ou_criar_atendimento(db, contato, empresa=empresa, pessoa=pessoa)
 
-    def _obter_ou_criar_atendimento_pf_pendente(
-        self,
-        db: Session,
-        contato: Contato,
-        cpf: str,
-    ) -> Atendimento:
-        """Cria ou retorna atendimento PF aguardando data de nascimento."""
-        return atendimentos_svc.obter_ou_criar_atendimento_pf_pendente(
-            db, contato, cpf_mascarado=mascarar_cpf(cpf)
-        )
-
     def _promover_atendimento_pessoa(
         self,
         db: Session,
@@ -1511,15 +1527,6 @@ class ProcessadorMensagem:
     ) -> Atendimento:
         """Vincula pessoa (PF) a um atendimento existente."""
         return atendimentos_svc.promover_atendimento_pessoa(db, atendimento, pessoa)
-
-    def _parse_data_entidade(self, entidades, conteudo: str) -> Optional[date]:
-        """Obtém data de nascimento das entidades extraídas ou do texto bruto."""
-        if entidades.datas_nascimento:
-            try:
-                return date.fromisoformat(entidades.datas_nascimento[0])
-            except ValueError:
-                pass
-        return parse_data_nascimento(conteudo)
 
     def _info_atendimento(self, db: Session, atendimento_id: int, chave: str) -> Optional[str]:
         info = db.query(AtendimentoInfo).filter_by(atendimento_id=atendimento_id, chave=chave).first()

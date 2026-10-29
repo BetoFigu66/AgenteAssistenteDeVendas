@@ -17,8 +17,16 @@ from utils.nome_perfil import nome_perfil_aproveitavel
         ("Zé Lú", "Zé Lú"),  # 4 letras acentuadas contando através do espaço
         ("Ana Souza", "Ana Souza"),
         ("  Ana   Souza  ", "Ana Souza"),  # espaços aparados e colapsados
-        ("Ana 😊", "Ana 😊"),  # emoji junto de letras: vale, mantido como veio
-        ("😊Bia😊", "😊Bia😊"),
+        ("Ana 😊", "Ana"),  # caracteres não alfabéticos são retirados
+        ("😊Bia😊", "Bia"),
+        ("~~Joaquim Barbosa~~", "Joaquim Barbosa"),
+        ("*Ana* Souza 🚀", "Ana Souza"),
+        ("Ana.Souza", "Ana Souza"),  # pontuação entre nomes vira espaço
+        ("Joaquim 2", "Joaquim"),
+        ("Ana-Maria", "Ana-Maria"),  # hífen e apóstrofo entre letras ficam
+        ("D'Ávila", "D'Ávila"),
+        ("João D’Ávila", "João D’Ávila"),
+        ("- Ana -", "Ana"),  # hífen solto sai
         ("José", "José"),  # acento combinante (NFD) vira NFC
     ],
 )

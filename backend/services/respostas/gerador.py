@@ -8,10 +8,12 @@ Fluxo:
 """
 
 import logging
+import time
 from dataclasses import dataclass, field
 from typing import Any, List, Optional, Sequence, Tuple, Union
 
 from services.llm import LLMProvider
+from services.llm import comparacao as comparacao_llm
 
 from .catalogo import MensagemId, renderizar_mensagem
 
@@ -118,6 +120,46 @@ class GeradorRespostas:
         self._llm = llm
         self._usar_llm = usar_llm and llm is not None
 
+    def _registrar(
+        self,
+        etapa: str,
+        situacao: str,
+        sem_llm: str,
+        template: Optional[str],
+        *,
+        com_llm: Optional[str] = None,
+        erro: Optional[Exception] = None,
+        inicio: Optional[float] = None,
+        dados: Optional[dict] = None,
+        resultado=None,
+    ) -> None:
+        """Registra o ponto para a comparação sem/com LLM (`services/llm/comparacao.py`)."""
+        provedor, modelo = comparacao_llm.identificar_llm(self._llm if self._usar_llm else None)
+        comparacao_llm.registrar(
+            comparacao_llm.UsoLLM(
+                etapa=etapa,
+                situacao=situacao,
+                sem_llm=sem_llm,
+                com_llm=com_llm,
+                dados={"template": template, **(dados or {})},
+                erro=str(erro) if erro else None,
+                provedor=provedor,
+                modelo=(getattr(resultado, "modelo", None) or modelo),
+                latencia_ms=int((time.monotonic() - inicio) * 1000) if inicio is not None else None,
+                tokens_input=getattr(resultado, "tokens_input", None),
+                tokens_output=getattr(resultado, "tokens_output", None),
+            )
+        )
+
+    def _registrar_resultado(
+        self, etapa: str, sem_llm: str, template: Optional[str], resultado, inicio: float, dados: Optional[dict] = None
+    ) -> None:
+        texto = (resultado.conteudo or "").strip()
+        self._registrar(
+            etapa, comparacao_llm.OK if texto else comparacao_llm.VAZIO, sem_llm, template,
+            com_llm=texto or None, inicio=inicio, dados=dados, resultado=resultado,
+        )
+
     async def gerar(
         self,
         mensagem_id: Union[MensagemId, int],
@@ -140,12 +182,15 @@ class GeradorRespostas:
         resposta_base, codigo = renderizar_mensagem(mensagem_id, contexto)
 
         if not personalizar or not self._usar_llm:
+            if personalizar:
+                self._registrar(comparacao_llm.PERSONALIZACAO, comparacao_llm.INDISPONIVEL, resposta_base, codigo)
             return RespostaGerada(texto=resposta_base, template_usado=codigo)
 
         prompt_usuario = f"Resposta padrão base: {resposta_base}"
         if mensagem_cliente:
             prompt_usuario = f"Mensagem do cliente: {mensagem_cliente}\n\n{prompt_usuario}"
 
+        inicio = time.monotonic()
         try:
             resultado = await self._llm.completar(
                 prompt_sistema=_PROMPT_SISTEMA_PERSONALIZACAO,
@@ -154,6 +199,7 @@ class GeradorRespostas:
                 max_tokens=300,
             )
             texto_final = resultado.conteudo.strip() or resposta_base
+            self._registrar_resultado(comparacao_llm.PERSONALIZACAO, resposta_base, codigo, resultado, inicio)
             return RespostaGerada(
                 texto=texto_final,
                 template_usado=codigo,
@@ -163,6 +209,8 @@ class GeradorRespostas:
             )
         except Exception as e:
             logger.warning(f"[Gerador] Falha ao personalizar via LLM, usando template: {e}")
+            self._registrar(comparacao_llm.PERSONALIZACAO, comparacao_llm.ERRO, resposta_base, codigo, erro=e,
+                            inicio=inicio)
             return RespostaGerada(texto=resposta_base, template_usado=codigo)
 
     async def gerar_composta(
@@ -190,12 +238,17 @@ class GeradorRespostas:
         # Sem LLM, cada parte vira uma mensagem de WhatsApp. Personalizada, o LLM devolve
         # um texto só e não há onde cortar: vai numa mensagem única.
         if not personalizar or not self._usar_llm:
+            if personalizar:
+                self._registrar(
+                    comparacao_llm.PERSONALIZACAO, comparacao_llm.INDISPONIVEL, resposta_base, codigo_composto
+                )
             return RespostaGerada(texto=resposta_base, template_usado=codigo_composto, partes=textos)
 
         prompt_usuario = f"Resposta padrão base: {resposta_base}"
         if mensagem_cliente:
             prompt_usuario = f"Mensagem do cliente: {mensagem_cliente}\n\n{prompt_usuario}"
 
+        inicio = time.monotonic()
         try:
             resultado = await self._llm.completar(
                 prompt_sistema=_PROMPT_SISTEMA_PERSONALIZACAO,
@@ -204,6 +257,7 @@ class GeradorRespostas:
                 max_tokens=400,
             )
             texto_final = resultado.conteudo.strip() or resposta_base
+            self._registrar_resultado(comparacao_llm.PERSONALIZACAO, resposta_base, codigo_composto, resultado, inicio)
             return RespostaGerada(
                 texto=texto_final,
                 template_usado=codigo_composto,
@@ -213,6 +267,10 @@ class GeradorRespostas:
             )
         except Exception as e:
             logger.warning(f"[Gerador] Falha ao personalizar composta via LLM: {e}")
+            self._registrar(
+                comparacao_llm.PERSONALIZACAO, comparacao_llm.ERRO, resposta_base, codigo_composto,
+                erro=e, inicio=inicio,
+            )
             return RespostaGerada(texto=resposta_base, template_usado=codigo_composto, partes=textos)
 
     async def gerar_com_rag(
@@ -245,6 +303,10 @@ class GeradorRespostas:
                 logger.info("[Gerador] RAG sem trechos; usando fallback %s", codigo_fallback)
             else:
                 logger.info("[Gerador] RAG sem LLM disponivel; usando fallback %s", codigo_fallback)
+                self._registrar(
+                    comparacao_llm.RESPOSTA_RAG, comparacao_llm.INDISPONIVEL, texto_fallback, codigo_fallback,
+                    dados={"trechos": len(trechos), "score_maximo": score_max},
+                )
             return RespostaGerada(
                 texto=texto_fallback,
                 template_usado=codigo_fallback,
@@ -256,6 +318,8 @@ class GeradorRespostas:
         prompt_sistema = _montar_prompt_sistema_rag(permitir_sugestao_produto)
         prompt_usuario = _montar_prompt_usuario_rag(pergunta_cliente, trechos)
 
+        dados_rag = {"trechos": len(trechos), "score_maximo": score_max}
+        inicio = time.monotonic()
         try:
             resultado = await self._llm.completar(
                 prompt_sistema=prompt_sistema,
@@ -264,6 +328,9 @@ class GeradorRespostas:
                 max_tokens=350,
             )
             texto_final = (resultado.conteudo or "").strip()
+            self._registrar_resultado(
+                comparacao_llm.RESPOSTA_RAG, texto_fallback, codigo_fallback, resultado, inicio, dados=dados_rag
+            )
             if not texto_final:
                 logger.warning("[Gerador] LLM retornou vazio na RAG; usando fallback")
                 return RespostaGerada(
@@ -285,6 +352,10 @@ class GeradorRespostas:
             )
         except Exception as e:
             logger.warning(f"[Gerador] Falha ao gerar resposta com RAG: {e}")
+            self._registrar(
+                comparacao_llm.RESPOSTA_RAG, comparacao_llm.ERRO, texto_fallback, codigo_fallback, erro=e,
+                inicio=inicio, dados=dados_rag,
+            )
             return RespostaGerada(
                 texto=texto_fallback,
                 template_usado=codigo_fallback,

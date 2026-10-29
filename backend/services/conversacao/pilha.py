@@ -35,6 +35,7 @@ from models import Atendimento, Mensagem, PerguntaPendente, StatusPergunta
 from sqlalchemy.orm import Session
 from utils.datetime_utils import utc_now
 
+from services.classificador import mascarar_documentos
 from services.respostas import MensagemId, RespostaGerada
 
 from .acoes import ContextoAcao
@@ -284,7 +285,9 @@ class Captura:
 
 
 def _entrada(ctx: ContextoAcao, pergunta: PerguntaPendente):
-    return entrada_de(ctx.conteudo, ctx.resultado_class.intencoes, ctx.resultado_class.entidades, pergunta.dados)
+    # Sem os documentos: o "111" de um CPF formatado não responde a "quantas pessoas?".
+    conteudo = mascarar_documentos(ctx.conteudo or "")
+    return entrada_de(conteudo, ctx.resultado_class.intencoes, ctx.resultado_class.entidades, pergunta.dados)
 
 
 def _ler(ctx: ContextoAcao, pergunta: PerguntaPendente) -> Optional[Leitura]:

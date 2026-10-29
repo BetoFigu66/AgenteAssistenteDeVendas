@@ -65,7 +65,13 @@
         "src/App.jsx",
         "src/components/Header.jsx"
       ],
-      "hash": "6660f02d5dbe10b0"
+      "hash": "2ee394748873fd99"
+    },
+    "sistema": {
+      "componentes": [
+        "src/components/SistemaPage.jsx"
+      ],
+      "hash": "1106c33fd95183cd"
     }
   }
 }

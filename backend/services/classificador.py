@@ -20,6 +20,7 @@ from typing import Any, Dict, List, Optional
 
 from services.cpf.validacao import extrair_cpfs, formatar_cpf, normalizar_cpf, parse_data_nascimento
 from services.llm import LLMProvider
+from services.llm import comparacao as comparacao_llm
 
 logger = logging.getLogger(__name__)
 
@@ -143,6 +144,20 @@ def pergunta_compatibilidade(texto: str) -> bool:
     return _RE_COMPATIBILIDADE.search(texto) is not None
 
 
+# Pedido genérico de mais informação sobre o que acabou de ser apresentado ("não conheço,
+# pode me fornecer mais detalhes?"). É dúvida de produto, mas não diz qual: quem responde
+# consulta a base pelo produto do atendimento (`categoria_pergunta._consulta_rag`).
+_PADRAO_PEDIDO_DETALHES = (
+    r"\b(?:mais\s+(?:detalhes|informa[cç](?:[oõ]es|[aã]o))|saber\s+mais"
+    r"|(?:fal(?:e|a)r?|cont(?:e|a)r?|explic(?:ar|a|que))\s+(?:um\s+pouco\s+)?(?:mais|melhor))\b"
+)
+_RE_PEDIDO_DETALHES = re.compile(_PADRAO_PEDIDO_DETALHES, re.IGNORECASE)
+
+
+def pedido_de_detalhes(texto: str) -> bool:
+    return _RE_PEDIDO_DETALHES.search(texto) is not None
+
+
 _REGRAS_INTENCAO: list[tuple[Intencao, re.Pattern]] = [
     (
         Intencao.SAUDACAO,
@@ -225,6 +240,7 @@ _REGRAS_INTENCAO: list[tuple[Intencao, re.Pattern]] = [
             r"|caracter[ií]sticas?|diferen[cç]as?"
             r"|explic(?:ar|a|que)\s+(?:o\s+que|as\s+op[cç][oõ]es)"
             r"|melhor\s+op[cç][aã]o|compar(?:ar|a[çc][aã]o)|vantagens?)\b"
+            r"|" + _PADRAO_PEDIDO_DETALHES +
             # Compatibilidade é dúvida de produto (respondida com COMPATIBILIDADE_SISTEMA).
             r"|" + _PADRAO_COMPATIBILIDADE,
             re.IGNORECASE,
@@ -271,6 +287,17 @@ _REGEX_QUANTIDADE = re.compile(r"\b(\d{1,4})\s*(unidades?|un|pe[çc]as?|pcs)?\b"
 # Máscara usada apenas na extração de quantidades — evita que datas (ex: 28/12/1965)
 # gerem valores como 28, 12 e 1965 na entidade "quantidades".
 _REGEX_MASCARA_DATA = re.compile(r"\b\d{1,2}[/\-.]\d{1,2}[/\-.]\d{4}\b")
+# CNPJ e CPF formatados ("11.222.333/0001-81", "111.444.777-35", "111 444 777 35"): sem
+# máscara, cada grupo de dígitos virava uma quantidade (o "333" de um CNPJ disparava o
+# projeto complexo) ou a resposta solta a uma pergunta numérica da pilha.
+_REGEX_MASCARA_DOCUMENTO = re.compile(
+    r"\b\d{2}\.?\d{3}\.?\d{3}/?\d{4}-?\d{2}\b|\b\d{3}[.\s]?\d{3}[.\s]?\d{3}[-\s]?\d{2}\b"
+)
+
+
+def mascarar_documentos(texto: str) -> str:
+    """O texto com CNPJs e CPFs trocados por espaço, para quem lê números soltos."""
+    return _REGEX_MASCARA_DOCUMENTO.sub(" ", texto)
 
 # Captura um nome próprio após gatilhos como "meu nome é ...", "sou o/a ...", "me chamo ...".
 # O grupo de nome aceita 1 a 4 palavras iniciadas por maiúscula (ou palavras
@@ -601,7 +628,7 @@ def extrair_entidades(texto: str) -> EntidadesExtraidas:
 
     # Quantidades: máscara de datas, de nº de pessoas e de numeração de lista antes, para
     # não confundir dia/mês/ano, funcionários ou "1) 2) 3)" com unidades.
-    texto_sem_datas = _REGEX_MASCARA_DATA.sub(" ", texto)
+    texto_sem_datas = _REGEX_MASCARA_DATA.sub(" ", mascarar_documentos(texto))
     texto_sem_datas = _REGEX_MASCARA_FUNCIONARIOS.sub(" ", texto_sem_datas)
     texto_sem_datas = _REGEX_MASCARA_ENUMERACAO.sub(" ", texto_sem_datas)
     quantidades = [
@@ -854,22 +881,21 @@ async def classificar_por_llm(
 
     Returns:
         Tupla (Intencao, confianca, EntidadesExtraidas, raw_json, latencia_ms).
+
+    Raises:
+        Exception: a falha do provedor, sem tratamento (ver `classificar`).
     """
     prompt_usuario = f"Mensagem do cliente: {texto}"
     if contexto:
         prompt_usuario = f"Contexto anterior: {contexto}\n\n{prompt_usuario}"
 
     inicio = time.monotonic()
-    try:
-        resultado = await llm.completar_json(
-            prompt_sistema=_PROMPT_SISTEMA_CLASSIFICADOR,
-            prompt_usuario=prompt_usuario,
-            temperatura=0.1,
-        )
-    except Exception as e:
-        logger.error(f"[Classificador] Erro na LLM: {e}")
-        latencia_ms = int((time.monotonic() - inicio) * 1000)
-        return Intencao.DESCONHECIDO, 0.0, EntidadesExtraidas(), {}, latencia_ms
+    # Erro do LLM sobe: quem chama volta para o resultado das regras.
+    resultado = await llm.completar_json(
+        prompt_sistema=_PROMPT_SISTEMA_CLASSIFICADOR,
+        prompt_usuario=prompt_usuario,
+        temperatura=0.1,
+    )
 
     latencia_ms = int((time.monotonic() - inicio) * 1000)
 
@@ -908,6 +934,10 @@ async def classificar_por_llm(
 # =============================================================================
 
 LIMITE_CONFIANCA_REGRAS = 0.7
+
+
+def _descrever_classificacao(intencoes: List[Intencao], confianca: float) -> str:
+    return f"{', '.join(i.value for i in intencoes) or 'nenhuma'} (confiança {confianca:.2f})"
 
 
 async def classificar(
@@ -955,18 +985,45 @@ async def classificar(
             origem="regra",
         )
 
-    # Caso contrário, tenta LLM
+    # Caso contrário, tenta LLM. O resultado só das regras é o que vale sem ele, e fica
+    # registrado para comparação (`services/llm/comparacao.py`).
+    resultado_regras = ResultadoClassificacao(
+        intencoes=_finalizar_intencoes(matches_regra, entidades_regra),
+        confianca=confianca_regra,
+        confianca_nivel=_calcular_nivel_confianca(confianca_regra, **kwargs_nivel),
+        entidades=entidades_regra,
+        origem="regra",
+    )
+    sem_llm = _descrever_classificacao(resultado_regras.intencoes, confianca_regra)
+    dados_regras = {
+        "intencoes_regras": [i.value for i in resultado_regras.intencoes],
+        "confianca_regras": confianca_regra,
+    }
+    provedor, modelo = comparacao_llm.identificar_llm(llm)
     if llm is None:
-        intencoes = _finalizar_intencoes(matches_regra, entidades_regra)
-        return ResultadoClassificacao(
-            intencoes=intencoes,
-            confianca=confianca_regra,
-            confianca_nivel=_calcular_nivel_confianca(confianca_regra, **kwargs_nivel),
-            entidades=entidades_regra,
-            origem="regra",
+        comparacao_llm.registrar(
+            comparacao_llm.UsoLLM(
+                etapa=comparacao_llm.CLASSIFICACAO, situacao=comparacao_llm.INDISPONIVEL,
+                sem_llm=sem_llm, dados=dados_regras,
+            )
         )
+        return resultado_regras
 
-    intencao_llm, confianca_llm, entidades_llm, raw, latencia_ms = await classificar_por_llm(texto, llm, contexto)
+    inicio_llm = time.monotonic()
+    try:
+        intencao_llm, confianca_llm, entidades_llm, raw, latencia_ms = await classificar_por_llm(texto, llm, contexto)
+    except Exception as e:
+        # Antes a falha virava DESCONHECIDO com confiança 0, jogando fora o que as regras
+        # tinham achado: com o LLM fora do ar, ficava pior do que sem LLM nenhum.
+        logger.error(f"[Classificador] Erro na LLM, seguindo com as regras: {e}")
+        comparacao_llm.registrar(
+            comparacao_llm.UsoLLM(
+                etapa=comparacao_llm.CLASSIFICACAO, situacao=comparacao_llm.ERRO, sem_llm=sem_llm,
+                dados=dados_regras, erro=str(e), provedor=provedor, modelo=modelo,
+                latencia_ms=int((time.monotonic() - inicio_llm) * 1000),
+            )
+        )
+        return resultado_regras
 
     # Combina entidades de regras + LLM (regras são mais confiáveis para CNPJ/email;
     # para nomes, regra e LLM se complementam — mantém os dois).
@@ -1005,6 +1062,14 @@ async def classificar(
         confianca_llm = 0.0
 
     intencoes = _finalizar_intencoes([(intencao_llm, confianca_llm)], entidades_final)
+    comparacao_llm.registrar(
+        comparacao_llm.UsoLLM(
+            etapa=comparacao_llm.CLASSIFICACAO, situacao=comparacao_llm.OK, sem_llm=sem_llm,
+            com_llm=_descrever_classificacao(intencoes, confianca_llm),
+            dados={**dados_regras, "intencoes_llm": [i.value for i in intencoes], "confianca_llm": confianca_llm},
+            provedor=provedor, modelo=modelo, latencia_ms=latencia_ms,
+        )
+    )
     logger.debug(f"[Classificador] Usando LLM: {[i.value for i in intencoes]} (confiança={confianca_llm},"
         " latência={latencia_ms}ms)")
 

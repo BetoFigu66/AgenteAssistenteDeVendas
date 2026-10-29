@@ -266,10 +266,7 @@ def _titulo_novo_atendimento(
     *,
     empresa: Optional[Empresa] = None,
     pessoa: Optional[Pessoa] = None,
-    pf_pendente: bool = False,
 ) -> str:
-    if pf_pendente:
-        return "Atendimento - Pessoa Física (pendente)"
     if empresa:
         return f"Atendimento - {empresa.nome}"
     if pessoa:
@@ -315,6 +312,35 @@ def promover_atendimento_pessoa(
             atendimento.id,
             pessoa.id,
         )
+    return atendimento
+
+
+def definir_documento_nota(
+    db: Session,
+    atendimento: Atendimento,
+    *,
+    empresa: Optional[Empresa] = None,
+    pessoa: Optional[Pessoa] = None,
+) -> Atendimento:
+    """Faz de `empresa` (CNPJ) ou `pessoa` (CPF) o documento em que a nota fiscal sai,
+    mesmo que o atendimento já tivesse outro: é o que o cliente responde à confirmação
+    do documento no Finalizando (`conversacao/documento_fiscal.py`). Os promotores acima
+    só preenchem o que está vazio."""
+    if empresa is not None:
+        atendimento.empresa_id = empresa.id
+        atendimento.tipo_documento = TipoDocumento.CNPJ
+    elif pessoa is not None:
+        atendimento.pessoa_id = pessoa.id
+        atendimento.tipo_documento = TipoDocumento.CPF
+    else:
+        return atendimento
+    db.commit()
+    db.refresh(atendimento)
+    logger.info(
+        "[Atendimentos] Atendimento id=%s: documento da nota agora é %s",
+        atendimento.id,
+        atendimento.tipo_documento.value,
+    )
     return atendimento
 
 
@@ -366,47 +392,5 @@ def obter_ou_criar_atendimento(
         atendimento.contato_id,
         atendimento.empresa_id,
         atendimento.pessoa_id,
-    )
-    return atendimento
-
-
-def obter_ou_criar_atendimento_pf_pendente(
-    db: Session,
-    contato: Contato,
-    cpf_mascarado: str = "",
-) -> Atendimento:
-    """Cria ou retorna atendimento PF aguardando data de nascimento."""
-    atendimento = atendimento_ativo(db, contato)
-    if atendimento:
-        atendimento.tipo_documento = TipoDocumento.CPF
-        db.commit()
-        db.refresh(atendimento)
-        return atendimento
-
-    numero = proximo_numero_atendimento_cliente(db, contato.id)
-    atendimento = Atendimento(
-        contato_id=contato.id,
-        tipo_documento=TipoDocumento.CPF,
-        status=StatusAtendimento.ATIVO,
-        fase=FaseAtendimento.ESCLARECENDO,
-        titulo=_titulo_novo_atendimento(pf_pendente=True),
-        numero_atendimento_cliente=numero,
-    )
-    db.add(atendimento)
-    db.commit()
-    db.refresh(atendimento)
-    registrar_evento_atendimento(
-        db,
-        atendimento,
-        tipo=TipoEventoAtendimento.CRIADO,
-        ator="sistema:criacao_automatica",
-        estado_novo=StatusAtendimento.ATIVO.value,
-        motivo="pf_pendente_data_nascimento",
-    )
-    logger.info(
-        "[Atendimentos] PF pendente criado id=%s numero=%s cpf=%s",
-        atendimento.id,
-        atendimento.numero_atendimento_cliente,
-        cpf_mascarado,
     )
     return atendimento

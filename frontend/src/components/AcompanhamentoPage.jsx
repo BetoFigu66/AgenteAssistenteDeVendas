@@ -7,6 +7,7 @@ import DetalheModal from './DetalheModal'
 import BotaoAjuda from './BotaoAjuda'
 import ProcessamentoDetalhes from './ProcessamentoDetalhes'
 import EscalonamentosAtendimento from './EscalonamentosAtendimento'
+import DuvidasPendentes from './DuvidasPendentes'
 import { formatDatetimeBRT } from '../utils/datetime'
 import {
   numeroAtendimentoExibicao,
@@ -655,6 +656,14 @@ function AcompanhamentoPage({ atendimentoIdInicial, onAtendimentoIdInicialConsum
                   />
                 </div>
               </div>
+
+              <DuvidasPendentes
+                key={`duvidas-${atendimentoSelecionado.id}`}
+                atendimentoId={atendimentoSelecionado.id}
+                recarregarChave={mensagensAtendimento.length}
+                onIrParaMensagem={irParaMensagem}
+                mensagemVisivel={mensagemVisivel}
+              />
 
               {mensagensAtendimento.filter(m => m.origem === 'system' && m.pendente_aprovacao).length > 0 && (
                 <div className="mx-4 mt-3 p-3 bg-yellow-50 border border-yellow-300 rounded-md">

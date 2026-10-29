@@ -170,7 +170,7 @@ def test_projeto_complexo_espera_cada_pendencia_ser_perguntada_uma_vez(db_sessio
         assert "software de ponto" in conversa.texto
 
         conversa.diz("nenhum")
-        assert _PEDE_DOCUMENTO in conversa.texto
+        assert _PEDE_DOCUMENTO_NF in conversa.texto  # o da nota, antes de transferir
 
         conversa.diz("prefiro não passar")
         assert "análise mais detalhada" in conversa.texto
@@ -184,7 +184,17 @@ def test_projeto_complexo_espera_cada_pendencia_ser_perguntada_uma_vez(db_sessio
         _limpar(db_session, telefone)
 
 
-def test_documento_pedido_de_novo_so_uma_vez_no_finalizando(db_session):
+_PEDE_DOCUMENTO_NF = "Para a nota fiscal: ela sai no CNPJ da empresa ou no seu CPF?"
+_CONFIRMA_CPF_NF = "A nota fiscal sai no CPF que você me informou, certo?"
+# CPF e CNPJ sintéticos válidos (passam no dígito verificador), sem relação com pessoa ou
+# empresa real.
+_CPF_SINTETICO, _CPF_SINTETICO_FORMATADO = "11144477735", "111.444.777-35"
+_CNPJ_SINTETICO = "11.222.333/0001-81"
+
+
+def test_documento_da_nota_pedido_uma_vez_no_finalizando(db_session):
+    """Sem documento dado no início, o Finalizando pergunta o da nota fiscal uma vez, antes
+    do resumo; sem resposta, o resumo segue."""
     telefone = "+5511999977405"
     try:
         conversa = _Conversa(db_session, telefone)
@@ -192,12 +202,80 @@ def test_documento_pedido_de_novo_so_uma_vez_no_finalizando(db_session):
         assert _PEDE_DOCUMENTO in conversa.texto
 
         conversa.diz("biometria")
-        assert _PEDE_DOCUMENTO in conversa.texto  # o modelo resolveu: última tentativa
+        assert _PEDE_DOCUMENTO_NF in conversa.texto  # o modelo resolveu: pergunta da nota
 
         conversa.diz("não quero passar")
         assert "resumo" in conversa.texto
     finally:
         _limpar(db_session, telefone)
+
+
+def _apagar_pessoa(db_session):
+    from models import Pessoa
+
+    db_session.query(Pessoa).filter_by(cpf=_CPF_SINTETICO_FORMATADO).delete()
+    db_session.commit()
+
+
+def test_cpf_do_inicio_e_confirmado_como_documento_da_nota(db_session):
+    """CPF dado no início: sem data de nascimento, é anotado na hora, e o Finalizando só
+    confirma que a nota sai nele."""
+    telefone = "+5511999977407"
+    _apagar_pessoa(db_session)
+    try:
+        conversa = _Conversa(db_session, telefone)
+        conversa.diz("Quero orçamento de relógio de ponto, já uso o Domínio")
+        conversa.diz(f"meu cpf é {_CPF_SINTETICO}")
+        assert conversa.texto.startswith("Anotei seu CPF.")
+        assert "nascimento" not in conversa.texto
+        assert conversa.atendimento.pessoa.data_nascimento is None
+
+        conversa.diz("biometria")
+        assert _CONFIRMA_CPF_NF in conversa.texto
+        assert _CPF_SINTETICO not in conversa.texto  # o CPF não é ecoado (REQ-005)
+
+        conversa.diz("sim")
+        assert "resumo" in conversa.texto
+        assert conversa.atendimento.tipo_documento.value == "cpf"
+    finally:
+        _limpar(db_session, telefone)
+        _apagar_pessoa(db_session)
+
+
+def test_outro_documento_na_resposta_vira_o_da_nota(db_session):
+    """O cliente diz que a nota não sai no CPF do início: "não" sem documento pede o da
+    nota (uma vez); o CNPJ que chega passa a ser o documento do atendimento."""
+    from models import Empresa
+
+    telefone = "+5511999977408"
+    _apagar_pessoa(db_session)
+    empresa = db_session.query(Empresa).filter_by(cnpj=_CNPJ_SINTETICO).first()
+    criou_empresa = empresa is None
+    if criou_empresa:
+        empresa = Empresa(cnpj=_CNPJ_SINTETICO, nome="Empresa Teste NF")
+        db_session.add(empresa)
+        db_session.commit()
+    try:
+        conversa = _Conversa(db_session, telefone)
+        conversa.diz("Quero orçamento de relógio de ponto, já uso o Domínio")
+        conversa.diz(f"meu cpf é {_CPF_SINTETICO}")
+        conversa.diz("biometria")
+        assert _CONFIRMA_CPF_NF in conversa.texto
+
+        conversa.diz("não")
+        assert _PEDE_DOCUMENTO_NF in conversa.texto
+
+        conversa.diz(f"é no CNPJ {_CNPJ_SINTETICO}")
+        assert "resumo" in conversa.texto
+        atendimento = conversa.atendimento
+        assert atendimento.tipo_documento.value == "cnpj"
+        assert atendimento.empresa_id == empresa.id
+    finally:
+        _limpar(db_session, telefone)
+        _apagar_pessoa(db_session)
+        if criou_empresa:
+            db_session.query(Empresa).filter_by(cnpj=_CNPJ_SINTETICO).delete()
+            db_session.commit()
 
 
 def test_modelo_resolve_com_outros_dados_ja_coletados(db_session):

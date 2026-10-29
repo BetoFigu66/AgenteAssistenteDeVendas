@@ -1,5 +1,6 @@
-"""Testes de `services/conversacao/regras_globais.py` — FORNECER_CNPJ, FORNECER_CPF,
-FORNECER_DATA_NASCIMENTO (continuação isolada) e FORNECER_NOME. Zero cobertura antes
+"""Testes de `services/conversacao/regras_globais.py` — FORNECER_CNPJ, FORNECER_CPF e
+FORNECER_NOME. (A continuação pela data de nascimento saiu em 11/10/2026: a data não é
+mais pedida.) Zero cobertura antes
 desta rodada (levantamento de cobertura de 2026-08-21). ESCALAR_HUMANO/RECLAMAR/projeto
 complexo já são cobertos por `test_escalonamento.py` — não duplicados aqui.
 
@@ -20,7 +21,7 @@ from services.classificador import EntidadesExtraidas, Intencao, NivelConfianca,
 from services.conversacao import pilha
 from services.debug_log import DebugLogger
 from services.dev_limpeza_telefone import apagar_dados_telefone
-from services.identificador import ResultadoIdentificacao, StatusIdentificacao, identificar_por_telefone
+from services.identificador import ResultadoIdentificacao, StatusIdentificacao
 from services.processador import ProcessadorMensagem
 
 # CNPJ/CPF sintéticos válidos (passam no dígito verificador), sem relação com pessoa/
@@ -94,7 +95,9 @@ def test_fornecer_cnpj_cria_atendimento_vinculado_a_empresa_existente(db_session
         )
         db_session.commit()
 
-        assert resposta.template_usado == "CNPJ_CONSULTADO_OK"
+        # A captura não é exclusiva: só com o documento, a resposta completa com a pergunta
+        # de como ajudar.
+        assert resposta.template_usado == "CNPJ_CONSULTADO_OK+COMO_POSSO_AJUDAR"
         contato = db_session.query(Contato).filter_by(telefone=telefone).first()
         assert contato is not None
         atendimento = contato.atendimentos[0]
@@ -103,10 +106,9 @@ def test_fornecer_cnpj_cria_atendimento_vinculado_a_empresa_existente(db_session
         _limpar_com_empresa(db_session, telefone, _CNPJ_VALIDO)
 
 
-def test_fornecer_cpf_sem_data_nascimento_pergunta_e_marca_pendente(db_session):
-    """`_executar_fornecer_cpf` (regras_globais.py:99-111) sem data de nascimento na
-    mesma mensagem: pergunta a data e guarda o CPF na pergunta da pilha, pra completar
-    depois."""
+def test_fornecer_cpf_conclui_sem_pedir_data_de_nascimento(db_session):
+    """`_executar_fornecer_cpf`: o CPF sozinho completa o cadastro PF (a data de nascimento
+    não é mais pedida nem gravada, decisão de 11/10/2026)."""
     telefone = "+5511999988002"
     try:
         identificacao = ResultadoIdentificacao(status=StatusIdentificacao.NOVO, contatos=[], empresas=[])
@@ -126,31 +128,29 @@ def test_fornecer_cpf_sem_data_nascimento_pergunta_e_marca_pendente(db_session):
         )
         db_session.commit()
 
-        assert resposta.template_usado == "PERGUNTAR_DATA_NASCIMENTO"
+        assert resposta.template_usado == "CPF_CONSULTADO_OK+COMO_POSSO_AJUDAR"
+        assert resposta.texto == "Anotei seu CPF.\n\nEm que posso ajudar hoje?"
         contato = db_session.query(Contato).filter_by(telefone=telefone).first()
         atendimento = contato.atendimentos[0]
         assert atendimento.tipo_documento == TipoDocumento.CPF
-        assert atendimento.pessoa_id is None
-        (pergunta,) = pilha.abertas(atendimento)
-        assert pergunta.chave == "data_nascimento"
-        assert pergunta.dados == {"cpf": _CPF_VALIDO}
+        assert atendimento.pessoa.cpf == "529.982.247-25"  # persistido formatado
+        assert atendimento.pessoa.data_nascimento is None
+        assert pilha.abertas(atendimento) == []
     finally:
-        _limpar(db_session, telefone)
+        _limpar_com_pessoa(db_session, telefone, "529.982.247-25")
 
 
-def test_fornecer_cpf_com_data_nascimento_na_mesma_mensagem_conclui(db_session):
-    """`_executar_fornecer_cpf` com `datas_nascimento` já presente na mesma mensagem:
-    cria a Pessoa e conclui sem precisar de uma segunda mensagem."""
+def test_data_de_nascimento_na_mensagem_nao_e_gravada(db_session):
+    """Se o cliente manda a data por conta própria, ela não vai para a `Pessoa` (REQ-005:
+    dado que o sistema não usa)."""
     telefone = "+5511999988003"
     try:
         identificacao = ResultadoIdentificacao(status=StatusIdentificacao.NOVO, contatos=[], empresas=[])
         resultado_class = _resultado(
             Intencao.FORNECER_CPF, cpfs=[_CPF_VALIDO], datas_nascimento=["1990-01-01"]
         )
-        p = ProcessadorMensagem()
-
-        resposta = asyncio.run(
-            p._decidir_resposta(
+        asyncio.run(
+            ProcessadorMensagem()._decidir_resposta(
                 db=db_session,
                 telefone=telefone,
                 conteudo=f"meu cpf é {_CPF_VALIDO}, nasci em 01/01/1990",
@@ -160,55 +160,8 @@ def test_fornecer_cpf_com_data_nascimento_na_mesma_mensagem_conclui(db_session):
         )
         db_session.commit()
 
-        assert resposta.template_usado == "CPF_CONSULTADO_OK"
         contato = db_session.query(Contato).filter_by(telefone=telefone).first()
-        atendimento = contato.atendimentos[0]
-        assert atendimento.pessoa_id is not None
-        assert atendimento.pessoa.cpf == "529.982.247-25"  # persistido formatado
-    finally:
-        _limpar_com_pessoa(db_session, telefone, "529.982.247-25")
-
-
-def test_fornecer_data_nascimento_isolada_completa_cpf_pendente(db_session):
-    """`_builder_fornecer_data_nascimento` (regras_globais.py:114-149) — continuação do
-    fluxo PF: 1ª mensagem dá o CPF sem data (fica pendente); 2ª mensagem só com a data,
-    sem repetir o CPF, completa o cadastro."""
-    telefone = "+5511999988004"
-    try:
-        p = ProcessadorMensagem()
-
-        asyncio.run(
-            p._decidir_resposta(
-                db=db_session,
-                telefone=telefone,
-                conteudo=f"meu cpf é {_CPF_VALIDO}",
-                identificacao=ResultadoIdentificacao(status=StatusIdentificacao.NOVO, contatos=[], empresas=[]),
-                resultado_class=_resultado(Intencao.FORNECER_CPF, cpfs=[_CPF_VALIDO]),
-            )
-        )
-        db_session.commit()
-
-        identificacao2 = identificar_por_telefone(db_session, telefone)
-        dlog = DebugLogger(telefone=telefone, msg_id=1)
-        resposta2 = asyncio.run(
-            p._decidir_resposta(
-                db=db_session,
-                telefone=telefone,
-                conteudo="nasci em 01/01/1990",
-                identificacao=identificacao2,
-                resultado_class=_resultado(
-                    Intencao.FORNECER_DATA_NASCIMENTO, datas_nascimento=["1990-01-01"]
-                ),
-                dlog=dlog,
-            )
-        )
-        db_session.commit()
-
-        assert resposta2.template_usado == "CPF_CONSULTADO_OK"
-        contato = db_session.query(Contato).filter_by(telefone=telefone).first()
-        atendimento = contato.atendimentos[0]
-        assert atendimento.pessoa_id is not None
-        assert pilha.abertas(atendimento) == []
+        assert contato.atendimentos[0].pessoa.data_nascimento is None
     finally:
         _limpar_com_pessoa(db_session, telefone, "529.982.247-25")
 

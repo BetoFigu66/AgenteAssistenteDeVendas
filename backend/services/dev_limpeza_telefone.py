@@ -21,7 +21,9 @@ from models import (
     Atendimento,
     AtendimentoInfo,
     AtividadeEmpresa,
+    ComparacaoLLM,
     Contato,
+    DuvidaPendente,
     Empresa,
     Escalonamento,
     EventoAtendimento,
@@ -261,6 +263,25 @@ def apagar_dados_telefone(db: Session, telefone: str) -> dict[str, Any]:
         )
     else:
         removidos["eventos_atendimento"] = 0
+
+    # Dúvidas pendentes apontam para a mensagem do cliente: saem antes das mensagens.
+    if atendimento_ids:
+        removidos["duvidas_pendentes"] = (
+            db.query(DuvidaPendente)
+            .filter(DuvidaPendente.atendimento_id.in_(atendimento_ids))
+            .delete(synchronize_session=False)
+        )
+    else:
+        removidos["duvidas_pendentes"] = 0
+
+    # A comparação sem/com LLM também aponta para as mensagens (a FK cascateia, mas o
+    # delete explícito entra na contagem).
+    ids_mensagens = db.query(Mensagem.id).filter(or_(*filtros_mensagem))
+    removidos["comparacoes_llm"] = (
+        db.query(ComparacaoLLM)
+        .filter(ComparacaoLLM.mensagem_id.in_(ids_mensagens.scalar_subquery()))
+        .delete(synchronize_session=False)
+    )
 
     removidos["mensagens"] = (
         db.query(Mensagem).filter(or_(*filtros_mensagem)).delete(synchronize_session=False)

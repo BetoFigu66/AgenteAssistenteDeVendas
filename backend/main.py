@@ -22,7 +22,9 @@ from models import (
     Atendimento,
     AvaliacaoEscalonamento,
     CategoriaReport,
+    ComparacaoLLM,
     Contato,
+    DuvidaPendente,
     Empresa,
     Escalonamento,
     EventoAtendimento,
@@ -51,9 +53,11 @@ from routers.ajuda import router as ajuda_router
 from routers.pares_qa import router as pares_qa_router
 from services import atendimentos as atendimentos_svc
 from services import auth as auth_svc
+from services import diagnostico_sistema
 from services import escalonamentos as escalonamentos_svc
 from services.canal import obter_canal
 from services.canal.captura_midia import agendar_download as agendar_download_midias
+from services.conversacao import duvidas_pendentes as duvidas_pendentes_svc
 from services.conversacao.campos_pendentes import campos_pendentes
 from services.conversacao.catalogo_campos import (
     DESTINO_ITEM_ATENDIMENTO_MODELO_ID,
@@ -1211,7 +1215,34 @@ async def obter_atendimento(atendimento_id: int):
             # REQ-004.5C: o painel mostra motivo, gatilho e evidências junto do atendimento
             # escalado, para a avaliação ser feita olhando o porquê.
             "escalonamentos": [esc.to_dict() for esc in atendimento.escalonamentos],
+            # Dúvidas do cliente que o agente não respondeu (caíram numa ação exclusiva).
+            "duvidas_pendentes": [d.to_dict() for d in duvidas_pendentes_svc.pendentes(session, atendimento.id)],
         }
+
+
+@app.get("/api/atendimentos/{atendimento_id}/duvidas-pendentes")
+async def obter_duvidas_pendentes(atendimento_id: int):
+    """Dúvidas do cliente que ficaram sem resposta automática porque a mensagem caiu numa
+    ação exclusiva (pedido de atendente, reclamação, projeto complexo...). O operador as
+    responde e marca como resolvidas (`services/conversacao/duvidas_pendentes.py`)."""
+    with db.get_session() as session:
+        atendimento = session.query(Atendimento).filter_by(id=atendimento_id).first()
+        if not atendimento:
+            raise HTTPException(status_code=404, detail="Atendimento não encontrado")
+        return {
+            "atendimento_id": atendimento_id,
+            "duvidas_pendentes": [d.to_dict() for d in duvidas_pendentes_svc.pendentes(session, atendimento_id)],
+        }
+
+
+@app.post("/api/duvidas-pendentes/{duvida_id}/resolver")
+async def resolver_duvida_pendente(duvida_id: int, usuario_id: int = Depends(usuario_id_atual)):
+    """O operador respondeu a dúvida (pela resposta manual) e a tira da lista."""
+    with db.get_session() as session:
+        duvida = session.query(DuvidaPendente).filter_by(id=duvida_id).first()
+        if not duvida:
+            raise HTTPException(status_code=404, detail="Dúvida não encontrada")
+        return duvidas_pendentes_svc.resolver(session, duvida, usuario_id).to_dict()
 
 
 @app.get("/api/atendimentos/{atendimento_id}/campos-pendentes")
@@ -2654,6 +2685,58 @@ async def atualizar_parametro(nome: str, body: ParametroValorUpdate, ator: str =
         svc = ParametroService(session)
         atualizado = svc.set(nome, valor, ator=ator)
         return atualizado.to_dict()
+
+
+# ============================================================================
+# Aba "Sistema": configurações do .env (sem dados sensíveis) e situação do LLM
+# ============================================================================
+
+
+@app.get("/api/config/sistema")
+async def get_config_sistema():
+    """Configurações do `.env` (`Settings`), com chaves, usuários e senhas mascarados
+    (`services/diagnostico_sistema.py`). Só leitura."""
+    return {"configuracoes": diagnostico_sistema.configuracoes()}
+
+
+@app.get("/api/config/llm/status")
+async def get_status_llm(forcar: bool = False):
+    """Situação do LLM: se o processador subiu com ele, um teste ao vivo (guardado por um
+    minuto; `forcar=true` testa de novo) e o uso real das últimas 24h."""
+    with db.get_session() as session:
+        return await diagnostico_sistema.status_llm(
+            session, processador._llm if processador else None, forcar=forcar
+        )
+
+
+@app.get("/api/comparacoes-llm")
+async def listar_comparacoes_llm(limite: int = 50, situacao: Optional[str] = None):
+    """Os últimos registros do que o sistema faria sem o LLM e fez com ele, com o texto
+    da mensagem do cliente ao lado."""
+    limite = max(1, min(limite, 500))
+    with db.get_session() as session:
+        consulta = session.query(ComparacaoLLM)
+        if situacao:
+            consulta = consulta.filter(ComparacaoLLM.situacao == situacao)
+        registros = consulta.order_by(ComparacaoLLM.id.desc()).limit(limite).all()
+        ids_mensagens = {r.mensagem_id for r in registros} | {
+            r.resposta_mensagem_id for r in registros if r.resposta_mensagem_id
+        }
+        mensagens = {
+            m.id: m
+            for m in session.query(Mensagem).filter(Mensagem.id.in_(ids_mensagens)).all()
+        } if ids_mensagens else {}
+        itens = []
+        for r in registros:
+            item = r.to_dict()
+            msg = mensagens.get(r.mensagem_id)
+            resposta = mensagens.get(r.resposta_mensagem_id)
+            item["mensagem_cliente"] = msg.conteudo if msg else None
+            item["telefone"] = msg.telefone if msg else None
+            item["atendimento_id"] = msg.atendimento_id if msg else None
+            item["mensagem_resposta"] = resposta.conteudo if resposta else None
+            itens.append(item)
+        return {"comparacoes": itens}
 
 
 @app.get("/health")

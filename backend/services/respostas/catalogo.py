@@ -21,7 +21,7 @@ class MensagemId(IntEnum):
     SAUDACAO_NOVO_CONTATO = 1
     SAUDACAO_COM_NOME = 2
     PERGUNTAR_CNPJ = 3
-    PERGUNTAR_DATA_NASCIMENTO = 4
+    # 4 era PERGUNTAR_DATA_NASCIMENTO (a data de nascimento não é mais pedida desde 11/10/2026).
     CPF_INVALIDO = 5
     CPF_CONSULTADO_OK = 6
     PERGUNTAR_NOME = 7
@@ -71,6 +71,10 @@ class MensagemId(IntEnum):
     RETOMAR_PERGUNTA = 51
     PILHA_PERGUNTA = 52
     PEDIR_DOCUMENTO = 53
+    COMO_POSSO_AJUDAR = 54
+    PEDIR_DOCUMENTO_NF = 55
+    CONFIRMAR_DOCUMENTO_NF_CNPJ = 56
+    CONFIRMAR_DOCUMENTO_NF_CPF = 57
 
 
 @dataclass(frozen=True)
@@ -99,14 +103,6 @@ CATALOGO: dict[int, MensagemTemplate] = {
         mensagem="{texto_corpo}",
         transformers=("montar_perguntar_cnpj",),
     ),
-    MensagemId.PERGUNTAR_DATA_NASCIMENTO: MensagemTemplate(
-        id=MensagemId.PERGUNTAR_DATA_NASCIMENTO,
-        codigo="PERGUNTAR_DATA_NASCIMENTO",
-        mensagem=(
-            "Anotei seu CPF. Para concluir o cadastro, qual é a sua data de nascimento? "
-            "(formato DD/MM/AAAA)"
-        ),
-    ),
     MensagemId.CPF_INVALIDO: MensagemTemplate(
         id=MensagemId.CPF_INVALIDO,
         codigo="CPF_INVALIDO",
@@ -115,7 +111,10 @@ CATALOGO: dict[int, MensagemTemplate] = {
     MensagemId.CPF_CONSULTADO_OK: MensagemTemplate(
         id=MensagemId.CPF_CONSULTADO_OK,
         codigo="CPF_CONSULTADO_OK",
-        mensagem="Ótimo! Confirmei seus dados, {nome}. Em que posso ajudar hoje?",
+        # Só registra: nenhum dado do CPF é consultado (a consulta de crédito do REQ-015.3
+        # ainda é um stub), então não se diz "confirmei". O resto da mensagem do cliente
+        # segue normalmente na mesma resposta (a captura não é exclusiva).
+        mensagem="Anotei seu CPF.",
     ),
     MensagemId.PERGUNTAR_NOME: MensagemTemplate(
         id=MensagemId.PERGUNTAR_NOME,
@@ -170,6 +169,30 @@ CATALOGO: dict[int, MensagemTemplate] = {
         codigo="PEDIR_DOCUMENTO",
         mensagem="Para te atender melhor, poderia me informar o CNPJ da sua empresa ou seu CPF?",
     ),
+    # Continuação de quando a mensagem só trouxe o documento e nada mais pedia resposta.
+    MensagemId.COMO_POSSO_AJUDAR: MensagemTemplate(
+        id=MensagemId.COMO_POSSO_AJUDAR,
+        codigo="COMO_POSSO_AJUDAR",
+        mensagem="Em que posso ajudar hoje?",
+    ),
+    # Documento da nota fiscal, perguntado uma vez no Finalizando, antes do resumo (ver
+    # `conversacao/documento_fiscal.py`). Sem documento ainda, pede; com documento dado
+    # antes, confirma que a nota sai nele. O CPF não é ecoado (REQ-005).
+    MensagemId.PEDIR_DOCUMENTO_NF: MensagemTemplate(
+        id=MensagemId.PEDIR_DOCUMENTO_NF,
+        codigo="PEDIR_DOCUMENTO_NF",
+        mensagem="Para a nota fiscal: ela sai no CNPJ da empresa ou no seu CPF? Pode me mandar o número.",
+    ),
+    MensagemId.CONFIRMAR_DOCUMENTO_NF_CNPJ: MensagemTemplate(
+        id=MensagemId.CONFIRMAR_DOCUMENTO_NF_CNPJ,
+        codigo="CONFIRMAR_DOCUMENTO_NF_CNPJ",
+        mensagem="A nota fiscal sai no CNPJ da *{empresa}*, certo?",
+    ),
+    MensagemId.CONFIRMAR_DOCUMENTO_NF_CPF: MensagemTemplate(
+        id=MensagemId.CONFIRMAR_DOCUMENTO_NF_CPF,
+        codigo="CONFIRMAR_DOCUMENTO_NF_CPF",
+        mensagem="A nota fiscal sai no CPF que você me informou, certo?",
+    ),
     MensagemId.CONFIRMAR_EMPRESA: MensagemTemplate(
         id=MensagemId.CONFIRMAR_EMPRESA,
         codigo="CONFIRMAR_EMPRESA",
@@ -194,7 +217,7 @@ CATALOGO: dict[int, MensagemTemplate] = {
     MensagemId.CNPJ_CONSULTADO_OK: MensagemTemplate(
         id=MensagemId.CNPJ_CONSULTADO_OK,
         codigo="CNPJ_CONSULTADO_OK",
-        mensagem="Ótimo! Confirmei os dados da empresa *{nome}*. Em que posso ajudar hoje?",
+        mensagem="Ótimo! Encontrei os dados da empresa *{nome}*.",
     ),
     MensagemId.PEDIR_TIPO_PRODUTO: MensagemTemplate(
         id=MensagemId.PEDIR_TIPO_PRODUTO,

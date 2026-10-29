@@ -103,7 +103,11 @@ It lives in `.env` and not in the `parametros` table on purpose: flipping `ModoE
 
 `services/conversacao/pilha.py` + table `perguntas_pendentes`: the record of which questions the system asked and still awaits (which outbound `Mensagem` carried each, which tratador reads the answer). `pilha.resolver_resposta` runs in `_decidir_resposta` **before** the motor and stores the answer, so every Regra sees the new value. Whoever asks a question must register it (`pilha.empilhar`, e.g. `finalizando.perguntar_campo`); a question not registered is never matched to an answer. Tiebreak order: reply-to → tratador validation → discriminant power + recency → serial queue (an ambiguous answer is discarded and questions are re-asked one by one). Tratadores (`tratadores.py`) interpret and validate, never write. Details in `docs/arquitetura_motor_conversacao_2026-07.md` §6.
 
-Providers are pluggable via factories: `services/llm/factory.py` (`LLM_PROVIDER`, currently Groq) and `services/embeddings/factory.py` (`EMBEDDING_PROVIDER`, currently OpenAI). All feature toggles (`RAG_ENABLED`, `QA_ENABLED`, thresholds like `RAG_SCORE_MINIMO`) are in `backend/config.py` (`Settings`, pydantic-settings from `.env`) and some are additionally tunable at runtime without restart via `PATCH /api/config/rag` and the `parametros` table (`services/parametro_service.py`, `PATCH /api/parametros/{nome}`).
+### LLM: providers and the without/with-LLM record
+
+Every point where the LLM is used, or would be (rule classification below the confidence limit, a RAG answer written from retrieved chunks, a template marked for personalization), records what the system would do without it and what the LLM returned in `comparacoes_llm` (`services/llm/comparacao.py`, collected per message inside `processar()`), with `situacao` ok/erro/vazio/indisponivel. A failing LLM never degrades the result: classification falls back to the rules' answer and generation to the template. The panel's **Sistema** tab (`GET /api/config/sistema`, `GET /api/config/llm/status`, `GET /api/comparacoes-llm`; `services/diagnostico_sistema.py`) shows the `.env` settings with secrets masked, a live LLM test and these comparisons.
+
+Providers are pluggable via factories: `services/llm/factory.py` (`LLM_PROVIDER`: `groq` via its SDK, or any OpenAI-compatible API through `openai_compativel_provider.py` with `LLM_BASE_URL`: openai, ollama, openrouter, gemini, cloudflare, openai_compativel) and `services/embeddings/factory.py` (`EMBEDDING_PROVIDER`, currently OpenAI). All feature toggles (`RAG_ENABLED`, `QA_ENABLED`, thresholds like `RAG_SCORE_MINIMO`) are in `backend/config.py` (`Settings`, pydantic-settings from `.env`) and some are additionally tunable at runtime without restart via `PATCH /api/config/rag` and the `parametros` table (`services/parametro_service.py`, `PATCH /api/parametros/{nome}`).
 
 ### Domain model (`backend/models/`)
 
@@ -131,7 +135,8 @@ Separate system (own venv, own CLI) that exercises the real backend end-to-end l
 - Always defer system-compatibility questions to technical validation rather than answering definitively.
 - Escalate to a human whenever the customer asks for one, or on a complaint (`Intencao.ESCALAR_HUMANO`/`RECLAMAR`).
 - A "projeto complexo" escalation (REQ-004.8) found during Finalizando waits until every pending question was asked once (`services/conversacao/projeto_complexo.py`); the others stay immediate.
-- CNPJ/CPF is asked at the start of the atendimento, together with the name; if not given, once more only in Finalizando, before the summary (`services/conversacao/documento_fiscal.py`).
+- CNPJ/CPF is asked (optionally) at the start of the atendimento, together with the name. In Finalizando, before the summary, it becomes the invoice (nota fiscal) document, asked once: confirmed if given earlier, requested otherwise (`services/conversacao/documento_fiscal.py`). Birth date is never asked (REQ-005 lists it as sensitive, and nothing consumed it).
+- Capturing a CNPJ/CPF is not exclusive: the "Anotei seu CPF." notice goes to `ctx.registros` and the rest of the message (a doubt, an answer) is handled in the same reply. A doubt that arrives in a message taken by an exclusive action (escalation, complaint, complex project, summary confirmation, closing) is stored in `duvidas_pendentes` for the operator (`services/conversacao/duvidas_pendentes.py`).
 
 ## Working conventions
 

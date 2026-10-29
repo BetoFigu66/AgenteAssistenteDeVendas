@@ -221,7 +221,7 @@ def test_cliente_ignora_a_pergunta_e_manda_o_cnpj(db_session, processador, empre
     try:
         _, resposta = _conversar(processador, db_session, telefone, "oi", _CNPJ_VALIDO)
 
-        assert "Confirmei os dados da empresa *Empresa Teste Nome Perfil*" in resposta
+        assert "Encontrei os dados da empresa *Empresa Teste Nome Perfil*" in resposta
         assert "Combinado" not in resposta
         contato = _contato(db_session, telefone)
         assert contato.nome is None
@@ -252,7 +252,7 @@ def test_confirmacao_e_cnpj_na_mesma_mensagem_tratam_as_duas_coisas(db_session, 
     try:
         _, resposta = _conversar(processador, db_session, telefone, "oi", f"sim, {_CNPJ_VALIDO}")
 
-        assert "Confirmei os dados da empresa *Empresa Teste Nome Perfil*" in resposta
+        assert "Encontrei os dados da empresa *Empresa Teste Nome Perfil*" in resposta
         contato = _contato(db_session, telefone)
         assert contato.nome == "Ana Souza"  # e não "Sim", que o classificador extrai junto do CNPJ
         assert contato.empresa_id == empresa_teste.id
@@ -326,3 +326,57 @@ def test_processamento_registra_nome_perfil_so_quando_recebido(db_session, proce
         assert "nome_perfil_whatsapp" not in ent_sem
     finally:
         _limpar(db_session, tel_com, tel_sem)
+
+
+# CPF sintético válido (passa no dígito verificador), sem relação com pessoa real.
+_CPF_SINTETICO = "11144477735"
+_CPF_SINTETICO_FORMATADO = "111.444.777-35"
+
+
+def test_cpf_com_pessoa_antiga_usa_o_nome_desta_conversa_e_le_o_nao_conheco(db_session, processador):
+    """Conversa real de 10/10 (+5519987654321), com perfil "~~Joaquim Barbosa~~" e uma
+    `Pessoa` já cadastrada com o CPF e um nome lixo, gravado por uma extração de nome
+    antiga. Falhas de então: a data de nascimento era pedida, o "Confirmei seus dados"
+    usava o nome guardado na `Pessoa`, o "Não conheço" não respondia ao "Você conhece?" e
+    a dúvida ("pode me fornecer mais detalhes?") era descartada pela captura exclusiva do
+    CPF. Agora o CPF é anotado e o resto da mensagem segue na mesma resposta."""
+    from models import Pessoa
+
+    telefone = "+5500900000301"
+    _limpar(db_session, telefone)
+    db_session.query(Pessoa).filter_by(cpf=_CPF_SINTETICO_FORMATADO).delete()
+    db_session.add(Pessoa(cpf=_CPF_SINTETICO_FORMATADO, nome="Sim Pode Me Chamar Assim Meu É"))
+    db_session.commit()
+    try:
+        abertura, resposta = _conversar(
+            processador,
+            db_session,
+            telefone,
+            "Boa tarde, vocês vendem bastão de ronda?",
+            f"Sim, meu nome é Joaquim Barbosa, CPF: {_CPF_SINTETICO}. 2 pessoas. "
+            "Não conheço, pode me fornecer mais detalhes?",
+            nome_perfil="~~Joaquim Barbosa~~",
+        )
+
+        assert abertura.startswith("Olá, Joaquim Barbosa! 👋")
+        assert resposta.startswith("Anotei seu CPF.")
+        assert "nascimento" not in resposta
+        assert "Pode Me Chamar" not in resposta
+        assert "Em que posso ajudar" not in resposta
+
+        contato = _contato(db_session, telefone)
+        assert contato.nome == "Joaquim Barbosa"
+        atendimento = contato.atendimentos[0]
+        assert atendimento.pessoa.cpf == _CPF_SINTETICO_FORMATADO
+        assert atendimento.pessoa.data_nascimento is None
+        infos = {
+            i.chave: i.valor
+            for i in db_session.query(AtendimentoInfo).filter(AtendimentoInfo.atendimento_id == atendimento.id)
+        }
+        assert infos.get("conhece_marcas") == "não"
+        proc = db_session.query(ProcessamentoMensagem).order_by(ProcessamentoMensagem.id.desc()).first()
+        print("\nRESPOSTA:", resposta, "\nTEMPLATE:", proc.template_usado)
+    finally:
+        _limpar(db_session, telefone)
+        db_session.query(Pessoa).filter_by(cpf=_CPF_SINTETICO_FORMATADO).delete()
+        db_session.commit()

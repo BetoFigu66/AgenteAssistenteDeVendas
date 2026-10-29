@@ -94,7 +94,14 @@ Pontos que não são óbvios lendo qualquer arquivo isolado:
    não produz texto).
 5. **`EXCLUSIVO` derrota tudo.** Se qualquer Regra candidata contribuir uma Ação exclusiva,
    nenhuma Ação de `pre`/`processamento`/`pos` roda naquele turno — mesmo que várias
-   Regras diferentes tenham casado.
+   Regras diferentes tenham casado. As exclusivas que existem passam o atendimento a um
+   humano ou o encerram; uma dúvida que vinha na mesma mensagem é registrada em
+   `duvidas_pendentes` e mostrada ao operador (`duvidas_pendentes.py`, desde 11/10/2026).
+6. **Avisos de registro não contam como resposta.** A captura de CNPJ/CPF (`pre`, desde
+   11/10/2026; antes era exclusiva e descartava o resto da mensagem) põe o "Anotei seu
+   CPF." em `ctx.registros`, fora de `fragmentos_ate_agora`: as Ações seguintes respondem
+   à dúvida e fazem a próxima pergunta como se ele não existisse, e o aviso abre a
+   resposta. Se nada mais respondeu, o motor completa com `COMO_POSSO_AJUDAR`.
 
 ## 4. Onde cada Regra é registrada
 
@@ -193,7 +200,7 @@ Reapresentar uma pergunta aberta a move para o topo (nova `ordem`), sem duplicar
 
 Uma pergunta feita vale até ser respondida, mesmo fora da aplicabilidade do catálogo ("vocês vendem X?" pergunta a faixa de pessoas antes de saber o software de ponto). `proxima_pergunta` dá prioridade ao que está aberto na pilha.
 
-Perguntas fora do catálogo registram a própria `DefinicaoPergunta` no módulo que as faz: `nome_perfil` (`confirmacao_nome_perfil.py`, substitui o antigo `tratar_resposta`), `conhece_marcas` ("Você conhece esses relógios?", `regras_esclarecendo.py`) e `data_nascimento` (`regras_globais.py`, o CPF fica em `PerguntaPendente.dados`; substitui a chave `cpf_pendente`). A data é o exemplo de definição que não grava (`grava=False`): a pilha só identifica a resposta, e a Regra global `fornecer_data_nascimento` encontra a captura em `ctx.captura_pilha` e completa o cadastro.
+Perguntas fora do catálogo registram a própria `DefinicaoPergunta` no módulo que as faz: `nome_perfil` (`confirmacao_nome_perfil.py`, substitui o antigo `tratar_resposta`), `conhece_marcas` ("Você conhece esses relógios?", `regras_esclarecendo.py`) e `confirmacao_documento_nf` ("A nota fiscal sai no CPF que você me informou, certo?", `documento_fiscal.py`). A `data_nascimento` existiu até 11/10/2026, quando a data deixou de ser pedida; perguntas dela que tenham ficado abertas não têm mais definição e são ignoradas pela leitura.
 
 Leitura parcial: "sim, biometria" responde a duas perguntas (confirma o nome e escolhe o modelo). O tratador do nome declara que consumiu só o "sim" (`Leitura.parcial`, `Leitura.trecho`), e a captura convive com a resposta principal. Se o pedaço consumido também servir a outra pergunta aberta ("sim, 30" com "Você conhece?" aberta), ele não é do nome por direito e a ambiguidade vai para a fila serial.
 
@@ -209,7 +216,7 @@ Leitura discriminante por resposta (`Leitura.discriminante`): um tratador ambíg
 
 Projeto complexo (`projeto_complexo.py`, decisão do Beto de 05/10/2026): com o atendimento no Finalizando (ou entrando nele no turno), o gatilho não transfere na hora. Fica registrado em `AtendimentoInfo[escalonamento_adiado]` e a coleta segue perguntando só o que nunca foi perguntado (`proxima_nunca_perguntada`, depois o documento); sem mais nada, transfere com a evidência guardada no gatilho. O número que a pilha capturou como faixa de pessoas conta como faixa e deixa de contar como quantidade de equipamentos.
 
-Documento (CNPJ/CPF, `documento_fiscal.py`): pedido no início do atendimento, junto com o nome, em mensagem própria; se não vier, uma vez mais só no Finalizando, antes do resumo. Não entra na pilha (ver o docstring do módulo).
+Documento (CNPJ/CPF, `documento_fiscal.py`): pedido no início do atendimento, junto com o nome, em mensagem própria, sem ser obrigatório. No Finalizando, antes do resumo, vira o documento da nota fiscal, uma vez só: se já foi dado, confirma que a nota sai nele; se não, pede. O pedido do documento não entra na pilha; a confirmação da nota entra (ver o docstring do módulo).
 
 Reply-to que cita uma pergunta que não aceita a mensagem não encerra a busca: a resolução segue sem o atalho (o cliente pode ter citado a mensagem errada). O classificador LLM recebe a pergunta do topo da pilha como contexto (`classificar(contexto=...)`, gancho que existia e ninguém preenchia).
 

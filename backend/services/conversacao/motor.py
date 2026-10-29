@@ -22,8 +22,9 @@ from typing import Callable, Optional
 from models import FaseAtendimento
 
 from services.classificador import Intencao
-from services.respostas import RespostaGerada
+from services.respostas import MensagemId, RespostaGerada
 
+from . import duvidas_pendentes
 from .acoes import ContextoAcao, GrupoAcoes
 
 
@@ -92,7 +93,21 @@ async def resolver_e_executar(
             resultado = await ctx.processador._gerador.gerar(mensagem_id, contexto)
         ctx.fragmentos_ate_agora.append(resultado)
 
-    return _compor_fragmentos(ctx.fragmentos_ate_agora)
+    if grupo_final.exclusivo:
+        # A ação exclusiva descartou o resto da mensagem: uma dúvida que vinha junto vai
+        # para o operador (`duvidas_pendentes.py`).
+        duvidas_pendentes.registrar_descartada(ctx, grupo_final.exclusivo[0].nome)
+
+    fragmentos = ctx.fragmentos_ate_agora
+    if ctx.registros and not fragmentos and all(r.template_usado in _REGISTROS_OK for r in ctx.registros):
+        # A mensagem só trouxe o documento e nada mais pedia resposta.
+        fragmentos = [await ctx.processador._gerador.gerar(MensagemId.COMO_POSSO_AJUDAR)]
+    return _compor_fragmentos(ctx.registros + fragmentos)
+
+
+# Avisos de documento aceito, que sozinhos não pedem nada ao cliente. O de documento
+# inválido já pede para reenviar.
+_REGISTROS_OK = frozenset({MensagemId.CPF_CONSULTADO_OK.name, MensagemId.CNPJ_CONSULTADO_OK.name})
 
 
 def _compor_fragmentos(fragmentos: list[RespostaGerada]) -> Optional[RespostaGerada]:

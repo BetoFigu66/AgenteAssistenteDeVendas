@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { Flag, Monitor, BookOpen, Settings, LifeBuoy } from 'lucide-react'
+import { Flag, Monitor, BookOpen, Settings, LifeBuoy, Server } from 'lucide-react'
 import Header from './components/Header'
 import Footer from './components/Footer'
 import PhonePanel from './components/PhonePanel'
@@ -9,6 +9,7 @@ import AcompanhamentoPage from './components/AcompanhamentoPage'
 import QABasePage from './components/QABasePage'
 import AjudaBasePage from './components/AjudaBasePage'
 import ParametrosPage from './components/ParametrosPage'
+import SistemaPage from './components/SistemaPage'
 import LoginPage from './components/LoginPage'
 import { AuthProvider, useAuth } from './context/AuthContext'
 import { api } from './services/api'
@@ -214,6 +215,16 @@ function AppLogado() {
           >
             <LifeBuoy size={14} /> Base de Ajuda
           </button>
+          <button
+            onClick={() => setPagina('sistema')}
+            className={`px-4 py-2 text-sm font-medium border-b-2 transition flex items-center gap-1.5 ${
+              pagina === 'sistema'
+                ? 'border-inforrel-primary text-inforrel-primary'
+                : 'border-transparent text-gray-600 hover:text-inforrel-primary'
+            }`}
+          >
+            <Server size={14} /> Sistema
+          </button>
         </div>
       </nav>
 
@@ -252,6 +263,7 @@ function AppLogado() {
         {pagina === 'qa-base' && <QABasePage />}
         {pagina === 'parametros' && <ParametrosPage />}
         {pagina === 'ajuda-base' && <AjudaBasePage />}
+        {pagina === 'sistema' && <SistemaPage />}
       </main>
 
       <Footer />

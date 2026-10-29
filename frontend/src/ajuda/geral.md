@@ -17,6 +17,8 @@ responder e ajusta o comportamento dele.
 - **Parâmetros**: ajustes finos de funcionamento, alteráveis sem reiniciar o sistema.
 - **Base de Ajuda**: onde se escreve a ajuda deste painel — o conteúdo que aparece no
   botão **?** de cada tela. É ajuda interna, não vai para clientes.
+- **Sistema**: configurações do servidor (sem chaves nem senhas), se o LLM está funcionando
+  e o que o assistente faria sem ele em cada mensagem.
 
 ## O que aparece no topo da tela
 

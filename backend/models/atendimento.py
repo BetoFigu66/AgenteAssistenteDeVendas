@@ -270,6 +270,11 @@ class Atendimento(Base, ComportamentoAtendimento):
         cascade="all, delete-orphan",
         order_by="PerguntaPendente.ordem",
     )
+    duvidas_pendentes: Mapped[List["DuvidaPendente"]] = relationship(
+        back_populates="atendimento",
+        cascade="all, delete-orphan",
+        order_by="DuvidaPendente.criado_em",
+    )
 
     def to_dict(self) -> dict:
         """Converte o modelo para dicionário."""
@@ -466,8 +471,8 @@ class PerguntaPendente(Base):
     # não ser tratado como quem não sabe responder.
     tentativas_captura: Mapped[int] = mapped_column(default=0, nullable=False)
     reapresentacoes: Mapped[int] = mapped_column(default=0, nullable=False)
-    # Dados que a definição precisa para gravar a resposta (ex.: o CPF que aguarda a
-    # data de nascimento, o nome de perfil oferecido).
+    # Dados que a definição precisa para gravar a resposta (ex.: o nome de perfil
+    # oferecido).
     dados: Mapped[Optional[dict]] = mapped_column(JSONB, nullable=True)
     valor_capturado: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     criado_em: Mapped[datetime] = mapped_column(UTCDateTime, default=utc_now, nullable=False)
@@ -588,4 +593,54 @@ class AtendimentoInfo(Base):
             "pendente": self.pendente,
             "origem": self.origem.value if self.origem else None,
             "updated_at": serialize_utc_datetime(self.updated_at),
+        }
+
+
+class StatusDuvida(str, enum.Enum):
+    """Situação de uma dúvida do cliente que o agente não respondeu."""
+
+    PENDENTE = "pendente"
+    RESOLVIDA = "resolvida"
+
+
+class DuvidaPendente(Base):
+    """Dúvida do cliente que ficou sem resposta automática porque a mesma mensagem caiu
+    numa ação exclusiva do motor (pedido de atendente, reclamação, projeto complexo,
+    confirmação do resumo, encerramento). Todas essas passam o atendimento a um humano
+    ou o encerram, então a dúvida é mostrada ao operador, que a responde e a marca como
+    resolvida. Ver `services/conversacao/duvidas_pendentes.py`.
+
+    É o inverso de `PerguntaPendente`: lá, o que o sistema perguntou e espera; aqui, o que
+    o cliente perguntou e não teve resposta.
+    """
+
+    __tablename__ = "duvidas_pendentes"
+
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    atendimento_id: Mapped[int] = mapped_column(ForeignKey("atendimentos.id"), nullable=False, index=True)
+    # Mensagem do cliente que trouxe a dúvida.
+    mensagem_id: Mapped[Optional[int]] = mapped_column(ForeignKey("mensagens.id"), nullable=True)
+    texto: Mapped[str] = mapped_column(Text, nullable=False)
+    intencao: Mapped[str] = mapped_column(String(40), nullable=False)
+    # Ação exclusiva que tomou a mensagem (ex.: "escalar_humano").
+    acao_exclusiva: Mapped[str] = mapped_column(String(60), nullable=False)
+    status: Mapped[str] = mapped_column(String(20), default=StatusDuvida.PENDENTE.value, nullable=False)
+    criado_em: Mapped[datetime] = mapped_column(UTCDateTime, default=utc_now, nullable=False)
+    resolvido_em: Mapped[Optional[datetime]] = mapped_column(UTCDateTime, nullable=True)
+    resolvido_por_id: Mapped[Optional[int]] = mapped_column(ForeignKey("users.id"), nullable=True)
+
+    atendimento: Mapped["Atendimento"] = relationship(back_populates="duvidas_pendentes")
+
+    def to_dict(self) -> dict:
+        return {
+            "id": self.id,
+            "atendimento_id": self.atendimento_id,
+            "mensagem_id": self.mensagem_id,
+            "texto": self.texto,
+            "intencao": self.intencao,
+            "acao_exclusiva": self.acao_exclusiva,
+            "status": self.status,
+            "criado_em": serialize_utc_datetime(self.criado_em),
+            "resolvido_em": serialize_utc_datetime(self.resolvido_em),
+            "resolvido_por_id": self.resolvido_por_id,
         }
