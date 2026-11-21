@@ -1640,13 +1640,64 @@ tail -f ../logs/ponte_goals.log
 ```
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File scripts\instalar_ponte_goals.ps1            # instala
-powershell -ExecutionPolicy Bypass -File scripts\instalar_ponte_goals.ps1 -Remover   # desliga a automação
+powershell -ExecutionPolicy Bypass -File scripts\instalar_ponte_goals.ps1                  # instala (nível 1)
+powershell -ExecutionPolicy Bypass -File scripts\instalar_ponte_goals.ps1 -NivelQuota 0.8  # reinstala com outro nível
+powershell -ExecutionPolicy Bypass -File scripts\instalar_ponte_goals.ps1 -Remover         # desliga a automação
 ```
+
+### A tarefa agendada do Windows
+
+O instalador roda uma vez só: ele cadastra a tarefa `PonteGoals-AssistenteVendas` no Agendador de Tarefas e termina. Não é serviço nem processo que fica aberto; quem chama a ponte é o Windows. Não precisa de administrador.
+
+A tarefa sobrevive ao reinício do Windows. Tem dois gatilhos: a cada 10 min, sem data de fim, e no logon (a ponte volta logo que você entra).
+
+Quando ela **não** roda:
+
+- **Sem sessão aberta:** a tarefa é interativa (`LogonType Interactive`, para não guardar senha). Tela bloqueada não atrapalha; máquina reiniciada e parada na tela de login, sim.
+- **Máquina suspensa:** ela não acorda o computador. A execução perdida roda na volta (`StartWhenAvailable`).
+- **Execução anterior ainda viva:** a nova é ignorada (`IgnoreNew`). É de propósito: enquanto um goal de report trabalha, o `ponte_goals.sh` espera por ele (`--aguardar`), o que mantém o WSL ligado (o WSL desliga quando nenhum processo do `wsl.exe` está vivo) e reforça o um-por-vez. Limite de 5 h por execução.
+
+Rodar o instalador de novo só para mudar o nível de quota (ele remove e recadastra) ou com `-Remover`.
+
+Conferir (também funciona do WSL):
+
+```bash
+schtasks.exe /Query /TN PonteGoals-AssistenteVendas /V /FO LIST | tr -d '\r' | grep -E "Status|Próxima|Última|Resultado"
+tail -f logs/ponte_goals.log      # a cada execução: a quota, a fila e o que foi despachado
+```
+
+Ou abrir `taskschd.msc` e procurar a tarefa na raiz da Biblioteca. "Último resultado" 0 é sucesso; 267009 é "em execução" (um goal trabalhando).
+
+### Arquivos fora do repo (sistema de goals)
+
+A ponte depende de três arquivos instalados no WSL, fora deste repo, que também servem aos goals da Fitec. A cópia deles fica em `ferramentas/goals/`, fiel ao instalado, exceto pelo cloudId do Atlassian da Fitec, trocado pelo marcador `<ATLASSIAN_CLOUD_ID>`. A pasta fica fora do ruff para não divergir do original.
+
+| Arquivo instalado | Cópia no repo | Papel |
+|---|---|---|
+| `~/bin/goal` | `ferramentas/goals/bin/goal` | CLI dos goals (`novo`, `set`, `artefato`, `disparar`, `perguntar`, dashboard); `goal disparar` lança o executor com `claude --bg` |
+| `~/.claude/hooks/goal_guard.py` | `ferramentas/goals/hooks/goal_guard.py` | trava (hook PreToolUse) das sessões executoras; o campo `permite` do goal abre a exceção de push |
+| `~/.claude/skills/goal-run/SKILL.md` | `ferramentas/goals/skills/goal-run/SKILL.md` | protocolo do executor; com `concluir` em `permite`, termina sem revisão humana |
+
+O hook precisa estar registrado em `~/.claude/settings.json` (`"PreToolUse": [{"hooks": [{"type": "command", "command": "python3 ~/.claude/hooks/goal_guard.py"}]}]`). O CLI usa o pyyaml do `python3` do sistema.
+
+```bash
+bash ferramentas/goals/sincronizar.sh conferir    # instalado x repo, e se o hook está registrado
+bash ferramentas/goals/sincronizar.sh atualizar   # depois de mexer no instalado: copia para o repo (mascara o cloudId)
+bash ferramentas/goals/sincronizar.sh instalar    # máquina nova: repo -> ~ (guarda .bak; cloudId do instalado ou de ATLASSIAN_CLOUD_ID)
+```
+
+Ao mudar qualquer um dos três, rodar `atualizar` e commitar junto, para a cópia não envelhecer.
+
+### Primeiro uso
+
+1. `bash scripts/deploy_auto.sh` à mão, uma vez, e conferir `logs/deploy_auto.log` (cria `.worktrees/_deploy` e passa a QA para o código de `origin/develop`).
+2. `bash ferramentas/goals/sincronizar.sh conferir` (tudo "igual", sem aviso de hook).
+3. Instalar a tarefa (acima) e esperar uma linha nova em `logs/ponte_goals.log`.
+4. Marcar um report simples e acompanhar: `fila` na ponte, `goal mostrar report-<id>`, o log do goal e, no fim, o report resolvido com o commit na resolução.
 
 **Deploy:** `bash scripts/deploy_auto.sh` publica `origin/develop` a partir do checkout dedicado `.worktrees/_deploy` (não do checkout principal, que tem WIP), reinicia o backend e espera o `/health` na versão nova. Log em `logs/deploy_auto.log`. Depois do primeiro deploy por ele, a QA (porta 3000) passa a mostrar só o que está publicado em develop.
 
-**Exceções da trava:** o goal leva `permite: push:develop,deploy,concluir` no frontmatter. `~/.claude/hooks/goal_guard.py` libera só `git push origin HEAD:develop` (nunca força nem remoção) e a skill `goal-run` deixa concluir sem revisão humana. Pergunta do executor (report vago, suíte vermelha, deploy falhou) aparece no `/decisoes`.
+**Exceções da trava:** o goal leva `permite: push:develop,deploy,concluir` no frontmatter. `~/.claude/hooks/goal_guard.py` (cópia em `ferramentas/goals/`) libera só `git push origin HEAD:develop` (nunca força nem remoção) e a skill `goal-run` deixa concluir sem revisão humana. Pergunta do executor (report vago, suíte vermelha, deploy falhou) aparece no `/decisoes`.
 
 **Cuidado com o banco compartilhado:** dev e QA usam o mesmo Postgres. Com uma migration aplicada pelo dev e ainda não publicada, o backend de QA sobe mesmo assim (o `upgrade head` do lifespan só registra um warning) e convive com tabela ou coluna nova, mas quebra se a migration removeu ou renomeou algo que o código publicado usa. Os testes dos goals também rodam nesse banco.
 

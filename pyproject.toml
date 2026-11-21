@@ -36,6 +36,7 @@ exclude = [
     ".pytest_cache",
     "backend/alembic/versions",  # migrations geradas automaticamente
     "WebScrapping",
+    "ferramentas/goals",  # cópia fiel de arquivos instalados fora do repo (ver o README da pasta)
 ]
 
 [tool.ruff.lint.isort]

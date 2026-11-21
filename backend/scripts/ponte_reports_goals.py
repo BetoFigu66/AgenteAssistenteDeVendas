@@ -211,7 +211,7 @@ def cmd_fila(_a) -> None:
         fila = svc.listar_fila(session)
         print(f"Na fila: {len(fila)}")
         for r in fila:
-            print(f"  #{r.id} [{r.severidade.value}] {r.descricao[:90]!r}")
+            print(f"  #{r.id} [{r.severidade.value}] {svc.mascarar(r.descricao)[:90]!r}")
     print("Goals de report:")
     for g in goals_de_report():
         print(f"  {g['id']}: {g.get('status')}")

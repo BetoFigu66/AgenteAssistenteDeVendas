@@ -1,0 +1,1108 @@
+#!/usr/bin/env python3
+"""goal — estado dos goals (terminal de decisões + terminal de execução + dashboard).
+
+Processo e formato: ~/Work/Organizacao/README.md (seção "Goals").
+Goals da Fitec em ~/Work/Organizacao/fitec/goals/<id>/ (fora do git); pessoais em ~/Work/Organizacao/goals/<id>/.
+
+Cada goal:
+  goal.md            frontmatter (estado) + objetivo/contexto/decisões/estado atual
+  perguntas/Qnnn.md  uma pergunta por arquivo (aberta|respondida)
+  log.md             linha do tempo
+  artefatos/         saídas do executor
+"""
+import argparse
+import contextlib
+import datetime as dt
+import html
+import importlib.util
+import io
+import json
+import os
+import re
+import shutil
+import socket
+import subprocess
+import sys
+import threading
+import time
+import uuid
+import urllib.parse
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from pathlib import Path
+
+import yaml
+
+
+def _achar_claude():
+    """Caminho do CLI claude: PATH primeiro; senão o do nvm (o PATH de shells não interativos
+    pode não ter o nvm — falhou assim em 2026-11-17)."""
+    achado = shutil.which("claude")
+    if achado:
+        return achado
+    nvm = sorted(Path.home().glob(".nvm/versions/node/*/bin/claude"))
+    return str(nvm[-1]) if nvm else "claude"
+
+
+CLAUDE = _achar_claude()
+
+ORG = Path.home() / "Work" / "Organizacao"
+ROOTS = {"fitec": ORG / "fitec" / "goals", "pessoal": ORG / "goals"}
+PERIODICOS = ROOTS["fitec"] / "periodicos.yml"
+TASKS_REGISTRY = ORG / "fitec" / "TasksCorrentes.md"
+MAPA = Path.home() / ".claude" / "state" / "goal_sessions.json"
+PORT = 8765
+LEMBRETES = ORG / "lembretes.json"  # pendências rápidas do dashboard (frase + data limite + feito_em)
+REINICIO_HOOK = Path.home() / ".claude" / "hooks" / "reinicio_windows.py"
+
+ATIVOS = ["rascunho", "pronto", "executando", "aguardando-humano", "revisao-humana"]
+# suspenso: parado por motivo externo (exige justificativa; campos suspenso_motivo/suspenso_em no frontmatter)
+STATUS = ATIVOS + ["suspenso", "concluido", "cancelado"]
+ABERTOS = ATIVOS + ["suspenso"]
+STATUS_DASHBOARD = ["rascunho", "pronto", "revisao-humana", "suspenso", "concluido", "cancelado"]
+PRIORIDADES = {"alta": 0, "media": 1, "baixa": 2}
+JIRA_RE = re.compile(r"^[A-Z][A-Z0-9]+-\d+$")
+# Tags livres (normalizadas: minúsculas, sem acento, a-z0-9-). Estas são as pré-definidas (rótulo no dashboard).
+TAGS_PADRAO = {
+    "sprint": "Sprint",            # goal de issue da sprint corrente (posta pelo /sprint)
+    "repo": "Repo",                # dependências/vulnerabilidades levantadas dos repos
+    "prioritaria": "Prioritária",  # marcada à mão
+}
+
+
+# ---------------------------------------------------------------- util
+def agora():
+    return dt.datetime.now().strftime("%Y-%m-%d %H:%M")
+
+
+def die(msg, code=1):
+    print(f"goal: {msg}", file=sys.stderr)
+    sys.exit(code)
+
+
+def slug(texto, n=48):
+    import unicodedata
+    t = unicodedata.normalize("NFKD", texto).encode("ascii", "ignore").decode().lower()
+    t = re.sub(r"[^a-z0-9]+", "-", t).strip("-")
+    return t[:n].rstrip("-") or "goal"
+
+
+def norm_tags(tags):
+    out = []
+    for t in tags or []:
+        for parte in str(t).split(","):
+            if parte.strip():
+                n = slug(parte.strip(), 30)
+                if n not in out:
+                    out.append(n)
+    return out
+
+
+def tags_de(meta):
+    t = meta.get("tags") or []
+    return t if isinstance(t, list) else norm_tags([t])
+
+
+def ler_md(path):
+    txt = path.read_text(encoding="utf-8")
+    if txt.startswith("---\n"):
+        fim = txt.find("\n---\n", 4)
+        if fim != -1:
+            return (yaml.safe_load(txt[4:fim]) or {}), txt[fim + 5:]
+    return {}, txt
+
+
+def gravar_md(path, meta, corpo):
+    fm = yaml.safe_dump(meta, sort_keys=False, allow_unicode=True, width=1000)
+    tmp = path.with_suffix(path.suffix + ".tmp")
+    tmp.write_text(f"---\n{fm}---\n{corpo}", encoding="utf-8")
+    tmp.replace(path)
+
+
+def log(gdir, msg):
+    with open(gdir / "log.md", "a", encoding="utf-8") as f:
+        f.write(f"- {agora()} {msg}\n")
+
+
+# ---------------------------------------------------------------- goals
+def todos_dirs():
+    for ctx, root in ROOTS.items():
+        if root.is_dir():
+            for d in sorted(root.iterdir()):
+                if (d / "goal.md").is_file():
+                    yield ctx, d
+
+
+def achar(gid):
+    for _, d in todos_dirs():
+        if d.name == gid:
+            return d
+    die(f"goal '{gid}' não encontrado")
+
+
+def carregar(d):
+    meta, corpo = ler_md(d / "goal.md")
+    meta.setdefault("id", d.name)
+    meta["_dir"] = str(d)
+    return meta, corpo
+
+
+def set_meta(d, **campos):
+    meta, corpo = ler_md(d / "goal.md")
+    meta.update(campos)
+    meta["atualizado"] = agora()
+    gravar_md(d / "goal.md", meta, corpo)
+    return meta
+
+
+def mudar_status(d, novo, motivo=""):
+    if novo not in STATUS:
+        die(f"status inválido: {novo} (válidos: {', '.join(STATUS)})")
+    meta, _ = ler_md(d / "goal.md")
+    antigo = meta.get("status")
+    set_meta(d, status=novo)
+    log(d, f"[status] {antigo} → {novo}" + (f" — {motivo}" if motivo else ""))
+
+
+def perguntas(d, so_abertas=False):
+    pdir = d / "perguntas"
+    out = []
+    if pdir.is_dir():
+        for p in sorted(pdir.glob("Q*.md")):
+            meta, corpo = ler_md(p)
+            meta["_path"] = str(p)
+            meta["_corpo"] = corpo
+            meta.setdefault("id", p.stem)
+            if not so_abertas or meta.get("status") == "aberta":
+                out.append(meta)
+    return out
+
+
+TEMPLATE = """# {titulo}
+
+## Objetivo
+{objetivo}
+
+## Contexto
+{contexto}
+
+## Critério de pronto
+{pronto}
+
+## Limites
+Padrão do executor (skill goal-run): pode ler tudo, editar código no worktree, rodar testes e commitar
+localmente. Push, PR, escrita no Jira, Teams ou e-mail → pergunta (`goal perguntar`). Exceções deste goal:
+- (nenhuma)
+
+## Decisões
+- {criado} goal criado (origem: {origem}).
+
+## Estado atual / próximo passo
+Ainda não iniciado.
+"""
+
+
+def cmd_novo(a):
+    ctx = a.contexto
+    if a.jira and not JIRA_RE.match(a.jira):
+        die(f"chave Jira inválida: {a.jira}")
+    gid = a.id or a.jira or slug(a.titulo)
+    if a.periodico and not a.id:
+        gid = f"{a.periodico}-{dt.date.today():%Y-%m-%d}"
+    for _, d in todos_dirs():
+        if d.name == gid:
+            die(f"já existe goal '{gid}' em {d}")
+    if a.workdir and not Path(a.workdir).expanduser().is_dir():
+        die(f"workdir não existe: {a.workdir}")
+    d = ROOTS[ctx] / gid
+    (d / "perguntas").mkdir(parents=True)
+    (d / "artefatos").mkdir()
+    origem = "periodico" if a.periodico else ("jira" if a.jira else "usuario")
+    meta = {
+        "id": gid,
+        "titulo": a.titulo,
+        "contexto": ctx,
+        "origem": origem,
+        "jira": a.jira,
+        "periodico": a.periodico,
+        "status": a.status,
+        "prioridade": a.prioridade,
+        "tags": norm_tags(getattr(a, "tag", None)),
+        "workdir": str(Path(a.workdir).expanduser().resolve()) if a.workdir else None,
+        "worktree": None,
+        "branch": None,
+        "sessao": None,
+        "session_id": None,
+        "criado": agora(),
+        "atualizado": agora(),
+    }
+    corpo = TEMPLATE.format(
+        titulo=a.titulo,
+        objetivo=a.objetivo or "(a definir)",
+        contexto=a.texto_contexto or "(a preencher)",
+        pronto=a.pronto or "(a definir)",
+        criado=meta["criado"],
+        origem=origem + (f" {a.jira}" if a.jira else "") + (f" {a.periodico}" if a.periodico else ""),
+    )
+    gravar_md(d / "goal.md", meta, corpo)
+    (d / "log.md").write_text(f"# Log — {gid}\n\n", encoding="utf-8")
+    log(d, f"[criado] origem={origem} status={a.status}" + (f" tags={','.join(meta['tags'])}" if meta["tags"] else ""))
+    print(d)
+
+
+def resumo(meta, d):
+    abertas = perguntas(d, so_abertas=True)
+    return {
+        **{k: v for k, v in meta.items() if not k.startswith("_")},
+        "dir": str(d),
+        "perguntas_abertas": len(abertas),
+    }
+
+
+def cmd_listar(a):
+    linhas = []
+    for ctx, d in todos_dirs():
+        meta, _ = carregar(d)
+        if a.status and meta.get("status") not in a.status.split(","):
+            continue
+        if not a.todos and not a.status and meta.get("status") not in ABERTOS:
+            continue
+        if a.tag and not set(norm_tags([a.tag])) <= set(tags_de(meta)):
+            continue
+        linhas.append(resumo(meta, d))
+    linhas.sort(key=lambda m: (ATIVOS.index(m["status"]) if m.get("status") in ATIVOS else 9,
+                               PRIORIDADES.get(m.get("prioridade"), 1), m.get("atualizado") or ""))
+    if a.json:
+        print(json.dumps(linhas, ensure_ascii=False, indent=2, default=str))
+        return
+    if not linhas:
+        print("(nenhum goal)")
+    for m in linhas:
+        q = f"  ❓{m['perguntas_abertas']}" if m["perguntas_abertas"] else ""
+        tg = f"  #{' #'.join(tags_de(m))}" if tags_de(m) else ""
+        print(f"{m['status']:<18} {m.get('prioridade', ''):<6} {m['id']:<40} {m.get('titulo', '')[:60]}{q}{tg}")
+
+
+def alterar_tags(d, add=(), rm=()):
+    meta, _ = ler_md(d / "goal.md")
+    antes = tags_de(meta)
+    rm_n = set(norm_tags(rm))
+    novas = [t for t in antes if t not in rm_n] + [t for t in norm_tags(add) if t not in antes and t not in rm_n]
+    if novas != antes:
+        set_meta(d, tags=novas)
+        log(d, f"[tags] {','.join(antes) or '-'} → {','.join(novas) or '-'}")
+    return novas
+
+
+def cmd_tag(a):
+    d = achar(a.id)
+    print(" ".join(alterar_tags(d, a.add, a.rm)) or "(sem tags)")
+
+
+def cmd_mostrar(a):
+    d = achar(a.id)
+    print((d / "goal.md").read_text(encoding="utf-8"))
+    for q in perguntas(d):
+        print(f"\n===== {Path(q['_path']).name} ({q.get('status')}) =====")
+        print(q["_corpo"].strip())
+    print("\n===== log (últimas 15) =====")
+    print("".join((d / "log.md").read_text(encoding="utf-8").splitlines(keepends=True)[-15:]))
+
+
+def cmd_status(a):
+    d = achar(a.id)
+    antigo = ler_md(d / "goal.md")[0].get("status")
+    if a.novo == "suspenso":
+        if not (a.motivo or "").strip():
+            die("suspender exige justificativa: goal status <id> suspenso --motivo \"...\"")
+        set_meta(d, suspenso_motivo=a.motivo.strip(), suspenso_em=agora())
+        cmd_decisao(argparse.Namespace(id=a.id, texto=f"Suspenso: {a.motivo.strip()}"))
+        abertas = perguntas(d, so_abertas=True)
+        if abertas:
+            print(f"aviso: {len(abertas)} pergunta(s) aberta(s) continuam no /decisoes: "
+                  + ", ".join(q["id"] for q in abertas))
+    elif antigo == "suspenso":
+        set_meta(d, suspenso_motivo=None, suspenso_em=None)
+    mudar_status(d, a.novo, a.motivo or "")
+    if a.novo in ("concluido", "cancelado"):
+        parar_sessao(d)
+
+
+def cmd_set(a):
+    d = achar(a.id)
+    campos = {}
+    for kv in a.campos:
+        k, _, v = kv.partition("=")
+        if k in ("status", "id"):
+            die(f"use 'goal status' para mudar {k}")
+        campos[k] = None if v in ("", "null") else v
+    set_meta(d, **campos)
+    log(d, "[set] " + ", ".join(f"{k}={v}" for k, v in campos.items()))
+
+
+def cmd_log(a):
+    d = achar(a.id)
+    log(d, a.msg)
+
+
+def _texto(valor):
+    return sys.stdin.read() if valor in (None, "-") else valor
+
+
+def cmd_estado(a):
+    """Substitui o corpo da seção '## Estado atual / próximo passo' (o Edit é barrado em sessões --bg)."""
+    d = achar(a.id)
+    meta, corpo = ler_md(d / "goal.md")
+    novo = _texto(a.texto).strip()
+    tit = "## Estado atual / próximo passo"
+    if tit in corpo:
+        ini = corpo.index(tit) + len(tit)
+        prox = corpo.find("\n## ", ini)
+        corpo = corpo[:ini] + "\n" + novo + "\n" + (corpo[prox:] if prox != -1 else "")
+    else:
+        corpo = corpo.rstrip("\n") + f"\n\n{tit}\n{novo}\n"
+    meta["atualizado"] = agora()
+    gravar_md(d / "goal.md", meta, corpo)
+    log(d, "[estado] " + novo.splitlines()[0][:140] if novo else "[estado] (vazio)")
+
+
+def cmd_decisao(a):
+    d = achar(a.id)
+    meta, corpo = ler_md(d / "goal.md")
+    item = f"- {agora()} {_texto(a.texto).strip()}"
+    tit = "## Decisões"
+    if tit in corpo:
+        ini = corpo.index(tit) + len(tit)
+        prox = corpo.find("\n## ", ini)
+        prox = len(corpo) if prox == -1 else prox
+        corpo = corpo[:prox].rstrip("\n") + "\n" + item + "\n" + corpo[prox:]
+    else:
+        corpo = corpo.rstrip("\n") + f"\n\n{tit}\n{item}\n"
+    meta["atualizado"] = agora()
+    gravar_md(d / "goal.md", meta, corpo)
+    log(d, "[decisão] " + item[19:160])
+
+
+def cmd_artefato(a):
+    d = achar(a.id)
+    nome = Path(a.nome)
+    if nome.is_absolute() or ".." in nome.parts:
+        die("nome de artefato deve ser relativo a artefatos/")
+    alvo = d / "artefatos" / nome
+    alvo.parent.mkdir(parents=True, exist_ok=True)
+    conteudo = Path(a.de_arquivo).read_text(encoding="utf-8") if a.de_arquivo else sys.stdin.read()
+    alvo.write_text(conteudo, encoding="utf-8")
+    log(d, f"[artefato] {nome}")
+    print(alvo)
+
+
+def cmd_perguntar(a):
+    d = achar(a.id)
+    pdir = d / "perguntas"
+    pdir.mkdir(exist_ok=True)
+    n = len(list(pdir.glob("Q*.md"))) + 1
+    qid = f"Q{n:03d}"
+    meta = {"id": qid, "goal": d.name, "tipo": a.tipo, "status": "aberta", "criada": agora(), "respondida": None}
+    opcoes = "\n".join(f"- {o.strip()}" for o in a.opcoes.split("|")) if a.opcoes else "(resposta livre)"
+    corpo = (f"## Contexto\n{a.contexto.strip()}\n\n## Pergunta\n{a.pergunta.strip()}\n\n"
+             f"## Opções\n{opcoes}\n\n## Recomendação\n{(a.recomendacao or '(sem recomendação)').strip()}\n\n"
+             f"## Resposta\n")
+    gravar_md(pdir / f"{qid}.md", meta, corpo)
+    log(d, f"[pergunta] {qid} ({a.tipo}): {a.pergunta.strip()[:120]}")
+    if not a.sem_bloquear:
+        mudar_status(d, "aguardando-humano", qid)
+    print(pdir / f"{qid}.md")
+
+
+def cmd_pendentes(a):
+    itens = []
+    for ctx, d in todos_dirs():
+        meta, _ = carregar(d)
+        for q in perguntas(d, so_abertas=True):
+            itens.append({
+                "goal": d.name, "titulo": meta.get("titulo"), "prioridade": meta.get("prioridade"),
+                "contexto": ctx, "goal_status": meta.get("status"), "pergunta_id": q["id"],
+                "tipo": q.get("tipo"), "criada": q.get("criada"), "arquivo": q["_path"], "texto": q["_corpo"],
+            })
+    itens.sort(key=lambda i: (PRIORIDADES.get(i["prioridade"], 1), str(i["criada"])))
+    revisao = [resumo(*carregar(d)[:1], d) for _, d in todos_dirs() if carregar(d)[0].get("status") == "revisao-humana"]
+    if a.json:
+        print(json.dumps({"perguntas": itens, "revisao_humana": revisao}, ensure_ascii=False, indent=2, default=str))
+        return
+    for i in itens:
+        print(f"[{i['prioridade']}] {i['goal']} {i['pergunta_id']} ({i['tipo']}, {i['criada']})")
+    for r in revisao:
+        print(f"[revisão] {r['id']} — {r.get('titulo')}")
+    if not itens and not revisao:
+        print("(nada pendente)")
+
+
+def cmd_responder(a):
+    d = achar(a.id)
+    p = d / "perguntas" / f"{a.qid}.md"
+    if not p.is_file():
+        die(f"pergunta {a.qid} não existe em {d.name}")
+    meta, corpo = ler_md(p)
+    if meta.get("status") != "aberta":
+        die(f"{a.qid} já está {meta.get('status')}")
+    meta["status"] = "respondida"
+    meta["respondida"] = agora()
+    corpo = corpo.rstrip("\n") + "\n" + a.resposta.strip() + "\n"
+    gravar_md(p, meta, corpo)
+    log(d, f"[resposta] {a.qid}: {a.resposta.strip()[:160]}")
+    gmeta, _ = ler_md(d / "goal.md")
+    if not perguntas(d, so_abertas=True) and gmeta.get("status") == "aguardando-humano":
+        mudar_status(d, "pronto", f"perguntas respondidas (última {a.qid})")
+        print("pronto")
+    else:
+        print(gmeta.get("status"))
+
+
+# ---------------------------------------------------------------- sessões (claude --bg)
+_AGENTS_CACHE = {"t": 0, "v": []}
+
+
+def agents(todos=True, cache_s=0):
+    if cache_s and time.time() - _AGENTS_CACHE["t"] < cache_s:
+        return _AGENTS_CACHE["v"]
+    cmd = [CLAUDE, "agents", "--json"] + (["--all"] if todos else [])
+    try:
+        out = subprocess.run(cmd, capture_output=True, text=True, timeout=30).stdout
+        v = json.loads(out or "[]")
+    except Exception:
+        v = []
+    _AGENTS_CACHE.update(t=time.time(), v=v)
+    return v
+
+
+def sessao_do_goal(meta, lista=None):
+    lista = agents() if lista is None else lista
+    for s in lista:
+        if meta.get("sessao") and s.get("id") == meta["sessao"]:
+            return s
+        if meta.get("session_id") and s.get("sessionId") == meta["session_id"]:
+            return s
+    return None
+
+
+def parar_sessao(d, remover=True):
+    meta, _ = ler_md(d / "goal.md")
+    sid = meta.get("sessao")
+    if not sid:
+        return
+    s = sessao_do_goal(meta)
+    if s and s.get("kind") == "background":
+        subprocess.run([CLAUDE, "stop", sid], capture_output=True, timeout=30)
+        if remover:
+            subprocess.run([CLAUDE, "rm", sid], capture_output=True, timeout=30)
+            if meta.get("session_id"):
+                mapa_sessoes(lambda m: m["sessoes"].pop(meta["session_id"], None))
+        log(d, f"[sessão] parada {sid}")
+
+
+def git(*args, cwd):
+    r = subprocess.run(["git", *args], cwd=cwd, capture_output=True, text=True)
+    if r.returncode:
+        die(f"git {' '.join(args)}: {r.stderr.strip()}")
+    return r.stdout.strip()
+
+
+def preparar_worktree(d, meta, base, branch):
+    if meta.get("worktree") and Path(meta["worktree"]).is_dir():
+        return meta["worktree"]
+    top = git("rev-parse", "--show-toplevel", cwd=meta["workdir"])
+    gid = meta["id"]
+    branch = branch or meta.get("branch") or f"feature/{gid}"
+    wt = Path(top) / ".worktrees" / gid
+    excl = Path(git("rev-parse", "--git-common-dir", cwd=top))
+    excl = (excl if excl.is_absolute() else Path(top) / excl) / "info" / "exclude"
+    linhas = excl.read_text().splitlines() if excl.exists() else []
+    if "/.worktrees/" not in linhas:
+        excl.parent.mkdir(parents=True, exist_ok=True)
+        with open(excl, "a") as f:
+            f.write("/.worktrees/\n")
+    if not base:
+        ref = subprocess.run(["git", "symbolic-ref", "--short", "refs/remotes/origin/HEAD"], cwd=top,
+                             capture_output=True, text=True).stdout.strip()
+        base = ref.split("/", 1)[1] if ref else "main"
+    subprocess.run(["git", "fetch", "origin", base], cwd=top, capture_output=True, timeout=120)
+    existe = subprocess.run(["git", "rev-parse", "--verify", "--quiet", f"refs/heads/{branch}"], cwd=top,
+                            capture_output=True).returncode == 0
+    if existe:
+        git("worktree", "add", str(wt), branch, cwd=top)
+    else:
+        git("worktree", "add", "-b", branch, str(wt), f"origin/{base}", cwd=top)
+    set_meta(d, worktree=str(wt), branch=branch)
+    log(d, f"[worktree] {wt} (branch {branch}, base origin/{base})")
+    return str(wt)
+
+
+def mapa_sessoes(alterar=None):
+    """~/.claude/state/goal_sessions.json: {"sessoes": {session_id: goal}, "pendentes": {cwd: {goal, ts}}}.
+    Lido pelos hooks goal_guard.py e sessoes.py para reconhecer as sessões executoras. Não dá para usar
+    variável de ambiente: o daemon do `claude --bg` guarda o ambiente da 1ª chamada e repassa a todas as
+    sessões seguintes (verificado em 2026-11-09)."""
+    import fcntl
+    MAPA.parent.mkdir(parents=True, exist_ok=True)
+    with open(MAPA.with_suffix(".lock"), "w") as lk:
+        fcntl.flock(lk, fcntl.LOCK_EX)
+        try:
+            m = json.loads(MAPA.read_text())
+        except Exception:
+            m = {}
+        m.setdefault("sessoes", {})
+        m.setdefault("pendentes", {})
+        if alterar:
+            alterar(m)
+            tmp = MAPA.with_suffix(".tmp")
+            tmp.write_text(json.dumps(m, indent=1))
+            tmp.replace(MAPA)
+        return m
+
+
+def lancar(d, meta, prompt, resume=None):
+    cwd = meta.get("worktree") or meta.get("workdir")
+    if not cwd or not Path(cwd).is_dir():
+        die("goal sem workdir válido (goal set <id> workdir=/caminho)")
+    cwd = os.path.realpath(cwd)
+    gid = meta["id"]
+    mapa_sessoes(lambda m: m["pendentes"].__setitem__(cwd, {"goal": gid, "ts": time.time()}))
+    env = {k: v for k, v in os.environ.items() if k not in ("GOAL_ID", "GOAL_DIR")}
+    # --add-dir é variádico: precisa vir antes de outra opção, senão engole o prompt
+    cmd = [CLAUDE, "--bg", "--add-dir", str(d), "-n", f"goal-{gid}", "--permission-mode", "bypassPermissions"]
+    if resume:
+        cmd += ["--resume", resume]
+    cmd.append(prompt)
+    r = subprocess.run(cmd, cwd=cwd, env=env, capture_output=True, text=True, timeout=120)
+    saida = (r.stdout + r.stderr).strip()
+    m = re.search(r"backgrounded · (\w+)", saida)
+    if not m:
+        die(f"falha ao lançar sessão:\n{saida}")
+    short = m.group(1)
+    full = None
+    for _ in range(10):
+        s = next((x for x in agents() if x.get("id") == short), None)
+        if s:
+            full = s.get("sessionId")
+            break
+        time.sleep(1)
+    full = full or resume
+
+    def registrar(m):
+        if full:
+            m["sessoes"][full] = gid
+            m["pendentes"].pop(cwd, None)
+        for k in [k for k, v in m["pendentes"].items() if time.time() - v.get("ts", 0) > 120]:
+            m["pendentes"].pop(k)
+    mapa_sessoes(registrar)
+    set_meta(d, sessao=short, session_id=full)
+    return short
+
+
+def cmd_disparar(a):
+    d = achar(a.id)
+    meta, _ = carregar(d)
+    if meta.get("status") not in ("pronto",) and not a.forcar:
+        die(f"goal está '{meta.get('status')}', não 'pronto' (use --forcar)")
+    viva = sessao_do_goal(meta)
+    if viva and viva.get("status") == "busy":
+        die(f"já existe sessão trabalhando neste goal: {viva.get('id')} (claude attach {viva.get('id')})")
+    if a.worktree:
+        preparar_worktree(d, meta, a.base, a.branch)
+        meta, _ = carregar(d)
+    # retoma a conversa anterior quando existir (mantém o contexto); senão começa do goal.md
+    resume = meta.get("session_id") if not a.novo else None
+    if viva:
+        parar_sessao(d, remover=False)
+    respondidas = [q["id"] for q in perguntas(d) if q.get("status") == "respondida"]
+    if resume:
+        prompt = (f"/goal-run {meta['id']}\n\nRetomando: releia {d}/goal.md e as perguntas respondidas "
+                  f"({', '.join(respondidas) or 'nenhuma'}) e continue.")
+    else:
+        prompt = f"/goal-run {meta['id']}"
+    mudar_status(d, "executando", "disparado" + (" (retomada)" if resume else ""))
+    antiga, antiga_full = meta.get("sessao"), meta.get("session_id")
+    try:
+        short = lancar(d, meta, prompt, resume=resume)
+    except (SystemExit, Exception):
+        mudar_status(d, "pronto", "falha ao lançar sessão")
+        raise
+    if antiga and antiga != short:
+        # --resume de sessão parada abre uma cópia com outro id; a antiga só ocupa espaço na lista
+        subprocess.run([CLAUDE, "rm", antiga], capture_output=True, timeout=30)
+        if antiga_full:
+            mapa_sessoes(lambda m: m["sessoes"].pop(antiga_full, None))
+    log(d, f"[sessão] {short} em {meta.get('worktree') or meta.get('workdir')}")
+    print(f"goal-{meta['id']} → sessão {short}   (acompanhar: claude attach {short})")
+
+
+# ---------------------------------------------------------------- periódicos
+def cmd_periodicos(a):
+    if not PERIODICOS.is_file():
+        print(f"(sem {PERIODICOS})")
+        return
+    defs = yaml.safe_load(PERIODICOS.read_text(encoding="utf-8")) or []
+    hoje = dt.date.today()
+    ultimos = {}
+    abertos = set()
+    for _, d in todos_dirs():
+        meta, _ = carregar(d)
+        p = meta.get("periodico")
+        if not p:
+            continue
+        c = dt.datetime.strptime(str(meta.get("criado"))[:10], "%Y-%m-%d").date()
+        ultimos[p] = max(ultimos.get(p, c), c)
+        if meta.get("status") in ABERTOS:
+            abertos.add(p)
+    for p in defs:
+        nome = p["nome"]
+        ult = ultimos.get(nome)
+        vence = (ult + dt.timedelta(days=int(p["a_cada_dias"]))) if ult else hoje
+        if nome in abertos:
+            print(f"{nome}: instância ainda aberta (última {ult})")
+            continue
+        if vence > hoje:
+            print(f"{nome}: próximo em {vence}")
+            continue
+        if a.dry_run:
+            print(f"{nome}: VENCIDO — seria criado")
+            continue
+        ns = argparse.Namespace(
+            id=None, titulo=f"{p['titulo']} ({hoje:%d/%m})", contexto=p.get("contexto", "fitec"), jira=None,
+            periodico=nome, status="pronto", prioridade=p.get("prioridade", "baixa"), workdir=p.get("workdir"),
+            objetivo=p.get("instrucoes", "").strip(), texto_contexto=f"Goal periódico '{nome}' "
+            f"(a cada {p['a_cada_dias']} dias, definido em {PERIODICOS}).", pronto=p.get("pronto", "(ver objetivo)"),
+            tag=p.get("tags") or [])
+        cmd_novo(ns)
+        print(f"{nome}: criado")
+
+
+# ---------------------------------------------------------------- lembretes e reinício (topo do dashboard)
+_lock_lembretes = threading.Lock()
+
+
+def ler_lembretes():
+    try:
+        return json.loads(LEMBRETES.read_text(encoding="utf-8")).get("itens", [])
+    except (OSError, ValueError):
+        return []
+
+
+def gravar_lembretes(itens):
+    tmp = LEMBRETES.with_suffix(".json.tmp")
+    tmp.write_text(json.dumps({"itens": itens}, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+    os.replace(tmp, LEMBRETES)
+
+
+def reinicio_windows():
+    """Prazo do reinício do Windows (boot + 7 dias), pela mesma lógica/cache do hook reinicio_windows.py."""
+    try:
+        spec = importlib.util.spec_from_file_location("reinicio_windows", REINICIO_HOOK)
+        m = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(m)
+        boot = m.windows_boot(m._load())
+        prazo = boot + m.PRAZO
+        falta = prazo - dt.datetime.now()
+        return {"boot": m._fmt(boot), "prazo": m._fmt(prazo), "falta": m._fmt_delta(falta),
+                "falta_min": int(falta.total_seconds() // 60)}
+    except Exception as e:  # noqa: BLE001 — o dashboard não pode cair por causa disso
+        return {"erro": str(e)[:200]}
+
+
+# ---------------------------------------------------------------- dashboard
+def tasks_legado():
+    out = []
+    if TASKS_REGISTRY.is_file():
+        for ln in TASKS_REGISTRY.read_text(encoding="utf-8").splitlines():
+            cols = [c.strip() for c in ln.strip().strip("|").split("|")]
+            if len(cols) >= 5 and cols[0].startswith("/"):
+                out.append(dict(zip(["diretorio", "task", "status", "sessao", "atualizado"], cols[:5])))
+    return out
+
+
+def estado():
+    lista = agents(cache_s=8)
+    goals = []
+    sessoes_goal = set()
+    for ctx, d in todos_dirs():
+        meta, corpo = carregar(d)
+        if meta.get("status") in ("concluido", "cancelado"):
+            mod = dt.datetime.fromtimestamp((d / "goal.md").stat().st_mtime)
+            if dt.datetime.now() - mod > dt.timedelta(days=7):
+                continue
+        s = sessao_do_goal(meta, lista)
+        if s:
+            sessoes_goal.add(s.get("sessionId"))
+        m = re.search(r"## Estado atual / próximo passo\n(.*?)(\n## |\Z)", corpo, re.S)
+        logs = (d / "log.md").read_text(encoding="utf-8").splitlines() if (d / "log.md").exists() else []
+        goals.append({
+            **{k: v for k, v in meta.items() if not k.startswith("_")},
+            "estado_atual": (m.group(1).strip() if m else "")[:600],
+            "log": [l[2:] for l in logs if l.startswith("- ")][-6:],
+            "perguntas": [{"id": q["id"], "tipo": q.get("tipo"), "criada": q.get("criada"),
+                           "pergunta": (re.search(r"## Pergunta\n(.*?)\n\n", q["_corpo"], re.S) or [None, ""])[1][:300]}
+                          for q in perguntas(d, so_abertas=True)],
+            "sessao_viva": {"id": s.get("id"), "status": s.get("status"), "state": s.get("state")} if s else None,
+        })
+    outras = [{"name": s.get("name"), "cwd": s.get("cwd"), "kind": s.get("kind"), "status": s.get("status"),
+               "id": s.get("id")}
+              for s in lista if s.get("sessionId") not in sessoes_goal
+              and not (s.get("name") or "").startswith("goal-")
+              and (s.get("kind") == "interactive" or s.get("status") in ("busy", "idle"))]
+    return {"gerado": agora(), "goals": goals, "sessoes": outras, "tasks": tasks_legado(),
+            "status": STATUS, "status_dashboard": STATUS_DASHBOARD, "tags_padrao": TAGS_PADRAO,
+            "lembretes": ler_lembretes(), "reinicio": reinicio_windows()}
+
+
+DASH_HTML = (Path(__file__).resolve().parent / "goal_dashboard.html")
+# /arquivo?p=<caminho>: só lê relatórios e arquivos dos goals (nunca o resto do ~/Work/Organizacao, que tem _origem/).
+ARQ_RAIZES = [ORG / "fitec" / "relatorios", *ROOTS.values()]
+ARQ_EXT = {".md", ".txt", ".log", ".json", ".csv"}
+ARQ_HTML = """<!doctype html>
+<html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{titulo}</title>
+<style>
+:root {{ --bg:#fff; --ink:#1d1d1b; --muted:#6b6b66; --line:#e2e1dc; --code:#f3f3f0; --accent:#2f5fd0; }}
+@media (prefers-color-scheme: dark) {{ :root:not([data-theme="light"]) {{
+  --bg:#161615; --ink:#ecebe6; --muted:#9a9993; --line:#34342f; --code:#242422; --accent:#7ea2ff; }} }}
+:root[data-theme="dark"] {{ --bg:#161615; --ink:#ecebe6; --muted:#9a9993; --line:#34342f; --code:#242422; --accent:#7ea2ff; }}
+body {{ margin:0; background:var(--bg); color:var(--ink); font:15px/1.55 system-ui,-apple-system,"Segoe UI",sans-serif; }}
+main {{ max-width:1100px; margin:0 auto; padding:16px; }}
+.cam {{ color:var(--muted); font:12px ui-monospace,monospace; word-break:break-all; user-select:all; }}
+a {{ color:var(--accent); }}
+pre, code {{ font:13px/1.45 ui-monospace,monospace; background:var(--code); border-radius:4px; }}
+code {{ padding:1px 4px; }} pre {{ padding:10px; overflow-x:auto; white-space:pre-wrap; }} pre code {{ padding:0; }}
+.tab {{ overflow-x:auto; }}
+table {{ border-collapse:collapse; font-size:13px; margin:8px 0; }}
+th, td {{ border:1px solid var(--line); padding:4px 8px; text-align:left; vertical-align:top; }}
+blockquote {{ margin:8px 0; padding:2px 12px; border-left:3px solid var(--line); color:var(--muted); }}
+</style></head><body><main>
+<div class="cam">{caminho}</div>
+<div id="doc"><pre id="bruto"></pre></div>
+</main>
+<script id="conteudo" type="application/json">{conteudo}</script>
+<script src="https://cdn.jsdelivr.net/npm/marked@12.0.2/marked.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/dompurify@3.1.6/dist/purify.min.js"></script>
+<script>
+const txt = JSON.parse(document.getElementById("conteudo").textContent);
+document.getElementById("bruto").textContent = txt;  // fallback: texto puro (ex.: CDN fora)
+if ({markdown} && window.marked && window.DOMPurify) {{
+  const doc = document.getElementById("doc");
+  doc.innerHTML = DOMPurify.sanitize(marked.parse(txt));
+  doc.querySelectorAll("table").forEach(t => {{ const w = document.createElement("div"); w.className = "tab";
+    t.replaceWith(w); w.appendChild(t); }});
+  doc.querySelectorAll('a[href^="http"]').forEach(a => {{ a.target = "_blank"; a.rel = "noopener"; }});
+}}
+</script></body></html>"""
+
+
+class H(BaseHTTPRequestHandler):
+    def log_message(self, *a):
+        pass
+
+    def _send(self, code, body, ctype):
+        b = body.encode("utf-8")
+        self.send_response(code)
+        self.send_header("Content-Type", ctype)
+        self.send_header("Cache-Control", "no-store")
+        self.send_header("Content-Length", str(len(b)))
+        self.end_headers()
+        self.wfile.write(b)
+
+    def do_GET(self):
+        if self.path.startswith("/api/estado"):
+            self._send(200, json.dumps(estado(), ensure_ascii=False, default=str), "application/json")
+        elif self.path in ("/", "/index.html"):
+            self._send(200, DASH_HTML.read_text(encoding="utf-8"), "text/html; charset=utf-8")
+        elif self.path.startswith("/arquivo?"):
+            self._arquivo()
+        else:
+            self._send(404, "não encontrado", "text/plain")
+
+    def _arquivo(self):
+        # Abre em outra aba um relatório/arquivo de goal (links file://wsl.localhost/... do dashboard).
+        # Host checado contra DNS rebinding; leitura restrita a ARQ_RAIZES e ARQ_EXT.
+        if self.headers.get("Host", "").split(":")[0] not in ("localhost", "127.0.0.1"):
+            return self._send(403, "host não permitido", "text/plain; charset=utf-8")
+        q = urllib.parse.parse_qs(urllib.parse.urlsplit(self.path).query)
+        bruto = (q.get("p") or [""])[0]
+        m = re.match(r"^file://wsl\.localhost/[^/]+(/.*)$", bruto)
+        p = Path(m.group(1) if m else bruto).expanduser()
+        try:
+            p = p.resolve(strict=True)
+        except (OSError, RuntimeError):
+            return self._send(404, f"arquivo não encontrado: {bruto}", "text/plain; charset=utf-8")
+        if not p.is_file() or p.suffix.lower() not in ARQ_EXT \
+                or not any(p.is_relative_to(r.resolve()) for r in ARQ_RAIZES):
+            return self._send(403, "arquivo fora das pastas permitidas (relatórios e goals)", "text/plain; charset=utf-8")
+        if p.stat().st_size > 5_000_000:
+            return self._send(413, "arquivo grande demais (> 5 MB)", "text/plain; charset=utf-8")
+        texto = p.read_text(encoding="utf-8", errors="replace")
+        corpo = ARQ_HTML.format(
+            titulo=html.escape(p.parent.name + "/" + p.name), caminho=html.escape(str(p)),
+            markdown="true" if p.suffix.lower() == ".md" else "false",
+            conteudo=json.dumps(texto, ensure_ascii=False).replace("<", "\\u003c"),
+        )
+        self._send(200, corpo, "text/html; charset=utf-8")
+
+    def do_POST(self):
+        # Escritas do dashboard: tags e prioridade. Só aceita a própria página (Origin localhost) e JSON
+        # (Content-Type application/json força preflight CORS, que este servidor não responde).
+        host = self.headers.get("Host", "")
+        origem = self.headers.get("Origin", "")
+        if origem not in (f"http://{host}",) or not host.split(":")[0] in ("localhost", "127.0.0.1") \
+                or not self.headers.get("Content-Type", "").startswith("application/json"):
+            return self._send(403, "origem não permitida", "text/plain")
+        if self.path not in ("/api/tags", "/api/prioridade", "/api/status", "/api/novo", "/api/lembrete"):
+            return self._send(404, "não encontrado", "text/plain")
+        try:
+            n = int(self.headers.get("Content-Length", "0"))
+            req = json.loads(self.rfile.read(min(n, 50000)) or b"{}")
+            if self.path == "/api/novo":
+                return self._novo(req)
+            if self.path == "/api/lembrete":
+                return self._lembrete(req)
+            gid = str(req.get("id", ""))
+            d = next((d for _, d in todos_dirs() if d.name == gid), None)
+            if not d:
+                return self._send(404, json.dumps({"erro": "goal não encontrado"}), "application/json")
+            if self.path == "/api/prioridade":
+                nova = str(req.get("prioridade", ""))
+                if nova not in PRIORIDADES:
+                    return self._send(400, json.dumps({"erro": f"prioridade inválida: {nova}"}), "application/json")
+                antiga = ler_md(d / "goal.md")[0].get("prioridade")
+                if nova != antiga:
+                    set_meta(d, prioridade=nova)
+                    log(d, f"[set] prioridade={nova} (era {antiga}; pelo dashboard)")
+                return self._send(200, json.dumps({"id": gid, "prioridade": nova}), "application/json")
+            if self.path == "/api/status":
+                # Mesma lógica do `goal status` (suspenso exige motivo; concluido/cancelado param a sessão).
+                # executando só via `goal disparar`; aguardando-humano só via `goal perguntar`.
+                novo = str(req.get("status", ""))
+                motivo = str(req.get("motivo") or "").strip()[:500]
+                if novo not in STATUS_DASHBOARD:
+                    return self._send(400, json.dumps({"erro": f"status não permitido pelo dashboard: {novo}"},
+                                                      ensure_ascii=False), "application/json")
+                if novo == "suspenso" and not motivo:
+                    return self._send(400, json.dumps({"erro": "suspender exige justificativa"},
+                                                      ensure_ascii=False), "application/json")
+                antigo = ler_md(d / "goal.md")[0].get("status")
+                if novo != antigo:
+                    cmd_status(argparse.Namespace(id=gid, novo=novo,
+                                                  motivo=(motivo or "pelo dashboard") if novo == "suspenso"
+                                                  else ("pelo dashboard" + (f": {motivo}" if motivo else ""))))
+                return self._send(200, json.dumps({"id": gid, "status": novo}), "application/json")
+            novas = alterar_tags(d, req.get("add") or [], req.get("rm") or [])
+            self._send(200, json.dumps({"id": gid, "tags": novas}, ensure_ascii=False), "application/json")
+        except (ValueError, TypeError) as e:
+            self._send(400, json.dumps({"erro": str(e)}), "application/json")
+
+    def _lembrete(self, req):
+        # acao=novo {texto, prazo AAAA-MM-DD} | acao=feito {id, feito: true/false (false reabre)}
+        def resp(code, obj):
+            return self._send(code, json.dumps(obj, ensure_ascii=False), "application/json")
+
+        acao = str(req.get("acao", ""))
+        with _lock_lembretes:
+            itens = ler_lembretes()
+            if acao == "novo":
+                texto = " ".join(str(req.get("texto") or "").split())[:200]
+                prazo = str(req.get("prazo") or "")
+                if not texto:
+                    return resp(400, {"erro": "a frase é obrigatória"})
+                try:
+                    dt.date.fromisoformat(prazo)
+                except ValueError:
+                    return resp(400, {"erro": f"data limite inválida: {prazo}"})
+                item = {"id": uuid.uuid4().hex[:8], "texto": texto, "prazo": prazo, "criado": agora(), "feito_em": None}
+                itens.append(item)
+                gravar_lembretes(itens)
+                return resp(200, item)
+            if acao == "feito":
+                item = next((i for i in itens if i.get("id") == str(req.get("id", ""))), None)
+                if not item:
+                    return resp(404, {"erro": "pendência não encontrada"})
+                item["feito_em"] = agora() if req.get("feito", True) else None
+                gravar_lembretes(itens)
+                return resp(200, item)
+        return resp(400, {"erro": f"ação inválida: {acao}"})
+
+    def _novo(self, req):
+        # Criação pelo dashboard: mesmas regras do `goal novo` (sem periódico; esses vêm do `goal periodicos`).
+        def campo(k, limite=200):
+            return str(req.get(k) or "").strip()[:limite] or None
+
+        def erro(msg):
+            return self._send(400, json.dumps({"erro": msg}, ensure_ascii=False), "application/json")
+
+        a = argparse.Namespace(
+            titulo=campo("titulo"), contexto=campo("contexto") or "fitec", jira=(campo("jira") or "").upper() or None,
+            periodico=None, id=campo("id", 60), status=campo("status") or "rascunho",
+            prioridade=campo("prioridade") or "media", workdir=campo("workdir", 500),
+            objetivo=campo("objetivo", 10000), texto_contexto=campo("texto_contexto", 20000),
+            pronto=campo("pronto", 5000), tag=[str(t) for t in (req.get("tags") or [])][:20],
+        )
+        if not a.titulo:
+            return erro("título é obrigatório")
+        if a.contexto not in ROOTS:
+            return erro(f"contexto inválido: {a.contexto}")
+        if a.status not in ("rascunho", "pronto"):
+            return erro(f"status inválido na criação: {a.status}")
+        if a.prioridade not in PRIORIDADES:
+            return erro(f"prioridade inválida: {a.prioridade}")
+        if a.id and a.id != slug(a.id, 60):
+            # o id vira nome de diretório: só a-z0-9 e hífen (evita ../ e afins)
+            return erro(f"id inválido (use só letras minúsculas, números e hífen): {a.id}")
+        saida, err = io.StringIO(), io.StringIO()
+        try:
+            with contextlib.redirect_stdout(saida), contextlib.redirect_stderr(err):
+                cmd_novo(a)
+        except SystemExit:
+            return erro(err.getvalue().strip().removeprefix("goal: ") or "falha ao criar o goal")
+        d = Path(saida.getvalue().strip().splitlines()[-1])
+        log(d, "[criado pelo dashboard]")
+        return self._send(200, json.dumps({"id": d.name, "dir": str(d)}, ensure_ascii=False), "application/json")
+
+
+def porta_ocupada(port):
+    with socket.socket() as s:
+        return s.connect_ex(("127.0.0.1", port)) == 0
+
+
+def cmd_serve(a):
+    srv = ThreadingHTTPServer(("127.0.0.1", a.porta), H)  # só localhost; escritas: POST /api/tags, /api/prioridade, /api/status, /api/novo e /api/lembrete
+    print(f"dashboard em http://localhost:{a.porta}")
+    srv.serve_forever()
+
+
+def cmd_dashboard(a):
+    if not porta_ocupada(a.porta):
+        logf = Path.home() / ".cache" / "goal-serve.log"
+        logf.parent.mkdir(exist_ok=True)
+        subprocess.Popen([sys.executable, __file__, "serve", "--porta", str(a.porta)],
+                         stdout=open(logf, "a"), stderr=subprocess.STDOUT, start_new_session=True)
+        time.sleep(1)
+    url = f"http://localhost:{a.porta}"
+    print(url)
+    if not a.sem_abrir:
+        abrir = shutil.which("wslview") or shutil.which("explorer.exe")
+        if abrir:
+            subprocess.run([abrir, url], capture_output=True)
+
+
+# ---------------------------------------------------------------- main
+def main():
+    p = argparse.ArgumentParser(prog="goal", description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    sp = p.add_subparsers(dest="cmd", required=True)
+
+    n = sp.add_parser("novo", help="criar goal")
+    n.add_argument("--titulo", required=True)
+    n.add_argument("--contexto", choices=list(ROOTS), default="fitec")
+    n.add_argument("--jira")
+    n.add_argument("--periodico")
+    n.add_argument("--id")
+    n.add_argument("--status", choices=["rascunho", "pronto"], default="rascunho")
+    n.add_argument("--prioridade", choices=list(PRIORIDADES), default="media")
+    n.add_argument("--workdir")
+    n.add_argument("--objetivo")
+    n.add_argument("--texto-contexto", dest="texto_contexto")
+    n.add_argument("--pronto", help="critério de pronto")
+    n.add_argument("--tag", action="append", help=f"tag (repetível ou vírgula); pré-definidas: {', '.join(TAGS_PADRAO)}")
+    n.set_defaults(f=cmd_novo)
+
+    l = sp.add_parser("listar", help="listar goals ativos")
+    l.add_argument("--status", help="filtrar (vírgula)")
+    l.add_argument("--todos", action="store_true", help="inclui concluídos/cancelados")
+    l.add_argument("--json", action="store_true")
+    l.add_argument("--tag", help="só goals com estas tags (vírgula = todas)")
+    l.set_defaults(f=cmd_listar)
+
+    tg = sp.add_parser("tag", help="ver/adicionar/remover tags de um goal")
+    tg.add_argument("id")
+    tg.add_argument("add", nargs="*", help="tags a adicionar")
+    tg.add_argument("--rm", action="append", default=[], help="tag a remover (repetível)")
+    tg.set_defaults(f=cmd_tag)
+
+    m = sp.add_parser("mostrar", help="goal.md + perguntas + log")
+    m.add_argument("id")
+    m.set_defaults(f=cmd_mostrar)
+
+    s = sp.add_parser("status", help="mudar status")
+    s.add_argument("id")
+    s.add_argument("novo", choices=STATUS)
+    s.add_argument("--motivo")
+    s.set_defaults(f=cmd_status)
+
+    st = sp.add_parser("set", help="alterar campos do frontmatter (chave=valor)")
+    st.add_argument("id")
+    st.add_argument("campos", nargs="+")
+    st.set_defaults(f=cmd_set)
+
+    lg = sp.add_parser("log", help="acrescentar linha ao log")
+    lg.add_argument("id")
+    lg.add_argument("msg")
+    lg.set_defaults(f=cmd_log)
+
+    es = sp.add_parser("estado", help="substituir a seção 'Estado atual / próximo passo' (texto ou - para stdin)")
+    es.add_argument("id")
+    es.add_argument("texto", nargs="?", default="-")
+    es.set_defaults(f=cmd_estado)
+
+    dc = sp.add_parser("decisao", help="acrescentar item em '## Decisões' (texto ou - para stdin)")
+    dc.add_argument("id")
+    dc.add_argument("texto", nargs="?", default="-")
+    dc.set_defaults(f=cmd_decisao)
+
+    ar = sp.add_parser("artefato", help="gravar artefatos/<nome> a partir do stdin ou de --de-arquivo")
+    ar.add_argument("id")
+    ar.add_argument("nome")
+    ar.add_argument("--de-arquivo")
+    ar.set_defaults(f=cmd_artefato)
+
+    q = sp.add_parser("perguntar", help="registrar pergunta para humano")
+    q.add_argument("id")
+    q.add_argument("--pergunta", required=True)
+    q.add_argument("--contexto", required=True)
+    q.add_argument("--opcoes", help="separadas por |")
+    q.add_argument("--recomendacao")
+    q.add_argument("--tipo", choices=["decisao", "acao-humana", "aprovacao", "informacao"], default="decisao")
+    q.add_argument("--sem-bloquear", action="store_true", help="não muda status para aguardando-humano")
+    q.set_defaults(f=cmd_perguntar)
+
+    pe = sp.add_parser("pendentes", help="perguntas abertas + goals em revisão")
+    pe.add_argument("--json", action="store_true")
+    pe.set_defaults(f=cmd_pendentes)
+
+    r = sp.add_parser("responder", help="responder pergunta")
+    r.add_argument("id")
+    r.add_argument("qid")
+    r.add_argument("resposta")
+    r.set_defaults(f=cmd_responder)
+
+    ds = sp.add_parser("disparar", help="executar goal em sessão claude --bg")
+    ds.add_argument("id")
+    ds.add_argument("--worktree", action="store_true", help="criar/usar worktree <repo>/.worktrees/<id>")
+    ds.add_argument("--base", help="branch base do worktree (padrão: origin/HEAD)")
+    ds.add_argument("--branch", help="nome da branch (padrão: feature/<id>)")
+    ds.add_argument("--novo", action="store_true", help="sessão nova em vez de retomar a anterior")
+    ds.add_argument("--forcar", action="store_true", help="disparar mesmo fora do status 'pronto'")
+    ds.set_defaults(f=cmd_disparar)
+
+    pr = sp.add_parser("periodicos", help="criar instâncias vencidas de goals periódicos")
+    pr.add_argument("--dry-run", action="store_true")
+    pr.set_defaults(f=cmd_periodicos)
+
+    sv = sp.add_parser("serve", help="servidor do dashboard (primeiro plano)")
+    sv.add_argument("--porta", type=int, default=PORT)
+    sv.set_defaults(f=cmd_serve)
+
+    db = sp.add_parser("dashboard", help="sobe o servidor (se preciso) e abre no navegador")
+    db.add_argument("--porta", type=int, default=PORT)
+    db.add_argument("--sem-abrir", action="store_true")
+    db.set_defaults(f=cmd_dashboard)
+
+    a = p.parse_args()
+    a.f(a)
+
+
+if __name__ == "__main__":
+    main()
