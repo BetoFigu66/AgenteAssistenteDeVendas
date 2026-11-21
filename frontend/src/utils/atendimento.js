@@ -67,3 +67,21 @@ export function labelMotivoEncerramento(motivo) {
   if (!motivo) return null
   return MOTIVO_ENCERRAMENTO_LABELS[motivo] || motivo
 }
+
+// Rótulos curtos dos campos do catálogo de qualificação
+// (backend/services/conversacao/catalogo_campos.py). O catálogo só tem a pergunta
+// inteira, longa demais para um pill; a pergunta vai no title. Chave sem entrada aqui
+// cai na própria chave técnica, que é feio mas não esconde informação.
+const ROTULO_CAMPO = {
+  modelo_produto: 'Modelo',
+  software_controle_ponto: 'Software de ponto',
+  software_controle_acesso: 'Software de acesso',
+  interesse_sistema_nuvem: 'Sistema na nuvem',
+  faixa_funcionarios: 'Faixa de pessoas',
+  quantidade: 'Quantidade',
+  homologado_software: 'Homologação verificada',
+}
+
+export function rotuloCampo(chave) {
+  return ROTULO_CAMPO[chave] || chave
+}

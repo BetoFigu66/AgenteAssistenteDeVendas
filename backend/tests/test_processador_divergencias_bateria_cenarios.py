@@ -8,11 +8,11 @@ exatamente o que escondeu o bug corrigido em `175ab15`, e no cenário
 de produto é extraído CERTO ("catraca") e mesmo assim a pergunta que sai fala de relógio
 de ponto.
 
-Divergência A (`preco_direto_sem_identificacao`): documentada, não corrigida — a correção
-mexe no texto que vai para o cliente em 10 tipos de produto e no limite de repetição de
-uma pergunta obrigatória, as duas coisas decisão de produto. Os testes ficam como
-`xfail(strict=True)`, então viram falha no dia em que alguém corrigir e esquecer de
-remover o marcador.
+Divergência A (`preco_direto_sem_identificacao`): o texto da pergunta do modelo por tipo
+de produto foi corrigido em 02/11 (`perguntas_produto`); o limite de repetição de uma
+pergunta obrigatória segue documentado e não corrigido (decisão de produto), como
+`xfail(strict=True)`, que vira falha no dia em que alguém corrigir e esquecer de remover
+o marcador.
 
 Divergência B (`mensagens_quebradas_em_rajada`): corrigida. O rótulo de auditoria da 1ª
 ocorrência de confiança baixa (REQ-004.9) não cabia em
@@ -29,6 +29,8 @@ from models import Atendimento, Contato, ModoOperacao, ProcessamentoMensagem
 from services.classificador import classificar
 from services.dev_limpeza_telefone import apagar_dados_telefone
 from services.processador import ROTULOS_FALLBACK, ProcessadorMensagem
+
+from tests.apoio_perguntas import pergunta_modelo
 
 
 @pytest.fixture
@@ -147,13 +149,9 @@ def test_classificador_extrai_catraca_da_pergunta_de_preco():
     assert resultado.entidades.tipos_produto == ["catraca"]
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="Divergência A: MensagemId.PEDIR_MODELO tem texto fixo de relógio de ponto, mas "
-    "CAMPO_MODELO vale para 10 tipos de produto. Corrigir exige texto por tipo de produto "
-    "(decisão de produto).",
-)
 def test_pergunta_de_modelo_para_catraca_nao_fala_de_relogio(db_session, processador):
+    """Divergência A, primeira metade: corrigida em 02/11 com o texto por produto
+    (`perguntas_produto`) e um texto padrão que não supõe relógio."""
     telefone = "+5511999977103"
     try:
         resultados = _conversar(processador, db_session, telefone, ["quanto custa a catraca de balcão?"])
@@ -232,6 +230,37 @@ def test_tecnologia_dita_na_abertura_nao_e_perguntada_de_novo(db_session, proces
     try:
         mensagens = ["quero orçamento de 3 relógios de ponto biométricos"]
         resultados = _conversar(processador, db_session, telefone, mensagens)
-        assert "cartográfico ou eletrônico" not in resultados[0].resposta, resultados[0].resposta
+        assert pergunta_modelo(db_session, "relogio_ponto") not in resultados[0].resposta, resultados[0].resposta
     finally:
         _limpar(db_session, telefone)
+
+
+def test_so_o_nome_depois_da_saudacao_pede_so_o_documento(db_session, processador):
+    """Bateria de 02/11 (`cumprimento_boa_tarde_espelhado`): a saudação pede nome e
+    documento; "sou o Marcos" dava NAO_ENTENDI e marcava o documento como recusado."""
+    telefone = "+5511999977109"
+    try:
+        resultados = _conversar(processador, db_session, telefone, ["boa tarde", "sou o Marcos"])
+        resposta = resultados[1].resposta
+        assert "não entendi" not in resposta.lower(), resposta
+        assert "CNPJ" in resposta and "seu nome" not in resposta, resposta
+        contato = db_session.query(Contato).filter_by(telefone=telefone).first()
+        assert contato.nome == "Marcos"
+    finally:
+        _limpar(db_session, telefone)
+
+
+@pytest.mark.parametrize(
+    ("texto", "tipos", "quantidades"),
+    [
+        ("preciso de 3 leitores faciais", ["leitor_facial"], [3]),
+        ("quero 2 leitores biométricos", ["leitor_biometrico"], [2]),
+        ("o modelo XPTO-9000", [], []),
+    ],
+)
+def test_classificador_plural_de_leitor_e_codigo_de_modelo(texto, tipos, quantidades):
+    """Bateria de 02/11: "leitores faciais" não abria a coleta (o casamento por palavra só
+    aceita o "s" final) e o 9000 de "XPTO-9000" virava quantidade."""
+    entidades = asyncio.run(classificar(texto)).entidades
+    assert entidades.tipos_produto == tipos
+    assert entidades.quantidades == quantidades

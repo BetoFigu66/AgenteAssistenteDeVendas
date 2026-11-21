@@ -186,14 +186,14 @@ async def _executar_pedir_orcamento(ctx: ContextoAcao):
     await garantir_atendimento_dispatch(ctx)
     # A saudação vem antes de entrar em Finalizando porque é o que o cliente lê primeiro:
     # as perguntas entram na pilha na ordem de leitura (é a ordem da fila serial).
-    saudacao = saudacao_primeiro_contato(ctx, modo="orcamento") if era_novo else None
+    saudacao = saudacao_primeiro_contato(ctx, modo="orcamento") if era_novo else []
     # O documento é pedido no início, junto com o nome (ver `documento_fiscal.py`).
     documento = documento_fiscal.pedido_inicial(ctx)
     partes_finalizando = await FINALIZANDO.entrar(ctx)
 
     if saudacao and ctx.dlog:
         ctx.dlog.log("rota", "NOVO + PEDIR_ORCAMENTO → composta (Finalizando)")
-    partes = [parte for parte in (saudacao, documento) if parte] + partes_finalizando
+    partes = [*saudacao, *([documento] if documento else []), *partes_finalizando]
     if len(partes) == 1:
         return partes[0]
     return await p._gerador.gerar_composta(partes)
@@ -236,7 +236,7 @@ async def _executar_perguntar_disponibilidade(ctx: ContextoAcao):
     }
 
     # Mesma ordem em que o cliente lê: saudação, documento, "conhece?", primeira pergunta do orçamento.
-    saudacao = saudacao_primeiro_contato(ctx, modo="orcamento") if era_novo else None
+    saudacao = saudacao_primeiro_contato(ctx, modo="orcamento") if era_novo else []
     documento = documento_fiscal.pedido_inicial(ctx)
     pilha.empilhar(ctx, CHAVE_CONHECE_MARCAS, _PERGUNTA_CONHECE.format(produto_plural=produto_plural))
     partes_finalizando = await FINALIZANDO.entrar(
@@ -248,7 +248,7 @@ async def _executar_perguntar_disponibilidade(ctx: ContextoAcao):
 
     if saudacao and ctx.dlog:
         ctx.dlog.log("rota", "NOVO + PERGUNTAR_DISPONIBILIDADE → composta (Finalizando)")
-    partes = [parte for parte in (saudacao, documento) if parte] + partes_finalizando
+    partes = [*saudacao, *([documento] if documento else []), *partes_finalizando]
     if len(partes) == 1:
         return partes[0]
     return await p._gerador.gerar_composta(partes)

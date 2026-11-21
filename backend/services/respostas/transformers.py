@@ -9,6 +9,8 @@ from __future__ import annotations
 
 from typing import Callable
 
+from services import cumprimentos
+
 ContextoMensagem = dict
 TransformerFn = Callable[[ContextoMensagem], ContextoMensagem]
 
@@ -27,6 +29,12 @@ def _juntar_lista(itens: list[str]) -> str:
 
 def _nome_informado(ctx: ContextoMensagem) -> str:
     return (ctx.get("nome") or "").strip()
+
+
+def _cumprimento(ctx: ContextoMensagem, nome: str = "") -> str:
+    """Primeira frase da saudação no tom do cliente ("Bom dia" → "Bom dia, Ana!"), a
+    partir de `mensagem_cliente` no contexto; sem ela, "Olá" (`services/cumprimentos.py`)."""
+    return cumprimentos.resposta_para(ctx.get("mensagem_cliente"), nome or None)
 
 
 def _tem_documento(ctx: ContextoMensagem) -> bool:
@@ -54,11 +62,12 @@ def montar_saudacao_novo(ctx: ContextoMensagem) -> ContextoMensagem:
     - nome: str
     - tem_documento: bool
     - modo: 'identificacao' (padrão) | 'orcamento'
+    - mensagem_cliente: str, para responder ao cumprimento no mesmo tom
     """
     nome = _nome_informado(ctx)
     modo = ctx.get("modo", "identificacao")
 
-    ctx["saudacao"] = f"Olá, {nome}!" if nome else "Olá!"
+    ctx["saudacao"] = _cumprimento(ctx, nome)
 
     if modo == "orcamento":
         ctx["linha_pedido"] = ""
@@ -75,24 +84,28 @@ def montar_saudacao_novo(ctx: ContextoMensagem) -> ContextoMensagem:
     return ctx
 
 
+def montar_saudacao_com_nome(ctx: ContextoMensagem) -> ContextoMensagem:
+    """Preenche `cumprimento` para SAUDACAO_COM_NOME (contexto: nome, mensagem_cliente)."""
+    ctx["cumprimento"] = _cumprimento(ctx, _nome_informado(ctx))
+    return ctx
+
+
 def montar_confirmar_nome_perfil(ctx: ContextoMensagem) -> ContextoMensagem:
     """
-    Preenche abertura e linha_pedido para CONFIRMAR_NOME_PERFIL.
+    Preenche abertura para CONFIRMAR_NOME_PERFIL.
 
     Contexto:
     - nome: str (nome de perfil do WhatsApp, já validado)
     - apresentar: bool, primeiro contato ("Sou o assistente da Inforrel.")
-    - pedir_documento: bool, emenda o pedido de CNPJ/CPF na mesma frase
+    - mensagem_cliente: str, para responder ao cumprimento no mesmo tom
+
+    O pedido de CNPJ/CPF não vem mais emendado aqui: é a parte `PEDIR_DOCUMENTO`, em
+    mensagem própria (uma pergunta por mensagem, `RespostaGerada.mensagens()`).
     """
-    abertura = f"Olá, {_nome_informado(ctx)}! 👋 "
+    abertura = f"{_cumprimento(ctx, _nome_informado(ctx))} 👋 "
     if ctx.get("apresentar"):
         abertura += "Sou o assistente da Inforrel.\n"
     ctx["abertura"] = abertura
-    ctx["linha_pedido"] = (
-        " E para te atender melhor, poderia me informar o CNPJ da sua empresa ou seu CPF?"
-        if ctx.get("pedir_documento")
-        else ""
-    )
     return ctx
 
 
@@ -161,6 +174,7 @@ def montar_resumo_finalizando(ctx: ContextoMensagem) -> ContextoMensagem:
 
 TRANSFORMERS: dict[str, TransformerFn] = {
     "montar_saudacao_novo": montar_saudacao_novo,
+    "montar_saudacao_com_nome": montar_saudacao_com_nome,
     "montar_pedido_identificacao": montar_pedido_identificacao,
     "montar_perguntar_cnpj": montar_perguntar_cnpj,
     "montar_confirmar_nome_perfil": montar_confirmar_nome_perfil,

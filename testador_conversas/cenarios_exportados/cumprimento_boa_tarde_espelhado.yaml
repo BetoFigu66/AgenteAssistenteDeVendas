@@ -1,0 +1,24 @@
+nome: cumprimento_boa_tarde_espelhado
+descricao: 'Cliente novo abre com "boa tarde" e depois diz só o nome. Fonte: regra de negócio do CLAUDE.md
+  (1ª frase espelha o cumprimento, tabela cumprimentos) e a regra de uma pergunta por mensagem.'
+ativo: true
+turnos:
+- ordem: 1
+  mensagem_enviada: boa tarde
+  observacoes: 'PRECISA: abrir com "Boa tarde!", se apresentar e pedir nome e CNPJ/CPF | NÃO PODE: abrir
+    com "Olá!", mais de uma pergunta na mesma mensagem | exercita: tabela cumprimentos, saudação dividida'
+  respostas_aceitas:
+  - texto: 'Boa tarde! 👋 Sou o assistente da Inforrel.
+
+      Para te atender melhor, poderia me informar o seu nome e o CNPJ da sua empresa ou seu CPF?'
+    ativo: false
+    criado_por: proposta_claude
+- ordem: 2
+  mensagem_enviada: sou o Marcos
+  observacoes: 'PRECISA: registrar o nome e seguir (pode reapresentar o pedido do documento uma vez) |
+    NÃO PODE: perguntar o nome de novo, responder NAO_ENTENDI, repetir "Boa tarde!" | exercita: captura
+    de nome, REQ-015'
+  respostas_aceitas:
+  - texto: Para prosseguir, poderia me informar o CNPJ da sua empresa ou seu CPF?
+    ativo: false
+    criado_por: proposta_claude

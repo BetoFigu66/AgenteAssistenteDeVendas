@@ -68,15 +68,20 @@ def _conversar(processador, db_session, telefone, *textos, nome_perfil="Ana Souz
     ]
 
 
-def _desfecho(db_session, telefone):
-    """Valor de `nome_perfil_confirmacao` no atendimento do telefone (ou None)."""
+def _info(db_session, telefone, chave):
+    """O `AtendimentoInfo` de `chave` no atendimento do telefone (ou None)."""
     contato = _contato(db_session, telefone)
     ids = [a.id for a in contato.atendimentos] if contato else []
-    info = (
+    return (
         db_session.query(AtendimentoInfo)
-        .filter(AtendimentoInfo.atendimento_id.in_(ids), AtendimentoInfo.chave == "nome_perfil_confirmacao")
+        .filter(AtendimentoInfo.atendimento_id.in_(ids), AtendimentoInfo.chave == chave)
         .first()
     )
+
+
+def _desfecho(db_session, telefone):
+    """Valor de `nome_perfil_confirmacao` no atendimento do telefone (ou None)."""
+    info = _info(db_session, telefone, "nome_perfil_confirmacao")
     return info.valor if info else None
 
 
@@ -93,16 +98,18 @@ def empresa_teste(db_session):
 
 
 def test_telefone_novo_com_nome_valido_pergunta_se_pode_chamar_assim(db_session, processador):
-    """A confirmação substitui o pedido de nome; o pedido de CNPJ/CPF continua na mesma
-    frase. Nada é gravado antes da resposta."""
+    """A confirmação substitui o pedido de nome; o pedido de CNPJ/CPF vai em mensagem
+    própria (uma pergunta por mensagem). Nada é gravado antes da resposta."""
     telefone = "+5511999977201"
     try:
         resultado = _processar(processador, db_session, telefone, "oi", nome_perfil="Beto Figu")
 
-        assert resultado.resposta.startswith("Olá, Beto Figu! 👋 Sou o assistente da Inforrel.")
-        assert f"{_PERGUNTA_CONFIRMACAO} E para te atender melhor, poderia me informar {_PEDE_DOCUMENTO}?" in (
-            resultado.resposta
-        )
+        # "oi" recebe "Oi" de volta (`services/cumprimentos.py`).
+        assert resultado.resposta.startswith("Oi, Beto Figu! 👋 Sou o assistente da Inforrel.")
+        assert resultado.partes_resposta == [
+            f"Oi, Beto Figu! 👋 Sou o assistente da Inforrel.\n{_PERGUNTA_CONFIRMACAO}",
+            f"Para te atender melhor, poderia me informar {_PEDE_DOCUMENTO}?",
+        ]
         assert _PEDE_NOME not in resultado.resposta
         assert _contato(db_session, telefone).nome is None
         assert _desfecho(db_session, telefone) == "aguardando"
@@ -133,7 +140,7 @@ def test_contato_existente_sem_nome_pergunta_e_so_grava_depois_de_confirmar(db_s
 
         pergunta, resposta = _conversar(processador, db_session, telefone, "oi", "sim", nome_perfil="Ana")
 
-        assert pergunta == f"Olá, Ana! 👋 {_PERGUNTA_CONFIRMACAO}"
+        assert pergunta == f"Oi, Ana! 👋 {_PERGUNTA_CONFIRMACAO}"
         assert resposta == "Combinado, Ana! 😊 Em que posso te ajudar hoje?"
         assert _contato(db_session, telefone).nome == "Ana"
     finally:
@@ -158,7 +165,7 @@ def test_nome_digitado_na_mesma_mensagem_vence_o_perfil(db_session, processador)
     try:
         resultado = _processar(processador, db_session, telefone, "oi, meu nome é Carla", nome_perfil="Beto Figu")
 
-        assert resultado.resposta.startswith("Olá, Carla!")
+        assert resultado.resposta.startswith("Oi, Carla!")
         assert _PERGUNTA_CONFIRMACAO not in resultado.resposta
         assert _contato(db_session, telefone).nome == "Carla"
     finally:
@@ -271,6 +278,11 @@ def test_confirmacao_por_extenso_com_documento_nao_vira_nome(db_session, process
 
         assert _contato(db_session, telefone).nome == "Ana Souza"
         assert _desfecho(db_session, telefone) == "confirmado"
+        # Caso do Beto (02/11): o documento pedido no início ficava "solicitado" e o nome
+        # oferecido seguia "Pendente" depois de respondidos.
+        documento = _info(db_session, telefone, "documento_fiscal_pendente")
+        assert (documento.valor, documento.pendente) == ("informado", False)
+        assert _info(db_session, telefone, "nome_perfil_proposto").pendente is False
     finally:
         _limpar(db_session, telefone)
 
@@ -358,7 +370,7 @@ def test_cpf_com_pessoa_antiga_usa_o_nome_desta_conversa_e_le_o_nao_conheco(db_s
             nome_perfil="~~Joaquim Barbosa~~",
         )
 
-        assert abertura.startswith("Olá, Joaquim Barbosa! 👋")
+        assert abertura.startswith("Boa tarde, Joaquim Barbosa! 👋")
         assert resposta.startswith("Anotei seu CPF.")
         assert "nascimento" not in resposta
         assert "Pode Me Chamar" not in resposta

@@ -454,7 +454,7 @@ dependem de agir como `pytest_runner` falhariam sem nada estar quebrado.
 
 ### Monitoramento automático (Windows)
 
-Tarefa agendada que roda o sanity check a cada 15 minutos e notifica no Windows quando cai.
+Tarefa agendada que roda o sanity check a cada 60 minutos (era 15 até 01/11/2026) e notifica no Windows quando cai. Reinstalada em 01/11/2026 com `-IntervaloMinutos 60`; rodar o instalador sem o parâmetro volta para o padrão de 15.
 
 ```powershell
 cd C:\Beto\Pessoal\Python\git\AgenteAssistenteDeVendas
@@ -481,6 +481,8 @@ Histórico em `logs/sanity_check.log` (rotaciona em 5 MB, não versionado).
 60 min enquanto o problema persistir — senão o alerta de 15 em 15 minutos vira ruído. Ajustar
 com `-RepetirAvisoMin`. Avisos (sem falha) só vão para o log; use `-NotificarAvisos` para
 notificar também.
+
+**Twilio só é verificada com `CANAL_SAIDA=twilio`.** Com `simulado` (o padrão) o backend não fala com a Twilio, e o check vira uma `[NOTA]` sem consulta à API. Com `twilio`, um 401 mostra a mensagem da própria Twilio (o código 20003 vale tanto para credencial inválida quanto para conta trial expirada, e recriar a key não resolve o segundo caso).
 
 **Por que no Windows e não no cron do WSL:** o Docker Desktop e o `cloudflared` já rodam no
 Windows, e o WSL se desliga sozinho quando nenhuma sessão está aberta — um cron lá pararia em
@@ -1412,7 +1414,7 @@ winget install --id Cloudflare.cloudflared
 
 # Atualizar (PowerShell como Administrador; parar o serviço antes)
 Stop-Service Cloudflared
-winget upgrade --id Cloudflare.cloudflared --accept-package-agree ments
+winget upgrade --id Cloudflare.cloudflared --accept-package-agreements
 Start-Service Cloudflared
 cloudflared --version
 # Se Stop-Service travar: taskkill /F /IM cloudflared.exe && Start-Service Cloudflared
@@ -1443,6 +1445,8 @@ cloudflared service install
 # Validar conexão ativa (CONNECTOR deve aparecer; senão = serviço sem config)
 cloudflared tunnel info auxvendas-dev
 ```
+
+**HTTPS:** o navegador fala HTTPS com a Cloudflare e o túnel é criptografado; só o trecho `cloudflared` → `http://localhost:3000` é HTTP, e ele não sai da máquina, por isso a origem continua HTTP. O redirecionamento de `http://` para `https://` é feito na borda: "Always Use HTTPS" ligado no domínio `auxvendas.com` (SSL/TLS > Edge Certificates; o interruptor fica à direita do título, quase invisível). Conferir com `curl -sI http://app.auxvendas.com/` (esperado: `301` para `https://`). Não colocar redirecionamento para HTTPS na origem (nginx): com o da borda, vira loop (`ERR_TOO_MANY_REDIRECTS`).
 
 ---
 

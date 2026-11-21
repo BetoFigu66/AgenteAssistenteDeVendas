@@ -619,13 +619,21 @@ checar_webhook() {
 # ---------------------------------------------------------------------------
 
 # Escopo deliberado: valida CREDENCIAL + ALCANCE da API (leitura). Nao envia
-# mensagem, por dois motivos: (a) a conta e trial e o Sandbox recusa texto livre
-# no Body com erro 21654 - so aceita template via ContentSid, que exige conta
-# paga; (b) o backend nao tem cliente REST da Twilio (Fase 10), entao o unico
-# caminho de saida hoje e o TwiML sincrono do /webhook, coberto acima.
-# Ver AnotacoesPessoais/Beto/spike_twilio/STATUS.md.
+# mensagem: mandar texto livre fora da janela de 24h exige template (ContentSid),
+# e a saida real ja e coberta pelo TwiML sincrono do /webhook, acima.
+# So roda com CANAL_SAIDA=twilio: com `simulado` (o padrao) o backend nao fala
+# com a Twilio, e a conta fora do ar (a trial expirou em 29/09/2026) nao e queda
+# do sistema. Notificar isso de hora em hora so escondia as falhas reais.
 checar_twilio() {
     secao "9. Twilio"
+    local canal
+    canal="$(_ler_env CANAL_SAIDA | tr '[:upper:]' '[:lower:]')"
+    if [ "${canal:-simulado}" != "twilio" ]; then
+        nota "API Twilio" "nao verificada: CANAL_SAIDA=${canal:-simulado} (o backend nao usa a Twilio)" \
+            "Com CANAL_SAIDA=twilio a verificacao volta a rodar"
+        return
+    fi
+
     local sid key secret token
     sid="$(_ler_env TWILIO_ACCOUNT_SID)"
     key="$(_ler_env TWILIO_API_KEY_SID)"
@@ -657,9 +665,16 @@ checar_twilio() {
             n="$(grep -o '"sid"[[:space:]]*:[[:space:]]*"SM[^"]*"' "$corpo" | wc -l | tr -d ' ')"
             ok "API Twilio (leitura de mensagens)" "HTTP 200, $n mensagem(ns) no historico" ;;
         401)
-            local motivo; motivo="$(grep -o '"code"[[:space:]]*:[[:space:]]*[0-9]*' "$corpo" | grep -o '[0-9]*$')"
-            falha "API Twilio (leitura de mensagens)" "HTTP 401 (codigo ${motivo:-?})" \
-                "70051 = API Key sem permissao; 20003 = credencial invalida. Recriar a key com escopo de Messaging" ;;
+            # A mensagem da propria Twilio vai junto: o 20003 cobre tanto credencial
+            # invalida quanto conta trial expirada, e recriar a key nao resolve o segundo.
+            local motivo mensagem dica
+            motivo="$(grep -o '"code"[[:space:]]*:[[:space:]]*[0-9]*' "$corpo" | grep -o '[0-9]*$')"
+            mensagem="$(grep -o '"message"[[:space:]]*:[[:space:]]*"[^"]*"' "$corpo" | head -1 | sed 's/^"message"[[:space:]]*:[[:space:]]*"//; s/"$//')"
+            case "$mensagem" in
+                *[Ee]xpired*) dica="Conta trial expirada: so volta com upgrade para conta paga" ;;
+                *)            dica="70051 = API Key sem permissao (recriar com escopo de Messaging); 20003 = credencial invalida" ;;
+            esac
+            falha "API Twilio (leitura de mensagens)" "HTTP 401 (codigo ${motivo:-?}): ${mensagem:-sem mensagem}" "$dica" ;;
         000)
             falha "API Twilio (leitura de mensagens)" "sem resposta (timeout/rede)" \
                 "Conferir conexao de saida para api.twilio.com" ;;

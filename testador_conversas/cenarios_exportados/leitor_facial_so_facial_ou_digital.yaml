@@ -1,0 +1,16 @@
+nome: leitor_facial_so_facial_ou_digital
+descricao: 'Pedido de leitores faciais: a pergunta do modelo vem do texto cadastrado para o produto Leitor
+  Facial. Fonte: docs/FoldersProdutos (leitores faciais com e sem biometria) e tabela perguntas_produto.'
+ativo: true
+turnos:
+- ordem: 1
+  mensagem_enviada: preciso de 3 leitores faciais para o escritório
+  observacoes: 'PRECISA: reconhecer leitor facial e quantidade 3, perguntar se é só facial ou também biometria
+    (digital) | NÃO PODE: falar de relógio de ponto, perguntar a quantidade de novo, citar preço | exercita:
+    perguntas_produto, REQ-002'
+  respostas_aceitas: []
+- ordem: 2
+  mensagem_enviada: que leia digital também
+  observacoes: 'PRECISA: registrar facial com biometria e seguir para o próximo campo | NÃO PODE: repetir
+    a mesma pergunta, responder NAO_ENTENDI | exercita: pilha de perguntas, resolução do modelo'
+  respostas_aceitas: []

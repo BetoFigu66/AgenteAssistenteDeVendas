@@ -97,3 +97,49 @@ def proxima_pergunta(atendimento: Atendimento) -> Optional[Pergunta]:
             return campo
     pendentes = campos_pendentes(atendimento)
     return pendentes[0] if pendentes else None
+
+
+# Situação de uma pergunta para o painel, da melhor para a pior: a pergunta vale pela
+# melhor mensagem que a levou (reapresentada e aprovada na segunda vez = enviada).
+ENVIADA = "enviada"
+AGUARDANDO_APROVACAO = "aguardando_aprovacao"
+REPROVADA = "reprovada"
+NAO_ENVIADA = "nao_enviada"
+_PRIORIDADE_SITUACAO = (ENVIADA, AGUARDANDO_APROVACAO, REPROVADA)
+
+
+def _situacao(registros: list, situacao_mensagens: dict[int, str]) -> str:
+    situacoes = {situacao_mensagens.get(mid) for p in registros for mid in p.mensagens_ids or []}
+    return next((s for s in _PRIORIDADE_SITUACAO if s in situacoes), NAO_ENVIADA)
+
+
+def perguntas_para_painel(
+    atendimento: Atendimento, situacao_mensagens: dict[int, str], textos_produto: Optional[dict[str, str]] = None
+) -> list[dict]:
+    """O que o painel mostra como pendente, com a indicação de se já chegou ao cliente.
+
+    Junta duas fontes: as perguntas abertas na pilha (feitas e sem resposta, mesmo que
+    o catálogo não as liste agora, como a faixa de pessoas antes de saber o software) e
+    os campos do catálogo ainda sem valor. As abertas vêm primeiro, da mais antiga para
+    o topo, com o texto que de fato saiu; as demais, na ordem do catálogo, com a pergunta
+    do catálogo e a situação de um registro antigo da pilha, se houver (pergunta
+    descartada pelo teto chegou ao cliente, mas não é mais esperada).
+
+    `situacao_mensagens` mapeia o id de cada `Mensagem` de saída para enviada,
+    aguardando_aprovacao ou reprovada, e `textos_produto` dá o texto cadastrado para o
+    produto (`perguntas_produto`) por chave de campo (quem consulta o banco é o endpoint).
+    """
+    itens: list[dict] = []
+    for pergunta in sorted(atendimento.perguntas_pendentes, key=lambda p: p.ordem):
+        if pergunta.aberta:
+            situacao = _situacao([pergunta], situacao_mensagens)
+            itens.append({"chave": pergunta.chave, "pergunta": pergunta.texto, "situacao": situacao})
+    abertas_chaves = {item["chave"] for item in itens}
+    for campo in campos_pendentes(atendimento):
+        if campo.chave in abertas_chaves:
+            continue
+        registros = [p for p in atendimento.perguntas_pendentes if p.chave == campo.chave]
+        situacao = _situacao(registros, situacao_mensagens)
+        texto = (textos_produto or {}).get(campo.chave) or campo.pergunta
+        itens.append({"chave": campo.chave, "pergunta": texto, "situacao": situacao})
+    return itens

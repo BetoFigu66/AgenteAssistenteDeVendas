@@ -30,9 +30,12 @@ Logo abaixo do cabeçalho aparecem os dados que o sistema reconheceu:
 - **Contato**: nome de quem está falando.
 - **Atendimento**: número e situação; clique para abrir o detalhe (veja abaixo).
 - **Fase**: *Esclarecendo*, *Finalizando* ou *Em orçamentação*.
-- Selo âmbar **N pendentes**: dados que ainda faltam ser coletados. Passe o mouse sobre
-  ele para ver as perguntas. Quando não falta nada, aparece o selo verde **Pronto para
-  orçamento**.
+- Selo âmbar **N pendentes (M enviadas)**: perguntas que esperam resposta do cliente ou
+  dados que ainda faltam coletar. Clique nele para ver a lista: cada pergunta diz se já
+  foi **Enviada**, se está **Aguardando aprovação**, se foi **Reprovada** ou se **Não
+  enviada** (o assistente ainda não a fez). O botão **Copiar** copia a lista, uma pergunta
+  por linha com a situação entre colchetes. Quando não falta nada, aparece o selo verde
+  **Pronto para orçamento**.
 - **Já coletado**: o que o cliente já informou (modelo, quantidade, faixa de pessoas
   etc.), para ninguém repetir a pergunta. Passe o mouse para ver a pergunta de cada item.
 

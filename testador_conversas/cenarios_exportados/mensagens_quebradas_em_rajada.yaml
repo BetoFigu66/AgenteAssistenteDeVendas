@@ -7,7 +7,7 @@ turnos:
   observacoes: 'PRECISA: saudação de contato novo, uma vez só | NÃO PODE: responder NAO_ENTENDI | exercita:
     REQ-002'
   respostas_aceitas:
-  - texto: 'Olá! 👋 Sou o assistente da Inforrel.
+  - texto: 'Bom dia! 👋 Sou o assistente da Inforrel.
 
       Para te atender melhor, poderia me informar o seu nome e o CNPJ da sua empresa ou seu CPF?'
     ativo: false
@@ -26,7 +26,13 @@ turnos:
   mensagem_enviada: preciso de um controle de acesso
   observacoes: 'PRECISA: reconhecer o produto e seguir a coleta | NÃO PODE: reiniciar a conversa nem repetir
     a saudação | exercita: REQ-002'
-  respostas_aceitas: []
+  respostas_aceitas:
+  - texto: 'Ótimo! Vou precisar de algumas informações para montar o orçamento.
+
+
+      Qual modelo ou característica principal você procura?'
+    ativo: false
+    criado_por: proposta_claude
 - ordem: 5
   mensagem_enviada: pra uma academia
   observacoes: 'PRECISA: usar o contexto (academia) e seguir para o próximo campo | NÃO PODE: responder

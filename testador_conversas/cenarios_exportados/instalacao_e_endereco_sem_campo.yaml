@@ -33,7 +33,4 @@ turnos:
   observacoes: 'PRECISA: aceitar o endereço como informação útil e seguir o fluxo | NÃO PODE: responder
     NAO_ENTENDI ao endereço nem prometer data de instalação | exercita: REQ-002 (gap conhecido: endereço
     de instalação não tem campo; o que se verifica aqui é que ao menos não quebra o fluxo)'
-  respostas_aceitas:
-  - texto: Para te atender melhor, poderia me informar o CNPJ da sua empresa ou seu CPF?
-    ativo: false
-    criado_por: proposta_claude
+  respostas_aceitas: []

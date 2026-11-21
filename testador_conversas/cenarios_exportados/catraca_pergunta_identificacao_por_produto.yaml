@@ -1,0 +1,18 @@
+nome: catraca_pergunta_identificacao_por_produto
+descricao: 'Pedido de orçamento de catraca: a pergunta do modelo vem do texto cadastrado para o produto
+  Catraca. Fonte: docs/FoldersProdutos (catracas com proximidade, biometria, facial e QR Code) e tabela
+  perguntas_produto.'
+ativo: true
+turnos:
+- ordem: 1
+  mensagem_enviada: quero orçamento de 2 catracas para a portaria do meu condomínio
+  observacoes: 'PRECISA: reconhecer catraca e quantidade 2, perguntar a forma de identificação da catraca
+    (proximidade, biometria, facial ou QR Code) | NÃO PODE: falar de relógio de ponto ou cartográfico,
+    perguntar a quantidade de novo, citar preço | exercita: perguntas_produto, REQ-002'
+  respostas_aceitas: []
+- ordem: 2
+  mensagem_enviada: reconhecimento facial
+  observacoes: 'PRECISA: registrar a identificação facial e seguir para o próximo campo | NÃO PODE: repetir
+    a pergunta de identificação, responder "modelo não reconhecido" | exercita: pilha de perguntas, resolução
+    do modelo'
+  respostas_aceitas: []

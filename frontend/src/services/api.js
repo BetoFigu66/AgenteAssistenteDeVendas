@@ -683,6 +683,63 @@ export const api = {
     return response.json()
   },
 
+  // Cumprimentos: o que conta como início de conversa e a resposta a cada um
+  // (backend/services/cumprimentos.py).
+  async listarCumprimentos() {
+    const response = await apiFetch(`${API_URL}/api/cumprimentos`)
+    if (!response.ok) throw new ApiError('Erro ao listar cumprimentos', response.status, 'server')
+    return response.json()
+  },
+
+  async testarCumprimento(texto) {
+    const response = await apiFetch(`${API_URL}/api/cumprimentos/testar?texto=${encodeURIComponent(texto)}`)
+    if (!response.ok) throw new ApiError('Erro ao testar a mensagem', response.status, 'server')
+    return response.json()
+  },
+
+  async salvarCumprimento(id, dados) {
+    const response = await apiFetch(`${API_URL}/api/cumprimentos${id ? `/${id}` : ''}`, {
+      method: id ? 'PATCH' : 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(dados),
+    })
+    if (!response.ok) {
+      const detail = await response.json().catch(() => null)
+      throw new ApiError(detail?.detail || 'Erro ao salvar o cumprimento', response.status, 'server')
+    }
+    return response.json()
+  },
+
+  async excluirCumprimento(id) {
+    const response = await apiFetch(`${API_URL}/api/cumprimentos/${id}`, { method: 'DELETE' })
+    if (!response.ok) throw new ApiError('Erro ao excluir o cumprimento', response.status, 'server')
+  },
+
+  // Perguntas do roteiro com texto por produto (backend/services/perguntas_produto.py).
+  async listarPerguntasProduto() {
+    const response = await apiFetch(`${API_URL}/api/perguntas-produto`)
+    if (!response.ok) throw new ApiError('Erro ao listar as perguntas por produto', response.status, 'server')
+    return response.json()
+  },
+
+  async salvarPerguntaProduto(id, dados) {
+    const response = await apiFetch(`${API_URL}/api/perguntas-produto${id ? `/${id}` : ''}`, {
+      method: id ? 'PATCH' : 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(dados),
+    })
+    if (!response.ok) {
+      const detail = await response.json().catch(() => null)
+      throw new ApiError(detail?.detail || 'Erro ao salvar a pergunta', response.status, 'server')
+    }
+    return response.json()
+  },
+
+  async excluirPerguntaProduto(id) {
+    const response = await apiFetch(`${API_URL}/api/perguntas-produto/${id}`, { method: 'DELETE' })
+    if (!response.ok) throw new ApiError('Erro ao excluir a pergunta', response.status, 'server')
+  },
+
   // Ajuda contextual do painel (FAQ por tela). Base própria, separada dos pares Q&A
   // que respondem ao cliente no WhatsApp — ver backend/models/ajuda.py.
   async perguntarAjuda(pergunta, contexto) {

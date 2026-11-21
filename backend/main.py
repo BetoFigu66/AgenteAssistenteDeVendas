@@ -24,6 +24,7 @@ from models import (
     CategoriaReport,
     ComparacaoLLM,
     Contato,
+    Cumprimento,
     DuvidaPendente,
     Empresa,
     Escalonamento,
@@ -38,8 +39,10 @@ from models import (
     MotivoEscalonamento,
     OrigemMensagem,
     Parametro,
+    PerguntaProduto,
     Pessoa,
     ProcessamentoMensagem,
+    Produto,
     ReportProblema,
     SeveridadeReport,
     StatusAtendimento,
@@ -53,13 +56,22 @@ from routers.ajuda import router as ajuda_router
 from routers.pares_qa import router as pares_qa_router
 from services import atendimentos as atendimentos_svc
 from services import auth as auth_svc
+from services import cumprimentos as cumprimentos_svc
 from services import diagnostico_sistema
 from services import escalonamentos as escalonamentos_svc
+from services import perguntas_produto as perguntas_produto_svc
 from services.canal import obter_canal
 from services.canal.captura_midia import agendar_download as agendar_download_midias
 from services.conversacao import duvidas_pendentes as duvidas_pendentes_svc
-from services.conversacao.campos_pendentes import campos_pendentes
+from services.conversacao.campos_pendentes import (
+    AGUARDANDO_APROVACAO,
+    ENVIADA,
+    REPROVADA,
+    campos_pendentes,
+    perguntas_para_painel,
+)
 from services.conversacao.catalogo_campos import (
+    CAMPOS,
     DESTINO_ITEM_ATENDIMENTO_MODELO_ID,
     campos_do_produto,
 )
@@ -77,6 +89,7 @@ from services.parametro_service import MODO_EXECUCAO, ParametroService
 # dois lados divergirem em silêncio no dia em que o nome mudar.
 from services.processador import _USER_SISTEMA_NOME as USER_SISTEMA_NOME
 from services.processador import ProcessadorMensagem, ResultadoProcessamento
+from services.respostas.catalogo import resolver_mensagem
 from sqlalchemy import func
 from sqlalchemy import or_ as sa_or
 from starlette.middleware.sessions import SessionMiddleware
@@ -1249,14 +1262,40 @@ async def resolver_duvida_pendente(duvida_id: int, usuario_id: int = Depends(usu
 async def obter_campos_pendentes(atendimento_id: int):
     """REQ-010, Fase 4: expõe `campos_pendentes()` (services/conversacao) — hoje
     só existia indiretamente via `AtendimentoInfo.pendente` dentro do modal de
-    detalhes."""
+    detalhes.
+
+    `perguntas` é o que o painel mostra: perguntas abertas na pilha mais campos sem
+    valor, cada uma dizendo se a mensagem que a levou foi enviada (aprovada), aguarda
+    aprovação, foi reprovada ou se a pergunta nunca saiu."""
     with db.get_session() as session:
         atendimento = session.query(Atendimento).filter_by(id=atendimento_id).first()
         if not atendimento:
             raise HTTPException(status_code=404, detail="Atendimento não encontrado")
 
+        ids = {mid for p in atendimento.perguntas_pendentes for mid in p.mensagens_ids or []}
+        situacao_mensagens: dict[int, str] = {}
+        if ids:
+            reprovadas = {
+                r.mensagem_id
+                for r in session.query(ReportProblema.mensagem_id).filter(ReportProblema.mensagem_id.in_(ids))
+            }
+            for m in session.query(Mensagem.id, Mensagem.aprovador_id).filter(Mensagem.id.in_(ids)):
+                if m.id in reprovadas:
+                    situacao_mensagens[m.id] = REPROVADA
+                elif m.aprovador_id is not None:
+                    situacao_mensagens[m.id] = ENVIADA
+                else:
+                    situacao_mensagens[m.id] = AGUARDANDO_APROVACAO
+
         pendentes = campos_pendentes(atendimento)
+        tipo_produto = atendimento.tipo_produto_atual()
+        textos_produto = {
+            c.chave: texto
+            for c in pendentes
+            if (texto := perguntas_produto_svc.texto_para(session, c.chave, tipo_produto))
+        }
         return {
+            "perguntas": perguntas_para_painel(atendimento, situacao_mensagens, textos_produto),
             "campos_pendentes": [
                 {
                     "id_catalogo": c.id_catalogo,
@@ -2685,6 +2724,218 @@ async def atualizar_parametro(nome: str, body: ParametroValorUpdate, ator: str =
         svc = ParametroService(session)
         atualizado = svc.set(nome, valor, ator=ator)
         return atualizado.to_dict()
+
+
+# ============================================================================
+# Cumprimentos: o que conta como início de conversa e a resposta a cada um
+# (`services/cumprimentos.py`; editados na aba Parâmetros)
+# ============================================================================
+
+
+class CumprimentoBody(BaseModel):
+    expressao: Optional[str] = None
+    resposta: Optional[str] = None
+    ativo: Optional[bool] = None
+
+
+def _validar_cumprimento(session, body: CumprimentoBody, atual: Optional[Cumprimento] = None) -> None:
+    """Confere expressão e resposta antes de gravar; levanta 422/409 com a mensagem da tela."""
+    if body.expressao is not None:
+        normalizada = cumprimentos_svc.normalizar(body.expressao)
+        if not normalizada:
+            raise HTTPException(status_code=422, detail="A expressão precisa ter ao menos uma letra ou número.")
+        if len(body.expressao.strip()) > 100:
+            raise HTTPException(status_code=422, detail="A expressão pode ter no máximo 100 caracteres.")
+        repetida = session.query(Cumprimento).filter(Cumprimento.expressao_normalizada == normalizada).first()
+        if repetida and (atual is None or repetida.id != atual.id):
+            raise HTTPException(
+                status_code=409, detail=f'Já existe um cumprimento equivalente: "{repetida.expressao}".'
+            )
+    if body.resposta is not None and len(body.resposta.strip()) > 100:
+        raise HTTPException(status_code=422, detail="A resposta pode ter no máximo 100 caracteres.")
+
+
+def _aplicar_cumprimento(cumprimento: Cumprimento, body: CumprimentoBody, ator: str) -> None:
+    if body.expressao is not None:
+        cumprimento.expressao = body.expressao.strip()
+        cumprimento.expressao_normalizada = cumprimentos_svc.normalizar(body.expressao)
+    if body.resposta is not None:
+        cumprimento.resposta = body.resposta.strip()
+    if body.ativo is not None:
+        cumprimento.ativo = body.ativo
+    cumprimento.atualizado_por = ator
+
+
+@app.get("/api/cumprimentos")
+async def listar_cumprimentos():
+    with db.get_session() as session:
+        rows = session.query(Cumprimento).order_by(Cumprimento.expressao_normalizada.asc()).all()
+        return {"total": len(rows), "cumprimentos": [c.to_dict() for c in rows]}
+
+
+@app.get("/api/cumprimentos/testar")
+async def testar_cumprimento(texto: str):
+    """O que o assistente faria com uma mensagem: se é cumprimento e com que frase abriria."""
+    achados = cumprimentos_svc.encontrados(texto)
+    return {
+        "e_cumprimento": bool(achados),
+        "expressoes": [e for e, _ in achados],
+        "resposta": cumprimentos_svc.resposta_para(texto),
+    }
+
+
+@app.post("/api/cumprimentos", status_code=201)
+async def criar_cumprimento(body: CumprimentoBody, ator: str = Depends(usuario_nome_atual)):
+    if not body.expressao:
+        raise HTTPException(status_code=422, detail="Informe a expressão.")
+    with db.get_session() as session:
+        _validar_cumprimento(session, body)
+        novo = Cumprimento(resposta="", ativo=True)
+        _aplicar_cumprimento(novo, body, ator)
+        session.add(novo)
+        session.flush()
+        resultado = novo.to_dict()
+    cumprimentos_svc.invalidar()
+    return resultado
+
+
+@app.patch("/api/cumprimentos/{cumprimento_id}")
+async def atualizar_cumprimento(
+    cumprimento_id: int, body: CumprimentoBody, ator: str = Depends(usuario_nome_atual)
+):
+    with db.get_session() as session:
+        cumprimento = session.query(Cumprimento).filter_by(id=cumprimento_id).first()
+        if not cumprimento:
+            raise HTTPException(status_code=404, detail="Cumprimento não encontrado")
+        _validar_cumprimento(session, body, cumprimento)
+        _aplicar_cumprimento(cumprimento, body, ator)
+        session.flush()
+        resultado = cumprimento.to_dict()
+    cumprimentos_svc.invalidar()
+    return resultado
+
+
+@app.delete("/api/cumprimentos/{cumprimento_id}", status_code=204)
+async def excluir_cumprimento(cumprimento_id: int):
+    with db.get_session() as session:
+        cumprimento = session.query(Cumprimento).filter_by(id=cumprimento_id).first()
+        if not cumprimento:
+            raise HTTPException(status_code=404, detail="Cumprimento não encontrado")
+        session.delete(cumprimento)
+    cumprimentos_svc.invalidar()
+
+
+# ============================================================================
+# Perguntas por produto: texto de uma pergunta do roteiro de qualificação para um
+# produto (`services/perguntas_produto.py`; editadas na aba Parâmetros)
+# ============================================================================
+
+
+class PerguntaProdutoBody(BaseModel):
+    produto_id: Optional[int] = None
+    campo: Optional[str] = None
+    texto: Optional[str] = None
+    ativo: Optional[bool] = None
+
+
+def _validar_pergunta_produto(session, body: PerguntaProdutoBody, atual: Optional[PerguntaProduto] = None) -> None:
+    """Confere produto, campo e texto antes de gravar; levanta 422/409 com a mensagem da tela."""
+    if body.campo is not None and body.campo not in CAMPOS:
+        raise HTTPException(status_code=422, detail=f"Pergunta desconhecida: {body.campo}.")
+    if body.produto_id is not None and not session.query(Produto).filter_by(id=body.produto_id).first():
+        raise HTTPException(status_code=422, detail="Produto não encontrado.")
+    if body.texto is not None:
+        texto = body.texto.strip()
+        if not texto:
+            raise HTTPException(status_code=422, detail="Informe o texto da pergunta.")
+        if len(texto) > 500:
+            raise HTTPException(status_code=422, detail="O texto pode ter no máximo 500 caracteres.")
+        if texto.count("?") > 1:
+            # Uma pergunta por mensagem (decisão do Beto, 02/10): a divisão em mensagens
+            # não corta dentro de um texto.
+            raise HTTPException(status_code=422, detail="Uma pergunta por mensagem: o texto tem mais de um '?'.")
+    produto_id = body.produto_id if body.produto_id is not None else (atual.produto_id if atual else None)
+    campo = body.campo if body.campo is not None else (atual.campo if atual else None)
+    repetida = session.query(PerguntaProduto).filter_by(produto_id=produto_id, campo=campo).first()
+    if repetida and (atual is None or repetida.id != atual.id):
+        raise HTTPException(status_code=409, detail="Este produto já tem um texto para esta pergunta.")
+
+
+def _aplicar_pergunta_produto(pergunta: PerguntaProduto, body: PerguntaProdutoBody, ator: str) -> None:
+    if body.produto_id is not None:
+        pergunta.produto_id = body.produto_id
+    if body.campo is not None:
+        pergunta.campo = body.campo
+    if body.texto is not None:
+        pergunta.texto = body.texto.strip()
+    if body.ativo is not None:
+        pergunta.ativo = body.ativo
+    pergunta.atualizado_por = ator
+
+
+@app.get("/api/perguntas-produto")
+async def listar_perguntas_produto():
+    """Os textos cadastrados e, para a tela, os produtos ativos e as perguntas do roteiro
+    com o texto padrão do código (placeholders como `{produto}` aparecem como estão)."""
+    with db.get_session() as session:
+        rows = (
+            session.query(PerguntaProduto)
+            .join(Produto)
+            .order_by(Produto.descricao.asc(), PerguntaProduto.campo.asc())
+            .all()
+        )
+        produtos = session.query(Produto).filter(Produto.ativo.is_(True)).order_by(Produto.descricao.asc()).all()
+        return {
+            "perguntas": [p.to_dict() for p in rows],
+            "produtos": [{"id": p.id, "descricao": p.descricao} for p in produtos],
+            "campos": [
+                {"chave": c.chave, "texto_padrao": resolver_mensagem(c.mensagem_id).mensagem}
+                for c in sorted(CAMPOS.values(), key=lambda c: c.ordem)
+            ],
+        }
+
+
+@app.post("/api/perguntas-produto", status_code=201)
+async def criar_pergunta_produto(body: PerguntaProdutoBody, ator: str = Depends(usuario_nome_atual)):
+    if body.produto_id is None or not body.campo or body.texto is None:
+        raise HTTPException(status_code=422, detail="Informe o produto, a pergunta e o texto.")
+    with db.get_session() as session:
+        _validar_pergunta_produto(session, body)
+        nova = PerguntaProduto(ativo=True)
+        _aplicar_pergunta_produto(nova, body, ator)
+        session.add(nova)
+        session.flush()
+        session.refresh(nova)
+        resultado = nova.to_dict()
+    perguntas_produto_svc.invalidar()
+    return resultado
+
+
+@app.patch("/api/perguntas-produto/{pergunta_id}")
+async def atualizar_pergunta_produto(
+    pergunta_id: int, body: PerguntaProdutoBody, ator: str = Depends(usuario_nome_atual)
+):
+    with db.get_session() as session:
+        pergunta = session.query(PerguntaProduto).filter_by(id=pergunta_id).first()
+        if not pergunta:
+            raise HTTPException(status_code=404, detail="Pergunta por produto não encontrada")
+        _validar_pergunta_produto(session, body, pergunta)
+        _aplicar_pergunta_produto(pergunta, body, ator)
+        session.flush()
+        session.refresh(pergunta)
+        resultado = pergunta.to_dict()
+    perguntas_produto_svc.invalidar()
+    return resultado
+
+
+@app.delete("/api/perguntas-produto/{pergunta_id}", status_code=204)
+async def excluir_pergunta_produto(pergunta_id: int):
+    with db.get_session() as session:
+        pergunta = session.query(PerguntaProduto).filter_by(id=pergunta_id).first()
+        if not pergunta:
+            raise HTTPException(status_code=404, detail="Pergunta por produto não encontrada")
+        session.delete(pergunta)
+    perguntas_produto_svc.invalidar()
 
 
 # ============================================================================

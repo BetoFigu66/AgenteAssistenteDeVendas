@@ -65,6 +65,51 @@ forma repetida, o atendimento é escalado para uma pessoa.
 A lista mostra os parâmetros já gravados no banco. Um parâmetro que nunca foi ajustado
 pode não aparecer e funcionar com o valor padrão do sistema.
 
+## Cumprimentos
+
+A seção **Cumprimentos**, abaixo da lista de parâmetros, define duas coisas de uma vez:
+quais expressões contam como início de conversa e com que frase o assistente abre a
+resposta. Quem escreve "Bom dia" recebe "Bom dia!"; quem escreve "E aí Bro?" recebe "E
+aí?". Se o assistente já sabe o nome do cliente, ele entra antes da pontuação: "Bom dia,
+Ana!". Mensagem sem nenhuma expressão cadastrada recebe "Olá!".
+
+- **Comparação:** maiúsculas, acentos e pontuação não importam ("BOA TARDE!!" casa com
+  "boa tarde"), e a expressão precisa aparecer como palavra inteira ("oi" não casa com
+  "oito").
+- **Mais de uma na mesma mensagem:** vale a expressão mais longa. "Oi, bom dia!" recebe
+  "Bom dia!".
+- **Resposta em branco:** a expressão conta como cumprimento, mas não escolhe a frase.
+  É o caso de "tudo bem": em "Oi, tudo bem?" vale o "Oi!".
+- **Ativo:** desmarcar e salvar tira a expressão de uso sem apagá-la.
+
+Para incluir, preencha **Expressão** e **Resposta** em **Novo cumprimento** e clique em
+**Adicionar**. Para alterar, edite a linha e clique em **Salvar**; o ícone de lixeira
+exclui. Expressão repetida (mesmo que só mude acento ou maiúscula) é recusada. A mudança
+vale na próxima mensagem, sem reiniciar.
+
+Antes de cadastrar, use **Testar uma mensagem**: digite o que o cliente escreveria e
+clique em **Testar** para ver se o assistente reconhece o cumprimento e com que frase
+abriria a resposta.
+
+## Perguntas por produto
+
+A seção **Perguntas por produto** troca, para um produto do catálogo, o texto de uma
+pergunta do roteiro de qualificação. O caso típico é a pergunta do modelo: no Relógio de
+Ponto ela lista cartográfico, cartão, biometria e facial; na Catraca, cartão, biometria,
+facial e QR Code. Produto sem texto cadastrado recebe o texto padrão da pergunta, que
+aparece abaixo do formulário e ao passar o mouse sobre a pergunta na tabela.
+
+- **Uma pergunta por texto:** o texto pode ter no máximo um "?", porque cada pergunta vai
+  numa mensagem própria no WhatsApp.
+- **Placeholders:** o texto aceita os mesmos do padrão. Por exemplo, `{produto}` na faixa
+  de pessoas vira "a catraca".
+- **Ativo:** desmarcar e salvar volta a valer o padrão sem apagar o texto.
+
+Para incluir, escolha o **Produto** e a **Pergunta**, escreva o texto e clique em
+**Adicionar**. Cada produto tem no máximo um texto por pergunta. Para alterar, edite a
+linha e clique em **Salvar**; a lixeira exclui e volta a valer o padrão. A mudança vale na
+próxima pergunta feita, sem reiniciar; uma pergunta já enviada ao cliente não muda.
+
 ## Se algo sair errado
 
 Anote o valor anterior antes de alterar. Como não há botão de desfazer nesta tela,

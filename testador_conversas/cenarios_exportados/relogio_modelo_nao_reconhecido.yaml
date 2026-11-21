@@ -1,0 +1,30 @@
+nome: relogio_modelo_nao_reconhecido
+descricao: 'Cliente responde à pergunta de tecnologia do relógio com um modelo que não existe no catálogo.
+  Fonte: tabela perguntas_produto (texto do Relógio de Ponto) e template MODELO_NAO_RECONHECIDO.'
+ativo: true
+turnos:
+- ordem: 1
+  mensagem_enviada: quero orçamento de 2 relógios de ponto
+  observacoes: 'PRECISA: reconhecer relógio de ponto e quantidade 2, perguntar a tecnologia de marcação
+    (cartográfico, proximidade, barras, biometria ou facial) | NÃO PODE: perguntar a quantidade de novo,
+    citar preço | exercita: perguntas_produto, REQ-002'
+  respostas_aceitas:
+  - texto: 'Olá! 👋 Sou o assistente da Inforrel.
+
+
+      Para te atender melhor, poderia me informar o CNPJ da sua empresa ou seu CPF?
+
+
+      Ótimo! Vou precisar de algumas informações para montar o orçamento.
+
+
+      Qual tecnologia de marcação você prefere: cartográfico, cartão de proximidade, cartão de barras,
+      biometria ou reconhecimento facial?'
+    ativo: false
+    criado_por: proposta_claude
+- ordem: 2
+  mensagem_enviada: o modelo XPTO-9000
+  observacoes: 'PRECISA: dizer que não encontrou o modelo no catálogo e reapresentar a pergunta de tecnologia
+    do relógio | NÃO PODE: aceitar o modelo como válido, afirmar que a Inforrel tem esse modelo, fazer
+    duas perguntas na mesma mensagem | exercita: MODELO_NAO_RECONHECIDO com pergunta do produto'
+  respostas_aceitas: []

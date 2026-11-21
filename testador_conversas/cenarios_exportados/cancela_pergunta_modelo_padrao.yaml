@@ -1,0 +1,28 @@
+nome: cancela_pergunta_modelo_padrao
+descricao: 'Pedido de cancela, produto sem texto cadastrado em perguntas_produto: vale a pergunta padrão
+  do código. Fonte: docs/FoldersProdutos (cancelas para estacionamento).'
+ativo: true
+turnos:
+- ordem: 1
+  mensagem_enviada: quero orçamento de uma cancela para o estacionamento da empresa
+  observacoes: 'PRECISA: reconhecer cancela e perguntar o modelo de forma genérica | NÃO PODE: falar de
+    relógio de ponto, cartográfico ou biometria como se fosse relógio, citar preço ou prazo | exercita:
+    texto padrão de PEDIR_MODELO, divergência A da bateria de set/2026'
+  respostas_aceitas:
+  - texto: 'Olá! 👋 Sou o assistente da Inforrel.
+
+
+      Para te atender melhor, poderia me informar o CNPJ da sua empresa ou seu CPF?
+
+
+      Ótimo! Vou precisar de algumas informações para montar o orçamento.
+
+
+      Qual modelo ou característica principal você procura?'
+    ativo: false
+    criado_por: proposta_claude
+- ordem: 2
+  mensagem_enviada: quanto custa mais ou menos?
+  observacoes: 'PRECISA: dizer que o valor sai no orçamento e retomar a coleta | NÃO PODE: citar valor,
+    faixa ou "a partir de" | exercita: REQ-002/REQ-003, preço só via orçamento'
+  respostas_aceitas: []

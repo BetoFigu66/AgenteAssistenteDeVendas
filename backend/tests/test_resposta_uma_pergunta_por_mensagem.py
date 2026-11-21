@@ -110,7 +110,7 @@ def test_cada_pergunta_vira_uma_mensagem_pendente(monkeypatch):
             msgs = _mensagens_saida(session, telefone)
             assert [m.id for m in msgs] == resultado.mensagens_saida_ids
             assert len(msgs) == 4
-            assert msgs[0].conteudo.startswith("Olá, Bob Figu!")
+            assert msgs[0].conteudo.startswith("Bom dia, Bob Figu!")
             assert msgs[0].conteudo.endswith("Posso te chamar assim ou seu nome é outro?")
             assert "CNPJ da sua empresa ou seu CPF?" in msgs[1].conteudo
             assert msgs[2].conteudo.startswith("Sim, vendemos.")
@@ -221,3 +221,28 @@ def test_twilio_modo_rest_envia_cada_mensagem_em_ordem(monkeypatch, client, _can
             assert all(m.message_sid == f"SM_fake_{m.id}" for m in msgs)
     finally:
         _limpar(telefone)
+
+
+
+def test_nenhum_template_do_catalogo_faz_duas_perguntas():
+    """Guarda: a divisão em mensagens é por parte, então um template que já traz duas
+    perguntas sai inteiro numa mensagem só (caso do CONFIRMAR_NOME_PERFIL com o pedido de
+    documento emendado, 02/11). Renderiza cada template com as variações dos transformers."""
+    import itertools
+    import string
+
+    from services.respostas.catalogo import CATALOGO, renderizar_mensagem
+
+    variacoes = {
+        "nome": ["", "Ana"], "tem_documento": [False, True], "apresentar": [False, True],
+        "pedir_documento": [False, True], "segue_pergunta": [False, True], "modo": ["identificacao", "orcamento"],
+    }
+    problemas = set()
+    for mid, tpl in CATALOGO.items():
+        campos = {f for _, f, _, _ in string.Formatter().parse(tpl.mensagem) if f}
+        for combinacao in itertools.product(*variacoes.values()):
+            contexto = {c: "X" for c in campos} | dict(zip(variacoes, combinacao))
+            texto, _ = renderizar_mensagem(mid, contexto)
+            if texto.count("?") > 1:
+                problemas.add(f"{tpl.codigo}: {texto}")
+    assert not problemas, "\n".join(sorted(problemas))

@@ -2,7 +2,12 @@
 peças sem banco da confirmação do nome de perfil."""
 
 import pytest
-from services.conversacao.confirmacao_nome_perfil import _nome_solto, contexto_confirmacao, eh_confirmacao_pura
+from services.conversacao.confirmacao_nome_perfil import (
+    _nome_solto,
+    contexto_confirmacao,
+    eh_confirmacao_pura,
+    partes_confirmacao,
+)
 from services.respostas import MensagemId
 from services.respostas.catalogo import renderizar_mensagem
 from utils.nome_perfil import nome_perfil_aproveitavel
@@ -91,19 +96,20 @@ def test_nao_e_nome_solto(texto):
     assert _nome_solto(texto) is None
 
 
-def test_texto_confirmar_nome_perfil_no_primeiro_contato_com_pedido_de_documento():
-    texto, codigo = renderizar_mensagem(MensagemId.CONFIRMAR_NOME_PERFIL, contexto_confirmacao("Ana", True, True))
+def test_confirmar_nome_perfil_no_primeiro_contato_pede_documento_em_outra_mensagem():
+    """Uma pergunta por mensagem: o pedido de CNPJ/CPF não vem mais emendado na
+    confirmação do nome (caso de 02/11, "Bom dia, Jorge Luiz! ... outro? E ... CPF?")."""
+    partes = partes_confirmacao("Ana", True, True)
+    assert [mid for mid, _ in partes] == [MensagemId.CONFIRMAR_NOME_PERFIL, MensagemId.PEDIR_DOCUMENTO]
 
+    texto, codigo = renderizar_mensagem(*partes[0])
     assert codigo == "CONFIRMAR_NOME_PERFIL"
-    assert texto == (
-        "Olá, Ana! 👋 Sou o assistente da Inforrel.\n"
-        "Posso te chamar assim ou seu nome é outro? "
-        "E para te atender melhor, poderia me informar o CNPJ da sua empresa ou seu CPF?"
-    )
+    assert texto == "Olá, Ana! 👋 Sou o assistente da Inforrel.\nPosso te chamar assim ou seu nome é outro?"
+    assert [mid for mid, _ in partes_confirmacao("Ana", True, False)] == [MensagemId.CONFIRMAR_NOME_PERFIL]
 
 
 def test_texto_confirmar_nome_perfil_sem_apresentacao_nem_documento():
-    texto, _ = renderizar_mensagem(MensagemId.CONFIRMAR_NOME_PERFIL, contexto_confirmacao("Ana", False, False))
+    texto, _ = renderizar_mensagem(MensagemId.CONFIRMAR_NOME_PERFIL, contexto_confirmacao("Ana", False))
 
     assert texto == "Olá, Ana! 👋 Posso te chamar assim ou seu nome é outro?"
 

@@ -40,6 +40,7 @@ from typing import Optional
 
 from models import FaseAtendimento, OrigemInfo, StatusPergunta
 
+from services import cumprimentos
 from services.classificador import Intencao, _limpar_nome
 from services.conversacao.campos_pendentes import proxima_pergunta
 from services.respostas import MensagemId
@@ -153,6 +154,8 @@ def _nome_solto(texto: str) -> Optional[str]:
         return None
     if any(not p.isalpha() or len(p) < 2 or p.lower() in _PALAVRAS_NAO_NOME for p in palavras):
         return None
+    if any(cumprimentos.normalizar(p) in cumprimentos.palavras() for p in palavras):
+        return None
     return _limpar_nome(candidato)
 
 
@@ -188,18 +191,35 @@ def registrar_pergunta(ctx: ContextoAcao, nome: str) -> None:
         ctx.dlog.log("nome_perfil", f"pergunta de confirmação feita nome={nome!r} (atendimento {ctx.atendimento.id})")
 
 
-def contexto_confirmacao(nome: str, apresentar: bool, pedir_documento: bool) -> dict:
-    """Contexto de `MensagemId.CONFIRMAR_NOME_PERFIL` (ver `montar_confirmar_nome_perfil`)."""
-    return {"nome": nome, "apresentar": apresentar, "pedir_documento": pedir_documento}
+def contexto_confirmacao(nome: str, apresentar: bool, mensagem_cliente: Optional[str] = None) -> dict:
+    """Contexto de `MensagemId.CONFIRMAR_NOME_PERFIL` (ver `montar_confirmar_nome_perfil`).
+    `mensagem_cliente` faz a abertura responder ao cumprimento no mesmo tom."""
+    return {"nome": nome, "apresentar": apresentar, "mensagem_cliente": mensagem_cliente}
 
 
-def saudacao_primeiro_contato(ctx: ContextoAcao, modo: str) -> tuple[MensagemId, dict]:
-    """Saudação de um contato totalmente novo (`StatusIdentificacao.NOVO`).
+def partes_confirmacao(
+    nome: str, apresentar: bool, pedir_documento: bool, mensagem_cliente: Optional[str] = None
+) -> list[tuple[MensagemId, Optional[dict]]]:
+    """A confirmação do nome e, se for o caso, o pedido de CNPJ/CPF em parte separada:
+    cada pergunta vai numa mensagem de WhatsApp, para o cliente responder citando cada
+    uma (antes o pedido vinha emendado na mesma frase)."""
+    partes: list[tuple[MensagemId, Optional[dict]]] = [
+        (MensagemId.CONFIRMAR_NOME_PERFIL, contexto_confirmacao(nome, apresentar, mensagem_cliente))
+    ]
+    if pedir_documento:
+        partes.append((MensagemId.PEDIR_DOCUMENTO, None))
+    return partes
+
+
+def saudacao_primeiro_contato(ctx: ContextoAcao, modo: str) -> list[tuple[MensagemId, Optional[dict]]]:
+    """Saudação de um contato totalmente novo (`StatusIdentificacao.NOVO`), como lista
+    de partes para `gerar_composta`.
 
     Com nome de perfil a confirmar, a pergunta de confirmação substitui o pedido de nome
-    e o pedido de CNPJ/CPF continua como era (só no `modo="identificacao"`; no orçamento
-    ele nunca vinha). Sem isso, é a `SAUDACAO_NOVO_CONTATO` de sempre, com o nome que o
-    cliente escreveu nesta mensagem, se escreveu. Exige `ctx.atendimento`.
+    e o pedido de CNPJ/CPF segue em parte própria (só no `modo="identificacao"`; no
+    orçamento quem pede é `documento_fiscal.pedido_inicial`). Sem isso, é a
+    `SAUDACAO_NOVO_CONTATO` de sempre, com o nome que o cliente escreveu nesta mensagem,
+    se escreveu. Exige `ctx.atendimento`.
     """
     entidades = ctx.resultado_class.entidades
     tem_documento = bool(entidades.cnpjs or entidades.cpfs)
@@ -207,11 +227,13 @@ def saudacao_primeiro_contato(ctx: ContextoAcao, modo: str) -> tuple[MensagemId,
     if nome_perfil:
         registrar_pergunta(ctx, nome_perfil)
         pedir_documento = modo == "identificacao" and not tem_documento
-        return (MensagemId.CONFIRMAR_NOME_PERFIL, contexto_confirmacao(nome_perfil, True, pedir_documento))
-    contexto = {"nome": entidades.nomes[0] if entidades.nomes else None, "modo": modo}
+        return partes_confirmacao(nome_perfil, True, pedir_documento, ctx.conteudo)
+    contexto = {
+        "nome": entidades.nomes[0] if entidades.nomes else None, "modo": modo, "mensagem_cliente": ctx.conteudo,
+    }
     if modo == "identificacao":
         contexto["tem_documento"] = tem_documento
-    return (MensagemId.SAUDACAO_NOVO_CONTATO, contexto)
+    return [(MensagemId.SAUDACAO_NOVO_CONTATO, contexto)]
 
 
 def _gravar_nome(ctx: ContextoAcao, nome: str, desfecho: str) -> None:
@@ -219,6 +241,11 @@ def _gravar_nome(ctx: ContextoAcao, nome: str, desfecho: str) -> None:
     if ctx.contato and not ctx.contato.nome:
         ctx.contato.nome = nome
     _salvar(ctx, CHAVE_NOME_PERFIL_CONFIRMACAO, desfecho, pendente=False)
+    # O nome oferecido deixa de estar pendente com o desfecho (antes seguia "Pendente" no
+    # painel mesmo depois de confirmado).
+    proposto = ctx.processador._info_atendimento(ctx.db, ctx.atendimento.id, CHAVE_NOME_PERFIL_PROPOSTO)
+    if proposto:
+        _salvar(ctx, CHAVE_NOME_PERFIL_PROPOSTO, proposto, pendente=False)
     ctx.nome_resposta_confirmacao = nome
     if ctx.dlog:
         contato_id = ctx.contato.id if ctx.contato else None

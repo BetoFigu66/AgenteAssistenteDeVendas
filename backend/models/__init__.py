@@ -34,10 +34,12 @@ from .atendimento import (
 from .base import Base, UTCDateTime, Vector
 from .catalogo import AtributoAdicionalModelo, Categoria, Modelo, Produto, modelos_categorias
 from .contato import Contato
+from .cumprimento import Cumprimento
 from .empresa import AtividadeEmpresa, Empresa, SocioEmpresa, TipoEmpresa
 from .mensagem import Mensagem, OrigemMensagem
 from .orcamento import ItemOrcamento, Orcamento, StatusOrcamento
 from .parametro import HistoricoConfiguracao, HistoricoModoExecucao, ModoExecucao, Parametro
+from .pergunta_produto import PerguntaProduto
 from .pessoa import Pessoa
 from .processamento import ComparacaoLLM, OrigemClassificacao, ProcessamentoMensagem
 from .rag import DocumentoConhecimento, ParQA
@@ -63,6 +65,8 @@ __all__ = [
     "Base",
     "Categoria",
     "CategoriaReport",
+    "Cumprimento",
+    "PerguntaProduto",
     "Contato",
     "DocumentoConhecimento",
     "Empresa",

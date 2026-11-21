@@ -6,7 +6,9 @@ from services.respostas.catalogo import MensagemId, renderizar_mensagem
 def test_pedir_modelo_renderiza():
     texto, codigo = renderizar_mensagem(MensagemId.PEDIR_MODELO)
     assert codigo == "PEDIR_MODELO"
-    assert "cartográfico" in texto and "eletrônico" in texto
+    # Padrão para produto sem texto cadastrado (`perguntas_produto`): não supõe relógio e
+    # é uma pergunta só.
+    assert texto.count("?") == 1 and "relógio" not in texto.lower()
 
 
 def test_pedir_software_ponto_renderiza():

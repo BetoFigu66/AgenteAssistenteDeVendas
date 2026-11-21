@@ -287,7 +287,7 @@ function AtendimentoDetalhes({ atendimentoId }) {
                 <th className="py-1 pr-2">Chave</th>
                 <th className="py-1 pr-2">Valor</th>
                 <th className="py-1 pr-2">Origem</th>
-                <th className="py-1">Pendente</th>
+                <th className="py-1">Status</th>
               </tr>
             </thead>
             <tbody>

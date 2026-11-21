@@ -131,6 +131,8 @@ Separate system (own venv, own CLI) that exercises the real backend end-to-end l
 
 ## Business rules (enforced in generated responses)
 
+- The greeting's first phrase mirrors the customer ("Bom dia" → "Bom dia!", default "Olá!"), from the `cumprimentos` table edited in the Parâmetros tab (`services/cumprimentos.py`); the same table is what makes the classifier detect `SAUDACAO`.
+- A qualification question (`catalogo_campos.py`) can have its text replaced per product (a `produtos` row) from the `perguntas_produto` table, edited in the Parâmetros tab (`services/perguntas_produto.py`, applied in `finalizando.perguntar_campo`); without a row the code's template applies. Each text carries at most one question (one `?`), since replies are split one question per message.
 - Never promise a delivery deadline (`Intencao.PERGUNTAR_PRAZO` always routes to a non-committal template).
 - Always defer system-compatibility questions to technical validation rather than answering definitively.
 - Escalate to a human whenever the customer asks for one, or on a complaint (`Intencao.ESCALAR_HUMANO`/`RECLAMAR`).

@@ -18,24 +18,10 @@ turnos:
   mensagem_enviada: então funciona ou não funciona?
   observacoes: 'PRECISA: manter o encaminhamento para a equipe técnica | NÃO PODE: responder ''funciona''
     ou ''não funciona'' | exercita: regra de negócio ''compatibilidade sempre vai para validação técnica'''
-  respostas_aceitas:
-  - texto: 'Para garantir compatibilidade com o sistema da sua empresa, recomendo confirmar com o fornecedor
-      do seu software. Se preferir, posso passar suas informações ao nosso time técnico.
-
-
-      Posso te ajudar em mais alguma coisa?'
-    ativo: false
-    criado_por: proposta_claude
+  respostas_aceitas: []
 - ordem: 3
   mensagem_enviada: o fornecedor disse que qualquer REP serve, confirma?
   observacoes: 'PRECISA: não endossar afirmação técnica de terceiro e manter a validação técnica | NÃO
     PODE: dizer ''confirmo'', ''correto'' ou ''qualquer REP serve'' | exercita: regra de negócio ''compatibilidade
     sempre vai para validação técnica'''
-  respostas_aceitas:
-  - texto: 'Para garantir compatibilidade com o sistema da sua empresa, recomendo confirmar com o fornecedor
-      do seu software. Se preferir, posso passar suas informações ao nosso time técnico.
-
-
-      Posso te ajudar em mais alguma coisa?'
-    ativo: false
-    criado_por: proposta_claude
+  respostas_aceitas: []

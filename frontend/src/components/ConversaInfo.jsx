@@ -1,52 +1,54 @@
-import { useEffect, useState } from 'react'
-import { Building2, Contact, User, Briefcase, ListChecks, CheckCircle2 } from 'lucide-react'
+import { useEffect, useRef, useState } from 'react'
+import { Building2, Contact, User, Briefcase, ListChecks, CheckCircle2, Copy, Check, Send, Clock, XCircle, CircleDashed } from 'lucide-react'
 import DetalheModal from './DetalheModal'
 import EmpresaDetalhes from './EmpresaDetalhes'
 import AtendimentoDetalhes from './AtendimentoDetalhes'
 import { api } from '../services/api'
 
-import { rotuloAtendimento, rotuloFase, classesFase } from '../utils/atendimento'
+import { rotuloAtendimento, rotuloFase, classesFase, rotuloCampo } from '../utils/atendimento'
 
-// Rótulos curtos dos campos do catálogo de qualificação
-// (backend/services/conversacao/catalogo_campos.py). O catálogo só tem a pergunta
-// inteira, longa demais para um pill; a pergunta vai no title. Chave sem entrada aqui
-// cai na própria chave técnica, que é feio mas não esconde informação.
-const ROTULO_CAMPO = {
-  modelo_produto: 'Modelo',
-  software_controle_ponto: 'Software de ponto',
-  software_controle_acesso: 'Software de acesso',
-  interesse_sistema_nuvem: 'Sistema na nuvem',
-  faixa_funcionarios: 'Faixa de pessoas',
-  quantidade: 'Quantidade',
-  homologado_software: 'Homologação verificada',
-}
-
-function rotuloCampo(chave) {
-  return ROTULO_CAMPO[chave] || chave
+// Situação de cada pergunta pendente (backend: campos_pendentes.perguntas_para_painel).
+const SITUACAO_PERGUNTA = {
+  enviada: { rotulo: 'Enviada', icone: Send, classes: 'text-green-700' },
+  aguardando_aprovacao: { rotulo: 'Aguardando aprovação', icone: Clock, classes: 'text-amber-700' },
+  reprovada: { rotulo: 'Reprovada', icone: XCircle, classes: 'text-red-600' },
+  nao_enviada: { rotulo: 'Não enviada', icone: CircleDashed, classes: 'text-gray-500' },
 }
 
 function CamposPendentesBadge({ atendimentoId, temCapturados }) {
-  const [campos, setCampos] = useState([])
+  const [perguntas, setPerguntas] = useState([])
+  const [aberto, setAberto] = useState(false)
+  const [copiado, setCopiado] = useState(false)
+  const caixa = useRef(null)
 
   useEffect(() => {
     let cancelado = false
+    setAberto(false)
     if (!atendimentoId) {
-      setCampos([])
+      setPerguntas([])
       return
     }
     api
       .obterCamposPendentes(atendimentoId)
-      .then((data) => !cancelado && setCampos(data.campos_pendentes || []))
-      .catch(() => !cancelado && setCampos([]))
+      .then((data) => !cancelado && setPerguntas(data.perguntas || []))
+      .catch(() => !cancelado && setPerguntas([]))
     return () => {
       cancelado = true
     }
   }, [atendimentoId])
 
+  // Fecha a lista ao clicar fora dela.
+  useEffect(() => {
+    if (!aberto) return
+    const fora = (e) => caixa.current && !caixa.current.contains(e.target) && setAberto(false)
+    document.addEventListener('mousedown', fora)
+    return () => document.removeEventListener('mousedown', fora)
+  }, [aberto])
+
   // REQ-010.7B: nada pendente com algo já coletado é "coleta completa". Sem nenhum
   // campo capturado não há o que comemorar — é só uma conversa que ainda nem começou
   // a qualificar.
-  if (campos.length === 0) {
+  if (perguntas.length === 0) {
     if (!temCapturados) return null
     return (
       <span className="flex items-center gap-1 px-2 py-0.5 text-xs rounded-full font-medium bg-green-100 text-green-700">
@@ -56,13 +58,63 @@ function CamposPendentesBadge({ atendimentoId, temCapturados }) {
     )
   }
 
+  // Uma pergunta por linha, com a situação entre colchetes, para colar em report ou nota.
+  const copiar = async () => {
+    const texto = perguntas.map((p) => `[${SITUACAO_PERGUNTA[p.situacao]?.rotulo || p.situacao}] ${p.pergunta}`).join('\n')
+    try {
+      await navigator.clipboard.writeText(texto)
+      setCopiado(true)
+      setTimeout(() => setCopiado(false), 2000)
+    } catch (e) {
+      alert('Falha ao copiar: ' + e.message)
+    }
+  }
+
+  const enviadas = perguntas.filter((p) => p.situacao === 'enviada').length
+
   return (
-    <span
-      className="flex items-center gap-1 px-2 py-0.5 text-xs rounded-full font-medium bg-amber-100 text-amber-700 cursor-help"
-      title={`Faltam: ${campos.map((c) => c.pergunta).join(' · ')}`}
-    >
-      <ListChecks size={12} />
-      {campos.length} pendente{campos.length > 1 ? 's' : ''}
+    <span ref={caixa} className="relative">
+      <button
+        type="button"
+        onClick={() => setAberto((a) => !a)}
+        className="flex items-center gap-1 px-2 py-0.5 text-xs rounded-full font-medium bg-amber-100 text-amber-700 hover:bg-amber-200"
+        title="Ver as perguntas pendentes"
+        aria-expanded={aberto}
+      >
+        <ListChecks size={12} />
+        {perguntas.length} pendente{perguntas.length > 1 ? 's' : ''}
+        <span className="font-normal">({enviadas} enviada{enviadas === 1 ? '' : 's'})</span>
+      </button>
+      {aberto && (
+        <div className="absolute left-0 top-full mt-1 z-20 w-96 max-w-[90vw] bg-white border border-gray-200 rounded-lg shadow-lg p-3">
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-xs font-medium text-gray-700">Perguntas pendentes</span>
+            <button
+              type="button"
+              onClick={copiar}
+              className="inline-flex items-center gap-1 px-2 py-0.5 text-xs rounded border border-inforrel-primary text-inforrel-primary hover:bg-inforrel-primary hover:text-white transition"
+            >
+              {copiado ? <Check size={12} /> : <Copy size={12} />}
+              {copiado ? 'Copiado' : 'Copiar'}
+            </button>
+          </div>
+          <ul className="space-y-1.5 select-text">
+            {perguntas.map((p) => {
+              const s = SITUACAO_PERGUNTA[p.situacao] || SITUACAO_PERGUNTA.nao_enviada
+              const Icone = s.icone
+              return (
+                <li key={p.chave} className="flex gap-2 text-xs text-gray-800">
+                  <span className={`flex items-center gap-1 shrink-0 w-36 ${s.classes}`}>
+                    <Icone size={12} />
+                    {s.rotulo}
+                  </span>
+                  <span>{p.pergunta}</span>
+                </li>
+              )
+            })}
+          </ul>
+        </div>
+      )}
     </span>
   )
 }

@@ -21,6 +21,8 @@ from services.dev_limpeza_telefone import apagar_dados_telefone
 from services.parametro_service import ParametroService
 from services.processador import ProcessadorMensagem
 
+from tests.apoio_perguntas import pergunta_modelo
+
 _SAUDACAO_RELOGIO = "Bom dia, gostaria de informações sobre relógio de ponto."
 _PEDE_DOCUMENTO = "poderia me informar o CNPJ da sua empresa ou seu CPF?"
 
@@ -147,7 +149,7 @@ def test_caso_45_nao_transfere_e_segue_a_coleta(db_session):
         atendimento = conversa.atendimento
         assert atendimento.modo_operacao == ModoOperacao.AGENTE
         assert atendimento.valores_capturados().get("faixa_funcionarios") == "45"
-        assert "cartográfico ou eletrônico" in conversa.texto
+        assert pergunta_modelo(db_session, "relogio_ponto") in conversa.texto
     finally:
         _limpar(db_session, telefone)
 
@@ -164,7 +166,7 @@ def test_projeto_complexo_espera_cada_pendencia_ser_perguntada_uma_vez(db_sessio
 
         conversa.diz("80")
         assert conversa.atendimento.modo_operacao == ModoOperacao.AGENTE
-        assert "cartográfico ou eletrônico" in conversa.texto
+        assert pergunta_modelo(db_session, "relogio_ponto") in conversa.texto
 
         conversa.diz("ainda não sei")
         assert "software de ponto" in conversa.texto

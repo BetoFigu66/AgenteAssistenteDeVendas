@@ -18,6 +18,7 @@ from enum import Enum
 from functools import lru_cache
 from typing import Any, Dict, List, Optional
 
+from services import cumprimentos
 from services.cpf.validacao import extrair_cpfs, formatar_cpf, normalizar_cpf, parse_data_nascimento
 from services.llm import LLMProvider
 from services.llm import comparacao as comparacao_llm
@@ -159,14 +160,6 @@ def pedido_de_detalhes(texto: str) -> bool:
 
 
 _REGRAS_INTENCAO: list[tuple[Intencao, re.Pattern]] = [
-    (
-        Intencao.SAUDACAO,
-        re.compile(
-            r"\b(oi|ol[aá]|bom\s+dia|boa\s+tarde|boa\s+noite|e\s*a[ií]|hey|hi|hello|salve"
-            r"|tudo\s+(?:bem|bom|certo|joia|jóia)|como\s+vai)\b",
-            re.IGNORECASE,
-        ),
-    ),
     (
         Intencao.ESCALAR_HUMANO,
         re.compile(
@@ -404,7 +397,7 @@ def _parece_nome_livre(palavras: List[str]) -> bool:
             continue
         if not palavra.replace("'", "").replace("-", "").isalpha() or len(palavra) < 2:
             return False
-        if minuscula in _PALAVRAS_NAO_NOME_LIVRE:
+        if minuscula in _PALAVRAS_NAO_NOME_LIVRE or cumprimentos.normalizar(palavra) in cumprimentos.palavras():
             return False
     return True
 
@@ -450,8 +443,12 @@ _TIPOS_PRODUTO_PALAVRAS = {
     "cancela": "cancela",
     "cancelas": "cancela",
     "leitor facial": "leitor_facial",
+    # Plural irregular: o casamento por palavra inteira só aceita o "s" final.
+    "leitores faciais": "leitor_facial",
     "leitor biometrico": "leitor_biometrico",
     "leitor biométrico": "leitor_biometrico",
+    "leitores biometricos": "leitor_biometrico",
+    "leitores biométricos": "leitor_biometrico",
     "camera": "camera",
     "câmera": "camera",
     "controle de acesso": "controle_de_acesso",
@@ -549,6 +546,10 @@ _REGEX_MASCARA_FUNCIONARIOS = re.compile(
 # numeração da resposta do cliente, não quantidade.
 _REGEX_MASCARA_ENUMERACAO = re.compile(r"^\s*\d{1,2}\s*[).](?!\d)", re.MULTILINE)
 
+# Código de modelo ("XPTO-9000", "iDFace2"): número colado a letras é parte do nome do
+# modelo, não quantidade (o 9000 disparava o projeto complexo por quantidade mínima).
+_REGEX_MASCARA_CODIGO_MODELO = re.compile(r"\b[^\W\d_]+-?\d[\w-]*")
+
 # D5 (MVP Continuidade): marcas comercializadas pela Inforrel. O alias normaliza o
 # nome ao valor canônico usado no catálogo (Modelo.marca).
 _MARCAS_PALAVRAS = {
@@ -631,6 +632,7 @@ def extrair_entidades(texto: str) -> EntidadesExtraidas:
     texto_sem_datas = _REGEX_MASCARA_DATA.sub(" ", mascarar_documentos(texto))
     texto_sem_datas = _REGEX_MASCARA_FUNCIONARIOS.sub(" ", texto_sem_datas)
     texto_sem_datas = _REGEX_MASCARA_ENUMERACAO.sub(" ", texto_sem_datas)
+    texto_sem_datas = _REGEX_MASCARA_CODIGO_MODELO.sub(" ", texto_sem_datas)
     quantidades = [
         int(m.group(1))
         for m in _REGEX_QUANTIDADE.finditer(texto_sem_datas)
@@ -755,6 +757,11 @@ def classificar_por_regras(texto: str) -> list[tuple[Intencao, float]]:
 
     if parse_data_nascimento(texto):
         matches.append((Intencao.FORNECER_DATA_NASCIMENTO, 0.9))
+
+    # Saudação: as expressões cadastradas no painel (`services/cumprimentos.py`), não uma
+    # regex. Vem antes das outras regras, no lugar onde a regex dela ficava.
+    if cumprimentos.e_cumprimento(texto):
+        matches.append((Intencao.SAUDACAO, 0.75))
 
     for intencao, padrao in _REGRAS_INTENCAO:
         if padrao.search(texto):

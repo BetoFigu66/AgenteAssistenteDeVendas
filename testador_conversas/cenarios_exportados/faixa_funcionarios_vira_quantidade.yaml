@@ -17,7 +17,7 @@ turnos:
       Ótimo! Vou precisar de algumas informações para montar o orçamento.
 
 
-      O relógio seria cartográfico ou eletrônico? Se eletrônico: cartão de proximidade, cartão de barras,
+      Qual tecnologia de marcação você prefere: cartográfico, cartão de proximidade, cartão de barras,
       biometria ou reconhecimento facial?'
     ativo: false
     criado_por: proposta_claude
@@ -26,4 +26,8 @@ turnos:
   observacoes: 'PRECISA: corrigir a faixa para 20 a 25 e manter a quantidade em 2 | NÃO PODE: mudar a
     quantidade de equipamentos nem pedir a quantidade de novo | exercita: REQ-002, correção de dado já
     coletado'
-  respostas_aceitas: []
+  respostas_aceitas:
+  - texto: 'Qual tecnologia de marcação você prefere: cartográfico, cartão de proximidade, cartão de barras,
+      biometria ou reconhecimento facial?'
+    ativo: false
+    criado_por: proposta_claude

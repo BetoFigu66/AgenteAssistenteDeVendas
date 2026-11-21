@@ -12,7 +12,6 @@ aqui via `responder_categoria_pergunta(intencao, ctx)`.
 
 from __future__ import annotations
 
-import unicodedata
 from typing import Optional
 
 from models import (
@@ -26,10 +25,11 @@ from models import (
     Produto,
     TipoEventoAtendimento,
 )
-from sqlalchemy.orm import Session
 
 from services import atendimentos as atendimentos_svc
 from services import escalonamentos as escalonamentos_svc
+from services import perguntas_produto
+from services.catalogo_produtos import produto_ids_por_tipos as _produto_ids_por_tipos
 from services.classificador import Intencao
 from services.conversacao import documento_fiscal, pilha, projeto_complexo
 from services.conversacao.acoes import ContextoAcao
@@ -106,39 +106,31 @@ def _contexto_para_campo(campo: Pergunta, atendimento: Atendimento) -> Optional[
     return None
 
 
+def _parte_do_campo(ctx: ContextoAcao, campo: Pergunta) -> tuple[MensagemId, Optional[dict]]:
+    """A pergunta de um campo como parte de mensagem, com o texto cadastrado para o
+    produto do atendimento, se houver (`services/perguntas_produto.py`)."""
+    contexto = _contexto_para_campo(campo, ctx.atendimento)
+    cadastrado = perguntas_produto.texto_para(ctx.db, campo.chave, ctx.atendimento.tipo_produto_atual())
+    if cadastrado:
+        contexto = {**(contexto or {}), "texto_cadastrado": cadastrado}
+    return campo.mensagem_id, contexto
+
+
+def texto_pergunta_campo(ctx: ContextoAcao, campo: Pergunta) -> str:
+    """O texto da pergunta de um campo, sem registrá-la na pilha."""
+    return renderizar_mensagem(*_parte_do_campo(ctx, campo))[0]
+
+
 def perguntar_campo(ctx: ContextoAcao, campo: Pergunta) -> tuple[MensagemId, Optional[dict]]:
     """Monta a pergunta de um campo e a registra na pilha (ver `pilha.py`).
 
     Todo lugar que pergunta um campo do catálogo passa por aqui: é o que garante que o
     sistema sabe o que perguntou, em vez de recalcular no turno seguinte.
     """
-    contexto = _contexto_para_campo(campo, ctx.atendimento)
+    _, contexto = _parte_do_campo(ctx, campo)
     texto, _ = renderizar_mensagem(campo.mensagem_id, contexto)
     pilha.empilhar(ctx, campo.chave, texto)
     return campo.mensagem_id, contexto
-
-
-def _normalizar_sem_acento(texto: str) -> str:
-    """Remove acentos para comparações case-insensitive em português."""
-    return "".join(
-        c for c in unicodedata.normalize("NFD", texto) if unicodedata.category(c) != "Mn"
-    ).lower()
-
-
-def _produto_ids_por_tipos(db: Session, tipos_produto: list[str]) -> list[int]:
-    """Busca produtos ativos cujo nome contenha os tokens do tipo extraído."""
-    if not tipos_produto:
-        return []
-    produtos = db.query(Produto).filter(Produto.ativo.is_(True)).all()
-    ids: set[int] = set()
-    for tipo in tipos_produto:
-        tipo_norm = _normalizar_sem_acento(tipo.replace("_", " "))
-        partes = [p for p in tipo_norm.split() if len(p) > 2]
-        for produto in produtos:
-            desc_norm = _normalizar_sem_acento(produto.descricao)
-            if tipo_norm in desc_norm or all(part in desc_norm for part in partes):
-                ids.add(produto.id)
-    return list(ids)
 
 
 class FinalizandoState(EstadoAtendimento):
@@ -183,7 +175,11 @@ class FinalizandoState(EstadoAtendimento):
         # pilha lembra que foi ela a perguntada (`proxima_pergunta`).
         campo = primeira_pergunta if primeira_pergunta is not None else proxima_pergunta(atendimento)
         mensagem_id, ctx_campo = perguntar_campo(ctx, campo)
-        ctx_abertura = abertura_contexto if abertura_contexto is not None else ctx_campo
+        # A abertura aproveita os placeholders da pergunta, mas não o texto cadastrado
+        # para o produto, que trocaria o texto da própria abertura.
+        ctx_abertura = abertura_contexto if abertura_contexto is not None else (
+            {k: v for k, v in ctx_campo.items() if k != "texto_cadastrado"} if ctx_campo else ctx_campo
+        )
         if ctx.dlog:
             ctx.dlog.log("finalizando", f"próxima pergunta: {campo.chave} ({mensagem_id.name})")
         return [(mensagem_abertura, ctx_abertura), (mensagem_id, ctx_campo)]
@@ -235,7 +231,9 @@ class FinalizandoState(EstadoAtendimento):
 
         if modelo_nao_reconhecido:
             # F2: modelo não existe no catálogo (1ª tentativa) — informar e reapresentar opções.
-            return await p._gerador.gerar(MensagemId.MODELO_NAO_RECONHECIDO)
+            return await p._gerador.gerar(
+                MensagemId.MODELO_NAO_RECONHECIDO, {"pergunta_modelo": texto_pergunta_campo(ctx, CAMPO_MODELO)}
+            )
 
         if eh_duvida:
             return await self._retomar_apos_duvida(ctx)

@@ -49,9 +49,11 @@
     },
     "parametros": {
       "componentes": [
-        "src/components/ParametrosPage.jsx"
+        "src/components/ParametrosPage.jsx",
+        "src/components/CumprimentosSecao.jsx",
+        "src/components/PerguntasProdutoSecao.jsx"
       ],
-      "hash": "eba159e129443db0"
+      "hash": "9292de460575bfbf"
     },
     "ajuda-base": {
       "componentes": [

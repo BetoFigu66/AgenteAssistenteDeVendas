@@ -16,6 +16,7 @@ from models_comportamento import ComportamentoAtendimento
 from services.conversacao.campos_pendentes import (
     campos_pendentes,
     nao_perguntar_de_novo,
+    perguntas_para_painel,
     proxima_pergunta,
 )
 from services.conversacao.catalogo_campos import (
@@ -218,3 +219,46 @@ def test_homologado_software_deixa_de_ser_pendente_apos_ser_perguntado_sem_respo
     pendentes = campos_pendentes(atendimento)
     assert CAMPO_HOMOLOGADO_SOFTWARE not in pendentes
     assert CAMPO_QUANTIDADE in pendentes
+
+
+def _registro(chave, texto, ordem, mensagens_ids, status=StatusPergunta.ABERTA):
+    return SimpleNamespace(
+        chave=chave,
+        texto=texto,
+        ordem=ordem,
+        mensagens_ids=mensagens_ids,
+        status=status.value,
+        aberta=status == StatusPergunta.ABERTA,
+    )
+
+
+def test_painel_indica_se_a_pergunta_chegou_ao_cliente():
+    """Caso real de 01/11: a faixa de pessoas saiu (aberta na pilha, embora o catálogo
+    ainda não a liste) e modelo/software/quantidade nunca foram perguntados."""
+    atendimento = _atendimento(tipo_produto="catraca")
+    atendimento.perguntas_pendentes = [
+        _registro("conhece_marcas", "Você conhece?", 1, [10], StatusPergunta.RESPONDIDA),
+        _registro("faixa_funcionarios", "Qual a faixa de pessoas?", 2, [11]),
+    ]
+    itens = perguntas_para_painel(atendimento, {10: "enviada", 11: "enviada"})
+
+    assert itens[0] == {"chave": "faixa_funcionarios", "pergunta": "Qual a faixa de pessoas?", "situacao": "enviada"}
+    resto = {i["chave"]: i["situacao"] for i in itens[1:]}
+    assert CAMPO_MODELO.chave in resto and "conhece_marcas" not in resto
+    assert set(resto.values()) == {"nao_enviada"}
+
+
+def test_painel_vale_a_melhor_mensagem_e_o_registro_descartado():
+    atendimento = _atendimento(tipo_produto="catraca")
+    atendimento.perguntas_pendentes = [
+        # Reprovada na primeira vez, reapresentada e aguardando aprovação.
+        _registro(CAMPO_QUANTIDADE.chave, "Quantas?", 2, [20, 21]),
+        # Descartada pelo teto da pilha depois de enviada: segue pendente no catálogo.
+        _registro(CAMPO_MODELO.chave, "Qual modelo?", 1, [22], StatusPergunta.DESCARTADA),
+    ]
+    situacoes = {20: "reprovada", 21: "aguardando_aprovacao", 22: "enviada"}
+    itens = {i["chave"]: i for i in perguntas_para_painel(atendimento, situacoes)}
+
+    assert itens[CAMPO_QUANTIDADE.chave]["situacao"] == "aguardando_aprovacao"
+    assert itens[CAMPO_MODELO.chave]["situacao"] == "enviada"
+    assert itens[CAMPO_MODELO.chave]["pergunta"] == CAMPO_MODELO.pergunta

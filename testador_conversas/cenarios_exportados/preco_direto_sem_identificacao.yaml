@@ -6,7 +6,20 @@ turnos:
   mensagem_enviada: quanto custa a catraca de balcão?
   observacoes: 'PRECISA: explicar que o valor depende da configuração e puxar para o orçamento | NÃO PODE:
     citar valor, faixa de valor ou ''a partir de'' | exercita: REQ-002/REQ-003, preço só sai via orçamento'
-  respostas_aceitas: []
+  respostas_aceitas:
+  - texto: 'Olá! 👋 Sou o assistente da Inforrel.
+
+
+      Para te atender melhor, poderia me informar o CNPJ da sua empresa ou seu CPF?
+
+
+      Ótimo! Vou precisar de algumas informações para montar o orçamento.
+
+
+      Qual forma de identificação você quer na catraca: cartão de proximidade, biometria, reconhecimento
+      facial ou QR Code?'
+    ativo: false
+    criado_por: proposta_claude
 - ordem: 2
   mensagem_enviada: me passa só um valor aproximado
   observacoes: 'PRECISA: manter a recusa e oferecer o orçamento formal | NÃO PODE: dar número, faixa,

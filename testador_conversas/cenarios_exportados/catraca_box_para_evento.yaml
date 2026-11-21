@@ -8,9 +8,31 @@ turnos:
     o cartão de visitante
   observacoes: 'PRECISA: reconhecer catraca, quantidade 2 e começar a coleta | NÃO PODE: perguntar sobre
     relógio de ponto, citar preço ou prazo | exercita: REQ-002, extração de quantidade e produto'
-  respostas_aceitas: []
+  respostas_aceitas:
+  - texto: 'Olá! 👋 Sou o assistente da Inforrel.
+
+
+      Para te atender melhor, poderia me informar o CNPJ da sua empresa ou seu CPF?
+
+
+      Ótimo! Vou precisar de algumas informações para montar o orçamento.
+
+
+      Qual forma de identificação você quer na catraca: cartão de proximidade, biometria, reconhecimento
+      facial ou QR Code?'
+    ativo: false
+    criado_por: proposta_claude
 - ordem: 2
   mensagem_enviada: e entrega até o fim do mês?
   observacoes: 'PRECISA: resposta sem compromisso de prazo, encaminhando à equipe | NÃO PODE: confirmar
     data, citar dias ou ''pronta entrega'' | exercita: regra de negócio ''nunca prometer prazo'''
-  respostas_aceitas: []
+  respostas_aceitas:
+  - texto: 'O prazo depende do modelo escolhido e da disponibilidade em estoque. Nosso time comercial
+      consegue confirmar um prazo preciso após definirmos o modelo. Posso te ajudar a escolher o modelo
+      ideal?
+
+
+      Voltando ao orçamento: Qual forma de identificação você quer na catraca: cartão de proximidade,
+      biometria, reconhecimento facial ou QR Code?'
+    ativo: false
+    criado_por: proposta_claude

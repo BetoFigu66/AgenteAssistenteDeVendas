@@ -16,9 +16,12 @@ No Finalizando, antes do resumo (ou antes de transferir um projeto complexo), o 
 Sem resposta, o resumo segue sem documento e o vendedor resolve.
 
 Estado em `AtendimentoInfo[documento_fiscal_pendente]`: `solicitado` (pedido no início),
-`recusado` (a mensagem seguinte não trouxe documento), `confirmando_nf` (perguntou se a
-nota sai no documento dado), `trocar_nf` (o cliente disse que não, sem dar outro),
-`pedido_finalizando` (pediu o documento da nota) e `nf_confirmada`.
+`recusado` (a mensagem seguinte não trouxe documento), `informado` (o cliente deu o
+documento antes da pergunta da nota), `confirmando_nf` (perguntou se a nota sai no
+documento dado), `trocar_nf` (o cliente disse que não, sem dar outro),
+`pedido_finalizando` (pediu o documento da nota) e `nf_confirmada`. A informação fica
+`pendente` enquanto falta o documento ou se espera resposta; `informado` e
+`nf_confirmada` não estão pendentes.
 
 O pedido do documento não entra na pilha de perguntas pendentes: CNPJ e CPF se
 identificam sozinhos e as Regras globais `FORNECER_CNPJ`/`FORNECER_CPF` os capturam a
@@ -47,6 +50,8 @@ CONFIRMANDO_NF = "confirmando_nf"
 TROCAR_NF = "trocar_nf"
 PEDIDO_FINALIZANDO = "pedido_finalizando"
 NF_CONFIRMADA = "nf_confirmada"
+INFORMADO = "informado"
+_RESOLVIDOS = frozenset({INFORMADO, NF_CONFIRMADA})
 
 # Estados em que a pergunta da nota já foi feita: um documento que chega agora é o da nota.
 _PERGUNTA_NF_FEITA = frozenset({CONFIRMANDO_NF, TROCAR_NF, PEDIDO_FINALIZANDO})
@@ -67,7 +72,9 @@ def _estado(ctx: ContextoAcao) -> Optional[str]:
 
 
 def _marcar(ctx: ContextoAcao, estado: str) -> None:
-    ctx.processador._salvar_info_atendimento(ctx.db, ctx.atendimento.id, CHAVE_DOC_PENDENTE, estado)
+    ctx.processador._salvar_info_atendimento(
+        ctx.db, ctx.atendimento.id, CHAVE_DOC_PENDENTE, estado, pendente=estado not in _RESOLVIDOS
+    )
 
 
 def pedido_inicial(ctx: ContextoAcao) -> Optional[tuple[MensagemId, None]]:
@@ -140,9 +147,18 @@ def registrar_documento_capturado(
 ) -> None:
     """Chamado por quem captura um CNPJ/CPF válido. Se a pergunta da nota já foi feita,
     o documento que chegou é o da nota: substitui o do atendimento e encerra a pergunta
-    de confirmação que estiver aberta."""
+    de confirmação que estiver aberta. Antes dela, o pedido do início fica `informado`
+    (antes ficava `solicitado` para sempre, como se o cliente não tivesse respondido)."""
     atendimento = ctx.atendimento
-    if atendimento is None or _estado(ctx) not in _PERGUNTA_NF_FEITA:
+    if atendimento is None:
+        return
+    estado = _estado(ctx)
+    if estado in (SOLICITADO, RECUSADO):
+        _marcar(ctx, INFORMADO)
+        if ctx.dlog:
+            ctx.dlog.log("documento", f"documento informado (estava {estado})")
+        return
+    if estado not in _PERGUNTA_NF_FEITA:
         return
     atendimentos_svc.definir_documento_nota(ctx.db, atendimento, empresa=empresa, pessoa=pessoa)
     _marcar(ctx, NF_CONFIRMADA)

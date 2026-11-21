@@ -2,6 +2,8 @@ import { useState, useEffect, useCallback } from 'react'
 import { RefreshCw, Settings, Save, CheckCircle } from 'lucide-react'
 import { api } from '../services/api'
 import BotaoAjuda from './BotaoAjuda'
+import CumprimentosSecao from './CumprimentosSecao'
+import PerguntasProdutoSecao from './PerguntasProdutoSecao'
 import { formatDatetimeBRT } from '../utils/datetime'
 
 function ParametrosPage() {
@@ -164,6 +166,9 @@ function ParametrosPage() {
           </div>
         )}
       </div>
+
+      <CumprimentosSecao />
+      <PerguntasProdutoSecao />
     </div>
   )
 }

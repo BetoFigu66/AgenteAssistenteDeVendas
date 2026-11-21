@@ -95,7 +95,8 @@ CATALOGO: dict[int, MensagemTemplate] = {
     MensagemId.SAUDACAO_COM_NOME: MensagemTemplate(
         id=MensagemId.SAUDACAO_COM_NOME,
         codigo="SAUDACAO_COM_NOME",
-        mensagem="Olá, {nome}! 👋 Como posso te ajudar hoje?",
+        mensagem="{cumprimento} 👋 Como posso te ajudar hoje?",
+        transformers=("montar_saudacao_com_nome",),
     ),
     MensagemId.PERGUNTAR_CNPJ: MensagemTemplate(
         id=MensagemId.PERGUNTAR_CNPJ,
@@ -126,7 +127,7 @@ CATALOGO: dict[int, MensagemTemplate] = {
     MensagemId.CONFIRMAR_NOME_PERFIL: MensagemTemplate(
         id=MensagemId.CONFIRMAR_NOME_PERFIL,
         codigo="CONFIRMAR_NOME_PERFIL",
-        mensagem="{abertura}Posso te chamar assim ou seu nome é outro?{linha_pedido}",
+        mensagem="{abertura}Posso te chamar assim ou seu nome é outro?",
         transformers=("montar_confirmar_nome_perfil",),
     ),
     MensagemId.NOME_ANOTADO: MensagemTemplate(
@@ -319,10 +320,9 @@ CATALOGO: dict[int, MensagemTemplate] = {
     MensagemId.PEDIR_MODELO: MensagemTemplate(
         id=MensagemId.PEDIR_MODELO,
         codigo="PEDIR_MODELO",
-        mensagem=(
-            "O relógio seria cartográfico ou eletrônico? Se eletrônico: cartão de "
-            "proximidade, cartão de barras, biometria ou reconhecimento facial?"
-        ),
+        # Texto para produto sem pergunta cadastrada no painel (`perguntas_produto`); a
+        # carga inicial cobre Relógio de Ponto, Catraca e Leitor Facial.
+        mensagem="Qual modelo ou característica principal você procura?",
     ),
     MensagemId.PEDIR_SOFTWARE_PONTO: MensagemTemplate(
         id=MensagemId.PEDIR_SOFTWARE_PONTO,
@@ -392,11 +392,9 @@ CATALOGO: dict[int, MensagemTemplate] = {
     MensagemId.MODELO_NAO_RECONHECIDO: MensagemTemplate(
         id=MensagemId.MODELO_NAO_RECONHECIDO,
         codigo="MODELO_NAO_RECONHECIDO",
-        mensagem=(
-            "Não encontrei esse modelo no nosso catálogo. "
-            "O relógio seria cartográfico ou eletrônico? Se eletrônico: cartão de "
-            "proximidade, cartão de barras, biometria ou reconhecimento facial?"
-        ),
+        # `pergunta_modelo`: a pergunta do modelo como o cliente a recebeu (com o texto
+        # do produto, se houver), vinda de `finalizando.texto_pergunta_campo`.
+        mensagem="Não encontrei esse modelo no nosso catálogo. {pergunta_modelo}",
     ),
     MensagemId.PERGUNTA_CONTINUACAO_ATENDIMENTO: MensagemTemplate(
         id=MensagemId.PERGUNTA_CONTINUACAO_ATENDIMENTO,
@@ -509,10 +507,13 @@ def renderizar_mensagem(
     """
     Renderiza uma mensagem pelo ID.
 
+    `contexto["texto_cadastrado"]`, se vier, substitui o corpo do template (com os mesmos
+    placeholders) e mantém o código: é o texto por produto de `perguntas_produto`.
+
     Returns:
         (texto, codigo) — codigo para auditoria (template_usado).
     """
     tpl = resolver_mensagem(mensagem_id)
     ctx = aplicar_transformers(tpl.transformers, contexto or {})
-    texto = fmt.formatar(tpl.mensagem, **ctx)
+    texto = fmt.formatar(ctx.get("texto_cadastrado") or tpl.mensagem, **ctx)
     return texto, tpl.codigo

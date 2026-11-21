@@ -16,6 +16,7 @@ from services.conversacao.acoes import ContextoAcao, RespostaFragmento, garantir
 from services.conversacao.confirmacao_nome_perfil import (
     contexto_confirmacao,
     nome_perfil_a_confirmar,
+    partes_confirmacao,
     registrar_pergunta,
     saudacao_primeiro_contato,
 )
@@ -30,7 +31,16 @@ _CHAVE_DOC_PENDENTE = CHAVE_DOC_PENDENTE
 _INTENCOES_SO_DOCUMENTO = frozenset(
     {Intencao.FORNECER_CNPJ, Intencao.FORNECER_CPF, Intencao.FORNECER_NOME, Intencao.DESCONHECIDO}
 )
+_INTENCOES_SO_NOME = frozenset({Intencao.FORNECER_NOME, Intencao.SAUDACAO, Intencao.DESCONHECIDO})
 
+
+
+async def _uma_ou_composta(p, partes: list):
+    """Uma parte vai como está; mais de uma (confirmação do nome + pedido de documento)
+    vira resposta composta, uma mensagem de WhatsApp por pergunta."""
+    if len(partes) == 1:
+        return partes[0]
+    return await p._gerador.gerar_composta(partes)
 
 class EsclarecendoState(EstadoAtendimento):
     fase = FaseAtendimento.ESCLARECENDO
@@ -63,11 +73,12 @@ class EsclarecendoState(EstadoAtendimento):
             nome = (ctx.contato.nome if ctx.contato else None) or (ctx.pessoa.nome if ctx.pessoa else None)
             if Intencao.SAUDACAO in ctx.resultado_class.intencoes:
                 if nome:
-                    return (MensagemId.SAUDACAO_COM_NOME, {"nome": nome})
+                    return (MensagemId.SAUDACAO_COM_NOME, {"nome": nome, "mensagem_cliente": ctx.conteudo})
                 nome_perfil = nome_perfil_a_confirmar(ctx) if ctx.atendimento else None
                 if nome_perfil:
                     registrar_pergunta(ctx, nome_perfil)
-                    return (MensagemId.CONFIRMAR_NOME_PERFIL, contexto_confirmacao(nome_perfil, False, False))
+                    contexto = contexto_confirmacao(nome_perfil, False, ctx.conteudo)
+                    return (MensagemId.CONFIRMAR_NOME_PERFIL, contexto)
                 return (MensagemId.PERGUNTAR_NOME, None)
             return await p._fallback_qa_ou_nao_entendi(
                 ctx.conteudo, resultado_class=ctx.resultado_class, db=ctx.db, atendimento=ctx.atendimento,
@@ -87,6 +98,20 @@ class EsclarecendoState(EstadoAtendimento):
                 ctx.dlog.log("esclarecendo", "cortesia com documento pedido → retoma a pergunta")
             return (MensagemId.RETOMAR_PERGUNTA, {"pergunta": pergunta})
 
+        nome_contato = atendimento.contato.nome if atendimento.contato else None
+        if (
+            estado_doc == "solicitado"
+            and nome_contato
+            and ctx.resultado_class.entidades.nomes
+            and set(ctx.resultado_class.intencoes) <= _INTENCOES_SO_NOME
+        ):
+            # Só o nome ("sou o Marcos"), que a saudação pediu junto com o documento:
+            # o nome já foi gravado pela regra global; pede só o documento, que continua
+            # "solicitado". Antes caía no ramo abaixo, marcava "recusado" e dava NAO_ENTENDI.
+            if ctx.dlog:
+                ctx.dlog.log("esclarecendo", "só o nome com documento pedido → pede só o documento")
+            return (MensagemId.PERGUNTAR_CNPJ, {"nome": nome_contato})
+
         if estado_doc in ("solicitado", "recusado"):
             if estado_doc == "solicitado":
                 p._salvar_info_atendimento(ctx.db, atendimento.id, _CHAVE_DOC_PENDENTE, "recusado")
@@ -104,15 +129,14 @@ class EsclarecendoState(EstadoAtendimento):
         p._salvar_info_atendimento(ctx.db, atendimento.id, _CHAVE_DOC_PENDENTE, "solicitado")
 
         if ctx.identificacao.status == StatusIdentificacao.NOVO:
-            return saudacao_primeiro_contato(ctx, modo="identificacao")
+            return await _uma_ou_composta(p, saudacao_primeiro_contato(ctx, modo="identificacao"))
 
-        nome_contato = atendimento.contato.nome if atendimento.contato else None
         nome_perfil = None if nome_contato else nome_perfil_a_confirmar(ctx)
         if nome_perfil:
             # O pedido de nome do PERGUNTAR_CNPJ vira a pergunta de confirmação; o de
-            # CNPJ/CPF continua na mesma frase.
+            # CNPJ/CPF segue em mensagem própria.
             registrar_pergunta(ctx, nome_perfil)
-            return (MensagemId.CONFIRMAR_NOME_PERFIL, contexto_confirmacao(nome_perfil, False, True))
+            return await _uma_ou_composta(p, partes_confirmacao(nome_perfil, False, True, ctx.conteudo))
         return (MensagemId.PERGUNTAR_CNPJ, {"nome": nome_contato})
 
 
