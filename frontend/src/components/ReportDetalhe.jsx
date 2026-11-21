@@ -79,6 +79,7 @@ function ReportDetalhe({ reportId, onClose, onAtualizado, onAbrirAtendimento }) 
   const [categoria, setCategoria] = useState('outro')
   const [severidade, setSeveridade] = useState('media')
   const [resolucao, setResolucao] = useState('')
+  const [correcaoAutomatica, setCorrecaoAutomatica] = useState(false)
   const [salvando, setSalvando] = useState(false)
   const [erroSave, setErroSave] = useState(null)
   const [sucessoSave, setSucessoSave] = useState(false)
@@ -99,6 +100,7 @@ function ReportDetalhe({ reportId, onClose, onAtualizado, onAbrirAtendimento }) 
         setCategoria(r.categoria || 'outro')
         setSeveridade(r.severidade || 'media')
         setResolucao(r.resolucao || '')
+        setCorrecaoAutomatica(!!r.correcao_automatica)
       })
       .catch((e) => !cancelado && setErro(e.message))
       .finally(() => !cancelado && setLoading(false))
@@ -117,6 +119,7 @@ function ReportDetalhe({ reportId, onClose, onAtualizado, onAbrirAtendimento }) 
         categoria,
         severidade,
         resolucao: resolucao.trim() || null,
+        correcao_automatica: correcaoAutomatica,
       })
       setCtx((prev) => (prev ? { ...prev, report: atualizado } : prev))
       // O histórico muda junto com o status; recarrega só ele, sem piscar a tela.
@@ -518,6 +521,26 @@ function ReportDetalhe({ reportId, onClose, onAtualizado, onAbrirAtendimento }) 
                 placeholder="Ex: adicionada regra para 'catracão' no classificador; ajustado template X..."
                 className="w-full border border-gray-300 rounded px-3 py-2 text-sm mt-0.5"
               />
+            </div>
+            {/* Correção automática: a ponte (backend/scripts/ponte_reports_goals.py) transforma o
+                report num goal do Claude, que corrige, publica em develop e faz o deploy. */}
+            <div className="mb-3 flex items-start gap-2">
+              <input
+                id="correcao-automatica"
+                type="checkbox"
+                checked={correcaoAutomatica}
+                disabled={!!ctx?.report?.goal_id}
+                onChange={(e) => setCorrecaoAutomatica(e.target.checked)}
+                className="mt-0.5"
+              />
+              <label htmlFor="correcao-automatica" className="text-sm text-gray-700">
+                Correção automática pelo Claude
+                <span className="block text-xs text-gray-500">
+                  {ctx?.report?.goal_id
+                    ? `Em correção pelo goal ${ctx.report.goal_id}.`
+                    : 'Ao salvar, o report entra na fila: análise da causa raiz, teste, correção, push e deploy, sem revisão humana.'}
+                </span>
+              </label>
             </div>
             {ctx?.report?.resolvido_por && (
               <p className="text-xs text-gray-500 mb-3">

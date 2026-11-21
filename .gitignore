@@ -97,6 +97,7 @@ list_files_to*
 sanity_check.conf
 logs/sanity_check*.log
 logs/.sanity_estado.json
+logs/.deploy_auto.lock
 logs/payloads_twilio*.jsonl
 
 # Backups de dados (contem telefone e nome de cliente real)

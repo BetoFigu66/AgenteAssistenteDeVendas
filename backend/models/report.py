@@ -4,7 +4,7 @@ import enum
 from datetime import datetime
 from typing import TYPE_CHECKING, Optional
 
-from sqlalchemy import Enum, ForeignKey, String, Text
+from sqlalchemy import Boolean, Enum, ForeignKey, String, Text, false
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from utils.datetime_utils import serialize_utc_datetime, utc_now
 
@@ -89,6 +89,14 @@ class ReportProblema(Base):
         index=True,
     )
 
+    # Correção automática: marcado na triagem, o report vira um goal do Claude (análise de causa
+    # raiz, teste que falha, correção, push e deploy). `goal_id` é preenchido pela ponte
+    # (`backend/scripts/ponte_reports_goals.py`) quando o goal é criado; nulo = ainda na fila.
+    correcao_automatica: Mapped[bool] = mapped_column(
+        Boolean, default=False, server_default=false(), nullable=False
+    )
+    goal_id: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
+
     # Resolução
     resolucao: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     resolvido_por: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
@@ -122,6 +130,8 @@ class ReportProblema(Base):
             "severidade": self.severidade.value if self.severidade else None,
             "status": self.status.value if self.status else None,
             "resolvido": self.resolvido,
+            "correcao_automatica": self.correcao_automatica,
+            "goal_id": self.goal_id,
             "resolucao": self.resolucao,
             "resolvido_por": self.resolvido_por,
             "resolvido_em": serialize_utc_datetime(self.resolvido_em),

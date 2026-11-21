@@ -1625,6 +1625,33 @@ segue como nova.
 
 ---
 
+## Correção automática de reports (goals do Claude)
+
+Na tela do report, a caixa **"Correção automática pelo Claude"** põe o report na fila. A cada 10 min a tarefa agendada `PonteGoals-AssistenteVendas` (Windows) roda `scripts/ponte_goals.sh` no WSL, que cria o goal pessoal `report-<id>` (`~/Work/Organizacao/goals/`), um worktree em `.worktrees/report-<id>` (branch `fix/report-<id>`, a partir de `origin/develop`) e dispara o executor. O executor analisa a causa raiz, escreve o teste que falha, corrige, roda a suíte, dá push em develop, faz o deploy e marca o report como resolvido. Um goal de report por vez; um report só entra 2 min depois da última alteração (dá para desmarcar).
+
+**Trava de quota:** a ponte só despacha se o uso semanal (`scripts/claude_quota.py`) estiver até `nível × ritmo proporcional`. O ritmo conta só horas úteis (8h-18h) desde o reinício semanal informado pela própria API (hoje sábado 10:00): são 70 por semana, cada uma soma 1/70. Nível 1 = 100% do proporcional; configurar com `-NivelQuota` no instalador, `--nivel-quota` ou `PONTE_NIVEL_QUOTA`. Quota ilegível = não despacha. A trava vale no despacho: um goal que já começou vai até o fim.
+
+```bash
+# a partir de backend/
+venv/bin/python -m scripts.ponte_reports_goals fila                 # fila e goals de report
+venv/bin/python -m scripts.ponte_reports_goals despachar --dry-run  # o que seria despachado
+venv/bin/python -m scripts.ponte_reports_goals contexto 11          # o que o executor recebe (mascarado)
+tail -f ../logs/ponte_goals.log
+```
+
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts\instalar_ponte_goals.ps1            # instala
+powershell -ExecutionPolicy Bypass -File scripts\instalar_ponte_goals.ps1 -Remover   # desliga a automação
+```
+
+**Deploy:** `bash scripts/deploy_auto.sh` publica `origin/develop` a partir do checkout dedicado `.worktrees/_deploy` (não do checkout principal, que tem WIP), reinicia o backend e espera o `/health` na versão nova. Log em `logs/deploy_auto.log`. Depois do primeiro deploy por ele, a QA (porta 3000) passa a mostrar só o que está publicado em develop.
+
+**Exceções da trava:** o goal leva `permite: push:develop,deploy,concluir` no frontmatter. `~/.claude/hooks/goal_guard.py` libera só `git push origin HEAD:develop` (nunca força nem remoção) e a skill `goal-run` deixa concluir sem revisão humana. Pergunta do executor (report vago, suíte vermelha, deploy falhou) aparece no `/decisoes`.
+
+**Cuidado com o banco compartilhado:** dev e QA usam o mesmo Postgres. Com uma migration aplicada pelo dev e ainda não publicada, o backend de QA sobe mesmo assim (o `upgrade head` do lifespan só registra um warning) e convive com tabela ou coluna nova, mas quebra se a migration removeu ou renomeou algo que o código publicado usa. Os testes dos goals também rodam nesse banco.
+
+---
+
 ## Testador de conversas — bateria de cenários
 
 Sistema separado (`testador_conversas/`, venv próprio) que conversa com o backend pelo

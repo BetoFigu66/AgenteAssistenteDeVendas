@@ -75,6 +75,7 @@ from services.conversacao.catalogo_campos import (
     DESTINO_ITEM_ATENDIMENTO_MODELO_ID,
     campos_do_produto,
 )
+from services.correcao_automatica import registrar_alteracao_report
 from services.cpf.validacao import mascarar_cpf
 from services.dev_limpeza_telefone import apagar_dados_telefone
 from services.envio import entregar_mensagem, marcar_entregue_por_twiml
@@ -1910,6 +1911,9 @@ class AtualizarReportRequest(BaseModel):
     categoria: Optional[str] = None
     severidade: Optional[str] = None
     resolucao: Optional[str] = None
+    # Põe (ou tira) o report da fila da correção automática por goal do Claude
+    # (`services/correcao_automatica.py`).
+    correcao_automatica: Optional[bool] = None
 
 
 @app.post("/api/processamentos/{processamento_id}/reports", status_code=201)
@@ -1953,23 +1957,8 @@ async def criar_report_problema(
         return report.to_dict()
 
 
-def _registrar_alteracao_report(session, report, campo, valor_anterior, valor_novo, ator):
-    """Anota no histórico do report que `campo` mudou (REQ-012.8).
-
-    Só `add` + `flush`: o commit é de quem chamou, para que a alteração e o registro
-    dela caiam na mesma transação. Estado e evento de auditoria em dois commits
-    separados abrem a janela em que um existe sem o outro.
-    """
-    session.add(
-        HistoricoStatusReport(
-            report_id=report.id,
-            campo=campo,
-            valor_anterior=valor_anterior,
-            valor_novo=valor_novo,
-            ator=ator,
-        )
-    )
-    session.flush()
+# Mora em `services/correcao_automatica.py`, que também grava histórico (a ponte dos goals).
+_registrar_alteracao_report = registrar_alteracao_report
 
 
 @app.patch("/api/reports/{report_id}")
@@ -2040,6 +2029,17 @@ async def atualizar_report(
                 ator=resolvido_por,
             )
             setattr(report, campo, valor_novo)
+
+        if payload.correcao_automatica is not None and payload.correcao_automatica != report.correcao_automatica:
+            _registrar_alteracao_report(
+                session,
+                report,
+                campo="correcao_automatica",
+                valor_anterior=str(report.correcao_automatica).lower(),
+                valor_novo=str(payload.correcao_automatica).lower(),
+                ator=resolvido_por,
+            )
+            report.correcao_automatica = payload.correcao_automatica
 
         if payload.resolucao is not None:
             report.resolucao = payload.resolucao or None
