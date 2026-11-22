@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, useMemo } from 'react'
-import { Send, MessageCircle, AlertTriangle, Trash2, Reply, X, UserCircle } from 'lucide-react'
+import { Send, MessageCircle, AlertTriangle, Trash2, Reply, X } from 'lucide-react'
 import Message from './Message'
 import ConversaInfo from './ConversaInfo'
 import BotaoAjuda from './BotaoAjuda'
@@ -127,7 +127,11 @@ function ChatArea({
       </div>
 
       {/* Informações da conversa (empresa, contato, atendimento) */}
-      {telefone && dadosConversa && <ConversaInfo dados={dadosConversa} />}
+      {/* Sem exigir dadosConversa: num telefone novo o nome do perfil precisa estar à mão
+          antes da primeira mensagem, que é quando o identificador o usa. */}
+      {telefone && (
+        <ConversaInfo dados={dadosConversa} nomePerfil={nomePerfil} onNomePerfilChange={onNomePerfilChange} />
+      )}
 
       {/* Mensagens */}
       <div ref={containerMensagensRef} className="flex-1 overflow-y-auto p-4 space-y-3 bg-gray-50">
@@ -184,20 +188,6 @@ function ChatArea({
             </button>
           </div>
         )}
-        {/* Simula o `ProfileName` do WhatsApp: vai em toda mensagem enquanto preenchido. */}
-        <label className="mb-2 flex items-center gap-2 text-xs text-gray-500">
-          <UserCircle size={14} className="shrink-0" />
-          <span className="shrink-0">Nome do perfil (WhatsApp):</span>
-          <input
-            type="text"
-            value={nomePerfil}
-            onChange={(e) => onNomePerfilChange(e.target.value)}
-            placeholder="vazio = sem nome de perfil"
-            disabled={!telefone}
-            maxLength={100}
-            className="input flex-1 py-1 text-xs"
-          />
-        </label>
         <form onSubmit={handleSubmit} className="flex gap-2">
           <input
             ref={inputMensagemRef}

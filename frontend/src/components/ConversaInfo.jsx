@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { Building2, Contact, User, Briefcase, ListChecks, CheckCircle2, Copy, Check, Send, Clock, XCircle, CircleDashed } from 'lucide-react'
+import { Building2, Contact, User, UserCircle, Briefcase, ListChecks, CheckCircle2, Copy, Check, Send, Clock, XCircle, CircleDashed } from 'lucide-react'
 import DetalheModal from './DetalheModal'
 import EmpresaDetalhes from './EmpresaDetalhes'
 import AtendimentoDetalhes from './AtendimentoDetalhes'
@@ -143,7 +143,7 @@ function CamposCapturados({ campos }) {
   )
 }
 
-function ConversaInfo({ dados }) {
+function ConversaInfo({ dados, nomePerfil, onNomePerfilChange }) {
   const [modal, setModal] = useState(null) // 'empresa' | 'atendimento' | null
 
   const empresa = dados?.empresa
@@ -154,6 +154,22 @@ function ConversaInfo({ dados }) {
   return (
     <div className="px-4 py-2 bg-gray-50 border-b border-gray-200 text-sm">
       <div className="flex flex-wrap gap-x-6 gap-y-1">
+        {/* Simula o `ProfileName` do WhatsApp: vai em toda mensagem enquanto preenchido. */}
+        {onNomePerfilChange && (
+          <label className="flex items-center gap-1.5 text-xs text-gray-500">
+            <UserCircle size={14} className="shrink-0 text-inforrel-primary" />
+            <span className="shrink-0">Nome do perfil (WhatsApp):</span>
+            <input
+              type="text"
+              value={nomePerfil || ''}
+              onChange={(e) => onNomePerfilChange(e.target.value)}
+              placeholder="vazio = sem nome"
+              maxLength={100}
+              className="input w-36 py-0.5 px-2 text-xs"
+            />
+          </label>
+        )}
+
         {/* Empresa (PJ) ou Pessoa (PF) — REQ-010, Fase 4 */}
         <div className="flex items-center gap-1.5">
           {empresa ? (

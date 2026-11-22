@@ -154,6 +154,7 @@ function ReportsSection({ processamentoId, reportsIniciais }) {
   const [descricao, setDescricao] = useState('')
   const [categoria, setCategoria] = useState('outro')
   const [severidade, setSeveridade] = useState('media')
+  const [correcaoAutomatica, setCorrecaoAutomatica] = useState(false)
   const [enviando, setEnviando] = useState(false)
   const [erroEnvio, setErroEnvio] = useState(null)
   const [sucesso, setSucesso] = useState(false)
@@ -171,11 +172,13 @@ function ReportsSection({ processamentoId, reportsIniciais }) {
         descricao: descricao.trim(),
         categoria,
         severidade,
+        correcao_automatica: correcaoAutomatica,
       })
       setReports([novo, ...reports])
       setDescricao('')
       setCategoria('outro')
       setSeveridade('media')
+      setCorrecaoAutomatica(false)
       setSucesso(true)
       setTimeout(() => setSucesso(false), 2500)
     } catch (err) {
@@ -237,6 +240,22 @@ function ReportsSection({ processamentoId, reportsIniciais }) {
               ))}
             </select>
           </div>
+        </div>
+        <div className="flex items-start gap-2">
+          <input
+            id={`correcao-automatica-${processamentoId}`}
+            type="checkbox"
+            checked={correcaoAutomatica}
+            onChange={(e) => setCorrecaoAutomatica(e.target.checked)}
+            disabled={enviando}
+            className="mt-0.5"
+          />
+          <label htmlFor={`correcao-automatica-${processamentoId}`} className="text-sm text-gray-700">
+            Correção automática pelo Claude
+            <span className="block text-xs text-gray-500">
+              Ao registrar, o report entra na fila: análise da causa raiz, teste, correção, push e deploy, sem revisão humana.
+            </span>
+          </label>
         </div>
         {erroEnvio && (
           <div className="text-xs text-red-600 flex items-center gap-1">

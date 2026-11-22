@@ -1904,6 +1904,8 @@ class ReportProblemaRequest(BaseModel):
     categoria: Optional[str] = None
     severidade: Optional[str] = None
     mensagem_id: Optional[int] = None
+    # Caixa "Correção automática pelo Claude" já no registro (modal Raciocínio do cérebro).
+    correcao_automatica: bool = False
 
 
 class AtualizarReportRequest(BaseModel):
@@ -1952,6 +1954,11 @@ async def criar_report_problema(
             report.severidade = severidade
 
         session.add(report)
+        session.flush()
+        if payload.correcao_automatica:
+            # Mesmo registro de histórico da marcação feita depois, na triagem (PATCH).
+            registrar_alteracao_report(session, report, "correcao_automatica", "false", "true", autor)
+            report.correcao_automatica = True
         session.commit()
         session.refresh(report)
         return report.to_dict()

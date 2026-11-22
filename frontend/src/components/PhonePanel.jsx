@@ -2,9 +2,11 @@ import { useMemo, useState } from 'react'
 import { Phone, Plus, Search, X } from 'lucide-react'
 import { formatDatetimeBRT } from '../utils/datetime'
 import { criarFiltroTelefone } from '../utils/filtroTelefone'
+import DetalheModal from './DetalheModal'
 
 function PhonePanel({ telefones, telefoneAtual, onSelectTelefone }) {
   const [novoTelefone, setNovoTelefone] = useState('')
+  const [modalNovo, setModalNovo] = useState(false)
   const [filtro, setFiltro] = useState('')
   const filtrados = useMemo(() => {
     const aceita = criarFiltroTelefone(filtro)
@@ -16,6 +18,7 @@ function PhonePanel({ telefones, telefoneAtual, onSelectTelefone }) {
     if (novoTelefone.trim()) {
       onSelectTelefone(novoTelefone.trim())
       setNovoTelefone('')
+      setModalNovo(false)
     }
   }
 
@@ -28,20 +31,11 @@ function PhonePanel({ telefones, telefoneAtual, onSelectTelefone }) {
         Telefones
       </h2>
 
-      {/* Novo telefone; o botão divide a linha com o filtro da lista, para sobrar altura para ela */}
-      <form id="form-novo-telefone" onSubmit={handleSubmit}>
-        <input
-          type="text"
-          value={novoTelefone}
-          onChange={(e) => setNovoTelefone(e.target.value)}
-          placeholder="+5511999999999"
-          className="input mb-2"
-        />
-      </form>
+      {/* O número do telefone novo é digitado num modal; o botão divide a linha com o filtro */}
       <div className="flex items-end gap-2 mb-3">
         <button
-          type="submit"
-          form="form-novo-telefone"
+          type="button"
+          onClick={() => setModalNovo(true)}
           className="btn-primary shrink-0 h-9 px-3 text-sm whitespace-nowrap flex items-center gap-1.5"
         >
           <Plus size={16} />
@@ -110,6 +104,42 @@ function PhonePanel({ telefones, telefoneAtual, onSelectTelefone }) {
           </ul>
         )}
       </div>
+      {modalNovo && (
+        <DetalheModal titulo="Iniciar conversa" onClose={() => setModalNovo(false)}>
+          <form onSubmit={handleSubmit} className="space-y-3">
+            <label htmlFor="novo-telefone" className="block text-sm text-gray-600">
+              Número do telefone (com DDI e DDD)
+            </label>
+            <input
+              id="novo-telefone"
+              type="text"
+              value={novoTelefone}
+              onChange={(e) => setNovoTelefone(e.target.value)}
+              onKeyDown={(e) => e.key === 'Escape' && setModalNovo(false)}
+              placeholder="+5511999999999"
+              autoFocus
+              className="input"
+            />
+            <div className="flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setModalNovo(false)}
+                className="px-4 py-2 text-sm text-gray-600 hover:bg-gray-100 rounded-lg"
+              >
+                Cancelar
+              </button>
+              <button
+                type="submit"
+                disabled={!novoTelefone.trim()}
+                className="btn-primary text-sm flex items-center gap-1.5"
+              >
+                <Plus size={16} />
+                Iniciar
+              </button>
+            </div>
+          </form>
+        </DetalheModal>
+      )}
     </div>
   )
 }

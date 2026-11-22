@@ -8,10 +8,9 @@ do sistema antes de o cliente real passar pela mesma situação.
 
 No painel **Telefones**, à esquerda:
 
-- Digite um número no formato `+5511999999999` e clique em **Iniciar Conversa** para
-  começar um atendimento novo.
-- Ou selecione uma das **Conversas anteriores**, ordenadas da mais recente para a mais
-  antiga, com a data da última mensagem.
+- Clique em **Iniciar Conversa** e digite o número no formato `+5511999999999` na janela que abre, para começar um atendimento novo.
+- Ou selecione um telefone da lista, ordenada da conversa mais recente para a mais antiga, com a data da última mensagem. A lista rola quando não cabe no painel.
+- O campo **Filtrar telefones**, ao lado do botão, reduz a lista. O `*` vale qualquer sequência: `*73*` traz os que contêm 73, `*73` os que terminam com 73 e `+5519*` os que começam com +5519. Sem `*`, um texto com menos de 10 caracteres é busca parcial (`73` é o mesmo que `*73*`) e um com 10 ou mais é o número exato.
 
 O número usado determina quem o sistema acha que está falando. Um telefone já
 cadastrado carrega a empresa e o histórico correspondentes; um número novo entra como
@@ -77,8 +76,7 @@ Em conversas vindas do WhatsApp, o assistente pode perguntar logo no início **"
 chamar assim ou seu nome é outro?"**, usando o nome do perfil do cliente. O nome só é
 gravado depois da resposta: "sim" confirma, outro nome substitui, e um "não" sem nome
 faz o assistente perguntar o nome uma vez. Conversas iniciadas aqui no Chat não têm
-nome de perfil, a menos que você preencha o campo **Nome do perfil (WhatsApp)**, logo
-acima do campo de digitação: enquanto ele estiver preenchido, cada mensagem enviada leva
+nome de perfil, a menos que você preencha o campo **Nome do perfil (WhatsApp)**, na faixa de informações da conversa, antes de Empresa/Pessoa: enquanto ele estiver preenchido, cada mensagem enviada leva
 esse nome como se fosse o perfil do WhatsApp, e o assistente faz a mesma pergunta. O
 campo vale por telefone e não é gravado: some ao recarregar a página. Vazio, a conversa
 segue sem nome de perfil.

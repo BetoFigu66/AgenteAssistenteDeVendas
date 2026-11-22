@@ -119,3 +119,30 @@ def test_contexto_mascara_dados_pessoais(db_session, report_id):
 )
 def test_mascarar(entrada, esperado):
     assert svc.mascarar(entrada) == esperado
+
+
+def test_report_criado_ja_marcado_entra_na_fila_com_historico(client, db_session):
+    """O modal "Raciocínio do cérebro" cria o report já com a caixa marcada."""
+    proc = ProcessamentoMensagem(intencao="saudacao")
+    db_session.add(proc)
+    db_session.commit()
+    try:
+        r = client.post(
+            f"/api/processamentos/{proc.id}/reports",
+            json={"descricao": "Respondeu que não entendeu a pergunta", "correcao_automatica": True},
+        )
+        assert r.status_code == 201, r.text
+        assert r.json()["correcao_automatica"] is True
+        rid = r.json()["id"]
+        historico = client.get(f"/api/reports/{rid}/contexto").json()["historico_status"]
+        assert [(h["campo"], h["valor_anterior"], h["valor_novo"]) for h in historico] == [
+            ("correcao_automatica", "false", "true")
+        ]
+        assert rid in _ids_na_fila(db_session)
+
+        sem = client.post(f"/api/processamentos/{proc.id}/reports", json={"descricao": "Outro problema qualquer"})
+        assert sem.json()["correcao_automatica"] is False
+    finally:
+        db_session.rollback()
+        db_session.query(ProcessamentoMensagem).filter_by(id=proc.id).delete(synchronize_session=False)
+        db_session.commit()

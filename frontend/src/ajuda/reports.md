@@ -12,6 +12,12 @@ formas:
 O objetivo desta tela é transformar esses relatos em melhorias concretas na base de
 conhecimento e no comportamento do assistente.
 
+## Correção automática pelo Claude
+
+A caixa **Correção automática pelo Claude**, na tela do report ou no formulário *Reportar problema*, põe o report na fila de correção automática. A cada 10 minutos a automação pega o report mais severo da fila (um por vez), e o Claude analisa a causa raiz, escreve um teste que reproduz o defeito, corrige, roda todos os testes, publica e atualiza o sistema, sem revisão humana. No fim, o report fica **Resolvido**, com o commit na resolução.
+
+O report só entra 2 minutos depois da última alteração, o que dá tempo de desmarcar um clique errado. Enquanto ele está em correção, a caixa fica travada e mostra o goal responsável. Se a descrição não deixar claro qual é o defeito, o Claude não inventa a correção: registra uma pergunta e espera a resposta. Por isso, descreva o que aconteceu e o que deveria ter acontecido.
+
 ## Painel de números
 
 Os cartões do topo mostram o total de reports e a divisão por situação:
