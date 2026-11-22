@@ -14,7 +14,9 @@ function PhonePanel({ telefones, telefoneAtual, onSelectTelefone }) {
   }
 
   return (
-    <div className="card">
+    // Mesma altura do ChatArea (600px) no desktop; só a lista de conversas rola, para a página
+    // não crescer com o número de telefones e o rodapé continuar visível.
+    <div className="card flex flex-col md:h-[600px]">
       <h2 className="font-semibold text-inforrel-primary mb-4 font-heading flex items-center gap-2">
         <Phone size={20} />
         Telefones
@@ -37,12 +39,12 @@ function PhonePanel({ telefones, telefoneAtual, onSelectTelefone }) {
 
       {/* Lista de telefones — ordenada pelo backend por última mensagem
           (mais recente primeiro), a conversa ativa sempre fica no topo. */}
-      <div className="border-t pt-4">
+      <div className="border-t pt-4 flex flex-col flex-1 min-h-0">
         <p className="text-xs text-gray-500 mb-2">Conversas anteriores:</p>
         {telefones.length === 0 ? (
           <p className="text-gray-400 text-sm italic">Nenhuma conversa</p>
         ) : (
-          <ul className="space-y-1">
+          <ul className="space-y-1 overflow-y-auto flex-1 min-h-0 max-h-80 md:max-h-none pr-1">
             {telefones.map(({ telefone: tel, ultima_mensagem_em }) => (
               <li key={tel}>
                 <button
