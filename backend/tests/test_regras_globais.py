@@ -140,6 +140,42 @@ def test_fornecer_cpf_conclui_sem_pedir_data_de_nascimento(db_session):
         _limpar_com_pessoa(db_session, telefone, "529.982.247-25")
 
 
+def test_nome_e_cpf_na_mesma_mensagem_aviso_cita_os_dois(db_session):
+    """Report #1571: à pergunta "poderia me informar o seu nome e o CNPJ da sua empresa
+    ou seu CPF?" o cliente respondeu nome e CPF juntos, e o aviso dizia só "Anotei seu
+    CPF.", como se o nome tivesse sido ignorado. Com o nome digitado na mesma mensagem, o
+    aviso cita os dois."""
+    telefone = "+5511999988012"
+    try:
+        identificacao = ResultadoIdentificacao(status=StatusIdentificacao.NOVO, contatos=[], empresas=[])
+        resultado_class = ResultadoClassificacao(
+            intencoes=[Intencao.FORNECER_CPF, Intencao.FORNECER_NOME],
+            confianca=0.9,
+            confianca_nivel=NivelConfianca.ALTA,
+            entidades=EntidadesExtraidas(cpfs=[_CPF_VALIDO], nomes=["Maria Cristina"]),
+            origem="regra",
+        )
+        p = ProcessadorMensagem()
+        dlog = DebugLogger(telefone=telefone, msg_id=0)
+
+        resposta = asyncio.run(
+            p._decidir_resposta(
+                db=db_session,
+                telefone=telefone,
+                conteudo=f"Maria Cristina CPF {_CPF_VALIDO}",
+                identificacao=identificacao,
+                resultado_class=resultado_class,
+                dlog=dlog,
+            )
+        )
+        db_session.commit()
+
+        assert resposta.template_usado == "CPF_CONSULTADO_OK+COMO_POSSO_AJUDAR"
+        assert resposta.texto == "Anotei seu nome e CPF.\n\nEm que posso ajudar hoje?"
+    finally:
+        _limpar_com_pessoa(db_session, telefone, "529.982.247-25")
+
+
 def test_data_de_nascimento_na_mensagem_nao_e_gravada(db_session):
     """Se o cliente manda a data por conta própria, ela não vai para a `Pessoa` (REQ-005:
     dado que o sistema não usa)."""

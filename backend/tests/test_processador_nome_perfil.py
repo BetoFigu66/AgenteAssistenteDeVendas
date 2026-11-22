@@ -373,7 +373,8 @@ def test_cpf_com_pessoa_antiga_usa_o_nome_desta_conversa_e_le_o_nao_conheco(db_s
         )
 
         assert abertura.startswith("Boa tarde, Joaquim Barbosa! 👋")
-        assert resposta.startswith("Anotei seu CPF.")
+        # O nome veio digitado junto com o CPF: o aviso cita os dois (report #1571).
+        assert resposta.startswith("Anotei seu nome e CPF.")
         assert "nascimento" not in resposta
         assert "Pode Me Chamar" not in resposta
         assert "Em que posso ajudar" not in resposta

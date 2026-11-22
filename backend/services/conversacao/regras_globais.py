@@ -130,6 +130,7 @@ async def _executar_fornecer_cpf(ctx: ContextoAcao):
         ctx.telefone,
         entidades.cpfs[0],
         nome_informado=_nome_para_pessoa(ctx),
+        nome_digitado=bool(ctx.nome_digitado()),
     )
     ctx.registros.append(resposta)
     if resposta.template_usado == MensagemId.CPF_CONSULTADO_OK.name:

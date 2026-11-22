@@ -116,8 +116,9 @@ CATALOGO: dict[int, MensagemTemplate] = {
         codigo="CPF_CONSULTADO_OK",
         # Só registra: nenhum dado do CPF é consultado (a consulta de crédito do REQ-015.3
         # ainda é um stub), então não se diz "confirmei". O resto da mensagem do cliente
-        # segue normalmente na mesma resposta (a captura não é exclusiva).
-        mensagem="Anotei seu CPF.",
+        # segue normalmente na mesma resposta (a captura não é exclusiva). Com o nome
+        # digitado na mesma mensagem, `dados_anotados` cita os dois (report #1571).
+        mensagem="Anotei seu {dados_anotados}.",
     ),
     # E-mail informado pelo cliente (report #8): grava e agradece, sem cair no "não
     # entendi". Como o aviso do CPF, abre a resposta e o resto da mensagem segue.

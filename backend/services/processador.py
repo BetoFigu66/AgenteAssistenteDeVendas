@@ -1422,6 +1422,7 @@ class ProcessadorMensagem:
         telefone: str,
         cpf: str,
         nome_informado: Optional[str] = None,
+        nome_digitado: bool = False,
     ) -> RespostaGerada:
         """Processa quando o cliente forneceu CPF: valida, persiste pessoa e vincula atendimento.
 
@@ -1464,7 +1465,7 @@ class ProcessadorMensagem:
         nome_exibicao = nome_informado or contato_existente.nome or pessoa.nome or "cliente"
         return await self._gerador.gerar(
             MensagemId.CPF_CONSULTADO_OK,
-            contexto={"nome": nome_exibicao},
+            contexto={"nome": nome_exibicao, "dados_anotados": "nome e CPF" if nome_digitado else "CPF"},
             personalizar=False,
         )
 
