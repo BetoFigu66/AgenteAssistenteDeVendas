@@ -98,6 +98,7 @@ function Message({ mensagem, mensagemCitada, onResponder }) {
 
       {mostrarDebug && temProcessamento && (
         <DetalheModal
+          flutuante
           titulo={`Raciocínio do cérebro — msg #${mensagem.id}`}
           onClose={() => setMostrarDebug(false)}
         >

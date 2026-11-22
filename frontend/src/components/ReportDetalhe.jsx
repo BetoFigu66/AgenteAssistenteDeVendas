@@ -618,6 +618,7 @@ function ReportDetalhe({ reportId, onClose, onAtualizado, onAbrirAtendimento }) 
 
       {mostrarProcessamento && proc && (
         <DetalheModal
+          flutuante
           titulo={`Raciocínio do cérebro — processamento #${proc.id}`}
           onClose={() => setMostrarProcessamento(false)}
         >

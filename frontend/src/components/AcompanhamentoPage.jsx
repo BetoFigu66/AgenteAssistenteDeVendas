@@ -1010,6 +1010,7 @@ function AcompanhamentoPage({ atendimentoIdInicial, onAtendimentoIdInicialConsum
 
       {processamentoSelecionado && (
         <DetalheModal
+          flutuante
           titulo={`Raciocínio do cérebro — processamento #${processamentoSelecionado}`}
           onClose={() => setProcessamentoSelecionado(null)}
         >
