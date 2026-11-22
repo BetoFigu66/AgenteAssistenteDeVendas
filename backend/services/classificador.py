@@ -148,9 +148,13 @@ def pergunta_compatibilidade(texto: str) -> bool:
 # Pedido genérico de mais informação sobre o que acabou de ser apresentado ("não conheço,
 # pode me fornecer mais detalhes?"). É dúvida de produto, mas não diz qual: quem responde
 # consulta a base pelo produto do atendimento (`categoria_pergunta._consulta_rag`).
+# O pedido de explicação solto ("não conheço, pode explicar?", "me explica?") também é
+# pedido de detalhes; sem ele a dúvida se perdia e só a outra pergunta voltava (report #1583).
 _PADRAO_PEDIDO_DETALHES = (
     r"\b(?:mais\s+(?:detalhes|informa[cç](?:[oõ]es|[aã]o))|saber\s+mais"
-    r"|(?:fal(?:e|a)r?|cont(?:e|a)r?|explic(?:ar|a|que))\s+(?:um\s+pouco\s+)?(?:mais|melhor))\b"
+    r"|(?:fal(?:e|a)r?|cont(?:e|a)r?|explic(?:ar|a|que))\s+(?:um\s+pouco\s+)?(?:mais|melhor)"
+    r"|(?:pode|poderia|podia|consegue|conseguiria)\s+(?:me\s+|nos\s+)?explic(?:ar|á-?l[oa]s?)"
+    r"|me\s+explic(?:ar|a|que))\b"
 )
 _RE_PEDIDO_DETALHES = re.compile(_PADRAO_PEDIDO_DETALHES, re.IGNORECASE)
 

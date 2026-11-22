@@ -16,7 +16,7 @@ import re
 import time
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
-from typing import Any, Optional, Sequence
+from typing import Any, Awaitable, Callable, Optional, Sequence
 
 from config import settings
 from models import (
@@ -1112,6 +1112,7 @@ class ProcessadorMensagem:
         dlog: Optional[DebugLogger] = None,
         resultado_class: Optional[ResultadoClassificacao] = None,
         consulta: Optional[str] = None,
+        sem_conteudo: Optional[Callable[[], Awaitable[Optional[RespostaGerada]]]] = None,
     ) -> RespostaGerada:
         """REQ-003.7: quando a base (Q&A/RAG) não tem conteúdo sobre o produto perguntado,
         faz no máximo 1 pergunta de clarificação antes de escalar para atendimento humano —
@@ -1135,6 +1136,14 @@ class ProcessadorMensagem:
             if aguardando_clarificacao:
                 self._remover_info_atendimento(db, atendimento.id, _RAG_CLARIFICACAO_PENDENTE_CHAVE)
             return resposta
+
+        # Outra fonte para a mesma dúvida (o catálogo, num pedido de detalhes): responde
+        # antes de pedir clarificação ao cliente.
+        alternativa = await sem_conteudo() if sem_conteudo else None
+        if alternativa is not None:
+            if aguardando_clarificacao:
+                self._remover_info_atendimento(db, atendimento.id, _RAG_CLARIFICACAO_PENDENTE_CHAVE)
+            return alternativa
 
         if not aguardando_clarificacao:
             self._salvar_info_atendimento(db, atendimento.id, _RAG_CLARIFICACAO_PENDENTE_CHAVE, "1")

@@ -130,13 +130,14 @@ def _linha_modelo(modelo: Modelo) -> str:
     return f"- {modelo.descricao}: {', '.join(detalhes)}" if detalhes else f"- {modelo.descricao}"
 
 
-async def _responder_visao_geral(ctx: ContextoAcao) -> Optional[RespostaGerada]:
+async def _responder_visao_geral(ctx: ContextoAcao, pedido: bool = False) -> Optional[RespostaGerada]:
     """Report #1435: "como cada modelo de catraca funciona?" pede a linha toda, e nenhum
     trecho isolado da base passa do limiar da RAG para uma pergunta assim (caía no pedido
     de clarificação e depois escalava). O catálogo tem o que foi pedido: marca, tecnologia
     de leitura e aplicação de cada modelo. `None` quando não é visão geral ou o catálogo
-    não tem modelos do tipo (segue para a RAG)."""
-    if ctx.db is None or not pedido_visao_geral_modelos(ctx.conteudo):
+    não tem modelos do tipo (segue para a RAG). `pedido=True` dispensa o texto de visão
+    geral: quem chama já sabe que a linha toda serve de resposta."""
+    if ctx.db is None or not (pedido or pedido_visao_geral_modelos(ctx.conteudo)):
         return None
     tipo = _tipo_produto_da_pergunta(ctx)
     produto_ids = produto_ids_por_tipos(ctx.db, [tipo]) if tipo else []
@@ -190,6 +191,10 @@ async def _responder_produto(ctx: ContextoAcao) -> RespostaGerada:
     if visao_geral is not None:
         return visao_geral
     if ctx.db is not None and ctx.atendimento is not None:
+        # Report #1583: "não conheço, pode explicar?" logo depois das marcas apresentadas.
+        # Sem trecho na base, pedir "explique com outras palavras" não ajuda: o catálogo
+        # explica a linha (marcas, tecnologia e aplicação de cada modelo).
+        sem_conteudo = (lambda: _responder_visao_geral(ctx, pedido=True)) if pedido_de_detalhes(ctx.conteudo) else None
         return await p._responder_produto_com_clarificacao(
             ctx.db,
             ctx.atendimento,
@@ -197,6 +202,7 @@ async def _responder_produto(ctx: ContextoAcao) -> RespostaGerada:
             dlog=ctx.dlog,
             resultado_class=ctx.resultado_class,
             consulta=_consulta_rag(ctx),
+            sem_conteudo=sem_conteudo,
         )
     return await p._responder_com_rag(
         conteudo_cliente=ctx.conteudo,
