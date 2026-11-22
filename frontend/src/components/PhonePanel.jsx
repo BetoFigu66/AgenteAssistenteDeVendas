@@ -60,7 +60,7 @@ function PhonePanel({ telefones, telefoneAtual, onSelectTelefone }) {
                 type="text"
                 value={filtro}
                 onChange={(e) => setFiltro(e.target.value)}
-                placeholder="73, *73, +5519*"
+                placeholder="ex.: *73*"
                 title="* vale qualquer sequência: *73* contém 73, *73 termina com 73, +5519* começa com +5519. Sem *, menos de 10 caracteres é busca parcial; 10 ou mais, número exato."
                 className="input h-9 text-sm py-1 pl-7 pr-7"
               />
