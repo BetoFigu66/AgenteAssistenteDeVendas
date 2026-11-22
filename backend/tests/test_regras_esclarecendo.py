@@ -241,6 +241,9 @@ def test_perguntar_disponibilidade_confirma_e_pergunta_faixa_funcionarios(db_ses
         atendimento = contato.atendimentos[0]
         valores = {info.chave: info.valor for info in atendimento.informacoes}
         assert valores.get("tipos_produto") == "relogio_ponto"
+        # O evento da mudança de fase diz o que a causou (era sempre "PEDIR_ORCAMENTO recebido").
+        motivos = [e.motivo for e in atendimento.eventos if e.tipo == "fase_alterada"]
+        assert len(motivos) == 1 and "PERGUNTAR_DISPONIBILIDADE" in motivos[0], motivos
     finally:
         _limpar(db_session, telefone)
 

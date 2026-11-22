@@ -109,6 +109,7 @@ quando ultrapassa o tempo limite definido no parâmetro `sla_aprovacao_minutos`.
 - Botão **Reportar**: abre o mesmo raciocínio, com o formulário **Reportar problema** no
   final (descrição, categoria e severidade). Registra um problema mesmo sem reprovar a
   mensagem.
+- **Marcadores na conversa**: cada mudança de fase (por exemplo *Fase: Esclarecendo → Finalizando*), escalonamento para humano, troca de modo de operação, encerramento e reabertura aparece como um marcador logo depois da mensagem do cliente que a provocou, com o motivo. O laranja destaca o escalonamento. Passe o mouse sobre o marcador para ver horário, quem fez a mudança e o processamento. Mudanças feitas no painel, sem mensagem, aparecem na posição do horário.
 
 ## Mensagens que o assistente não responde
 

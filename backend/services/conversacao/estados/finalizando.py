@@ -143,6 +143,7 @@ class FinalizandoState(EstadoAtendimento):
         mensagem_abertura: MensagemId = MensagemId.INICIAR_FINALIZANDO,
         abertura_contexto: Optional[dict] = None,
         primeira_pergunta: Optional[Pergunta] = None,
+        motivo: str = "PEDIR_ORCAMENTO recebido (E1)",
     ) -> list[tuple[MensagemId, Optional[dict]]]:
         """E1+E3: transita `fase` para Finalizando (se ainda não estiver lá) e decide a
         próxima pergunta. Retorna as partes prontas para `gerar`/`gerar_composta`.
@@ -154,11 +155,12 @@ class FinalizandoState(EstadoAtendimento):
 
         `mensagem_abertura`, `abertura_contexto` e `primeira_pergunta` permitem que fluxos
         específicos (ex.: "vocês vendem X?") substituam a abertura padrão e a primeira
-        pergunta do orçamento, sem alterar o catálogo de campos pendentes.
+        pergunta do orçamento, sem alterar o catálogo de campos pendentes. `motivo` vai para o
+        evento da mudança de fase, que o Acompanhamento mostra junto da mensagem que a causou.
         """
         atendimento = ctx.atendimento
         if atendimento.fase != FaseAtendimento.FINALIZANDO:
-            self.transicionar_para(ctx, FaseAtendimento.FINALIZANDO, motivo="PEDIR_ORCAMENTO recebido (E1)")
+            self.transicionar_para(ctx, FaseAtendimento.FINALIZANDO, motivo=motivo)
 
         # A mensagem que abre a coleta pode já dizer a tecnologia ("relógio de ponto facial"):
         # sem isto, a 1ª pergunta era justamente "cartográfico ou eletrônico?".

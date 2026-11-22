@@ -244,6 +244,7 @@ async def _executar_perguntar_disponibilidade(ctx: ContextoAcao):
         mensagem_abertura=MensagemId.DISPONIBILIDADE_PRODUTO,
         abertura_contexto=ctx_disponibilidade,
         primeira_pergunta=CAMPO_FAIXA_FUNCIONARIOS,
+        motivo="PERGUNTAR_DISPONIBILIDADE recebido: \"vocês vendem X?\" abre a coleta do orçamento",
     )
 
     if saudacao and ctx.dlog:

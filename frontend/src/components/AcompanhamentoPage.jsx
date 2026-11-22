@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react'
+import { Fragment, useState, useEffect, useRef } from 'react'
 import {
   Eye, CheckCircle, XCircle, Send, RefreshCw, Bot, User, Brain, Flag, Clipboard, AlertTriangle, ChevronDown, ChevronRight,
 } from 'lucide-react'
@@ -9,6 +9,7 @@ import ProcessamentoDetalhes from './ProcessamentoDetalhes'
 import EscalonamentosAtendimento from './EscalonamentosAtendimento'
 import DuvidasPendentes from './DuvidasPendentes'
 import { formatDatetimeBRT } from '../utils/datetime'
+import { descreverEvento, intercalarEventos } from '../utils/eventosConversa'
 import {
   numeroAtendimentoExibicao,
   rotuloAtendimento,
@@ -17,6 +18,29 @@ import {
   labelMotivoEscalonamento,
 } from '../utils/atendimento'
 import { useAuth } from '../context/AuthContext'
+
+// Marcador, no meio da conversa, de um evento do atendimento (fase, escalonamento, modo...).
+function MarcadorEvento({ ev }) {
+  const { titulo, detalhe } = descreverEvento(ev)
+  const destaque = ev.tipo === 'escalado' || (ev.tipo === 'modo_operacao_alterado' && ev.estado_novo === 'humano')
+  return (
+    <div
+      className="flex justify-center"
+      title={`${formatDatetimeBRT(ev.timestamp)} · por ${ev.ator}${ev.processamento_id ? ` · processamento #${ev.processamento_id}` : ''}`}
+    >
+      <div
+        className={`max-w-[90%] text-center text-xs rounded-full px-3 py-1 border ${
+          destaque
+            ? 'bg-orange-50 border-orange-300 text-orange-800'  // mesma cor da faixa de escalonamentos
+            : 'bg-inforrel-secondary/10 border-inforrel-secondary/30 text-inforrel-primary'
+        }`}
+      >
+        <span className="font-semibold">{titulo}</span>
+        {detalhe && <span className="text-gray-600"> · {detalhe}</span>}
+      </div>
+    </div>
+  )
+}
 
 function AcompanhamentoPage({ atendimentoIdInicial, onAtendimentoIdInicialConsumido }) {
   const { usuario } = useAuth()
@@ -29,6 +53,8 @@ function AcompanhamentoPage({ atendimentoIdInicial, onAtendimentoIdInicialConsum
   const LIMITE_PAGINA = 20
   const [atendimentoSelecionado, setAtendimentoSelecionado] = useState(null)
   const [mensagensAtendimento, setMensagensAtendimento] = useState([])
+  const [eventosAtendimento, setEventosAtendimento] = useState([])
+  const atendimentoSelecionadoRef = useRef(null)
   const [carregandoAtendimentos, setCarregandoAtendimentos] = useState(false)
   const [carregandoMensagens, setCarregandoMensagens] = useState(false)
   const [erro, setErro] = useState(null)
@@ -127,6 +153,7 @@ function AcompanhamentoPage({ atendimentoIdInicial, onAtendimentoIdInicialConsum
 
   // Troca de atendimento: a faixa começa fechada e só abre se houver não avaliado.
   const atendimentoSelecionadoId = atendimentoSelecionado?.id
+  atendimentoSelecionadoRef.current = atendimentoSelecionadoId
   useEffect(() => {
     escalonamentosVistosRef.current = new Set()
     setMostrarEscalonamentos(false)
@@ -202,6 +229,15 @@ function AcompanhamentoPage({ atendimentoIdInicial, onAtendimentoIdInicialConsum
     } catch (error) {
       console.error('Erro ao carregar mensagens:', error)
       setMensagensAtendimento([])
+    }
+    // Eventos à parte: falhar aqui não pode esconder a conversa.
+    try {
+      const atendimentoId = atendimentoSelecionadoRef.current
+      const data = atendimentoId ? await api.obterEventosAtendimento(atendimentoId) : null
+      setEventosAtendimento(data?.eventos || [])
+    } catch (error) {
+      console.error('Erro ao carregar eventos do atendimento:', error)
+      setEventosAtendimento([])
     } finally {
       setCarregandoMensagens(false)
     }
@@ -687,9 +723,13 @@ function AcompanhamentoPage({ atendimentoIdInicial, onAtendimentoIdInicialConsum
                     Nenhuma mensagem encontrada
                   </div>
                 ) : (
-                  mensagensAtendimento.map((msg) => (
+                  // Mudanças de fase, escalonamento etc. aparecem logo depois da mensagem que as provocou.
+                  intercalarEventos(mensagensAtendimento, eventosAtendimento).map(({ tipo, ev, msg, eventos }) =>
+                    tipo === 'evento' ? (
+                      <MarcadorEvento key={`ev-${ev.id}`} ev={ev} />
+                    ) : (
+                  <Fragment key={msg.id}>
                     <div
-                      key={msg.id}
                       data-mensagem-id={msg.id}
                       className={`flex ${
                         msg.origem === 'user' ? 'justify-end' : 'justify-start'
@@ -803,7 +843,10 @@ function AcompanhamentoPage({ atendimentoIdInicial, onAtendimentoIdInicialConsum
                         )}
                       </div>
                     </div>
-                  ))
+                    {eventos.map((e) => <MarcadorEvento key={`ev-${e.id}`} ev={e} />)}
+                  </Fragment>
+                    )
+                  )
                 )}
               </div>
 
