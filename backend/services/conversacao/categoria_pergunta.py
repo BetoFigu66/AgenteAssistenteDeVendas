@@ -22,6 +22,7 @@ from services.catalogo_produtos import produto_ids_por_tipos
 from services.classificador import (
     Intencao,
     pedido_de_detalhes,
+    pedido_lista_produtos,
     pedido_visao_geral_modelos,
     pergunta_compatibilidade,
 )
@@ -101,7 +102,8 @@ _TECNOLOGIA_LEGIVEL = {
     "facial": "reconhecimento facial",
     "biometria": "biometria",
     "cartao": "cartão de proximidade",
-    "qrcode": "QR Code",
+    "qr_code": "QR Code",
+    "barras": "código de barras",
 }
 
 
@@ -176,6 +178,66 @@ async def _responder_visao_geral(ctx: ContextoAcao, pedido: bool = False) -> Opt
     )
 
 
+# "Controle de acesso" não é uma linha da tabela `produtos`, é uma família delas: perguntar
+# pelos produtos de controle de acesso é perguntar por estas linhas (report #1736).
+_LINHAS_DA_FAMILIA = {
+    "controle_de_acesso": (
+        "catraca", "cancela", "leitor_facial", "leitor_biometrico", "leitor_qr_code", "controle_por_cartao",
+    ),
+}
+
+
+async def _responder_lista_produtos(ctx: ContextoAcao) -> Optional[RespostaGerada]:
+    """Report #1736: "quais produtos vocês vendem para controle de acesso?" pede o que há
+    na linha (catraca biométrica, catraca facial, cancela...), ainda sem marcas. Lista cada
+    linha da família pelas tecnologias de leitura dos modelos ativos do catálogo. `None`
+    quando não é esse pedido ou o catálogo não tem nada (segue para a visão geral e a RAG)."""
+    # Só a linha citada na mensagem: "quais produtos a Inforrel vende?" é sobre a empresa
+    # toda e fica com o Q&A/RAG, não com o produto do atendimento.
+    tipos = ctx.resultado_class.entidades.tipos_produto
+    if ctx.db is None or not tipos or not pedido_lista_produtos(ctx.conteudo):
+        return None
+    tipo = tipos[0]
+
+    # Import tardio: `regras_esclarecendo` importa este módulo.
+    from .regras_esclarecendo import _PRODUTO_SINGULAR, _TECNOLOGIA_FRASE
+
+    itens: list[str] = []
+    for linha in _LINHAS_DA_FAMILIA.get(tipo, (tipo,)):
+        produto_ids = produto_ids_por_tipos(ctx.db, [linha])
+        modelos = (
+            ctx.db.query(Modelo).filter(Modelo.ativo.is_(True), Modelo.produto_id.in_(produto_ids)).all()
+            if produto_ids
+            else []
+        )
+        if not modelos:
+            continue
+        nome = _PRODUTO_SINGULAR.get(linha, linha.replace("_", " "))
+        tecnologias = sorted(
+            {a.valor for m in modelos for a in m.atributos if a.ativo and a.chave == "tecnologia_leitura"}
+        )
+        frases = [
+            _TECNOLOGIA_FRASE.get((linha, t)) or f"{nome} com {_TECNOLOGIA_LEGIVEL.get(t, t)}" for t in tecnologias
+        ] or [nome]
+        for frase in frases:
+            item = f"- {frase[:1].upper()}{frase[1:]}"
+            if item not in itens:
+                itens.append(item)
+    if not itens:
+        return None
+
+    p = ctx.processador
+    atendimento = ctx.atendimento
+    if atendimento is not None and p._info_atendimento(ctx.db, atendimento.id, _RAG_CLARIFICACAO_PENDENTE_CHAVE):
+        p._remover_info_atendimento(ctx.db, atendimento.id, _RAG_CLARIFICACAO_PENDENTE_CHAVE)
+    if ctx.dlog:
+        ctx.dlog.log("categoria_pergunta", f"lista de produtos de {tipo} → {len(itens)} itens do catálogo")
+    return await p._gerador.gerar(
+        MensagemId.PRODUTOS_DA_LINHA,
+        {"produto": _PRODUTO_SINGULAR.get(tipo, tipo.replace("_", " ")), "lista": "\n".join(itens)},
+    )
+
+
 async def _responder_produto(ctx: ContextoAcao) -> RespostaGerada:
     """PERGUNTAR_PRODUTO: com atendimento garantido, aplica clarificação/escalonamento
     (REQ-003.7); sem ele, cai no fallback genérico de sempre.
@@ -187,6 +249,9 @@ async def _responder_produto(ctx: ContextoAcao) -> RespostaGerada:
         if ctx.dlog:
             ctx.dlog.log("categoria_pergunta", "pergunta de compatibilidade → COMPATIBILIDADE_SISTEMA")
         return await p._gerador.gerar(MensagemId.COMPATIBILIDADE_SISTEMA)
+    lista = await _responder_lista_produtos(ctx)
+    if lista is not None:
+        return lista
     visao_geral = await _responder_visao_geral(ctx)
     if visao_geral is not None:
         return visao_geral

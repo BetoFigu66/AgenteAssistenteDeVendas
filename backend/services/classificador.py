@@ -179,6 +179,25 @@ def pedido_visao_geral_modelos(texto: str) -> bool:
     return _RE_VISAO_GERAL_MODELOS.search(texto) is not None
 
 
+# Pedido da lista de produtos de uma linha ("quais produtos vocês vendem para controle de
+# acesso?"). Tem "vendem", mas não é "vocês vendem X?": o cliente quer saber o que há na
+# linha, não se a empresa vende (report #1736). Responde `categoria_pergunta._responder_lista_produtos`.
+_RE_LISTA_PRODUTOS = re.compile(
+    r"\b(?:quais|que)\s+(?:s[aã]o\s+)?(?:os\s+|as\s+)?(?:produtos|equipamentos|solu[cç][oõ]es)\b",
+    re.IGNORECASE,
+)
+
+
+def pedido_lista_produtos(texto: str) -> bool:
+    return _RE_LISTA_PRODUTOS.search(texto) is not None
+
+
+def _pergunta_de_lista(texto: str) -> bool:
+    """"Quais produtos/modelos/tipos vocês vendem?" pede uma lista, não um sim/não: vira
+    PERGUNTAR_PRODUTO no lugar de PERGUNTAR_DISPONIBILIDADE (report #1736)."""
+    return pedido_lista_produtos(texto) or pedido_visao_geral_modelos(texto)
+
+
 _REGRAS_INTENCAO: list[tuple[Intencao, re.Pattern]] = [
     (
         Intencao.ESCALAR_HUMANO,
@@ -799,6 +818,11 @@ def classificar_por_regras(texto: str) -> list[tuple[Intencao, float]]:
         if padrao.search(texto):
             matches.append((intencao, 0.75))
 
+    if _pergunta_de_lista(texto):
+        matches = [
+            (Intencao.PERGUNTAR_PRODUTO if i == Intencao.PERGUNTAR_DISPONIBILIDADE else i, c) for i, c in matches
+        ]
+
     return matches or [(Intencao.DESCONHECIDO, 0.0)]
 
 
@@ -1099,6 +1123,8 @@ async def classificar(
     if not _pedir_orcamento_exige_produto(texto, intencao_llm, entidades_final):
         intencao_llm = Intencao.DESCONHECIDO
         confianca_llm = 0.0
+    elif intencao_llm == Intencao.PERGUNTAR_DISPONIBILIDADE and _pergunta_de_lista(texto):
+        intencao_llm = Intencao.PERGUNTAR_PRODUTO
 
     intencoes = _finalizar_intencoes([(intencao_llm, confianca_llm)], entidades_final)
     comparacao_llm.registrar(

@@ -81,6 +81,7 @@ _PRODUTO_SINGULAR = {
     "camera": "câmera",
     "controle_de_acesso": "controle de acesso",
     "controle_por_cartao": "controle por cartão",
+    "leitor_qr_code": "leitor de QR Code",
     "bastao_de_ronda": "bastão de ronda",
     "roteador": "roteador",
 }
@@ -109,6 +110,8 @@ _TECNOLOGIA_FRASE = {
     ("catraca", "cartao"): "catraca de cartão",
     ("leitor_biometrico", "biometria"): "leitor biométrico",
     ("leitor_facial", "facial"): "leitor facial",
+    ("leitor_qr_code", "qr_code"): "leitor de QR Code",
+    ("controle_por_cartao", "cartao"): "controle por cartão",
 }
 
 
