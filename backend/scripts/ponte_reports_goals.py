@@ -88,6 +88,10 @@ def goals_de_report() -> list[dict]:
     return saida
 
 
+def status_do_goal(gid: str) -> str | None:
+    return next((g.get("status") for g in goals_de_report() if g.get("id") == gid), None)
+
+
 def em_andamento() -> list[dict]:
     return [g for g in goals_de_report() if g.get("status") in EM_ANDAMENTO]
 
@@ -223,15 +227,20 @@ def despachar_um(session, report, repo: Path, py: str) -> str:
     titulo = f"Report #{report.id}: {' '.join(report.descricao.split())[:70]}"
     if not (GOALS_PESSOAIS / gid).is_dir():  # reaproveita o goal de uma rodada que caiu no meio
         goal("novo", "--contexto", "pessoal", "--id", gid, "--titulo", titulo, "--workdir", str(repo),
+             "--status", "pronto",  # o padrão é rascunho, e o `goal disparar` só aceita pronto
              "--prioridade", "alta" if report.severidade.value in ("alta", "critica") else "media",
              "--tag", TAG, "--objetivo", objetivo(report.id, gid, py),
              "--texto-contexto", texto_contexto(report.id, py), "--pronto", PRONTO)
+    elif status_do_goal(gid) != "pronto":
+        goal("status", gid, "pronto", "--motivo", "redespacho pela ponte depois de uma rodada interrompida")
     goal("set", gid, f"permite={PERMITE}")
     goal("artefato", gid, "contexto-report.md", entrada=svc.contexto_markdown(session, report.id))
     wt = preparar_worktree(repo, gid, branch)
     goal("set", gid, f"worktree={wt}", f"branch={branch}")
-    svc.vincular_goal(session, report.id, gid)
     log(goal("disparar", gid))
+    # Só vincula depois do disparo: com o goal_id gravado o report sai da fila, e uma falha antes
+    # disso o deixaria órfão (fora da fila e sem executor). Falhou antes, tenta de novo na próxima.
+    svc.vincular_goal(session, report.id, gid)
     return gid
 
 
