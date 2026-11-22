@@ -1629,6 +1629,8 @@ segue como nova.
 
 Na tela do report, a caixa **"Correção automática pelo Claude"** põe o report na fila. A cada 10 min a tarefa agendada `PonteGoals-AssistenteVendas` (Windows) roda `scripts/ponte_goals.sh` no WSL, que cria o goal pessoal `report-<id>` (`~/Work/Organizacao/goals/`), um worktree em `.worktrees/report-<id>` (branch `fix/report-<id>`, a partir de `origin/develop`) e dispara o executor. O executor analisa a causa raiz, escreve o teste que falha, corrige, roda a suíte, dá push em develop, faz o deploy e marca o report como resolvido. Um goal de report por vez; um report só entra 2 min depois da última alteração (dá para desmarcar).
 
+**Dúvida:** report da categoria *Dúvida* com a caixa marcada (na tela ela se chama "Resposta automática pelo Claude" e já vem marcada) vira um goal que só responde: worktree na branch `duvida/report-<id>`, `permite: concluir` (sem push nem deploy), e o executor grava a resposta com `ponte_reports_goals responder <id> --goal <gid> --arquivo <resposta.md>`. As respostas ficam em `respostas_report` com `origem` `claude` ou `equipe` (a equipe responde pela tela, `POST /api/reports/{id}/respostas`); a primeira resposta a uma dúvida a resolve.
+
 **Trava de quota:** a ponte só despacha se o uso semanal (`scripts/claude_quota.py`) estiver até `nível × ritmo proporcional`. O ritmo conta só horas úteis (8h-18h) desde o reinício semanal informado pela própria API (hoje sábado 10:00): são 70 por semana, cada uma soma 1/70. Nível 1 = 100% do proporcional; configurar com `-NivelQuota` no instalador, `--nivel-quota` ou `PONTE_NIVEL_QUOTA`. Quota ilegível = não despacha. A trava vale no despacho: um goal que já começou vai até o fim.
 
 ```bash

@@ -389,6 +389,19 @@ export const api = {
     }
   },
 
+  async responderReport(reportId, texto) {
+    const response = await apiFetch(`${API_URL}/api/reports/${reportId}/respostas`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ texto }),
+    })
+    if (!response.ok) {
+      const detail = await response.json().catch(() => null)
+      throw new ApiError(detail?.detail || 'Erro ao enviar resposta', response.status, 'server')
+    }
+    return response.json()
+  },
+
   async atualizarReport(reportId, payload) {
     const response = await apiFetch(`${API_URL}/api/reports/${reportId}`, {
       method: 'PATCH',

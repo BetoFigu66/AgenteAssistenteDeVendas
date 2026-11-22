@@ -12,6 +12,7 @@ import {
   labelSeveridade,
 } from '../constants/reports'
 import { rotuloFase, classesFase } from '../utils/atendimento'
+import RespostasReport from './RespostasReport'
 
 function Campo({ label, valor, mono }) {
   if (valor === null || valor === undefined || valor === '') return null
@@ -160,6 +161,15 @@ function ReportsSection({ processamentoId, reportsIniciais }) {
   const [sucesso, setSucesso] = useState(false)
 
   const descricaoValida = descricao.trim().length >= DESCRICAO_REPORT_MIN_CHARS
+  const ehDuvida = categoria === 'duvida'
+
+  // Dúvida já nasce com a resposta automática marcada (dá para desmarcar e esperar a equipe);
+  // ao sair dela a caixa volta desmarcada, porque nas outras categorias ela dispara correção
+  // de código com push e deploy.
+  const mudarCategoria = (nova) => {
+    if ((nova === 'duvida') !== ehDuvida) setCorrecaoAutomatica(nova === 'duvida')
+    setCategoria(nova)
+  }
 
   const handleEnviar = async (e) => {
     e.preventDefault()
@@ -191,14 +201,20 @@ function ReportsSection({ processamentoId, reportsIniciais }) {
   return (
     <div>
       <h3 className="text-sm font-semibold text-inforrel-primary mb-2 flex items-center gap-1.5">
-        <Flag size={14} /> Reportar problema
+        <Flag size={14} /> Reportar problema, dúvida ou sugestão
       </h3>
 
       <form onSubmit={handleEnviar} className="space-y-2 mb-4">
         <textarea
           value={descricao}
           onChange={(e) => setDescricao(e.target.value)}
-          placeholder="Descreva o que deu errado neste processamento (intenção incorreta, resposta inadequada, CNPJ não reconhecido, etc.)"
+          placeholder={
+            ehDuvida
+              ? 'Escreva sua dúvida sobre este processamento ou sobre o sistema'
+              : categoria === 'sugestao'
+                ? 'Descreva sua sugestão de melhoria'
+                : 'Descreva o que deu errado neste processamento (intenção incorreta, resposta inadequada, CNPJ não reconhecido, etc.)'
+          }
           rows={3}
           className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:border-inforrel-primary"
           disabled={enviando}
@@ -214,7 +230,7 @@ function ReportsSection({ processamentoId, reportsIniciais }) {
             <label className="text-xs text-gray-500 uppercase tracking-wide">Categoria</label>
             <select
               value={categoria}
-              onChange={(e) => setCategoria(e.target.value)}
+              onChange={(e) => mudarCategoria(e.target.value)}
               disabled={enviando}
               className="w-full border border-gray-300 rounded px-2 py-1.5 text-sm mt-0.5"
             >
@@ -251,9 +267,11 @@ function ReportsSection({ processamentoId, reportsIniciais }) {
             className="mt-0.5"
           />
           <label htmlFor={`correcao-automatica-${processamentoId}`} className="text-sm text-gray-700">
-            Correção automática pelo Claude
+            {ehDuvida ? 'Resposta automática pelo Claude' : 'Correção automática pelo Claude'}
             <span className="block text-xs text-gray-500">
-              Ao registrar, o report entra na fila: análise da causa raiz, teste, correção, push e deploy, sem revisão humana.
+              {ehDuvida
+                ? 'O Claude investiga o código e responde aqui, em alguns minutos. Desmarcada, a dúvida espera a equipe de desenvolvimento.'
+                : 'Ao registrar, o report entra na fila: análise da causa raiz, teste, correção, push e deploy, sem revisão humana.'}
             </span>
           </label>
         </div>
@@ -320,6 +338,16 @@ function ReportsSection({ processamentoId, reportsIniciais }) {
                   </div>
                 </div>
                 <p className="text-gray-800 whitespace-pre-wrap">{r.descricao}</p>
+                {r.respostas?.length > 0 && (
+                  <div className="mt-2">
+                    <RespostasReport respostas={r.respostas} compacto />
+                  </div>
+                )}
+                {r.categoria === 'duvida' && !r.respostas?.length && (
+                  <p className="mt-1.5 text-xs text-gray-500 italic">
+                    {r.correcao_automatica ? 'Aguardando a resposta do Claude.' : 'Aguardando a resposta da equipe.'}
+                  </p>
+                )}
                 {r.resolucao && (
                   <p className="mt-1.5 text-xs text-gray-600 border-t border-yellow-200 pt-1.5">
                     <strong>Resolução:</strong> {r.resolucao}

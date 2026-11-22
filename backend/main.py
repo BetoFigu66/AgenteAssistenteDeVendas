@@ -38,6 +38,7 @@ from models import (
     MotivoEncerramento,
     MotivoEscalonamento,
     OrigemMensagem,
+    OrigemRespostaReport,
     Parametro,
     PerguntaProduto,
     Pessoa,
@@ -75,7 +76,7 @@ from services.conversacao.catalogo_campos import (
     DESTINO_ITEM_ATENDIMENTO_MODELO_ID,
     campos_do_produto,
 )
-from services.correcao_automatica import registrar_alteracao_report
+from services.correcao_automatica import adicionar_resposta, registrar_alteracao_report
 from services.cpf.validacao import mascarar_cpf
 from services.dev_limpeza_telefone import apagar_dados_telefone
 from services.envio import entregar_mensagem, marcar_entregue_por_twiml
@@ -2053,6 +2054,31 @@ async def atualizar_report(
 
         session.commit()
         session.refresh(report)
+        return report.to_dict()
+
+
+class RespostaReportRequest(BaseModel):
+    texto: str
+
+
+@app.post("/api/reports/{report_id}/respostas", status_code=201)
+async def responder_report(
+    report_id: int,
+    payload: RespostaReportRequest,
+    autor: str = Depends(usuario_nome_atual),
+):
+    """Resposta da equipe de desenvolvimento a um report (sobretudo à categoria Dúvida).
+
+    A resposta do Claude entra pela ponte dos goals (`ponte_reports_goals responder`), pelo
+    mesmo `adicionar_resposta`. Devolve o report inteiro, já com a resposta e o status novo.
+    """
+    if not (payload.texto or "").strip():
+        raise HTTPException(status_code=400, detail="A resposta não pode ser vazia")
+    with db.get_session() as session:
+        if not session.query(ReportProblema).filter_by(id=report_id).first():
+            raise HTTPException(status_code=404, detail="Report não encontrado")
+        adicionar_resposta(session, report_id, payload.texto, OrigemRespostaReport.EQUIPE, autor)
+        report = session.query(ReportProblema).filter_by(id=report_id).one()
         return report.to_dict()
 
 

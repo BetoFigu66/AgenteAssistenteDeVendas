@@ -10,8 +10,16 @@ export const CATEGORIAS = [
     label: 'Escalonamento indevido',
     descricao: 'Escalonamento avaliado como indevido no painel (aberto automaticamente)',
   },
+  { valor: 'duvida', label: 'Dúvida', descricao: 'Pergunta sobre o sistema; respondida pelo Claude ou pela equipe' },
+  { valor: 'sugestao', label: 'Sugestão', descricao: 'Ideia de melhoria' },
   { valor: 'outro', label: 'Outro', descricao: 'Outra categoria' },
 ]
+
+// Quem escreveu uma resposta a um report (`respostas_report.origem` no backend).
+export const ORIGENS_RESPOSTA = {
+  claude: { label: 'Claude', cor: 'bg-purple-100 text-purple-800' },
+  equipe: { label: 'Equipe de desenvolvimento', cor: 'bg-blue-100 text-blue-800' },
+}
 
 export const SEVERIDADES = [
   { valor: 'baixa', label: 'Baixa', cor: 'bg-gray-100 text-gray-700' },

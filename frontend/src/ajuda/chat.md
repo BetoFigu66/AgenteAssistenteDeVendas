@@ -58,7 +58,7 @@ ajuda daquela tela.
 ## As mensagens
 
 - Seus balões aparecem como **Você** (o cliente) e os do sistema como **Assistente**.
-- Ícone de **cérebro**: abre o raciocínio completo que gerou a resposta.
+- Ícone de **cérebro**: abre o raciocínio completo que gerou a resposta. A janela pode ser arrastada pelo cabeçalho e não bloqueia a conversa por trás; ela fecha pelo **X**.
 - **Responder citando** (seta, aparece ao passar o mouse numa mensagem do Assistente):
   marca a qual pergunta sua próxima mensagem responde, como o "Responder" do WhatsApp.
   A citação aparece acima do campo de digitação; o **X** cancela.

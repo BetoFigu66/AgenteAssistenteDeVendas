@@ -12,7 +12,15 @@ import re
 from datetime import timedelta
 from typing import Optional
 
-from models import HistoricoStatusReport, Mensagem, ReportProblema, StatusReport
+from models import (
+    CategoriaReport,
+    HistoricoStatusReport,
+    Mensagem,
+    OrigemRespostaReport,
+    ReportProblema,
+    RespostaReport,
+    StatusReport,
+)
 from sqlalchemy.orm import Session
 from utils.datetime_utils import utc_now
 
@@ -69,14 +77,14 @@ def registrar_alteracao_report(session: Session, report, campo, valor_anterior, 
     session.flush()
 
 
-def _mudar_status(session: Session, report: ReportProblema, novo: StatusReport) -> None:
+def _mudar_status(session: Session, report: ReportProblema, novo: StatusReport, ator: str = ATOR) -> None:
     if report.status == novo:
         return
-    registrar_alteracao_report(session, report, "status", report.status.value, novo.value, ATOR)
+    registrar_alteracao_report(session, report, "status", report.status.value, novo.value, ator)
     report.status = novo
     if novo in _STATUS_TERMINAIS:
         report.resolvido_em = utc_now()
-        report.resolvido_por = ATOR
+        report.resolvido_por = ator
     else:
         report.resolvido_em = None
         report.resolvido_por = None
@@ -128,6 +136,31 @@ def resolver(session: Session, report_id: int, resolucao: str) -> ReportProblema
     report.resolucao = resolucao
     session.commit()
     return report
+
+
+def adicionar_resposta(
+    session: Session, report_id: int, texto: str, origem: OrigemRespostaReport, autor: str
+) -> RespostaReport:
+    """Grava uma resposta ao report; numa Dúvida ainda aberta, a resposta a resolve.
+
+    Serve aos dois caminhos: a equipe pela tela (`POST /api/reports/{id}/respostas`) e o
+    Claude pela ponte (`ponte_reports_goals responder`). A mudança de status leva o mesmo
+    `autor` no histórico, para a linha dizer quem respondeu. Outras categorias recebem a
+    resposta sem mudar de status: ali quem decide o fim é a triagem.
+    """
+    texto = (texto or "").strip()
+    if not texto:
+        raise ValueError("Resposta vazia")
+    report = session.query(ReportProblema).filter_by(id=report_id).one()
+    resposta = RespostaReport(report_id=report.id, texto=texto, origem=origem, autor=autor)
+    session.add(resposta)
+    if report.categoria == CategoriaReport.DUVIDA and report.status not in _STATUS_TERMINAIS:
+        if report.status == StatusReport.ABERTO:
+            _mudar_status(session, report, StatusReport.EM_ANALISE, autor)
+        _mudar_status(session, report, StatusReport.RESOLVIDO, autor)
+    session.commit()
+    session.refresh(resposta)
+    return resposta
 
 
 def contexto_markdown(session: Session, report_id: int, janela: int = 12) -> str:

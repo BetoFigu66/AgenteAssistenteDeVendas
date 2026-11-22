@@ -10,6 +10,7 @@ import {
   ExternalLink,
   BookOpen,
   History,
+  Send,
 } from 'lucide-react'
 import { api } from '../services/api'
 import DetalheModal from './DetalheModal'
@@ -29,6 +30,7 @@ import {
   statusPermitidos,
 } from '../constants/reports'
 import { labelAvaliacaoEscalonamento } from '../utils/escalonamento'
+import RespostasReport from './RespostasReport'
 
 // O histórico do report deixou de ser só de status (REQ-012.8): a mesma lista traz agora
 // alterações de categoria e severidade, distinguidas pelo campo `campo`. As chaves
@@ -87,6 +89,11 @@ function ReportDetalhe({ reportId, onClose, onAtualizado, onAbrirAtendimento }) 
   const [erroYaml, setErroYaml] = useState(null)
   const [mostrarProcessamento, setMostrarProcessamento] = useState(false)
 
+  // Resposta da equipe a uma dúvida (o Claude responde pela ponte dos goals)
+  const [textoResposta, setTextoResposta] = useState('')
+  const [respondendo, setRespondendo] = useState(false)
+  const [erroResposta, setErroResposta] = useState(null)
+
   useEffect(() => {
     let cancelado = false
     setLoading(true)
@@ -136,6 +143,39 @@ function ReportDetalhe({ reportId, onClose, onAtualizado, onAbrirAtendimento }) 
       setErroSave(e.message || 'Falha ao salvar')
     } finally {
       setSalvando(false)
+    }
+  }
+
+  // Sincroniza o formulário de triagem com o report salvo no backend.
+  const aplicarReport = (r) => {
+    setStatus(r.status || 'aberto')
+    setCategoria(r.categoria || 'outro')
+    setSeveridade(r.severidade || 'media')
+    setResolucao(r.resolucao || '')
+    setCorrecaoAutomatica(!!r.correcao_automatica)
+  }
+
+  const enviarResposta = async () => {
+    if (!textoResposta.trim() || respondendo) return
+    setRespondendo(true)
+    setErroResposta(null)
+    try {
+      const atualizado = await api.responderReport(reportId, textoResposta.trim())
+      setTextoResposta('')
+      aplicarReport(atualizado)
+      setCtx((prev) => (prev ? { ...prev, report: atualizado } : prev))
+      // A primeira resposta a uma dúvida a resolve: o histórico ganha linhas novas.
+      api
+        .obterContextoReport(reportId)
+        .then((d) =>
+          setCtx((prev) => (prev ? { ...prev, historico_status: d.historico_status || [] } : prev))
+        )
+        .catch(() => {})
+      onAtualizado?.(atualizado)
+    } catch (e) {
+      setErroResposta(e.message || 'Falha ao enviar resposta')
+    } finally {
+      setRespondendo(false)
     }
   }
 
@@ -219,6 +259,55 @@ function ReportDetalhe({ reportId, onClose, onAtualizado, onAbrirAtendimento }) 
               {report.autor && ` — por ${report.autor}`}
             </p>
           </div>
+
+          {/* Respostas (Dúvida): do Claude, pela ponte dos goals, ou da equipe */}
+          {(report.categoria === 'duvida' || report.respostas?.length > 0) && (
+            <div>
+              <h3 className="text-sm font-semibold text-inforrel-primary mb-2 flex items-center gap-1.5">
+                <MessageCircle size={14} /> Respostas
+              </h3>
+              {report.respostas?.length > 0 ? (
+                <RespostasReport respostas={report.respostas} />
+              ) : (
+                <p className="text-xs text-gray-500 italic">
+                  {report.correcao_automatica
+                    ? report.goal_id
+                      ? `O Claude está respondendo (goal ${report.goal_id}).`
+                      : 'Na fila para resposta automática do Claude.'
+                    : 'Ainda sem resposta.'}
+                </p>
+              )}
+              <div className="mt-2 space-y-2">
+                <textarea
+                  value={textoResposta}
+                  onChange={(e) => setTextoResposta(e.target.value)}
+                  rows={2}
+                  placeholder="Responder como equipe de desenvolvimento..."
+                  className="w-full border border-gray-300 rounded px-3 py-2 text-sm"
+                  disabled={respondendo}
+                />
+                {erroResposta && (
+                  <div className="text-xs text-red-600 flex items-center gap-1">
+                    <AlertTriangle size={12} /> {erroResposta}
+                  </div>
+                )}
+                <div className="flex justify-end">
+                  <button
+                    type="button"
+                    onClick={enviarResposta}
+                    disabled={!textoResposta.trim() || respondendo}
+                    className="btn-primary text-sm px-4 py-1.5 rounded flex items-center gap-1.5 disabled:opacity-50"
+                  >
+                    {respondendo ? (
+                      <><Loader2 size={14} className="animate-spin" /> Enviando...</>
+                    ) : (
+                      <><Send size={14} /> Enviar resposta</>
+                    )}
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* Contexto da conversa */}
           {msgs.length > 0 && (
@@ -534,11 +623,13 @@ function ReportDetalhe({ reportId, onClose, onAtualizado, onAbrirAtendimento }) 
                 className="mt-0.5"
               />
               <label htmlFor="correcao-automatica" className="text-sm text-gray-700">
-                Correção automática pelo Claude
+                {categoria === 'duvida' ? 'Resposta automática pelo Claude' : 'Correção automática pelo Claude'}
                 <span className="block text-xs text-gray-500">
                   {ctx?.report?.goal_id
-                    ? `Em correção pelo goal ${ctx.report.goal_id}.`
-                    : 'Ao salvar, o report entra na fila: análise da causa raiz, teste, correção, push e deploy, sem revisão humana.'}
+                    ? `${ctx.report.categoria === 'duvida' ? 'Respondida' : 'Em correção'} pelo goal ${ctx.report.goal_id}.`
+                    : categoria === 'duvida'
+                      ? 'Ao salvar, a dúvida entra na fila: o Claude investiga o código e responde aqui.'
+                      : 'Ao salvar, o report entra na fila: análise da causa raiz, teste, correção, push e deploy, sem revisão humana.'}
                 </span>
               </label>
             </div>

@@ -75,3 +75,21 @@ def test_goal_do_proprio_report_na_fila_nao_ocupa_vaga(monkeypatch):
     fila = [SimpleNamespace(id=7)]
     assert [g["id"] for g in ponte.ocupando_vaga(fila)] == ["report-9"]
     assert [g["id"] for g in ponte.ocupando_vaga([])] == ["report-7", "report-9"]
+
+
+def test_duvida_vira_goal_que_so_responde(ambiente):
+    duvida = SimpleNamespace(
+        id=8,
+        descricao="Por que o bot pediu o CNPJ antes do nome?",
+        severidade=SimpleNamespace(value="baixa"),
+        categoria=SimpleNamespace(value="duvida"),
+    )
+    ponte.despachar_um(None, duvida, Path("/repo"), "py")
+    novo = next(c for c in ambiente.chamadas if c[0] == "novo")
+    objetivo = novo[novo.index("--objetivo") + 1]
+    assert "responder 8 --goal report-8" in objetivo
+    assert "deploy_auto" not in objetivo and "git push" not in objetivo
+    # Sem push nem deploy na trava do executor.
+    assert ("set", "report-8", f"permite={ponte.PERMITE_DUVIDA}") in ambiente.chamadas
+    assert "push" not in ponte.PERMITE_DUVIDA and "deploy" not in ponte.PERMITE_DUVIDA
+    assert ambiente.vinculos == [(8, "report-8")]

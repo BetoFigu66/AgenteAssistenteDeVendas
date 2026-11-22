@@ -10,6 +10,7 @@ import {
   corSeveridade,
   corStatus,
   labelCategoria,
+  ORIGENS_RESPOSTA,
   labelSeveridade,
   labelStatus,
 } from '../constants/reports'
@@ -397,6 +398,12 @@ function ReportsPage({ onVoltar, onAbrirAtendimento }) {
                   <span className="text-xs bg-gray-100 text-gray-700 px-2 py-0.5 rounded-full">
                     {labelCategoria(r.categoria)}
                   </span>
+                  {r.respostas?.length > 0 && (
+                    <span className="text-xs bg-purple-50 text-purple-800 px-2 py-0.5 rounded-full">
+                      Respondida por{' '}
+                      {[...new Set(r.respostas.map((x) => ORIGENS_RESPOSTA[x.origem]?.label || x.origem))].join(' e ')}
+                    </span>
+                  )}
                 </div>
                 <span className="text-xs text-gray-500">
                   {formatDatetimeBRT(r.created_at)}

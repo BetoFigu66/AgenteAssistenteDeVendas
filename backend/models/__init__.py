@@ -46,7 +46,9 @@ from .rag import DocumentoConhecimento, ParQA
 from .report import (
     CategoriaReport,
     HistoricoStatusReport,
+    OrigemRespostaReport,
     ReportProblema,
+    RespostaReport,
     SeveridadeReport,
     StatusReport,
 )
@@ -97,7 +99,9 @@ __all__ = [
     "Pessoa",
     "ProcessamentoMensagem",
     "Produto",
+    "OrigemRespostaReport",
     "ReportProblema",
+    "RespostaReport",
     "SeveridadeReport",
     "SocioEmpresa",
     "StatusAtendimento",

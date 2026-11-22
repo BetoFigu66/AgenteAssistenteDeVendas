@@ -24,7 +24,7 @@
         "src/components/AtendimentoDetalhes.jsx",
         "src/components/EscalonamentosAtendimento.jsx"
       ],
-      "hash": "dfb0c1851e907e5f"
+      "hash": "abc076b2b983cc95"
     },
     "acompanhamento": {
       "componentes": [
@@ -32,14 +32,14 @@
         "src/components/EscalonamentosAtendimento.jsx",
         "src/components/ProcessamentoDetalhes.jsx"
       ],
-      "hash": "7c7a6311ce23c93d"
+      "hash": "6e2e342f3158b65b"
     },
     "reports": {
       "componentes": [
         "src/components/ReportsPage.jsx",
         "src/components/ReportDetalhe.jsx"
       ],
-      "hash": "3d98298148513925"
+      "hash": "80e72ccfee371985"
     },
     "qa-base": {
       "componentes": [
@@ -73,7 +73,7 @@
       "componentes": [
         "src/components/SistemaPage.jsx"
       ],
-      "hash": "1106c33fd95183cd"
+      "hash": "7480de8f0357007d"
     }
   }
 }

@@ -24,7 +24,18 @@ class CategoriaReport(str, enum.Enum):
     DADOS = "dados"  # dados incorretos (CNPJ, contato, etc.)
     LLM = "llm"  # problema com a LLM (timeout, erro, etc.)
     ESCALONAMENTO_INDEVIDO = "escalonamento_indevido"  # escalonamento avaliado como indevido (REQ-004.5C)
+    # Não são defeitos: quem reporta pergunta ou propõe algo. A dúvida é respondida (pelo
+    # Claude, via ponte dos goals, ou pela equipe) em `RespostaReport`.
+    DUVIDA = "duvida"
+    SUGESTAO = "sugestao"
     OUTRO = "outro"
+
+
+class OrigemRespostaReport(str, enum.Enum):
+    """Quem escreveu uma resposta a um report."""
+
+    CLAUDE = "claude"  # executor de goal (backend/scripts/ponte_reports_goals.py)
+    EQUIPE = "equipe"  # equipe de desenvolvimento, pela tela do report
 
 
 class SeveridadeReport(str, enum.Enum):
@@ -112,6 +123,13 @@ class ReportProblema(Base):
 
     # Relacionamentos
     processamento: Mapped["ProcessamentoMensagem"] = relationship(back_populates="reports")
+    # selectin: a lista de reports serializa as respostas de todos sem uma consulta por report.
+    respostas: Mapped[list["RespostaReport"]] = relationship(
+        back_populates="report",
+        cascade="all, delete-orphan",
+        order_by="RespostaReport.created_at",
+        lazy="selectin",
+    )
 
     @property
     def resolvido(self) -> bool:
@@ -135,8 +153,45 @@ class ReportProblema(Base):
             "resolucao": self.resolucao,
             "resolvido_por": self.resolvido_por,
             "resolvido_em": serialize_utc_datetime(self.resolvido_em),
+            "respostas": [r.to_dict() for r in self.respostas],
             "created_at": serialize_utc_datetime(self.created_at),
             "updated_at": serialize_utc_datetime(self.updated_at),
+        }
+
+
+class RespostaReport(Base):
+    """Resposta a um report, sobretudo à categoria Dúvida.
+
+    Tabela própria em vez de reaproveitar `resolucao`: uma dúvida pode receber mais de uma
+    resposta (o Claude responde e a equipe complementa), e cada uma precisa dizer quem a
+    escreveu. `resolucao` continua sendo o registro do que foi feito para resolver.
+    """
+
+    __tablename__ = "respostas_report"
+
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    report_id: Mapped[int] = mapped_column(
+        ForeignKey("reports_problema.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    texto: Mapped[str] = mapped_column(Text, nullable=False)
+    origem: Mapped[OrigemRespostaReport] = mapped_column(
+        Enum(OrigemRespostaReport, values_callable=lambda x: [e.value for e in x]),
+        nullable=False,
+    )
+    # Nome de quem respondeu: o usuário logado (equipe) ou "Claude (goal report-N)".
+    autor: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(UTCDateTime, default=utc_now, nullable=False)
+
+    report: Mapped["ReportProblema"] = relationship(back_populates="respostas")
+
+    def to_dict(self) -> dict:
+        return {
+            "id": self.id,
+            "report_id": self.report_id,
+            "texto": self.texto,
+            "origem": self.origem.value if self.origem else None,
+            "autor": self.autor,
+            "created_at": serialize_utc_datetime(self.created_at),
         }
 
 

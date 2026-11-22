@@ -12,6 +12,10 @@ Uso (a partir de backend/, com o venv):
     venv/bin/python -m scripts.ponte_reports_goals despachar [--max-simultaneos 1] [--aguardar] [--dry-run]
     venv/bin/python -m scripts.ponte_reports_goals contexto <report_id>
     venv/bin/python -m scripts.ponte_reports_goals resolver <report_id> --goal <id> --commit <sha> --resumo "..."
+    venv/bin/python -m scripts.ponte_reports_goals responder <report_id> --goal <id> --arquivo <resposta.md>
+
+Report da categoria Dúvida vira um goal que só responde (sem código, push nem deploy): o
+executor grava a resposta com `responder`, e ela aparece na tela do report como "Claude".
 
 `despachar` é o que a tarefa agendada do Windows roda (scripts/instalar_ponte_goals.ps1).
 Com `--aguardar` o processo fica vivo enquanto houver goal de report executando: é o que
@@ -44,6 +48,8 @@ EM_ANDAMENTO = ("pronto", "executando")
 # publica em develop, faz o deploy e conclui sozinho. Projeto não oficial, sem revisão humana
 # por decisão do Beto (21/11/2026).
 PERMITE = "push:develop,deploy,concluir"
+# Dúvida só é respondida: nada de push nem deploy.
+PERMITE_DUVIDA = "concluir"
 ESPERA_MAX_S = 4 * 3600
 
 # Trava de quota: só despacha se o uso semanal estiver dentro do ritmo proporcional ao tempo
@@ -173,6 +179,24 @@ def objetivo(report_id: int, gid: str, py: str) -> str:
 Exceções deste goal à trava do executor (frontmatter `permite: {PERMITE}`): pode dar push em develop, fazer o deploy e concluir o goal sem revisão humana. Nunca: `--force`, `--no-verify`, apagar ou pular teste existente para passar, push em outra branch. Se a suíte não ficar verde, o rebase tiver conflito fora do `VERSAO` ou o deploy falhar, pare e registre `goal perguntar {gid} --tipo decisao` com a saída."""  # noqa: E501 (texto do goal, um passo por linha)
 
 
+def objetivo_duvida(report_id: int, gid: str, py: str) -> str:
+    return f"""Responder a dúvida do report #{report_id} do AgenteAssistenteDeVendas. Quem perguntou é usuário do painel (equipe Inforrel ou de desenvolvimento) e vai ler a resposta na tela do report. Não altere código, não faça commit, push nem deploy.
+
+1. Ler `artefatos/contexto-report.md` (a dúvida, o processamento e a conversa em volta). Para mais dados, consultar o banco só com SELECT: `docker.exe exec inforrel_postgres psql -U inforrel -d assistente_vendas -c "..."`. CPF, CNPJ, e-mail e datas de nascimento vistos no banco não vão para a resposta, artefatos nem log.
+2. Investigar no código deste worktree (origin/develop), no CLAUDE.md, em `docs/` e nos requisitos (`artefatos/requisitos_formais/`) até ter uma resposta fundamentada. Se a dúvida é sobre o comportamento numa conversa, explicar o porquê olhando o processamento (intenção, regra, template, RAG).
+3. Escrever a resposta em `artefatos/resposta.md`, em português, para quem usa o painel: direta, sem jargão de código quando não for preciso (arquivo:linha só se ajudar), sem travessões em excesso. Se a dúvida revelar um defeito, diga isso na resposta e sugira registrar um report de correção. Se não houver como responder com segurança, diga o que falta, em vez de inventar.
+4. Gravar: em `backend/`, `{py} -m scripts.ponte_reports_goals responder {report_id} --goal {gid} --arquivo <caminho absoluto de artefatos/resposta.md>`.
+5. `goal estado` e `goal status {gid} concluido --motivo "dúvida respondida"`.
+
+Exceção deste goal à trava do executor (frontmatter `permite: {PERMITE_DUVIDA}`): pode concluir sem revisão humana. Se não conseguir gravar a resposta, registre `goal perguntar {gid} --tipo decisao` com a saída."""  # noqa: E501 (texto do goal, um passo por linha)
+
+
+PRONTO_DUVIDA = (
+    "Resposta fundamentada gravada no report (aparece na tela como respondida pelo Claude); "
+    "nenhum código alterado."
+)
+
+
 def texto_contexto(report_id: int, py: str) -> str:
     return (
         f"Criado pela ponte `backend/scripts/ponte_reports_goals.py` a partir do report #{report_id}, "
@@ -232,19 +256,28 @@ def cmd_fila(_a) -> None:
         print(f"  {g['id']}: {g.get('status')}")
 
 
+def eh_duvida(report) -> bool:
+    categoria = getattr(report, "categoria", None)
+    return categoria is not None and categoria.value == "duvida"
+
+
 def despachar_um(session, report, repo: Path, py: str) -> str:
     gid = f"report-{report.id}"
-    branch = f"fix/{gid}"
-    titulo = f"Report #{report.id}: {' '.join(report.descricao.split())[:70]}"
+    duvida = eh_duvida(report)
+    branch = f"{'duvida' if duvida else 'fix'}/{gid}"
+    rotulo = "Dúvida" if duvida else "Report"
+    titulo = f"{rotulo} #{report.id}: {' '.join(svc.mascarar(report.descricao).split())[:70]}"
     if not (GOALS_PESSOAIS / gid).is_dir():  # reaproveita o goal de uma rodada que caiu no meio
         goal("novo", "--contexto", "pessoal", "--id", gid, "--titulo", titulo, "--workdir", str(repo),
              "--status", "pronto",  # o padrão é rascunho, e o `goal disparar` só aceita pronto
              "--prioridade", "alta" if report.severidade.value in ("alta", "critica") else "media",
-             "--tag", TAG, "--objetivo", objetivo(report.id, gid, py),
-             "--texto-contexto", texto_contexto(report.id, py), "--pronto", PRONTO)
+             "--tag", TAG,
+             "--objetivo", objetivo_duvida(report.id, gid, py) if duvida else objetivo(report.id, gid, py),
+             "--texto-contexto", texto_contexto(report.id, py),
+             "--pronto", PRONTO_DUVIDA if duvida else PRONTO)
     elif status_do_goal(gid) != "pronto":
         goal("status", gid, "pronto", "--motivo", "redespacho pela ponte depois de uma rodada interrompida")
-    goal("set", gid, f"permite={PERMITE}")
+    goal("set", gid, f"permite={PERMITE_DUVIDA if duvida else PERMITE}")
     goal("artefato", gid, "contexto-report.md", entrada=svc.contexto_markdown(session, report.id))
     wt = preparar_worktree(repo, gid, branch)
     goal("set", gid, f"worktree={wt}", f"branch={branch}")
@@ -305,6 +338,18 @@ def cmd_resolver(a) -> None:
         print(f"report #{r.id}: {r.status.value}")
 
 
+def cmd_responder(a) -> None:
+    texto = Path(a.arquivo).read_text(encoding="utf-8") if a.arquivo else a.texto
+    if not (texto or "").strip():
+        sys.exit("resposta vazia: passe --arquivo ou --texto")
+    db = Database()
+    with db.get_session() as session:
+        svc.adicionar_resposta(session, a.report_id, texto, svc.OrigemRespostaReport.CLAUDE,
+                               f"Claude (goal {a.goal})")
+        r = session.query(svc.ReportProblema).filter_by(id=a.report_id).one()
+        print(f"report #{r.id}: resposta gravada, status {r.status.value}")
+
+
 def main() -> None:
     p = argparse.ArgumentParser(description="Ponte reports de problema → goals do Claude")
     sub = p.add_subparsers(dest="cmd", required=True)
@@ -325,6 +370,13 @@ def main() -> None:
     r.add_argument("--commit", required=True)
     r.add_argument("--resumo", required=True)
     r.set_defaults(f=cmd_resolver)
+    resp = sub.add_parser("responder", help="grava a resposta do Claude a um report (Dúvida)")
+    resp.add_argument("report_id", type=int)
+    resp.add_argument("--goal", required=True)
+    fonte = resp.add_mutually_exclusive_group(required=True)
+    fonte.add_argument("--arquivo", help="arquivo com a resposta (markdown/texto)")
+    fonte.add_argument("--texto")
+    resp.set_defaults(f=cmd_responder)
     a = p.parse_args()
     a.f(a)
 
