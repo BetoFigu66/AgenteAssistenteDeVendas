@@ -14,6 +14,7 @@ from __future__ import annotations
 
 from typing import Optional
 
+from config import settings
 from models import (
     Atendimento,
     AtributoAdicionalModelo,
@@ -220,6 +221,19 @@ class FinalizandoState(EstadoAtendimento):
         eh_duvida = assunto is not None and assunto.value in _INTENCOES_RAG
         if eh_duvida and not tem_sinal_modelo_fresco:
             return await self._retomar_apos_duvida(ctx)
+        if (
+            assunto == Intencao.DESCONHECIDO
+            and ctx.captura_pilha is None
+            and not tem_sinal_modelo_fresco
+            and not entidades.tipos_produto
+        ):
+            # Pergunta que as regras não reconhecem mas está na base Q&A curada (report #7:
+            # "Quais produtos a Inforrel vende?"). Fora de Finalizando o fallback do
+            # processador consulta o Q&A; aqui a fase sempre responde, então consulta antes
+            # de repetir a pergunta pendente.
+            resposta_qa = await self._resposta_qa(ctx)
+            if resposta_qa is not None:
+                return await self._retomar_apos_duvida(ctx, resposta_duvida=resposta_qa)
 
         modelo_nao_reconhecido = await self._resolver_modelo(ctx)
         # O modelo é o único campo que a pilha não grava (vai para o catálogo): se acabou
@@ -529,17 +543,39 @@ class FinalizandoState(EstadoAtendimento):
             ctx.db.flush()
         return item
 
-    async def _retomar_apos_duvida(self, ctx: ContextoAcao) -> RespostaGerada:
+    async def _resposta_qa(self, ctx: ContextoAcao) -> Optional[RespostaGerada]:
+        """O par Q&A curado que responde a mensagem, ou `None` (sem par, QA desligado)."""
+        par = await ctx.processador._qa.buscar_melhor(
+            ctx.conteudo, apenas_aprovados=settings.QA_APENAS_APROVADOS, dlog=ctx.dlog
+        )
+        if par is None:
+            return None
+        if ctx.dlog:
+            ctx.dlog.log("finalizando", f"mensagem não reconhecida com par Q&A id={par.id_externo} → responde")
+        return RespostaGerada(
+            texto=par.resposta,
+            template_usado="qa_pair",
+            personalizado_via_llm=False,
+            rag_utilizada=True,
+            trechos_rag=[par.to_dict()],
+            rag_score_maximo=par.score,
+        )
+
+    async def _retomar_apos_duvida(
+        self, ctx: ContextoAcao, resposta_duvida: Optional[RespostaGerada] = None
+    ) -> RespostaGerada:
         """F3: se a mensagem em Finalizando for uma dúvida (categoria_pergunta), responde via
         Q&A/RAG e reapresenta a última pergunta pendente — sem perder o progresso da
-        coleta (a fase continua Finalizando)."""
+        coleta (a fase continua Finalizando). `resposta_duvida` já pronta (par Q&A achado
+        para uma mensagem não reconhecida) dispensa a busca pela categoria."""
         atendimento = ctx.atendimento
         resultado_class = ctx.resultado_class
         p = ctx.processador
         dlog = ctx.dlog
 
         intencao_duvida = _intencao_de_assunto(resultado_class) or resultado_class.intencao_principal
-        resposta_duvida = await responder_categoria_pergunta(intencao_duvida, ctx)
+        if resposta_duvida is None:
+            resposta_duvida = await responder_categoria_pergunta(intencao_duvida, ctx)
 
         if atendimento.modo_operacao == ModoOperacao.HUMANO:
             # A dúvida acabou de escalar para atendimento humano (base insuficiente,
