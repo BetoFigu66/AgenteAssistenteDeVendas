@@ -156,6 +156,28 @@ async def _executar_fornecer_nome(ctx: ContextoAcao):
     return None
 
 
+async def _executar_fornecer_email(ctx: ContextoAcao):
+    """Report #8: o e-mail que o cliente manda é gravado (`email_contato` no atendimento,
+    pelo `_atualizar_infos_atendimento` que `garantir_atendimento_dispatch` chama quando o
+    atendimento ainda não existe, e `Contato.email` se vazio) e agradecido. Captura não
+    exclusiva, como a do CPF: o aviso vai para `ctx.registros` e o resto da mensagem segue."""
+    email = ctx.resultado_class.entidades.emails[0]
+    atendimento = await garantir_atendimento_dispatch(ctx)
+    if not atendimento.contato.email:
+        atendimento.contato.email = email
+    if ctx.dlog:
+        ctx.dlog.log("rota", "email_fornecido → EMAIL_ANOTADO")
+    ctx.registros.append(await ctx.processador._gerador.gerar(MensagemId.EMAIL_ANOTADO))
+    return None
+
+
+def _builder_fornecer_email(ctx: ContextoAcao) -> GrupoAcoes:
+    """Não há intenção FORNECER_EMAIL: a regra casa pela entidade extraída."""
+    if not ctx.resultado_class.entidades.emails:
+        return GrupoAcoes()
+    return GrupoAcoes(pre=[Acao("fornecer_email", _executar_fornecer_email)])
+
+
 REGRAS_GLOBAIS: list[RegraIntencao] = [
     RegraIntencao(
         intencao=Intencao.ESCALAR_HUMANO,
@@ -193,5 +215,6 @@ REGRAS_GLOBAIS: list[RegraIntencao] = [
         builder=lambda ctx: GrupoAcoes(pre=[Acao("fornecer_nome", _executar_fornecer_nome)]),
         nome="fornecer_nome",
     ),
+    RegraIntencao(intencao=None, fase=None, builder=_builder_fornecer_email, nome="fornecer_email"),
     REGRA_RESPOSTA_SO_AO_NOME,
 ] + REGISTRO_ENCERRAMENTO

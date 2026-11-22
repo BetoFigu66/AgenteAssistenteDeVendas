@@ -75,6 +75,7 @@ class MensagemId(IntEnum):
     PEDIR_DOCUMENTO_NF = 55
     CONFIRMAR_DOCUMENTO_NF_CNPJ = 56
     CONFIRMAR_DOCUMENTO_NF_CPF = 57
+    EMAIL_ANOTADO = 58
 
 
 @dataclass(frozen=True)
@@ -116,6 +117,13 @@ CATALOGO: dict[int, MensagemTemplate] = {
         # ainda é um stub), então não se diz "confirmei". O resto da mensagem do cliente
         # segue normalmente na mesma resposta (a captura não é exclusiva).
         mensagem="Anotei seu CPF.",
+    ),
+    # E-mail informado pelo cliente (report #8): grava e agradece, sem cair no "não
+    # entendi". Como o aviso do CPF, abre a resposta e o resto da mensagem segue.
+    MensagemId.EMAIL_ANOTADO: MensagemTemplate(
+        id=MensagemId.EMAIL_ANOTADO,
+        codigo="EMAIL_ANOTADO",
+        mensagem="Obrigado, anotei seu e-mail.",
     ),
     MensagemId.PERGUNTAR_NOME: MensagemTemplate(
         id=MensagemId.PERGUNTAR_NOME,

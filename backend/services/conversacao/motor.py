@@ -105,9 +105,11 @@ async def resolver_e_executar(
     return _compor_fragmentos(ctx.registros + fragmentos)
 
 
-# Avisos de documento aceito, que sozinhos não pedem nada ao cliente. O de documento
-# inválido já pede para reenviar.
-_REGISTROS_OK = frozenset({MensagemId.CPF_CONSULTADO_OK.name, MensagemId.CNPJ_CONSULTADO_OK.name})
+# Avisos de documento (ou e-mail) aceito, que sozinhos não pedem nada ao cliente. O de
+# documento inválido já pede para reenviar.
+_REGISTROS_OK = frozenset(
+    {MensagemId.CPF_CONSULTADO_OK.name, MensagemId.CNPJ_CONSULTADO_OK.name, MensagemId.EMAIL_ANOTADO.name}
+)
 
 
 def _compor_fragmentos(fragmentos: list[RespostaGerada]) -> Optional[RespostaGerada]:
