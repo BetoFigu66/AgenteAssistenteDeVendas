@@ -193,6 +193,8 @@ def test_confirmacao_grava_o_nome_do_perfil(db_session, processador, resposta_cl
     [
         ("meu nome é Carlos", "Carlos"),
         ("pode me chamar de Cadu", "Cadu"),
+        # Report #1558: o "sim" depois do nome entrava nele ("Combinado, Kika Sim!").
+        ("Pode me chamar de Kika sim", "Kika"),
         ("Carlos", "Carlos"),
         ("carlos eduardo", "Carlos Eduardo"),
         ("é Carlos", "Carlos"),

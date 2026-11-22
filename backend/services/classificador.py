@@ -418,6 +418,18 @@ def _parece_nome_livre(palavras: List[str]) -> bool:
     return True
 
 
+def _cortar_frase_apos_nome(capturado: str) -> str:
+    """O nome capturado por `_REGEX_NOME` até a primeira palavra que é frase e não nome
+    ("Kika sim" → "Kika", "Carlos mesmo" → "Carlos"). Report #1558: a captura pega até 4
+    palavras e a confirmação que vinha depois entrava no nome. A primeira palavra sempre
+    fica: a lista vale para o que segue o nome, não para o próprio nome."""
+    palavras = capturado.split()
+    for i, palavra in enumerate(palavras[1:], start=1):
+        if palavra.lower() in _PALAVRAS_NAO_NOME_LIVRE:
+            return " ".join(palavras[:i])
+    return capturado
+
+
 def _normalizar_entidade_llm(valor: Any) -> Optional[str]:
     """Converte valor vazio/None em None e string não-vazia em string limpa."""
     if valor is None:
@@ -718,7 +730,7 @@ def extrair_entidades(texto: str) -> EntidadesExtraidas:
     # Extração de nomes via gatilhos ("meu nome é X", "me chamo X", ...)
     nomes: List[str] = []
     for match in _REGEX_NOME.finditer(texto):
-        nome = _limpar_nome(match.group(1))
+        nome = _limpar_nome(_cortar_frase_apos_nome(match.group(1)))
         if nome and nome not in nomes:
             nomes.append(nome)
 

@@ -40,6 +40,22 @@ def test_extrai_nome_com_gatilhos(texto, nome_esperado):
     assert ent.nomes[0] == nome_esperado
 
 
+@pytest.mark.parametrize(
+    "texto, nome_esperado",
+    [
+        # Report #1558: a confirmação depois do nome entrava nele ("Kika Sim").
+        ("Pode me chamar de Kika sim", "Kika"),
+        ("pode me chamar de Kika, sim", "Kika"),
+        ("me chamo Carlos mesmo", "Carlos"),
+        ("meu nome é Ana Paula sim", "Ana Paula"),
+        ("Sou o Pedro, quero orçamento", "Pedro"),
+    ],
+)
+def test_palavra_de_frase_depois_do_nome_nao_entra_nele(texto, nome_esperado):
+    ent = extrair_entidades(texto)
+    assert ent.nomes == [nome_esperado]
+
+
 def test_extrai_nome_junto_com_cnpj():
     """Regressão direta do report: CNPJ + nome na mesma mensagem."""
     texto = "O CNPJ da empresa é 48495530000184 e meu nome é Beto Figueiredo"
