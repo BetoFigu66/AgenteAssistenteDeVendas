@@ -67,3 +67,11 @@ def test_goal_reaproveitado_ja_pronto_nao_muda_status(ambiente):
     ambiente.estado["status"] = "pronto"
     ponte.despachar_um(None, REPORT, Path("/repo"), "py")
     assert "status" not in _comandos(ambiente.chamadas)
+
+
+def test_goal_do_proprio_report_na_fila_nao_ocupa_vaga(monkeypatch):
+    goals = [{"id": "report-7", "status": "pronto"}, {"id": "report-9", "status": "executando"}]
+    monkeypatch.setattr(ponte, "goals_de_report", lambda: goals)
+    fila = [SimpleNamespace(id=7)]
+    assert [g["id"] for g in ponte.ocupando_vaga(fila)] == ["report-9"]
+    assert [g["id"] for g in ponte.ocupando_vaga([])] == ["report-7", "report-9"]

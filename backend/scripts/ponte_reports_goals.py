@@ -96,6 +96,17 @@ def em_andamento() -> list[dict]:
     return [g for g in goals_de_report() if g.get("status") in EM_ANDAMENTO]
 
 
+def ocupando_vaga(fila) -> list[dict]:
+    """Goals de report que ocupam vaga, menos os dos reports que estão na fila.
+
+    Report na fila ainda não foi vinculado, então o goal dele (sobra de uma rodada que falhou,
+    talvez já posto em `pronto` à mão) não está executando nada: contá-lo travaria a vaga que
+    ele mesmo precisa (caso do report-7 em 22/11/2026).
+    """
+    da_fila = {f"report-{r.id}" for r in fila}
+    return [g for g in em_andamento() if g.get("id") not in da_fila]
+
+
 # ------------------------------------------------------------------ quota
 def horas_uteis(inicio: datetime, fim: datetime, h_ini: int = HORA_INICIO, h_fim: int = HORA_FIM) -> float:
     """Horas de [inicio, fim] que caem dentro do expediente diário [h_ini, h_fim)."""
@@ -247,11 +258,11 @@ def despachar_um(session, report, repo: Path, py: str) -> str:
 def cmd_despachar(a) -> None:
     repo = raiz_repo()
     py = str(repo / "backend" / "venv" / "bin" / "python")
-    ativos = em_andamento()
-    vagas = a.max_simultaneos - len(ativos)
     db = Database()
     with db.get_session() as session:
         fila = svc.listar_fila(session)
+        ativos = ocupando_vaga(fila)
+        vagas = a.max_simultaneos - len(ativos)
         if not fila:
             log(f"fila vazia ({len(ativos)} goal(s) de report em andamento)")
         elif vagas <= 0:
