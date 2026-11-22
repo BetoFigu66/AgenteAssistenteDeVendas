@@ -159,6 +159,22 @@ def pedido_de_detalhes(texto: str) -> bool:
     return _RE_PEDIDO_DETALHES.search(texto) is not None
 
 
+# Pedido de visão geral da linha ("como cada modelo de catraca funciona?", "quais modelos
+# vocês têm?"). Não se parece com nenhum trecho isolado da base, então a RAG não passa do
+# limiar; quem responde é o catálogo (`categoria_pergunta._responder_visao_geral`, report
+# #1435). Só formas no plural ou com "cada": "qual modelo" é pergunta sobre um modelo.
+_PADRAO_VISAO_GERAL_MODELOS = (
+    r"\b(?:cada\s+(?:um\s+dos\s+)?(?:modelo|tipo|marca|op[cç][aã]o|vers[aã]o)"
+    r"|(?:quais|que)\s+(?:s[aã]o\s+)?(?:os\s+|as\s+)?(?:modelos|tipos|marcas|op[cç][oõ]es|vers[oõ]es)"
+    r"|diferen[cç]as?\s+entre\s+(?:os\s+|as\s+)?(?:modelos|tipos|marcas|op[cç][oõ]es|vers[oõ]es))\b"
+)
+_RE_VISAO_GERAL_MODELOS = re.compile(_PADRAO_VISAO_GERAL_MODELOS, re.IGNORECASE)
+
+
+def pedido_visao_geral_modelos(texto: str) -> bool:
+    return _RE_VISAO_GERAL_MODELOS.search(texto) is not None
+
+
 _REGRAS_INTENCAO: list[tuple[Intencao, re.Pattern]] = [
     (
         Intencao.ESCALAR_HUMANO,

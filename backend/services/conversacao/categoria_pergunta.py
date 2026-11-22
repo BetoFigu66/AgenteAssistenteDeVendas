@@ -14,7 +14,17 @@ módulo é o "dono" só do sub-grupo de intenções que REQ-002.1 chama de categ
 
 from __future__ import annotations
 
-from services.classificador import Intencao, pedido_de_detalhes, pergunta_compatibilidade
+from typing import Optional
+
+from models import Modelo
+
+from services.catalogo_produtos import produto_ids_por_tipos
+from services.classificador import (
+    Intencao,
+    pedido_de_detalhes,
+    pedido_visao_geral_modelos,
+    pergunta_compatibilidade,
+)
 from services.rag import DocumentoRecuperado
 from services.respostas import MensagemId, RespostaGerada
 
@@ -83,6 +93,88 @@ def _consulta_rag(ctx: ContextoAcao) -> str:
     return _PRODUTO_SINGULAR.get(tipo, tipo.replace("_", " "))
 
 
+# Mesma chave de `processador._RAG_CLARIFICACAO_PENDENTE_CHAVE` (ver o espelho em
+# `regras_esclarecendo.py`).
+_RAG_CLARIFICACAO_PENDENTE_CHAVE = "rag_clarificacao_pendente"
+
+_TECNOLOGIA_LEGIVEL = {
+    "facial": "reconhecimento facial",
+    "biometria": "biometria",
+    "cartao": "cartão de proximidade",
+    "qrcode": "QR Code",
+}
+
+
+def _tipo_produto_da_pergunta(ctx: ContextoAcao) -> Optional[str]:
+    """O tipo citado na mensagem ou, sem ele, o do atendimento."""
+    if ctx.resultado_class.entidades.tipos_produto:
+        return ctx.resultado_class.entidades.tipos_produto[0]
+    if ctx.db is None or ctx.atendimento is None:
+        return None
+    tipos = ctx.processador._info_atendimento(ctx.db, ctx.atendimento.id, "tipos_produto")
+    return tipos.split(",")[0].strip() if tipos else None
+
+
+def _linha_modelo(modelo: Modelo) -> str:
+    """"- Catraca X: reconhecimento facial, aplicação típica em academias"."""
+    tecnologias = [
+        _TECNOLOGIA_LEGIVEL.get(a.valor, a.valor)
+        for a in modelo.atributos
+        if a.ativo and a.chave == "tecnologia_leitura"
+    ]
+    detalhes = []
+    if tecnologias:
+        detalhes.append(" e ".join(tecnologias))
+    if modelo.aplicacao:
+        detalhes.append(f"aplicação típica em {modelo.aplicacao[:1].lower()}{modelo.aplicacao[1:]}")
+    return f"- {modelo.descricao}: {', '.join(detalhes)}" if detalhes else f"- {modelo.descricao}"
+
+
+async def _responder_visao_geral(ctx: ContextoAcao) -> Optional[RespostaGerada]:
+    """Report #1435: "como cada modelo de catraca funciona?" pede a linha toda, e nenhum
+    trecho isolado da base passa do limiar da RAG para uma pergunta assim (caía no pedido
+    de clarificação e depois escalava). O catálogo tem o que foi pedido: marca, tecnologia
+    de leitura e aplicação de cada modelo. `None` quando não é visão geral ou o catálogo
+    não tem modelos do tipo (segue para a RAG)."""
+    if ctx.db is None or not pedido_visao_geral_modelos(ctx.conteudo):
+        return None
+    tipo = _tipo_produto_da_pergunta(ctx)
+    produto_ids = produto_ids_por_tipos(ctx.db, [tipo]) if tipo else []
+    if not produto_ids:
+        return None
+    modelos = (
+        ctx.db.query(Modelo)
+        .filter(Modelo.ativo.is_(True), Modelo.produto_id.in_(produto_ids))
+        .all()
+    )
+    if not modelos:
+        return None
+
+    por_marca: dict[str, list[Modelo]] = {}
+    # Modelos sem marca vão por último.
+    for modelo in sorted(modelos, key=lambda m: (m.marca is None, (m.marca or "").lower(), m.descricao.lower())):
+        por_marca.setdefault(modelo.marca or "Outros modelos", []).append(modelo)
+    blocos = [
+        "\n".join([f"{marca}:", *(_linha_modelo(m) for m in lista)]) for marca, lista in por_marca.items()
+    ]
+
+    # Pergunta respondida: um ciclo de clarificação pendente (REQ-003.7) fica obsoleto.
+    p = ctx.processador
+    atendimento = ctx.atendimento
+    if atendimento is not None and p._info_atendimento(ctx.db, atendimento.id, _RAG_CLARIFICACAO_PENDENTE_CHAVE):
+        p._remover_info_atendimento(ctx.db, atendimento.id, _RAG_CLARIFICACAO_PENDENTE_CHAVE)
+    if ctx.dlog:
+        ctx.dlog.log("categoria_pergunta", f"visão geral de {tipo} → {len(modelos)} modelos do catálogo")
+
+    # Import tardio: `regras_esclarecendo` importa este módulo.
+    from .regras_esclarecendo import _PRODUTO_SINGULAR
+
+    return await p._gerador.gerar(
+        MensagemId.MODELOS_DO_PRODUTO,
+        {"produto": _PRODUTO_SINGULAR.get(tipo, tipo.replace("_", " ")), "lista": "\n\n".join(blocos)},
+    )
+
+
 async def _responder_produto(ctx: ContextoAcao) -> RespostaGerada:
     """PERGUNTAR_PRODUTO: com atendimento garantido, aplica clarificação/escalonamento
     (REQ-003.7); sem ele, cai no fallback genérico de sempre.
@@ -94,6 +186,9 @@ async def _responder_produto(ctx: ContextoAcao) -> RespostaGerada:
         if ctx.dlog:
             ctx.dlog.log("categoria_pergunta", "pergunta de compatibilidade → COMPATIBILIDADE_SISTEMA")
         return await p._gerador.gerar(MensagemId.COMPATIBILIDADE_SISTEMA)
+    visao_geral = await _responder_visao_geral(ctx)
+    if visao_geral is not None:
+        return visao_geral
     if ctx.db is not None and ctx.atendimento is not None:
         return await p._responder_produto_com_clarificacao(
             ctx.db,

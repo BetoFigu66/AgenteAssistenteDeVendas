@@ -76,6 +76,7 @@ class MensagemId(IntEnum):
     CONFIRMAR_DOCUMENTO_NF_CNPJ = 56
     CONFIRMAR_DOCUMENTO_NF_CPF = 57
     EMAIL_ANOTADO = 58
+    MODELOS_DO_PRODUTO = 59
 
 
 @dataclass(frozen=True)
@@ -448,6 +449,14 @@ CATALOGO: dict[int, MensagemTemplate] = {
         mensagem=(
             "No momento não tenho o link do catálogo de {tipo} configurado por aqui. "
             "Vou pedir para nosso time te enviar diretamente."
+        ),
+    ),
+    MensagemId.MODELOS_DO_PRODUTO: MensagemTemplate(
+        id=MensagemId.MODELOS_DO_PRODUTO,
+        codigo="MODELOS_DO_PRODUTO",
+        mensagem=(
+            "Estes são os modelos de {produto} com que trabalhamos:\n\n{lista}\n\n"
+            "Se quiser saber mais sobre algum deles, é só me dizer qual."
         ),
     ),
     MensagemId.RAG_PEDIR_CLARIFICACAO: MensagemTemplate(
