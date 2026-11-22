@@ -20,6 +20,7 @@ from services.classificador import (
     Intencao,
     NivelConfianca,
     ResultadoClassificacao,
+    classificar,
     pedido_visao_geral_modelos,
 )
 from services.dev_limpeza_telefone import apagar_dados_telefone
@@ -161,5 +162,62 @@ def test_cada_modelo_de_catraca_responde_com_o_catalogo_em_finalizando(db_sessio
         db_session.refresh(atendimento)
         assert atendimento.modo_operacao == ModoOperacao.AGENTE
         assert atendimento.fase == FaseAtendimento.FINALIZANDO
+    finally:
+        _limpar(db_session, telefone)
+
+
+def test_visao_geral_depois_do_pedido_de_clarificacao_nao_escala(db_session, catalogo_teste):
+    """Report #1479: a primeira dúvida recebeu o pedido de clarificação (REQ-003.7) e a
+    reformulação ("quero saber características e detalhes sobre cada tipo de catraca") era
+    escalada por base insuficiente. Com a clarificação pendente, a visão geral também é
+    respondida pelo catálogo, sem escalar, e o ciclo de clarificação é encerrado."""
+    telefone = "+5511999981479"
+    p = ProcessadorMensagem(retrieval=_RetrievalVazio(), qa=_QAVazio())
+    try:
+        asyncio.run(
+            p._decidir_resposta(
+                db=db_session,
+                telefone=telefone,
+                conteudo="Quero orçamento de catraca",
+                identificacao=ResultadoIdentificacao(status=StatusIdentificacao.NOVO, contatos=[], empresas=[]),
+                resultado_class=_resultado(Intencao.PEDIR_ORCAMENTO, tipos_produto=["catraca"]),
+            )
+        )
+        contato = db_session.query(Contato).filter_by(telefone=telefone).first()
+        atendimento = contato.atendimentos[0]
+        documento_ja_pedido(db_session, atendimento)
+        db_session.commit()
+
+        primeira = asyncio.run(
+            p._decidir_resposta(
+                db=db_session,
+                telefone=telefone,
+                conteudo="a catraca aguenta chuva?",
+                identificacao=identificar_por_telefone(db_session, telefone),
+                resultado_class=_resultado(Intencao.PERGUNTAR_PRODUTO, tipos_produto=["catraca"]),
+            )
+        )
+        assert "RAG_PEDIR_CLARIFICACAO" in primeira.template_usado
+
+        texto = "quero saber características e detalhes sobre cada tipo de catraca"
+        resultado_class = asyncio.run(classificar(texto, llm=None))
+        resposta = asyncio.run(
+            p._decidir_resposta(
+                db=db_session,
+                telefone=telefone,
+                conteudo=texto,
+                identificacao=identificar_por_telefone(db_session, telefone),
+                resultado_class=resultado_class,
+            )
+        )
+
+        assert "RAG_ESCALADO_SEM_BASE" not in resposta.template_usado
+        assert resposta.template_usado.startswith("MODELOS_DO_PRODUTO")
+        for _codigo, descricao, marca, _aplicacao, _tecnologia in _MODELOS_TESTE:
+            assert descricao in resposta.texto
+            assert marca in resposta.texto
+        db_session.refresh(atendimento)
+        assert atendimento.modo_operacao == ModoOperacao.AGENTE
+        assert not p._info_atendimento(db_session, atendimento.id, "rag_clarificacao_pendente")
     finally:
         _limpar(db_session, telefone)
