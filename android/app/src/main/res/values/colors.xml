@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Cores da marca Inforrel, as mesmas do frontend/tailwind.config.js -->
+    <color name="inforrel_primary">#1B4F72</color>
+    <color name="inforrel_secondary">#2E86AB</color>
+    <color name="inforrel_accent">#F39C12</color>
+</resources>

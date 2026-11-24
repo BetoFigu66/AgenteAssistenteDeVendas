@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Inforrel Atendente: download do App</title>
+  <style>
+    /* Cores da marca Inforrel (frontend/tailwind.config.js). */
+    body { margin: 0; font-family: "Open Sans", Arial, sans-serif; background: #F8F9FA; color: #1A252F; }
+    header { background: #1B4F72; color: #fff; padding: 20px 16px; }
+    header h1 { margin: 0; font-size: 1.3rem; }
+    main { max-width: 480px; margin: 0 auto; padding: 24px 16px; }
+    .versao { font-size: 1.1rem; margin: 0 0 20px; }
+    .versao strong { color: #1B4F72; }
+    a.baixar { display: block; text-align: center; background: #2E86AB; color: #fff; text-decoration: none;
+      padding: 16px; border-radius: 8px; font-size: 1.1rem; font-weight: 600; }
+    a.baixar:active { background: #1B4F72; }
+    ol { padding-left: 20px; line-height: 1.5; }
+    .nota { border-left: 4px solid #F39C12; padding: 8px 12px; background: #fff; }
+  </style>
+</head>
+<body>
+  <header><h1>Inforrel Atendente</h1></header>
+  <main>
+    <p class="versao">Versão disponível: <strong id="versao">carregando…</strong> <small id="data"></small></p>
+    <a class="baixar" id="baixar" href="inforrel-atendente.apk">Baixar o App (APK)</a>
+    <h2>Como instalar</h2>
+    <ol>
+      <li>Toque em <b>Baixar o App</b> e espere o download terminar.</li>
+      <li>Abra o arquivo <b>inforrel-atendente.apk</b> pela notificação ou pela pasta Downloads.</li>
+      <li>Se o Android avisar que a instalação está bloqueada, toque em <b>Configurações</b> e ative
+        <b>Permitir desta fonte</b> para o navegador (ou o app Arquivos) e volte.</li>
+      <li>Toque em <b>Instalar</b>. Para atualizar, repita: a versão nova instala por cima da anterior.</li>
+    </ol>
+    <p class="nota">O App não vem da Play Store, por isso o Play Protect pode pedir confirmação: toque em
+      <b>Instalar assim mesmo</b>.</p>
+  </main>
+  <script>
+    fetch("versao.json", { cache: "no-store" })
+      .then(function (r) { return r.json(); })
+      .then(function (v) {
+        document.getElementById("versao").textContent = v.versao;
+        if (v.data) document.getElementById("data").textContent = "(publicada em " + v.data.slice(0, 16).replace("T", " ") + ")";
+        // A versão no link fura o cache do navegador e do Cloudflare a cada publicação.
+        document.getElementById("baixar").href = "inforrel-atendente.apk?v=" + v.versionCode;
+      })
+      .catch(function () { document.getElementById("versao").textContent = "não informada"; });
+  </script>
+</body>
+</html>

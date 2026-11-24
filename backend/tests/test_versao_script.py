@@ -36,6 +36,18 @@ _spec.loader.exec_module(versao)
         ("docs/comandos_uteis.md", None),
         ("scripts/versao.py", None),
         ("testador_conversas/cli.py", None),
+        ("android/app/src/main/java/br/com/inforrel/atendente/MainActivity.kt", "app"),
+        ("android/app/build.gradle.kts", "app"),
+        ("android/app/src/main/res/values/strings.xml", "app"),
+        ("android/gradle.properties", "app"),
+        ("android/VERSAO", None),
+        ("android/README.md", None),
+        ("android/build/reports/x.html", None),
+        ("android/app/build/outputs/apk/release/app-release.apk", None),
+        ("android/.gradle/8.9/checksums/x.bin", None),
+        ("android/local.properties", None),
+        ("android/app/src/test/java/br/com/inforrel/atendente/VersaoBackendTest.kt", None),
+        ("scripts/app_publicar.sh", None),
     ],
 )
 def test_lado_do_arquivo(caminho, lado):
@@ -46,6 +58,7 @@ def test_mudanca_so_num_lado_nao_toca_o_outro():
     assert versao.lados_alterados(["backend/main.py", "docs/x.md"]) == {"back"}
     assert versao.lados_alterados(["frontend/src/App.jsx"]) == {"front"}
     assert versao.lados_alterados(["backend/main.py", "frontend/src/App.jsx"]) == {"back", "front"}
+    assert versao.lados_alterados(["android/app/build.gradle.kts", "docs/x.md"]) == {"app"}
 
 
 def test_formato_da_versao():

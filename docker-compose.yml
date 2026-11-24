@@ -49,6 +49,9 @@ services:
       dockerfile: Dockerfile
     ports:
       - "3000:80"
+    # App Android publicado por scripts/app_publicar.sh (pasta gitignored, ver nginx.conf).
+    volumes:
+      - ./publicado/android:/usr/share/nginx/html/android:ro
     depends_on:
       - backend
     restart: unless-stopped

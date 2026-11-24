@@ -1,16 +1,19 @@
 #!/usr/bin/env python3
-"""Versão do backend e do frontend, por data e hora da última mudança de cada lado.
+"""Versão do backend, do frontend e do App Android, por data e hora da última mudança de cada lado.
 
-Cada lado tem o seu arquivo `VERSAO` (`backend/VERSAO`, `frontend/VERSAO`), com uma linha
-no formato `AAAA.MM.DD-HHMM` (horário de Brasília). Mudança só num lado não mexe no outro.
+Cada lado tem o seu arquivo `VERSAO` (`backend/VERSAO`, `frontend/VERSAO`, `android/VERSAO`),
+com uma linha no formato `AAAA.MM.DD-HHMM` (horário de Brasília). Mudança só num lado não
+mexe nos outros. No App, o `VERSAO` é o versionName (o versionCode deriva dele, ver
+`android/app/build.gradle.kts`).
 
 Conta como mudança do lado só o que muda o sistema (decisão do Beto, 01/10/2026): código,
 migrações e configuração de build. Não contam testes, documentação (`*.md`), scripts de
-apoio (`backend/scripts/`), logs e os textos de ajuda das telas (`frontend/src/ajuda/`).
+apoio (`backend/scripts/`), logs, os textos de ajuda das telas (`frontend/src/ajuda/`) e,
+no App, as saídas do Gradle (`build/`, `.gradle/`) e o `local.properties` (gerado por máquina).
 
 Uso (da raiz do repositório):
     python scripts/versao.py atualizar           # lados com mudança staged; grava e faz git add
-    python scripts/versao.py atualizar --lado back
+    python scripts/versao.py atualizar --lado back      # back, front, app ou todos
     python scripts/versao.py mostrar
     python scripts/versao.py verificar           # o que o check de pre-commit roda
 
@@ -43,6 +46,18 @@ LADOS = {
         "pasta": "frontend/",
         "arquivo": "frontend/VERSAO",
         "fora": ("frontend/src/ajuda/", "frontend/node_modules/", "frontend/dist/"),
+    },
+    "app": {
+        "pasta": "android/",
+        "arquivo": "android/VERSAO",
+        "fora": (
+            "android/build/",
+            "android/app/build/",
+            "android/.gradle/",
+            "android/.kotlin/",
+            "android/local.properties",
+            "android/app/src/test/",
+        ),
     },
 }
 
@@ -109,7 +124,7 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     sub = parser.add_subparsers(dest="comando", required=True)
     p_atualizar = sub.add_parser("atualizar")
-    p_atualizar.add_argument("--lado", choices=["back", "front", "ambos"])
+    p_atualizar.add_argument("--lado", choices=["back", "front", "app", "todos", "ambos"])
     sub.add_parser("mostrar")
     sub.add_parser("verificar")
     args = parser.parse_args()
@@ -125,7 +140,8 @@ def main() -> int:
         return 1 if problemas else 0
 
     if args.lado:
-        lados = set(LADOS) if args.lado == "ambos" else {args.lado}
+        # "ambos" é o nome antigo de "todos", de quando só havia back e front.
+        lados = set(LADOS) if args.lado in ("todos", "ambos") else {args.lado}
     else:
         lados = lados_alterados(arquivos_staged())
     if not lados:

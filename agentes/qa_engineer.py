@@ -431,7 +431,7 @@ def _check_ajuda_telas_desatualizada(raiz: Path) -> CheckResult:
 
 @registrar_check(
     id="versao-atualizada",
-    titulo="Versao do backend/frontend atualizada junto com a mudanca",
+    titulo="Versao do backend/frontend/app atualizada junto com a mudanca",
     severidade="error",
     escopos=["pre-commit"],
 )

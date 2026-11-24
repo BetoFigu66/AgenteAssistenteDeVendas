@@ -1075,6 +1075,45 @@ Endpoints principais: `POST /api/ajuda/perguntar`, `GET /api/ajuda/sugestoes`,
 
 ---
 
+## App Android (`android/`)
+
+App nativo do atendente (Kotlin + Jetpack Compose, minSdk 26, pacote `br.com.inforrel.atendente`), conectado ao backend fixo `https://app.auxvendas.com`. Versão em `android/VERSAO` (mesmo formato do front e do back, atualizada pelo `scripts/versao.py`, lado `app`): é o versionName, e o versionCode são os minutos desde 2026-01-01 dessa data.
+
+### Build e testes (pelo Windows, a partir do WSL)
+
+O SDK Android e o Java do WSL são velhos (API 29, Java 8) e não devem ser usados nem atualizados. O Gradle roda no Windows, com o JDK 17 do Android Studio (`C:\Program Files\Android\Android Studio\jbr`) e o SDK de `%LOCALAPPDATA%\Android\Sdk` (platform android-34, build-tools 34.0.0). O `scripts/app_gradle.sh` faz a ponte e gera o `android/local.properties` (gitignored) se faltar:
+
+```bash
+bash scripts/app_gradle.sh test              # testes unitários (relatório em android/app/build/reports/tests/)
+bash scripts/app_gradle.sh assembleRelease   # APK em android/app/build/outputs/apk/release/app-release.apk
+```
+
+No PowerShell, de dentro de `android/`: `$env:JAVA_HOME="C:\Program Files\Android\Android Studio\jbr"; .\gradlew.bat test`.
+
+O release é assinado com a chave de debug do Windows (`%USERPROFILE%\.android\debug.keystore`, criada pelo próprio Gradle no primeiro build), sempre a mesma, para cada versão instalar por cima da anterior. Nenhuma keystore ou senha vai para o repositório. Se a máquina trocar (keystore nova), o celular recusa a atualização: desinstalar o App e instalar de novo.
+
+Memória: o build roda ao lado da VM do WSL e do Docker, e em 24/11/2026 a JVM caiu várias vezes com "insufficient memory" / "arquivo de paginação muito pequeno". Por isso o `android/gradle.properties` usa heap de 1 GB, sem daemon persistente e com o compilador Kotlin no mesmo processo, e o lint vital do release está desligado. Se cair de novo: conferir `tasklist.exe /FI "IMAGENAME eq java.exe"` (um daemon do Gradle esquecido segura ~1 GB; `taskkill.exe /PID <pid> /F`), fechar programas pesados no Windows ou, com o WSL ocioso, `wsl --shutdown` no PowerShell.
+
+### Publicar o APK para download
+
+```bash
+bash scripts/app_publicar.sh               # compila o release e publica
+bash scripts/app_publicar.sh --sem-build   # publica o último APK compilado
+```
+
+Publica `inforrel-atendente.apk`, `versao.json` (`{versao, versionCode, data, commit}`) e a página de download (`scripts/app_android_pagina.html`) em `publicado/android/` (gitignored) do checkout de onde a QA sobe, o `.worktrees/_deploy` do `scripts/deploy_auto.sh` (sem ele, a raiz do repositório). O container frontend monta essa pasta em `/android/` (`docker-compose.yml` + `frontend/nginx.conf`), sem rebuild: publicar é só copiar. Conferir em https://app.auxvendas.com/android/ e https://app.auxvendas.com/android/versao.json.
+
+Publicar a partir do checkout que tem o código que se quer no celular (normalmente develop recém-deployado). Se o frontend subir de outro checkout, `DESTINO=<checkout>/publicado/android bash scripts/app_publicar.sh`.
+
+### Instalar no celular
+
+1. No celular, abrir https://app.auxvendas.com/android/ e tocar em **Baixar o App**.
+2. Abrir o `inforrel-atendente.apk` pela notificação ou pela pasta Downloads.
+3. Na primeira vez o Android bloqueia app de fora da Play Store: tocar em **Configurações**, ativar **Permitir desta fonte** para o navegador (ou o app Arquivos) e voltar.
+4. **Instalar** (se o Play Protect perguntar, **Instalar assim mesmo**). Versões novas instalam por cima.
+
+Pelo cabo, com depuração USB ligada: `"/mnt/c/Users/<usuario>/AppData/Local/Android/Sdk/platform-tools/adb.exe" install -r "$(wslpath -w android/app/build/outputs/apk/release/app-release.apk)"`.
+
 ## WSL (Windows Subsystem for Linux)
 
 ```bash

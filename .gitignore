@@ -105,3 +105,13 @@ backups/
 
 # Backup do .env criado pelo twilio_modo_teste.sh
 backend/.env.antes_modo_teste
+
+# App Android (android/): saídas do Gradle, SDK local e crash logs da JVM. O APK publicado para
+# download fica em publicado/ (scripts/app_publicar.sh), fora do git.
+android/.gradle/
+android/.kotlin/
+android/**/build/
+android/local.properties
+hs_err_pid*.log
+replay_pid*.log
+publicado/
