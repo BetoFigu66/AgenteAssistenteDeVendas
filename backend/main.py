@@ -1124,7 +1124,7 @@ async def listar_atendimentos_ativos(
         page/limit: paginação (mesmo padrão de `routers/pares_qa.py`).
 
     Retorna: id, status, modo_operacao, fase, telefone, nome_contato, empresa_nome,
-    mensagens_pendentes.
+    mensagens_pendentes e `ultima_mensagem` (prévia para a lista do App, ou null).
     """
     if page < 1:
         raise HTTPException(status_code=400, detail="page deve ser >= 1")
@@ -1181,8 +1181,11 @@ async def listar_atendimentos_ativos(
             func.coalesce(Atendimento.ultima_mensagem_at, Atendimento.updated_at).desc(),
         ).offset((page - 1) * limit).limit(limit)
 
+        linhas = stmt.all()
+        ultimas = _ultimas_mensagens(session, [atendimento.id for atendimento, *_ in linhas])
+
         resultado = []
-        for atendimento, contato, empresa, pendentes in stmt.all():
+        for atendimento, contato, empresa, pendentes in linhas:
             resultado.append(
                 {
                     "id": atendimento.id,
@@ -1199,9 +1202,41 @@ async def listar_atendimentos_ativos(
                     "mensagens_pendentes": int(pendentes or 0),
                     "updated_at": serialize_utc_datetime(atendimento.updated_at),
                     "ultima_mensagem_at": serialize_utc_datetime(atendimento.ultima_mensagem_at),
+                    "ultima_mensagem": ultimas.get(atendimento.id),
                 }
             )
         return {"total": total, "page": page, "limit": limit, "atendimentos": resultado}
+
+
+PREVIA_MENSAGEM_MAX = 200
+
+
+def _ultimas_mensagens(session, atendimento_ids: list[int]) -> dict[int, dict]:
+    """Prévia da última mensagem de cada atendimento (lista de conversas do App Android).
+
+    Uma consulta só para a página inteira (DISTINCT ON do Postgres). Entra qualquer
+    origem, inclusive resposta do agente ainda pendente de aprovação, como o painel
+    mostra; `pendente_aprovacao` deixa quem lê distinguir.
+    """
+    if not atendimento_ids:
+        return {}
+    mensagens = (
+        session.query(Mensagem)
+        .filter(Mensagem.atendimento_id.in_(atendimento_ids))
+        .distinct(Mensagem.atendimento_id)
+        .order_by(Mensagem.atendimento_id, Mensagem.timestamp.desc(), Mensagem.id.desc())
+        .all()
+    )
+    return {
+        m.atendimento_id: {
+            "id": m.id,
+            "conteudo": m.conteudo[:PREVIA_MENSAGEM_MAX],
+            "origem": m.origem.value,
+            "timestamp": serialize_utc_datetime(m.timestamp),
+            "pendente_aprovacao": m.pendente_aprovacao,
+        }
+        for m in mensagens
+    }
 
 
 @app.get("/api/atendimentos/{atendimento_id}")

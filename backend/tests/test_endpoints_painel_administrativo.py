@@ -3,11 +3,14 @@ filtro+paginação de atendimentos e reports, dados de Pessoa (PJ/PF) no cabeça
 conversa, e o endpoint de campos pendentes. Zero cobertura antes desta fase.
 """
 
+from datetime import timedelta
+
 import pytest
 from database import Database
-from models import Contato, Pessoa
+from models import Contato, Mensagem, OrigemMensagem, Pessoa
 from services.atendimentos import obter_ou_criar_atendimento
 from services.dev_limpeza_telefone import apagar_dados_telefone
+from utils.datetime_utils import utc_now
 
 
 @pytest.fixture
@@ -46,6 +49,49 @@ def test_atendimentos_ativas_filtro_status_e_busca(client, db_session):
         assert all(a["telefone"] != telefone for a in r_encerrado.json()["atendimentos"])
     finally:
         _limpar(db_session, telefone)
+
+
+def test_atendimentos_ativas_ultima_mensagem(client, db_session):
+    """Prévia da lista de conversas do App: a mensagem mais recente, truncada, com
+    origem e pendência; null quando o atendimento ainda não tem mensagem."""
+    telefone = "+5511999986002"
+    telefone_vazio = "+5511999986003"
+    try:
+        contato = Contato(telefone=telefone, nome="Cliente Previa Teste")
+        vazio = Contato(telefone=telefone_vazio, nome="Cliente Previa Vazio Teste")
+        db_session.add_all([contato, vazio])
+        db_session.commit()
+        atendimento = obter_ou_criar_atendimento(db_session, contato)
+        obter_ou_criar_atendimento(db_session, vazio)
+        agora = utc_now()
+        db_session.add_all(
+            [
+                Mensagem(
+                    telefone=telefone, conteudo="primeira", origem=OrigemMensagem.USER,
+                    contato_id=contato.id, atendimento_id=atendimento.id,
+                    timestamp=agora - timedelta(minutes=2),
+                ),
+                Mensagem(
+                    telefone=telefone, conteudo="x" * 500, origem=OrigemMensagem.SYSTEM,
+                    contato_id=contato.id, atendimento_id=atendimento.id, timestamp=agora,
+                ),
+            ]
+        )
+        db_session.commit()
+
+        r = client.get("/api/atendimentos/ativas", params={"q": "Cliente Previa"})
+        assert r.status_code == 200
+        por_telefone = {a["telefone"]: a for a in r.json()["atendimentos"]}
+
+        previa = por_telefone[telefone]["ultima_mensagem"]
+        assert previa["conteudo"] == "x" * 200
+        assert previa["origem"] == "system"
+        assert previa["pendente_aprovacao"] is True
+        assert previa["timestamp"]
+        assert por_telefone[telefone_vazio]["ultima_mensagem"] is None
+    finally:
+        _limpar(db_session, telefone)
+        _limpar(db_session, telefone_vazio)
 
 
 def test_atendimentos_ativas_status_invalido_400(client):

@@ -11,13 +11,17 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import br.com.inforrel.atendente.conversas.ModeloConversas
+import br.com.inforrel.atendente.conversas.tituloConversa
 import br.com.inforrel.atendente.sessao.EstadoSessao
-import br.com.inforrel.atendente.ui.TelaInicial
+import br.com.inforrel.atendente.ui.TelaConversa
+import br.com.inforrel.atendente.ui.TelaConversas
 import br.com.inforrel.atendente.ui.TelaLogin
 import br.com.inforrel.atendente.ui.TelaSobre
 import br.com.inforrel.atendente.ui.TemaInforrel
@@ -32,6 +36,9 @@ class MainActivity : ComponentActivity() {
                 Surface(Modifier.fillMaxSize()) {
                     val estado by app.sessao.estado.collectAsState()
                     var noSobre by rememberSaveable { mutableStateOf(false) }
+                    // Conversa aberta: id e título, guardados para sobreviver a girar a tela.
+                    var conversaId by rememberSaveable { mutableStateOf<Int?>(null) }
+                    var conversaTitulo by rememberSaveable { mutableStateOf("") }
                     val escopo = rememberCoroutineScope()
 
                     when (val atual = estado) {
@@ -39,19 +46,28 @@ class MainActivity : ComponentActivity() {
                             CircularProgressIndicator()
                         }
                         is EstadoSessao.Deslogado -> {
-                            // Quem voltar a entrar cai na tela inicial, não no Sobre de antes.
-                            LaunchedEffect(Unit) { noSobre = false }
+                            // Quem voltar a entrar cai na lista, não no Sobre nem na conversa de antes.
+                            LaunchedEffect(Unit) { noSobre = false; conversaId = null }
                             TelaLogin(app.sessao, atual.aviso)
                         }
-                        is EstadoSessao.Logado -> if (noSobre) {
-                            TelaSobre(app.api, aoVoltar = { noSobre = false })
-                        } else {
-                            TelaInicial(
-                                usuario = atual.usuario,
-                                semConfirmar = atual.semConfirmar,
-                                aoAbrirSobre = { noSobre = true },
-                                aoSair = { escopo.launch { app.sessao.sair() } },
-                            )
+                        is EstadoSessao.Logado -> {
+                            // Um modelo por login: a lista (e a busca) de outro usuário não fica para trás.
+                            val modelo = remember(atual.usuario.id) { ModeloConversas(app.api) }
+                            val aberta = conversaId
+                            when {
+                                noSobre -> TelaSobre(app.api, aoVoltar = { noSobre = false })
+                                aberta != null -> TelaConversa(aberta, conversaTitulo, aoVoltar = { conversaId = null })
+                                else -> TelaConversas(
+                                    modelo = modelo,
+                                    semConfirmar = atual.semConfirmar,
+                                    aoAbrirConversa = { conversa ->
+                                        conversaTitulo = tituloConversa(conversa)
+                                        conversaId = conversa.id
+                                    },
+                                    aoAbrirSobre = { noSobre = true },
+                                    aoSair = { escopo.launch { app.sessao.sair() } },
+                                )
+                            }
                         }
                     }
                 }

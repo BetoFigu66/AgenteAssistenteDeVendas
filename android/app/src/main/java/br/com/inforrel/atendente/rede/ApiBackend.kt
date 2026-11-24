@@ -5,6 +5,7 @@ import kotlinx.serialization.Serializable
 import retrofit2.http.Body
 import retrofit2.http.GET
 import retrofit2.http.POST
+import retrofit2.http.Query
 
 /** Usuário do sistema, como `User.to_dict()` do backend devolve em `/api/auth/login` e `/api/auth/me`. */
 @Serializable
@@ -31,6 +32,40 @@ data class VersaoPublicada(
     @SerialName("versionCode") val versionCode: Long,
 )
 
+/** Prévia da última mensagem de um atendimento (`ultima_mensagem` em `/api/atendimentos/ativas`). */
+@Serializable
+data class PreviaMensagem(
+    val id: Int,
+    val conteudo: String,
+    /** "user" (cliente) ou "system" (agente ou atendente). */
+    val origem: String,
+    val timestamp: String? = null,
+    @SerialName("pendente_aprovacao") val pendenteAprovacao: Boolean = false,
+)
+
+/** Um item de `GET /api/atendimentos/ativas` (backend/main.py, `listar_atendimentos_ativos`). */
+@Serializable
+data class AtendimentoResumo(
+    val id: Int,
+    val status: String? = null,
+    @SerialName("modo_operacao") val modoOperacao: String? = null,
+    val fase: String? = null,
+    val titulo: String? = null,
+    val telefone: String,
+    @SerialName("nome_contato") val nomeContato: String? = null,
+    @SerialName("empresa_nome") val empresaNome: String? = null,
+    @SerialName("mensagens_pendentes") val mensagensPendentes: Int = 0,
+    @SerialName("updated_at") val updatedAt: String? = null,
+    @SerialName("ultima_mensagem_at") val ultimaMensagemAt: String? = null,
+    @SerialName("ultima_mensagem") val ultimaMensagem: PreviaMensagem? = null,
+)
+
+@Serializable
+data class ListaAtendimentos(
+    val total: Int = 0,
+    val atendimentos: List<AtendimentoResumo> = emptyList(),
+)
+
 /**
  * Rotas do backend usadas pelo App. Os próximos goals (conversas, mensagens) acrescentam aqui.
  * A sessão vai no cookie assinado do `SessionMiddleware`, guardado pelo [CookieJarPersistente].
@@ -50,4 +85,19 @@ interface ApiBackend {
 
     @GET("android/versao.json")
     suspend fun versaoPublicada(): VersaoPublicada
+
+    /**
+     * Atendimentos ativos, na ordem do Acompanhamento do painel (pendências de aprovação
+     * primeiro, depois a conversa mais recente). [q] busca por telefone, contato ou empresa.
+     */
+    @GET("api/atendimentos/ativas")
+    suspend fun atendimentosAtivos(
+        @Query("q") q: String? = null,
+        @Query("limit") limit: Int = LIMITE_CONVERSAS,
+    ): ListaAtendimentos
+
+    companion object {
+        /** Máximo que o backend aceita numa página; o App não pagina. */
+        const val LIMITE_CONVERSAS = 200
+    }
 }
