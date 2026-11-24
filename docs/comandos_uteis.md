@@ -1083,6 +1083,16 @@ Endpoints principais: `POST /api/ajuda/perguntar`, `GET /api/ajuda/sugestoes`,
 
 App nativo do atendente (Kotlin + Jetpack Compose, minSdk 26, pacote `br.com.inforrel.atendente`), conectado ao backend fixo `https://app.auxvendas.com`. Versão em `android/VERSAO` (mesmo formato do front e do back, atualizada pelo `scripts/versao.py`, lado `app`): é o versionName, e o versionCode são os minutos desde 2026-01-01 dessa data.
 
+### Rede, sessão e telas
+
+Camada de rede única em `android/app/src/main/java/br/com/inforrel/atendente/rede/`: Retrofit 2.11 sobre OkHttp 4.12, JSON com kotlinx.serialization. Rotas novas entram em `ApiBackend.kt`; `mensagemDeErro()` traduz falhas para a tela (sem internet, timeout, 502 a 530 do Cloudflare como "servidor fora do ar").
+
+Login com o mesmo usuário e senha do painel (`POST /api/auth/login`). A sessão é só o cookie `session` do Starlette `SessionMiddleware` (assinado, `Max-Age` de 8 h renovado a cada resposta, sem `secure`), guardado pelo `CookieJarPersistente` nas SharedPreferences privadas do App (o manifesto não permite backup). A senha nunca é gravada. Na abertura, com cookie guardado, o App confere `GET /api/auth/me`; sem rede, segue com o usuário lembrado e avisa que a sessão não foi confirmada. Qualquer 401 fora do login apaga o cookie e volta ao login ("Sua sessão expirou"). Sair chama `POST /api/auth/logout` e apaga a sessão local mesmo sem rede.
+
+A QA roda com `AUTH_ENABLED=false` (`backend/.env`): o login continua conferindo a senha, mas o `/api/auth/me` responde 200 mesmo sem cookie, então lá a expiração por 401 não acontece. O App decide "logado" pelo cookie guardado, não pelo `/me`, e por isso o Sair funciona igual.
+
+Menu da tela inicial: **Sobre** (versão do App, do Backend em `/health` e aviso "Há versão nova do App" quando o `versionCode` de `/android/versao.json` é maior que o instalado, com botão para a página de download) e **Sair**.
+
 ### Build e testes (pelo Windows, a partir do WSL)
 
 O SDK Android e o Java do WSL são velhos (API 29, Java 8) e não devem ser usados nem atualizados. O Gradle roda no Windows, com o JDK 17 do Android Studio (`C:\Program Files\Android\Android Studio\jbr`) e o SDK de `%LOCALAPPDATA%\Android\Sdk` (platform android-34, build-tools 34.0.0). O `scripts/app_gradle.sh` faz a ponte e gera o `android/local.properties` (gitignored) se faltar:
