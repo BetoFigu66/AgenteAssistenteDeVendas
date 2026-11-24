@@ -172,6 +172,10 @@ docker cp $C:/app/logs/payloads_twilio.jsonl /tmp/               # trazer um arq
 
 Do WSL, use `docker.exe` no lugar de `docker` (e `| tr -d '\r'` na saída). O volume sobrevive a `docker-compose down` e a rebuild; só some com `docker-compose down -v` ou `docker volume rm`. Gravar fora de `logs/` dá `Read-only file system`, que é o comportamento esperado: se um recurso novo precisar gravar arquivo, ele tem que gravar em `logs/` ou ganhar um volume próprio no `docker-compose.yml`.
 
+### `docker` no WSL: "Cannot connect to the Docker daemon at unix:///var/run/docker.sock"
+
+O Docker Desktop pode estar rodando normalmente (confira com `docker.exe ps`) e o `docker` do WSL falhar mesmo assim, porque o `/var/run/docker.sock` não existe. O socket é criado pela integração WSL do Docker Desktop, e ela já se desligou sozinha depois de um restart do Windows (24/11/2026). Para corrigir: Docker Desktop → Settings → Resources → WSL integration, ligar o **Ubuntu** → Apply & restart. Se já estiver ligado, desligue, aplique e ligue de novo. Para testar: `ls -la /var/run/docker.sock && docker ps`. Até lá, `docker.exe` funciona.
+
 ### Docker no Windows: PowerShell vs WSL
 
 **Recomendação:** usar **um só** ambiente para `docker-compose` (PowerShell **ou** WSL), alinhado ao `cloudflared` no Windows (`localhost:3000`).
