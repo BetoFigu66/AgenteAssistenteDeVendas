@@ -115,3 +115,6 @@ android/local.properties
 hs_err_pid*.log
 replay_pid*.log
 publicado/
+
+.gitignore_beto
+artefatos/gerente_de_projetos/janelas/TextoLongo.md
