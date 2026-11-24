@@ -44,6 +44,7 @@ Detalhe de cada item: `janelas/2026-09-25_progresso.md`.
 - **Groq:** contestar o bloqueio (`organization_restricted`) pelo "Questions?" do console, depois de trocar a chave, ou desistir dela de vez agora que a Cloudflare atende.
 
 ## Depois que contratar o Twilio pago:
+- **Atendente conversando por voz (ideia, pouca chance de uso):** só se algum cliente pedir. Caminhos, recomendação (ligação comum com ponte para o celular do atendente) e o que falta verificar em `artefatos/arquiteto_de_sistemas/ideia_atendimento_por_voz.md`.
 - **Recuperar mensagens perdidas no startup:** ao subir, listar na Twilio as mensagens recebidas depois da última que tratamos e processar as que faltam (a idempotência por `MessageSid` já impede duplicar). Limites na trial: dá para listar, mas não para responder fora do webhook (REST bloqueado no Sandbox) nem listar mídia.
 - Registrar a origem do nome do perfil de forma durável (hoje em `AtendimentoInfo`).
 - Estender o dublê de `ModoExecucao` ao `test_processador_modo_execucao.py`.
