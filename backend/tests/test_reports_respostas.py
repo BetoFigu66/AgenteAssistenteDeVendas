@@ -107,3 +107,19 @@ def test_ponte_responder_grava_como_claude(client, proc_id, tmp_path):
     [resp] = corpo["respostas"]
     assert (resp["origem"], resp["autor"]) == ("claude", "Claude (goal report-x)")
     assert corpo["status"] == "resolvido"
+
+
+def test_grupo_separa_problemas_de_duvidas_e_sugestoes(client, proc_id):
+    ids = {c: _criar(client, proc_id, c)["id"] for c in ("duvida", "sugestao", "fluxo")}
+
+    def listados(grupo):
+        r = client.get("/api/reports", params={"grupo": grupo, "limit": 200, "q_busca": "nome duas vezes"})
+        assert r.status_code == 200, r.text
+        return {x["id"] for x in r.json()["reports"]} & set(ids.values())
+
+    assert listados("duvidas_sugestoes") == {ids["duvida"], ids["sugestao"]}
+    assert listados("problemas") == {ids["fluxo"]}
+
+    stats = client.get("/api/reports/stats", params={"grupo": "duvidas_sugestoes"}).json()
+    assert set(stats["por_categoria"]) <= {"duvida", "sugestao"}
+    assert client.get("/api/reports", params={"grupo": "xyz"}).status_code == 400

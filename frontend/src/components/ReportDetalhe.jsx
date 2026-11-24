@@ -28,6 +28,7 @@ import {
   labelSeveridade,
   labelStatus,
   statusPermitidos,
+  ehDuvidaOuSugestao,
 } from '../constants/reports'
 import { labelAvaliacaoEscalonamento } from '../utils/escalonamento'
 import RespostasReport from './RespostasReport'
@@ -261,7 +262,7 @@ function ReportDetalhe({ reportId, onClose, onAtualizado, onAbrirAtendimento }) 
           </div>
 
           {/* Respostas (Dúvida): do Claude, pela ponte dos goals, ou da equipe */}
-          {(report.categoria === 'duvida' || report.respostas?.length > 0) && (
+          {(ehDuvidaOuSugestao(report.categoria) || report.respostas?.length > 0) && (
             <div>
               <h3 className="text-sm font-semibold text-inforrel-primary mb-2 flex items-center gap-1.5">
                 <MessageCircle size={14} /> Respostas
@@ -270,11 +271,10 @@ function ReportDetalhe({ reportId, onClose, onAtualizado, onAbrirAtendimento }) 
                 <RespostasReport respostas={report.respostas} />
               ) : (
                 <p className="text-xs text-gray-500 italic">
-                  {report.correcao_automatica
-                    ? report.goal_id
-                      ? `O Claude está respondendo (goal ${report.goal_id}).`
-                      : 'Na fila para resposta automática do Claude.'
-                    : 'Ainda sem resposta.'}
+                  Aguardando resposta
+                  {report.correcao_automatica &&
+                    (report.goal_id ? ` (a IA está respondendo: goal ${report.goal_id})` : ' (na fila da IA)')}
+                  .
                 </p>
               )}
               <div className="mt-2 space-y-2">
@@ -623,12 +623,12 @@ function ReportDetalhe({ reportId, onClose, onAtualizado, onAbrirAtendimento }) 
                 className="mt-0.5"
               />
               <label htmlFor="correcao-automatica" className="text-sm text-gray-700">
-                {categoria === 'duvida' ? 'Resposta automática pelo Claude' : 'Correção automática pelo Claude'}
+                {ehDuvidaOuSugestao(categoria) ? 'Resposta automática pela IA' : 'Correção automática pela IA'}
                 <span className="block text-xs text-gray-500">
                   {ctx?.report?.goal_id
-                    ? `${ctx.report.categoria === 'duvida' ? 'Respondida' : 'Em correção'} pelo goal ${ctx.report.goal_id}.`
-                    : categoria === 'duvida'
-                      ? 'Ao salvar, a dúvida entra na fila: o Claude investiga o código e responde aqui.'
+                    ? `${ehDuvidaOuSugestao(ctx.report.categoria) ? 'Respondida' : 'Em correção'} pelo goal ${ctx.report.goal_id}.`
+                    : ehDuvidaOuSugestao(categoria)
+                      ? 'Ao salvar, entra na fila: o Claude investiga o código e responde aqui, sem alterar nada.'
                       : 'Ao salvar, o report entra na fila: análise da causa raiz, teste, correção, push e deploy, sem revisão humana.'}
                 </span>
               </label>

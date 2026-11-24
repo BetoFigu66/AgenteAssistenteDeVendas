@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Flag, RefreshCw, AlertTriangle, Loader2 } from 'lucide-react'
+import { Flag, RefreshCw, AlertTriangle, Loader2, MessageCircleQuestion } from 'lucide-react'
 import { api } from '../services/api'
 import BotaoAjuda from './BotaoAjuda'
 import { formatDatetimeBRT } from '../utils/datetime'
@@ -10,7 +10,9 @@ import {
   corSeveridade,
   corStatus,
   labelCategoria,
-  ORIGENS_RESPOSTA,
+  etiquetaRespondida,
+  ehDuvidaOuSugestao,
+  STATUS_ABERTOS,
   labelSeveridade,
   labelStatus,
 } from '../constants/reports'
@@ -26,7 +28,30 @@ function StatCard({ label, valor, valorFiltrado, temFiltro, cor = 'bg-gray-100 t
   )
 }
 
-function ReportsPage({ onVoltar, onAbrirAtendimento }) {
+// A mesma página serve às duas abas; `grupo` (filtro do backend) decide o recorte.
+const CONFIG_GRUPO = {
+  problemas: {
+    titulo: 'Triagem de Reports',
+    Icone: Flag,
+    ajuda: 'reports',
+    categorias: CATEGORIAS.filter((c) => !ehDuvidaOuSugestao(c.valor)),
+    vazio: 'Nenhum report encontrado com os filtros atuais.',
+    carregando: 'Carregando reports...',
+  },
+  duvidas_sugestoes: {
+    titulo: 'Dúvidas e Sugestões',
+    Icone: MessageCircleQuestion,
+    ajuda: 'duvidas',
+    categorias: CATEGORIAS.filter((c) => ehDuvidaOuSugestao(c.valor)),
+    vazio: 'Nenhuma dúvida ou sugestão encontrada com os filtros atuais.',
+    carregando: 'Carregando dúvidas e sugestões...',
+  },
+}
+
+function ReportsPage({ grupo = 'problemas', onVoltar, onAbrirAtendimento }) {
+  const config = CONFIG_GRUPO[grupo] || CONFIG_GRUPO.problemas
+  const ehDuvidas = grupo === 'duvidas_sugestoes'
+
   const [reports, setReports] = useState([])
   const [stats, setStats] = useState(null)
   const [statsFiltrados, setStatsFiltrados] = useState(null)
@@ -56,6 +81,7 @@ function ReportsPage({ onVoltar, onAbrirAtendimento }) {
   const LIMITE_PAGINA = 20
 
   const montarFiltrosApi = () => ({
+    grupo,
     status: filtroStatus,
     categoria: filtroCategoria,
     severidade: filtroSeveridade,
@@ -89,7 +115,7 @@ function ReportsPage({ onVoltar, onAbrirAtendimento }) {
       const filtros = { ...montarFiltrosApi(), page: pagina, limit: LIMITE_PAGINA }
       const [data, s, sFiltrado] = await Promise.all([
         api.listarReports(filtros),
-        api.statsReports(),
+        api.statsReports({ grupo }),
         temFiltroAtivo ? api.statsReports(montarFiltrosApi()) : Promise.resolve(null),
       ])
       setReports(data.reports || [])
@@ -132,7 +158,7 @@ function ReportsPage({ onVoltar, onAbrirAtendimento }) {
     )
     const filtros = montarFiltrosApi()
     Promise.all([
-      api.statsReports(),
+      api.statsReports({ grupo }),
       temFiltroAtivo ? api.statsReports(filtros) : Promise.resolve(null),
     ])
       .then(([s, sFiltrado]) => {
@@ -147,11 +173,11 @@ function ReportsPage({ onVoltar, onAbrirAtendimento }) {
       {/* Header */}
       <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
         <div className="flex items-center gap-2">
-          <Flag className="text-inforrel-primary" size={22} />
+          <config.Icone className="text-inforrel-primary" size={22} />
           <h1 className="text-xl font-semibold text-inforrel-primary">
-            Triagem de Reports
+            {config.titulo}
           </h1>
-          <BotaoAjuda contexto="reports" />
+          <BotaoAjuda contexto={config.ajuda} />
         </div>
         <div className="flex items-center gap-2">
           <button
@@ -224,7 +250,7 @@ function ReportsPage({ onVoltar, onAbrirAtendimento }) {
         <div className="flex flex-wrap gap-x-6 gap-y-2 mb-4 text-xs">
           <div className="flex flex-wrap items-center gap-1.5">
             <span className="text-gray-500 uppercase tracking-wide mr-1">Por categoria:</span>
-            {CATEGORIAS.map((c) => {
+            {config.categorias.map((c) => {
               const valor = (temFiltroAtivo ? statsFiltrados : stats)?.por_categoria?.[c.valor]
               if (!valor) return null
               return (
@@ -237,6 +263,7 @@ function ReportsPage({ onVoltar, onAbrirAtendimento }) {
               )
             })}
           </div>
+          {!ehDuvidas && (
           <div className="flex flex-wrap items-center gap-1.5">
             <span className="text-gray-500 uppercase tracking-wide mr-1">Por severidade:</span>
             {SEVERIDADES.map((s) => {
@@ -249,6 +276,7 @@ function ReportsPage({ onVoltar, onAbrirAtendimento }) {
               )
             })}
           </div>
+          )}
         </div>
       )}
 
@@ -276,7 +304,7 @@ function ReportsPage({ onVoltar, onAbrirAtendimento }) {
               className="w-full border border-gray-300 rounded px-2 py-1.5 text-sm mt-0.5"
             >
               <option value="">Todas</option>
-              {CATEGORIAS.map((c) => (
+              {config.categorias.map((c) => (
                 <option key={c.valor} value={c.valor}>{c.label}</option>
               ))}
             </select>
@@ -370,11 +398,11 @@ function ReportsPage({ onVoltar, onAbrirAtendimento }) {
       {loading ? (
         <div className="text-center py-12 text-gray-500">
           <Loader2 size={24} className="animate-spin mx-auto mb-2" />
-          Carregando reports...
+          {config.carregando}
         </div>
       ) : reports.length === 0 ? (
         <div className="text-center py-12 text-gray-500 bg-white rounded-lg border border-gray-200">
-          Nenhum report encontrado com os filtros atuais.
+          {config.vazio}
         </div>
       ) : (
         <div className="space-y-2">
@@ -398,10 +426,14 @@ function ReportsPage({ onVoltar, onAbrirAtendimento }) {
                   <span className="text-xs bg-gray-100 text-gray-700 px-2 py-0.5 rounded-full">
                     {labelCategoria(r.categoria)}
                   </span>
+                  {ehDuvidas && !r.respostas?.length && STATUS_ABERTOS.includes(r.status) && (
+                    <span className="text-xs bg-amber-50 text-amber-800 px-2 py-0.5 rounded-full">
+                      Aguardando resposta
+                    </span>
+                  )}
                   {r.respostas?.length > 0 && (
                     <span className="text-xs bg-purple-50 text-purple-800 px-2 py-0.5 rounded-full">
-                      Respondida por{' '}
-                      {[...new Set(r.respostas.map((x) => ORIGENS_RESPOSTA[x.origem]?.label || x.origem))].join(' e ')}
+                      {etiquetaRespondida(r.respostas)}
                     </span>
                   )}
                 </div>

@@ -44,6 +44,7 @@ from .pessoa import Pessoa
 from .processamento import ComparacaoLLM, OrigemClassificacao, ProcessamentoMensagem
 from .rag import DocumentoConhecimento, ParQA
 from .report import (
+    CATEGORIAS_DUVIDA_SUGESTAO,
     CategoriaReport,
     HistoricoStatusReport,
     OrigemRespostaReport,
@@ -55,6 +56,7 @@ from .report import (
 from .user import User
 
 __all__ = [
+    "CATEGORIAS_DUVIDA_SUGESTAO",
     "AjudaConsulta",
     "AjudaConteudo",
     "AjudaContexto",

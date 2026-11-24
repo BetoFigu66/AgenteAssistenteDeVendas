@@ -14,8 +14,9 @@ Uso (a partir de backend/, com o venv):
     venv/bin/python -m scripts.ponte_reports_goals resolver <report_id> --goal <id> --commit <sha> --resumo "..."
     venv/bin/python -m scripts.ponte_reports_goals responder <report_id> --goal <id> --arquivo <resposta.md>
 
-Report da categoria Dúvida vira um goal que só responde (sem código, push nem deploy): o
-executor grava a resposta com `responder`, e ela aparece na tela do report como "Claude".
+Report das categorias Dúvida ou Sugestão vira um goal que só responde (sem código, push nem
+deploy): o executor grava a resposta com `responder`, e ela aparece na aba "Dúvidas e
+Sugestões" como respondida pelo Claude.
 
 `despachar` é o que a tarefa agendada do Windows roda (scripts/instalar_ponte_goals.ps1).
 Com `--aguardar` o processo fica vivo enquanto houver goal de report executando: é o que
@@ -48,7 +49,7 @@ EM_ANDAMENTO = ("pronto", "executando")
 # publica em develop, faz o deploy e conclui sozinho. Projeto não oficial, sem revisão humana
 # por decisão do Beto (21/11/2026).
 PERMITE = "push:develop,deploy,concluir"
-# Dúvida só é respondida: nada de push nem deploy.
+# Dúvida e Sugestão só são respondidas: nada de push nem deploy.
 PERMITE_DUVIDA = "concluir"
 ESPERA_MAX_S = 4 * 3600
 
@@ -179,14 +180,28 @@ def objetivo(report_id: int, gid: str, py: str) -> str:
 Exceções deste goal à trava do executor (frontmatter `permite: {PERMITE}`): pode dar push em develop, fazer o deploy e concluir o goal sem revisão humana. Nunca: `--force`, `--no-verify`, apagar ou pular teste existente para passar, push em outra branch. Se a suíte não ficar verde, o rebase tiver conflito fora do `VERSAO` ou o deploy falhar, pare e registre `goal perguntar {gid} --tipo decisao` com a saída."""  # noqa: E501 (texto do goal, um passo por linha)
 
 
-def objetivo_duvida(report_id: int, gid: str, py: str) -> str:
-    return f"""Responder a dúvida do report #{report_id} do AgenteAssistenteDeVendas. Quem perguntou é usuário do painel (equipe Inforrel ou de desenvolvimento) e vai ler a resposta na tela do report. Não altere código, não faça commit, push nem deploy.
+# O que muda entre os dois goals que só respondem: o que se pede e o que a resposta deve trazer.
+_PEDIDO = {
+    "duvida": ("Responder a dúvida", "a dúvida", "dúvida respondida",
+               "Se a dúvida é sobre o comportamento numa conversa, explicar o porquê olhando o processamento "
+               "(intenção, regra, template, RAG). Se a dúvida revelar um defeito, diga isso na resposta e "
+               "sugira registrar um report de correção."),
+    "sugestao": ("Analisar e responder a sugestão", "a sugestão", "sugestão respondida",
+                 "Avaliar a sugestão contra o código e os requisitos: se já existe algo parecido, se é viável, "
+                 "o que mudaria (telas, regras, dados), o esforço aproximado (pequeno, médio, grande) e riscos. "
+                 "Não implemente nada: a decisão de fazer é da equipe."),
+}
 
-1. Ler `artefatos/contexto-report.md` (a dúvida, o processamento e a conversa em volta). Para mais dados, consultar o banco só com SELECT: `docker.exe exec inforrel_postgres psql -U inforrel -d assistente_vendas -c "..."`. CPF, CNPJ, e-mail e datas de nascimento vistos no banco não vão para a resposta, artefatos nem log.
-2. Investigar no código deste worktree (origin/develop), no CLAUDE.md, em `docs/` e nos requisitos (`artefatos/requisitos_formais/`) até ter uma resposta fundamentada. Se a dúvida é sobre o comportamento numa conversa, explicar o porquê olhando o processamento (intenção, regra, template, RAG).
-3. Escrever a resposta em `artefatos/resposta.md`, em português, para quem usa o painel: direta, sem jargão de código quando não for preciso (arquivo:linha só se ajudar), sem travessões em excesso. Se a dúvida revelar um defeito, diga isso na resposta e sugira registrar um report de correção. Se não houver como responder com segurança, diga o que falta, em vez de inventar.
+
+def objetivo_duvida(report_id: int, gid: str, py: str, categoria: str = "duvida") -> str:
+    pedido, objeto, motivo, orientacao = _PEDIDO.get(categoria, _PEDIDO["duvida"])
+    return f"""{pedido} do report #{report_id} do AgenteAssistenteDeVendas. Quem escreveu é usuário do painel (equipe Inforrel ou de desenvolvimento) e vai ler a resposta na aba "Dúvidas e Sugestões". Não altere código, não faça commit, push nem deploy.
+
+1. Ler `artefatos/contexto-report.md` ({objeto}, o processamento e a conversa em volta). Para mais dados, consultar o banco só com SELECT: `docker.exe exec inforrel_postgres psql -U inforrel -d assistente_vendas -c "..."`. CPF, CNPJ, e-mail e datas de nascimento vistos no banco não vão para a resposta, artefatos nem log.
+2. Investigar no código deste worktree (origin/develop), no CLAUDE.md, em `docs/` e nos requisitos (`artefatos/requisitos_formais/`) até ter uma resposta fundamentada. {orientacao}
+3. Escrever a resposta em `artefatos/resposta.md`, em português, para quem usa o painel: direta, sem jargão de código quando não for preciso (arquivo:linha só se ajudar), sem travessões em excesso. Se não houver como responder com segurança, diga o que falta, em vez de inventar.
 4. Gravar: em `backend/`, `{py} -m scripts.ponte_reports_goals responder {report_id} --goal {gid} --arquivo <caminho absoluto de artefatos/resposta.md>`.
-5. `goal estado` e `goal status {gid} concluido --motivo "dúvida respondida"`.
+5. `goal estado` e `goal status {gid} concluido --motivo "{motivo}"`.
 
 Exceção deste goal à trava do executor (frontmatter `permite: {PERMITE_DUVIDA}`): pode concluir sem revisão humana. Se não conseguir gravar a resposta, registre `goal perguntar {gid} --tipo decisao` com a saída."""  # noqa: E501 (texto do goal, um passo por linha)
 
@@ -256,23 +271,19 @@ def cmd_fila(_a) -> None:
         print(f"  {g['id']}: {g.get('status')}")
 
 
-def eh_duvida(report) -> bool:
-    categoria = getattr(report, "categoria", None)
-    return categoria is not None and categoria.value == "duvida"
-
-
 def despachar_um(session, report, repo: Path, py: str) -> str:
     gid = f"report-{report.id}"
-    duvida = eh_duvida(report)
-    branch = f"{'duvida' if duvida else 'fix'}/{gid}"
-    rotulo = "Dúvida" if duvida else "Report"
+    duvida = svc.responde_sem_codigo(report)
+    categoria = report.categoria.value if duvida else None
+    branch = f"{categoria if duvida else 'fix'}/{gid}"
+    rotulo = {"duvida": "Dúvida", "sugestao": "Sugestão"}.get(categoria, "Report")
     titulo = f"{rotulo} #{report.id}: {' '.join(svc.mascarar(report.descricao).split())[:70]}"
     if not (GOALS_PESSOAIS / gid).is_dir():  # reaproveita o goal de uma rodada que caiu no meio
         goal("novo", "--contexto", "pessoal", "--id", gid, "--titulo", titulo, "--workdir", str(repo),
              "--status", "pronto",  # o padrão é rascunho, e o `goal disparar` só aceita pronto
              "--prioridade", "alta" if report.severidade.value in ("alta", "critica") else "media",
              "--tag", TAG,
-             "--objetivo", objetivo_duvida(report.id, gid, py) if duvida else objetivo(report.id, gid, py),
+             "--objetivo", objetivo_duvida(report.id, gid, py, categoria) if duvida else objetivo(report.id, gid, py),
              "--texto-contexto", texto_contexto(report.id, py),
              "--pronto", PRONTO_DUVIDA if duvida else PRONTO)
     elif status_do_goal(gid) != "pronto":

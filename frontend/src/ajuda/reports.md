@@ -12,17 +12,11 @@ formas:
 O objetivo desta tela é transformar esses relatos em melhorias concretas na base de
 conhecimento e no comportamento do assistente.
 
-O mesmo formulário também serve para registrar uma **Dúvida** ou uma **Sugestão**, escolhendo a categoria.
+Dúvidas e sugestões usam o mesmo formulário (categorias *Dúvida* e *Sugestão*), mas não aparecem aqui: ficam na aba **Dúvidas e Sugestões**.
 
-## Dúvidas e respostas
+## Correção automática pela IA
 
-Um report da categoria **Dúvida** é respondido pelo Claude ou pela equipe de desenvolvimento. Ao escolher *Dúvida*, a caixa **Resposta automática pelo Claude** já vem marcada: o Claude investiga o código e grava a resposta em alguns minutos (a automação roda a cada 10 minutos, uma dúvida ou correção por vez). Desmarcada, a dúvida espera a equipe.
-
-As respostas aparecem no bloco **Respostas** do report e no histórico de reports do *Raciocínio do cérebro*, cada uma com a indicação de quem respondeu (**Claude** ou **Equipe de desenvolvimento**), o autor e a data. Na lista, o report respondido ganha a etiqueta *Respondida por ...*. A equipe responde pelo campo **Responder como equipe de desenvolvimento**, inclusive para complementar a resposta do Claude. A primeira resposta a uma dúvida a marca como **Resolvida**.
-
-## Correção automática pelo Claude
-
-A caixa **Correção automática pelo Claude**, na tela do report ou no formulário *Reportar problema*, põe o report na fila de correção automática. A cada 10 minutos a automação pega o report mais severo da fila (um por vez), e o Claude analisa a causa raiz, escreve um teste que reproduz o defeito, corrige, roda todos os testes, publica e atualiza o sistema, sem revisão humana. No fim, o report fica **Resolvido**, com o commit na resolução.
+A caixa **Correção automática pela IA**, na tela do report ou no formulário *Reportar problema*, põe o report na fila de correção automática. A cada 10 minutos a automação pega o report mais severo da fila (um por vez), e a IA (Claude) analisa a causa raiz, escreve um teste que reproduz o defeito, corrige, roda todos os testes, publica e atualiza o sistema, sem revisão humana. No fim, o report fica **Resolvido**, com o commit na resolução.
 
 O report só entra 2 minutos depois da última alteração, o que dá tempo de desmarcar um clique errado. Enquanto ele está em correção, a caixa fica travada e mostra o goal responsável. Se a descrição não deixar claro qual é o defeito, o Claude não inventa a correção: registra uma pergunta e espera a resposta. Por isso, descreva o que aconteceu e o que deveria ter acontecido.
 
@@ -44,7 +38,7 @@ ativo, os cartões mostram o recorte filtrado sobre o total (por exemplo *3/12*)
 *Classificação* (intenção ou dados lidos errado), *Fluxo* (caminho da conversa errado),
 *Template* (texto ou tom da resposta), *Resposta Inadequada* (resposta reprovada),
 *Dados* (CNPJ, contato etc. incorretos), *LLM*, *Escalonamento indevido* (aberto sozinho
-quando um escalonamento é avaliado como indevido), *Dúvida* (pergunta, respondida pelo Claude ou pela equipe), *Sugestão* (ideia de melhoria) e *Outro*.
+quando um escalonamento é avaliado como indevido) e *Outro*. *Dúvida* e *Sugestão* ficam na aba **Dúvidas e Sugestões**.
 
 ## Filtrar a fila
 

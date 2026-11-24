@@ -10,6 +10,7 @@ import {
   labelCategoria,
   labelStatus,
   labelSeveridade,
+  ehDuvidaOuSugestao,
 } from '../constants/reports'
 import { rotuloFase, classesFase } from '../utils/atendimento'
 import RespostasReport from './RespostasReport'
@@ -162,12 +163,13 @@ function ReportsSection({ processamentoId, reportsIniciais }) {
 
   const descricaoValida = descricao.trim().length >= DESCRICAO_REPORT_MIN_CHARS
   const ehDuvida = categoria === 'duvida'
+  const ehResposta = ehDuvidaOuSugestao(categoria)
 
-  // Dúvida já nasce com a resposta automática marcada (dá para desmarcar e esperar a equipe);
-  // ao sair dela a caixa volta desmarcada, porque nas outras categorias ela dispara correção
-  // de código com push e deploy.
+  // Dúvida e Sugestão já nascem com a resposta automática marcada (dá para desmarcar e esperar
+  // a equipe); ao sair delas a caixa volta desmarcada, porque nas outras categorias ela dispara
+  // correção de código com push e deploy.
   const mudarCategoria = (nova) => {
-    if ((nova === 'duvida') !== ehDuvida) setCorrecaoAutomatica(nova === 'duvida')
+    if (ehDuvidaOuSugestao(nova) !== ehResposta) setCorrecaoAutomatica(ehDuvidaOuSugestao(nova))
     setCategoria(nova)
   }
 
@@ -267,11 +269,13 @@ function ReportsSection({ processamentoId, reportsIniciais }) {
             className="mt-0.5"
           />
           <label htmlFor={`correcao-automatica-${processamentoId}`} className="text-sm text-gray-700">
-            {ehDuvida ? 'Resposta automática pelo Claude' : 'Correção automática pelo Claude'}
+            {ehResposta ? 'Resposta automática pela IA' : 'Correção automática pela IA'}
             <span className="block text-xs text-gray-500">
               {ehDuvida
                 ? 'O Claude investiga o código e responde aqui, em alguns minutos. Desmarcada, a dúvida espera a equipe de desenvolvimento.'
-                : 'Ao registrar, o report entra na fila: análise da causa raiz, teste, correção, push e deploy, sem revisão humana.'}
+                : ehResposta
+                  ? 'O Claude analisa a viabilidade e responde, sem implementar nada. Desmarcada, a sugestão espera a equipe de desenvolvimento.'
+                  : 'Ao registrar, o report entra na fila: análise da causa raiz, teste, correção, push e deploy, sem revisão humana.'}
             </span>
           </label>
         </div>
@@ -343,9 +347,9 @@ function ReportsSection({ processamentoId, reportsIniciais }) {
                     <RespostasReport respostas={r.respostas} compacto />
                   </div>
                 )}
-                {r.categoria === 'duvida' && !r.respostas?.length && (
+                {ehDuvidaOuSugestao(r.categoria) && !r.respostas?.length && (
                   <p className="mt-1.5 text-xs text-gray-500 italic">
-                    {r.correcao_automatica ? 'Aguardando a resposta do Claude.' : 'Aguardando a resposta da equipe.'}
+                    Aguardando resposta.
                   </p>
                 )}
                 {r.resolucao && (

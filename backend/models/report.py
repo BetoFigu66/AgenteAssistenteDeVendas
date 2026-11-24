@@ -31,6 +31,11 @@ class CategoriaReport(str, enum.Enum):
     OUTRO = "outro"
 
 
+# Categorias que não apontam defeito: têm aba própria ("Dúvidas e Sugestões") e, na
+# correção automática, viram goal que só responde (sem código, push nem deploy).
+CATEGORIAS_DUVIDA_SUGESTAO = (CategoriaReport.DUVIDA, CategoriaReport.SUGESTAO)
+
+
 class OrigemRespostaReport(str, enum.Enum):
     """Quem escreveu uma resposta a um report."""
 

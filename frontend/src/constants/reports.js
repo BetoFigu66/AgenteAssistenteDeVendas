@@ -10,16 +10,30 @@ export const CATEGORIAS = [
     label: 'Escalonamento indevido',
     descricao: 'Escalonamento avaliado como indevido no painel (aberto automaticamente)',
   },
-  { valor: 'duvida', label: 'Dúvida', descricao: 'Pergunta sobre o sistema; respondida pelo Claude ou pela equipe' },
+  { valor: 'duvida', label: 'Dúvida', descricao: 'Pergunta sobre o sistema; respondida pela IA ou pela equipe' },
   { valor: 'sugestao', label: 'Sugestão', descricao: 'Ideia de melhoria' },
   { valor: 'outro', label: 'Outro', descricao: 'Outra categoria' },
 ]
 
-// Quem escreveu uma resposta a um report (`respostas_report.origem` no backend).
+// Categorias que não apontam defeito: aba própria ("Dúvidas e Sugestões") e, com a caixa
+// marcada, o Claude só responde (espelha `CATEGORIAS_DUVIDA_SUGESTAO` do backend).
+export const CATEGORIAS_DUVIDA_SUGESTAO = ['duvida', 'sugestao']
+export const ehDuvidaOuSugestao = (c) => CATEGORIAS_DUVIDA_SUGESTAO.includes(c)
+
+// Quem escreveu uma resposta a um report (`respostas_report.origem` no backend): a IA (goal
+// do Claude pela ponte) ou um usuário da equipe, identificado pelo nome.
 export const ORIGENS_RESPOSTA = {
-  claude: { label: 'Claude', cor: 'bg-purple-100 text-purple-800' },
-  equipe: { label: 'Equipe de desenvolvimento', cor: 'bg-blue-100 text-blue-800' },
+  claude: { cor: 'bg-purple-100 text-purple-800' },
+  equipe: { cor: 'bg-blue-100 text-blue-800' },
 }
+
+// "pela IA" / "por Ana": complemento de "Respondida ..." para uma resposta.
+export const quemRespondeu = (r) =>
+  r.origem === 'claude' ? 'pela IA' : `por ${r.autor || 'equipe de desenvolvimento'}`
+
+// Etiqueta da lista: "Respondida pela IA", "Respondida por Ana", "Respondida pela IA e por Ana".
+export const etiquetaRespondida = (respostas) =>
+  `Respondida ${[...new Set((respostas || []).map(quemRespondeu))].join(' e ')}`
 
 export const SEVERIDADES = [
   { valor: 'baixa', label: 'Baixa', cor: 'bg-gray-100 text-gray-700' },

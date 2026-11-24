@@ -8,6 +8,7 @@ from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
+from models import CategoriaReport
 
 from scripts import ponte_reports_goals as ponte
 
@@ -82,7 +83,7 @@ def test_duvida_vira_goal_que_so_responde(ambiente):
         id=8,
         descricao="Por que o bot pediu o CNPJ antes do nome?",
         severidade=SimpleNamespace(value="baixa"),
-        categoria=SimpleNamespace(value="duvida"),
+        categoria=CategoriaReport.DUVIDA,
     )
     ponte.despachar_um(None, duvida, Path("/repo"), "py")
     novo = next(c for c in ambiente.chamadas if c[0] == "novo")
@@ -93,3 +94,21 @@ def test_duvida_vira_goal_que_so_responde(ambiente):
     assert ("set", "report-8", f"permite={ponte.PERMITE_DUVIDA}") in ambiente.chamadas
     assert "push" not in ponte.PERMITE_DUVIDA and "deploy" not in ponte.PERMITE_DUVIDA
     assert ambiente.vinculos == [(8, "report-8")]
+
+
+def test_sugestao_vira_goal_que_analisa_sem_implementar(ambiente):
+    sugestao = SimpleNamespace(
+        id=9,
+        descricao="Mostrar o total do orçamento no topo da conversa",
+        severidade=SimpleNamespace(value="baixa"),
+        categoria=CategoriaReport.SUGESTAO,
+    )
+    ponte.despachar_um(None, sugestao, Path("/repo"), "py")
+    novo = next(c for c in ambiente.chamadas if c[0] == "novo")
+    objetivo = novo[novo.index("--objetivo") + 1]
+    assert objetivo.startswith("Analisar e responder a sugestão do report #9")
+    assert "Não implemente nada" in objetivo
+    assert "deploy_auto" not in objetivo and "git push" not in objetivo
+    assert novo[novo.index("--titulo") + 1].startswith("Sugestão #9")
+    assert ("set", "report-9", f"permite={ponte.PERMITE_DUVIDA}") in ambiente.chamadas
+    assert ("set", "report-9", "worktree=/wt/report-9", "branch=sugestao/report-9") in ambiente.chamadas

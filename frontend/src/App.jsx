@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { Flag, Monitor, BookOpen, Settings, LifeBuoy, Server } from 'lucide-react'
+import { Flag, Monitor, BookOpen, Settings, LifeBuoy, Server, MessageCircleQuestion } from 'lucide-react'
 import Header from './components/Header'
 import Footer from './components/Footer'
 import PhonePanel from './components/PhonePanel'
@@ -33,7 +33,7 @@ function App() {
 }
 
 function AppLogado() {
-  const [pagina, setPagina] = useState('chat') // 'chat' | 'reports' | 'acompanhamento' | 'qa-base' | 'parametros'
+  const [pagina, setPagina] = useState('chat') // 'chat' | 'reports' | 'duvidas' | 'acompanhamento' | 'qa-base' | 'parametros'
   const [atendimentoIdAlvo, setAtendimentoIdAlvo] = useState(null)
   const [telefoneAtual, setTelefoneAtual] = useState(null)
   const [telefones, setTelefones] = useState([])
@@ -186,6 +186,16 @@ function AppLogado() {
             <Flag size={14} /> Triagem de Reports
           </button>
           <button
+            onClick={() => setPagina('duvidas')}
+            className={`px-4 py-2 text-sm font-medium border-b-2 transition flex items-center gap-1.5 ${
+              pagina === 'duvidas'
+                ? 'border-inforrel-primary text-inforrel-primary'
+                : 'border-transparent text-gray-600 hover:text-inforrel-primary'
+            }`}
+          >
+            <MessageCircleQuestion size={14} /> Dúvidas e Sugestões
+          </button>
+          <button
             onClick={() => setPagina('qa-base')}
             className={`px-4 py-2 text-sm font-medium border-b-2 transition flex items-center gap-1.5 ${
               pagina === 'qa-base'
@@ -258,7 +268,20 @@ function AppLogado() {
           />
         )}
         {pagina === 'reports' && (
-          <ReportsPage onVoltar={() => setPagina('chat')} onAbrirAtendimento={abrirAtendimento} />
+          <ReportsPage
+            key="problemas"
+            grupo="problemas"
+            onVoltar={() => setPagina('chat')}
+            onAbrirAtendimento={abrirAtendimento}
+          />
+        )}
+        {pagina === 'duvidas' && (
+          <ReportsPage
+            key="duvidas_sugestoes"
+            grupo="duvidas_sugestoes"
+            onVoltar={() => setPagina('chat')}
+            onAbrirAtendimento={abrirAtendimento}
+          />
         )}
         {pagina === 'qa-base' && <QABasePage />}
         {pagina === 'parametros' && <ParametrosPage />}

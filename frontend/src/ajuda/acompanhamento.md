@@ -108,7 +108,7 @@ quando ultrapassa o tempo limite definido no parâmetro `sla_aprovacao_minutos`.
   assistente), para colar no QA Runner ao relatar um problema.
 - Botão **Reportar**: abre o mesmo raciocínio, com o formulário **Reportar problema, dúvida ou sugestão** no
   final (descrição, categoria e severidade). Registra um problema mesmo sem reprovar a
-  mensagem. Na categoria *Dúvida*, o Claude (ou a equipe) responde e a resposta aparece ali mesmo, com quem respondeu.
+  mensagem. Nas categorias *Dúvida* e *Sugestão*, o Claude (ou a equipe) responde, e a resposta aparece ali mesmo e na aba **Dúvidas e Sugestões**, indicando se foi a IA ou quem da equipe respondeu.
 - A janela do raciocínio não bloqueia a tela: arraste-a pelo cabeçalho para ver a conversa por trás enquanto escreve o report. Ela fecha só pelo **X**.
 - **Marcadores na conversa**: cada mudança de fase (por exemplo *Fase: Esclarecendo → Finalizando*), escalonamento para humano, troca de modo de operação, encerramento e reabertura aparece como um marcador logo depois da mensagem do cliente que a provocou, com o motivo. O laranja destaca o escalonamento. Passe o mouse sobre o marcador para ver horário, quem fez a mudança e o processamento. Mudanças feitas no painel, sem mensagem, aparecem na posição do horário.
 

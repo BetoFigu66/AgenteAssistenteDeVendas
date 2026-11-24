@@ -13,6 +13,7 @@ from datetime import timedelta
 from typing import Optional
 
 from models import (
+    CATEGORIAS_DUVIDA_SUGESTAO,
     CategoriaReport,
     HistoricoStatusReport,
     Mensagem,
@@ -136,6 +137,11 @@ def resolver(session: Session, report_id: int, resolucao: str) -> ReportProblema
     report.resolucao = resolucao
     session.commit()
     return report
+
+
+def responde_sem_codigo(report) -> bool:
+    """Dúvida e Sugestão: o goal só responde (sem alterar código, push nem deploy)."""
+    return getattr(report, "categoria", None) in CATEGORIAS_DUVIDA_SUGESTAO
 
 
 def adicionar_resposta(

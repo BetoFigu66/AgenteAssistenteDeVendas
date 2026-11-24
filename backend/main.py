@@ -19,6 +19,7 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, PlainTextResponse
 from models import (
+    CATEGORIAS_DUVIDA_SUGESTAO,
     Atendimento,
     AvaliacaoEscalonamento,
     CategoriaReport,
@@ -1905,7 +1906,7 @@ class ReportProblemaRequest(BaseModel):
     categoria: Optional[str] = None
     severidade: Optional[str] = None
     mensagem_id: Optional[int] = None
-    # Caixa "Correção automática pelo Claude" já no registro (modal Raciocínio do cérebro).
+    # Caixa "Correção automática pela IA" já no registro (modal Raciocínio do cérebro).
     correcao_automatica: bool = False
 
 
@@ -2100,9 +2101,21 @@ _STATUS_REPORTS_ABERTOS = (
 )
 
 
+# `grupo` separa as duas abas: "Triagem de Reports" (defeitos) e "Dúvidas e Sugestões".
+# Sem grupo, todos os reports (compatível com quem já chamava a API).
+GRUPOS_REPORT = ("problemas", "duvidas_sugestoes")
+
+
+def _validar_grupo_report(grupo: Optional[str]) -> Optional[str]:
+    if grupo and grupo not in GRUPOS_REPORT:
+        raise HTTPException(status_code=400, detail=f"grupo inválido: '{grupo}'. Valores: {list(GRUPOS_REPORT)}")
+    return grupo or None
+
+
 def _aplicar_filtros_reports(
     q,
     *,
+    grupo=None,
     status_enum=None,
     categoria_enum=None,
     severidade_enum=None,
@@ -2112,6 +2125,10 @@ def _aplicar_filtros_reports(
     data_fim=None,
     busca=None,
 ):
+    if grupo == "problemas":
+        q = q.filter(ReportProblema.categoria.notin_(CATEGORIAS_DUVIDA_SUGESTAO))
+    elif grupo == "duvidas_sugestoes":
+        q = q.filter(ReportProblema.categoria.in_(CATEGORIAS_DUVIDA_SUGESTAO))
     if status_enum:
         q = q.filter(ReportProblema.status == status_enum)
     elif apenas_abertos:
@@ -2175,6 +2192,7 @@ async def listar_todos_reports(
     data_inicio: Optional[datetime] = None,
     data_fim: Optional[datetime] = None,
     q_busca: Optional[str] = None,
+    grupo: Optional[str] = None,
     page: int = 1,
     limit: int = 50,
 ):
@@ -2192,11 +2210,13 @@ async def listar_todos_reports(
     status_enum = _validar_enum(status, StatusReport, "status")
     categoria_enum = _validar_enum(categoria, CategoriaReport, "categoria")
     severidade_enum = _validar_enum(severidade, SeveridadeReport, "severidade")
+    grupo = _validar_grupo_report(grupo)
 
     with db.get_session() as session:
         q = session.query(ReportProblema)
         q = _aplicar_filtros_reports(
             q,
+            grupo=grupo,
             status_enum=status_enum,
             categoria_enum=categoria_enum,
             severidade_enum=severidade_enum,
@@ -2244,16 +2264,19 @@ async def stats_reports(
     data_inicio: Optional[datetime] = None,
     data_fim: Optional[datetime] = None,
     q_busca: Optional[str] = None,
+    grupo: Optional[str] = None,
 ):
     """Estatísticas agregadas dos reports (para header da tela de triagem)."""
     status_enum = _validar_enum(status, StatusReport, "status")
     categoria_enum = _validar_enum(categoria, CategoriaReport, "categoria")
     severidade_enum = _validar_enum(severidade, SeveridadeReport, "severidade")
+    grupo = _validar_grupo_report(grupo)
 
     with db.get_session() as session:
         q = session.query(ReportProblema)
         q = _aplicar_filtros_reports(
             q,
+            grupo=grupo,
             status_enum=status_enum,
             categoria_enum=categoria_enum,
             severidade_enum=severidade_enum,

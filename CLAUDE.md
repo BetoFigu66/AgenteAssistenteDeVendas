@@ -117,7 +117,7 @@ Timestamps are stored UTC (`timestamptz`, `utils/datetime_utils.py::utc_now`/`se
 
 ### Frontend
 
-React (Vite, TailwindCSS) SPA in `frontend/src/`. `services/api.js` talks to the backend; Vite dev server proxies `/api/*` (see `vite.config.js` / `VITE_DEV_API_PROXY`). Main screens: `AcompanhamentoPage` (active-case triage, ordered by pending approvals), `ChatArea`/`Message`/`PhonePanel` (conversation view + manual reply + approve/reject), `ReportsPage`/`ReportDetalhe` (problem-report queue), `ParametrosPage`, `QABasePage`. Inforrel brand colors are defined in `tailwind.config.js` (primary `#1B4F72`, secondary `#2E86AB`, accent `#F39C12`) — reuse them, don't hardcode new colors.
+React (Vite, TailwindCSS) SPA in `frontend/src/`. `services/api.js` talks to the backend; Vite dev server proxies `/api/*` (see `vite.config.js` / `VITE_DEV_API_PROXY`). Main screens: `AcompanhamentoPage` (active-case triage, ordered by pending approvals), `ChatArea`/`Message`/`PhonePanel` (conversation view + manual reply + approve/reject), `ReportsPage`/`ReportDetalhe` (problem-report queue; the same page with `grupo="duvidas_sugestoes"` is the "Dúvidas e Sugestões" tab, answered by Claude via the goals bridge or by the team, `respostas_report`), `ParametrosPage`, `QABasePage`. Inforrel brand colors are defined in `tailwind.config.js` (primary `#1B4F72`, secondary `#2E86AB`, accent `#F39C12`) — reuse them, don't hardcode new colors.
 
 ### Dev-team "agents" system (`agentes/`, `artefatos/`, `AGENTS.md`)
 

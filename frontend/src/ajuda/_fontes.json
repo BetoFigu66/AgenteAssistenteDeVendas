@@ -32,14 +32,14 @@
         "src/components/EscalonamentosAtendimento.jsx",
         "src/components/ProcessamentoDetalhes.jsx"
       ],
-      "hash": "6e2e342f3158b65b"
+      "hash": "556a4107f8238048"
     },
     "reports": {
       "componentes": [
         "src/components/ReportsPage.jsx",
         "src/components/ReportDetalhe.jsx"
       ],
-      "hash": "80e72ccfee371985"
+      "hash": "d0843db931ca2802"
     },
     "qa-base": {
       "componentes": [
@@ -67,7 +67,7 @@
         "src/App.jsx",
         "src/components/Header.jsx"
       ],
-      "hash": "2ee394748873fd99"
+      "hash": "0779e8cf8513afa3"
     },
     "sistema": {
       "componentes": [
