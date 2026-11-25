@@ -2,8 +2,10 @@ package br.com.inforrel.atendente.rede
 
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.json.JsonElement
 import retrofit2.http.Body
 import retrofit2.http.GET
+import retrofit2.http.PATCH
 import retrofit2.http.POST
 import retrofit2.http.Path
 import retrofit2.http.Query
@@ -82,6 +84,8 @@ data class Mensagem(
     @SerialName("pendente_aprovacao") val pendenteAprovacao: Boolean = false,
     /** Escrita pelo atendente, não pela IA. */
     val manual: Boolean = false,
+    /** Nome de quem escreveu a resposta manual (o usuário logado que enviou). */
+    @SerialName("autor_nome") val autorNome: String? = null,
     val reprovada: Boolean = false,
 )
 
@@ -110,8 +114,45 @@ data class DadosConversa(
     val atendimento: AtendimentoConversa? = null,
 )
 
+/** Corpo de `PATCH /api/atendimentos/{id}/modo-operacao`: "agente" ou "humano". */
+@Serializable
+data class AlterarModoRequest(@SerialName("modo_operacao") val modoOperacao: String)
+
+/** Corpo de `POST /api/atendimentos/{id}/mensagens-manuais` (o backend não aceita citação). */
+@Serializable
+data class MensagemManualRequest(val conteudo: String)
+
 /**
- * Rotas do backend usadas pelo App. Os próximos goals (conversas, mensagens) acrescentam aqui.
+ * Resposta de `POST /api/atendimentos/{id}/mensagens-manuais`: a mensagem gravada mais o
+ * desfecho da entrega. `entregue=false` sem `erro_envio` é o canal simulado (nada sai);
+ * com `erro_envio`, tentou e falhou (ex.: janela de 24 h do WhatsApp, Twilio 63016).
+ */
+@Serializable
+data class MensagemManualEnviada(
+    val id: Int,
+    val conteudo: String,
+    val origem: String = "system",
+    val timestamp: String? = null,
+    @SerialName("atendimento_id") val atendimentoId: Int? = null,
+    @SerialName("timestamp_envio") val timestampEnvio: String? = null,
+    @SerialName("erro_envio") val erroEnvio: String? = null,
+    val entregue: Boolean = false,
+) {
+    fun comoMensagem() = Mensagem(
+        id = id, conteudo = conteudo, origem = origem, timestamp = timestamp, atendimentoId = atendimentoId,
+        timestampEnvio = timestampEnvio, erroEnvio = erroEnvio, manual = true,
+    )
+}
+
+/** Um item de `GET /api/config/sistema` (configurações do `.env`, segredos já mascarados). */
+@Serializable
+data class ItemConfiguracao(val nome: String, val valor: JsonElement? = null)
+
+@Serializable
+data class ConfiguracoesSistema(val configuracoes: List<ItemConfiguracao> = emptyList())
+
+/**
+ * Rotas do backend usadas pelo App; cada goal da série acrescenta as suas aqui.
  * A sessão vai no cookie assinado do `SessionMiddleware`, guardado pelo [CookieJarPersistente].
  */
 interface ApiBackend {
@@ -146,6 +187,17 @@ interface ApiBackend {
 
     @GET("api/conversa/{telefone}")
     suspend fun dadosConversa(@Path("telefone") telefone: String): DadosConversa
+
+    /** Assumir (humano) ou devolver à IA (agente). Devolve o atendimento atualizado. */
+    @PATCH("api/atendimentos/{id}/modo-operacao")
+    suspend fun alterarModo(@Path("id") atendimentoId: Int, @Body corpo: AlterarModoRequest): AtendimentoConversa
+
+    @POST("api/atendimentos/{id}/mensagens-manuais")
+    suspend fun enviarMensagemManual(@Path("id") atendimentoId: Int, @Body corpo: MensagemManualRequest): MensagemManualEnviada
+
+    /** Usado só para ler `CANAL_SAIDA` (se a resposta manual chega ou não ao cliente). */
+    @GET("api/config/sistema")
+    suspend fun configuracoesSistema(): ConfiguracoesSistema
 
     companion object {
         /** Máximo que o backend aceita numa página; o App não pagina. */

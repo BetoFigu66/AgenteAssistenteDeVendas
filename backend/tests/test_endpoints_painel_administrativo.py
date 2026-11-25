@@ -158,7 +158,9 @@ def test_historico_marca_reprovada_e_manual(client, db_session):
         assert por_id[ids["pendente"]]["pendente_aprovacao"] is True
         assert por_id[ids["cliente"]]["reprovada"] is False
         assert por_id[r_manual.json()["id"]]["manual"] is True
+        assert por_id[r_manual.json()["id"]]["autor_nome"]
         assert por_id[ids["aprovar"]]["manual"] is False
+        assert por_id[ids["aprovar"]]["autor_nome"] is None
     finally:
         _limpar(db_session, telefone)
 

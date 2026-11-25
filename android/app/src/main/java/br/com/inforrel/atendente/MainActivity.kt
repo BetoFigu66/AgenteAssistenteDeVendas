@@ -61,7 +61,7 @@ class MainActivity : ComponentActivity() {
                             when {
                                 noSobre -> TelaSobre(app.api, aoVoltar = { noSobre = false })
                                 aberta != null -> {
-                                    val modeloConversa = remember(aberta) { ModeloConversa(app.api, conversaTelefone) }
+                                    val modeloConversa = remember(aberta) { ModeloConversa(app.api, conversaTelefone, aberta) }
                                     TelaConversa(
                                         modelo = modeloConversa,
                                         telefone = conversaTelefone,

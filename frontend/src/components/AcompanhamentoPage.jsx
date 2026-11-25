@@ -748,7 +748,11 @@ function AcompanhamentoPage({ atendimentoIdInicial, onAtendimentoIdInicialConsum
                       >
                         <div className="flex items-center gap-2 mb-1">
                           <span className="text-xs font-medium text-gray-500">
-                            {msg.origem === 'user' ? 'Cliente' : 'Assistente'}
+                            {msg.origem === 'user'
+                              ? 'Cliente'
+                              : msg.manual
+                              ? `Atendente${msg.autor_nome ? ` · ${msg.autor_nome}` : ''}`
+                              : 'Assistente'}
                           </span>
                           <span className="text-xs text-gray-400">
                             {formatarData(msg.timestamp)}

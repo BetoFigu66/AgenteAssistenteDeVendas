@@ -2,6 +2,9 @@ package br.com.inforrel.atendente.rede
 
 import kotlinx.serialization.SerializationException
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.contentOrNull
+import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
 import okhttp3.Interceptor
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
@@ -69,6 +72,21 @@ fun mensagemDeErro(erro: Throwable): String = when (erro) {
     is SerializationException -> "Resposta do servidor em formato inesperado."
     is IOException -> "Não foi possível falar com o servidor (${erro.javaClass.simpleName})."
     else -> "Erro inesperado (${erro.javaClass.simpleName})."
+}
+
+/**
+ * Como [mensagemDeErro], mas num 4xx usa o `detail` que o FastAPI devolve (ex.: "Atendimento
+ * não encontrado"), que diz mais que o código. Lê o corpo do erro: chamar uma vez por exceção.
+ */
+fun mensagemDeErroDetalhada(erro: Throwable): String {
+    if (erro is HttpException && erro.code() in 400..499 && erro.code() != 401) {
+        val detalhe = runCatching {
+            val corpo = erro.response()?.errorBody()?.string().orEmpty()
+            Rede.json.parseToJsonElement(corpo).jsonObject["detail"]?.jsonPrimitive?.contentOrNull
+        }.getOrNull()
+        if (!detalhe.isNullOrBlank()) return detalhe
+    }
+    return mensagemDeErro(erro)
 }
 
 /** 502 a 530 vêm do Cloudflare com o túnel ou o backend fora. */

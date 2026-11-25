@@ -108,7 +108,7 @@ fun rotuloFase(fase: String?): String? = when (fase) {
     else -> fase
 }
 
-fun emModoHumano(a: AtendimentoResumo): Boolean = a.modoOperacao.equals("humano", ignoreCase = true)
+fun emModoHumano(a: AtendimentoResumo): Boolean = ehModoHumano(a.modoOperacao)
 
 /** Momento da última atividade: a última mensagem e, sem ela, o próprio atendimento. */
 fun momentoConversa(a: AtendimentoResumo): ZonedDateTime? =

@@ -915,6 +915,7 @@ async def obter_historico(
         status_atendimento=status,
     )
     _marcar_reprovadas(mensagens)
+    _nomear_autores_manuais(mensagens)
     return {"telefone": telefone, "mensagens": mensagens}
 
 
@@ -939,6 +940,18 @@ def _marcar_reprovadas(mensagens: list[dict]) -> None:
             }
     for m in mensagens:
         m["reprovada"] = m["id"] in reprovadas
+
+
+def _nomear_autores_manuais(mensagens: list[dict]) -> None:
+    """Acrescenta `autor_nome` às respostas manuais do histórico: quem escreveu é o usuário
+    logado que enviou, gravado em `aprovador_id` (`mensagens-manuais`). Nas demais, null."""
+    ids = {m["aprovador_id"] for m in mensagens if m.get("manual") and m.get("aprovador_id")}
+    nomes: dict[int, str] = {}
+    if ids:
+        with db.get_session() as session:
+            nomes = dict(session.query(User.id, User.nome).filter(User.id.in_(ids)))
+    for m in mensagens:
+        m["autor_nome"] = nomes.get(m.get("aprovador_id")) if m.get("manual") else None
 
 
 @app.get("/api/telefones")
