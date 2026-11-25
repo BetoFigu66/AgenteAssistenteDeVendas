@@ -13,6 +13,12 @@ val InforrelPrimary = Color(0xFF1B4F72)
 val InforrelSecondary = Color(0xFF2E86AB)
 val InforrelAccent = Color(0xFFF39C12)
 
+// Conversa: fundo e bolhas em tons claros das cores da marca (cliente em branco, como no WhatsApp).
+val FundoConversa = Color(0xFFEFEAE2)
+val BolhaIA = Color(0xFFDDEFF6)
+val BolhaAtendente = Color(0xFFFDEBD0)
+val VermelhoErro = Color(0xFFC0392B)
+
 @Composable
 fun TemaInforrel(conteudo: @Composable () -> Unit) {
     MaterialTheme(

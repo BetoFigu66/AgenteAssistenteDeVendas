@@ -113,6 +113,8 @@ def test_mensagem_manual_nasce_aprovada_pelo_operador_logado(client, db_session)
         assert corpo["aprovador_id"] == _id_usuario_logado(db_session)
         assert corpo["timestamp_aprovacao"] is not None
         assert corpo["pendente_aprovacao"] is False
+        # Escrita pelo atendente, não pela IA (o App mostra a diferença).
+        assert corpo["manual"] is True
 
         gravadas = _mensagens_saida(db_session, telefone)
         assert len(gravadas) == 1

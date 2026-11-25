@@ -50,14 +50,11 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.lifecycle.Lifecycle
-import androidx.lifecycle.repeatOnLifecycle
 import br.com.inforrel.atendente.conversas.INTERVALO_ATUALIZACAO_MS
 import br.com.inforrel.atendente.conversas.ModeloConversas
 import br.com.inforrel.atendente.conversas.emModoHumano
@@ -93,18 +90,8 @@ fun TelaConversas(
     var menuAberto by remember { mutableStateOf(false) }
     var buscando by rememberSaveable { mutableStateOf(estado.termo.isNotEmpty()) }
     val escopo = rememberCoroutineScope()
-    val ciclo = LocalLifecycleOwner.current.lifecycle
 
-    // Polling só com a tela em primeiro plano: ao ir para segundo plano o bloco é cancelado e,
-    // ao voltar, recomeça já buscando.
-    LaunchedEffect(ciclo) {
-        ciclo.repeatOnLifecycle(Lifecycle.State.STARTED) {
-            while (true) {
-                modelo.carregar()
-                delay(INTERVALO_ATUALIZACAO_MS)
-            }
-        }
-    }
+    AtualizacaoPeriodica(INTERVALO_ATUALIZACAO_MS) { modelo.carregar() }
     // Busca com espera curta depois da digitação; a primeira composição já é coberta acima.
     var primeiroTermo by remember { mutableStateOf(true) }
     LaunchedEffect(estado.termo) {

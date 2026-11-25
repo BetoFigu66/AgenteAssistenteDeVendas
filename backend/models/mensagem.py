@@ -4,7 +4,7 @@ import enum
 from datetime import datetime
 from typing import TYPE_CHECKING, Optional
 
-from sqlalchemy import Enum, ForeignKey, Index, String, Text
+from sqlalchemy import Boolean, Enum, ForeignKey, Index, String, Text, text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from utils.datetime_utils import serialize_utc_datetime, utc_now
 
@@ -80,6 +80,10 @@ class Mensagem(Base):
     # só o caso positivo, que não gera report.
     feedback_aprovacao: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
 
+    # Escrita pelo atendente (`POST /api/atendimentos/{id}/mensagens-manuais`) e não gerada
+    # pela IA. As duas são `origem=SYSTEM` e saem aprovadas; só esta coluna as separa.
+    manual: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False, server_default=text("false"))
+
     # Relacionamentos
     contato: Mapped[Optional["Contato"]] = relationship(back_populates="mensagens")
     atendimento: Mapped[Optional["Atendimento"]] = relationship(back_populates="mensagens")
@@ -138,5 +142,6 @@ class Mensagem(Base):
             "timestamp_aprovacao": serialize_utc_datetime(self.timestamp_aprovacao),
             "pendente_aprovacao": self.pendente_aprovacao,
             "feedback_aprovacao": self.feedback_aprovacao,
+            "manual": bool(self.manual),
             "segundos_pendente": self.segundos_pendente,
         }

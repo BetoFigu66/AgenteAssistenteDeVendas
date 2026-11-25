@@ -116,6 +116,53 @@ def test_reports_paginacao_shape(client):
     assert len(body["reports"]) <= 5
 
 
+def test_historico_marca_reprovada_e_manual(client, db_session):
+    """Estados da tela da conversa do App: pendente, aprovada, reprovada (pelo report que a
+    reprovação cria) e manual (escrita pelo atendente)."""
+    telefone = "+5511999986004"
+    try:
+        contato = Contato(telefone=telefone, nome="Cliente Historico Teste")
+        db_session.add(contato)
+        db_session.commit()
+        atendimento = obter_ou_criar_atendimento(db_session, contato)
+        db_session.commit()
+        base = utc_now() - timedelta(minutes=10)
+
+        def nova(conteudo, origem, minuto):
+            m = Mensagem(
+                telefone=telefone, conteudo=conteudo, origem=origem, contato_id=contato.id,
+                atendimento_id=atendimento.id, timestamp=base + timedelta(minutes=minuto),
+            )
+            db_session.add(m)
+            return m
+
+        cliente = nova("oi", OrigemMensagem.USER, 0)
+        pendente = nova("pendente", OrigemMensagem.SYSTEM, 1)
+        reprovar = nova("ruim", OrigemMensagem.SYSTEM, 2)
+        aprovar = nova("boa", OrigemMensagem.SYSTEM, 3)
+        db_session.commit()
+        ids = {"cliente": cliente.id, "pendente": pendente.id, "reprovar": reprovar.id, "aprovar": aprovar.id}
+
+        r_reprovar = client.post(f"/api/mensagens/{ids['reprovar']}/reprovar", json={"justificativa": "errada"})
+        assert r_reprovar.status_code == 201
+        assert client.post(f"/api/mensagens/{ids['aprovar']}/aprovar", json={}).status_code == 200
+        r_manual = client.post(f"/api/atendimentos/{atendimento.id}/mensagens-manuais", json={"conteudo": "eu mesmo"})
+        assert r_manual.status_code == 201
+
+        r = client.get(f"/api/historico/{telefone}")
+        assert r.status_code == 200
+        por_id = {m["id"]: m for m in r.json()["mensagens"]}
+        assert por_id[ids["reprovar"]]["reprovada"] is True
+        assert por_id[ids["aprovar"]]["reprovada"] is False
+        assert por_id[ids["pendente"]]["reprovada"] is False
+        assert por_id[ids["pendente"]]["pendente_aprovacao"] is True
+        assert por_id[ids["cliente"]]["reprovada"] is False
+        assert por_id[r_manual.json()["id"]]["manual"] is True
+        assert por_id[ids["aprovar"]]["manual"] is False
+    finally:
+        _limpar(db_session, telefone)
+
+
 def test_historico_limit_invalido_400(client):
     r = client.get("/api/historico/5511999986999", params={"limit": 0})
     assert r.status_code == 400

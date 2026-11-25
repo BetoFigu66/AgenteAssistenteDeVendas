@@ -17,6 +17,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import br.com.inforrel.atendente.conversas.ModeloConversa
 import br.com.inforrel.atendente.conversas.ModeloConversas
 import br.com.inforrel.atendente.conversas.tituloConversa
 import br.com.inforrel.atendente.sessao.EstadoSessao
@@ -36,9 +37,12 @@ class MainActivity : ComponentActivity() {
                 Surface(Modifier.fillMaxSize()) {
                     val estado by app.sessao.estado.collectAsState()
                     var noSobre by rememberSaveable { mutableStateOf(false) }
-                    // Conversa aberta: id e título, guardados para sobreviver a girar a tela.
+                    // Conversa aberta (id, telefone, título e modo vindos da lista), guardada para
+                    // sobreviver a girar a tela.
                     var conversaId by rememberSaveable { mutableStateOf<Int?>(null) }
+                    var conversaTelefone by rememberSaveable { mutableStateOf("") }
                     var conversaTitulo by rememberSaveable { mutableStateOf("") }
+                    var conversaModo by rememberSaveable { mutableStateOf<String?>(null) }
                     val escopo = rememberCoroutineScope()
 
                     when (val atual = estado) {
@@ -56,12 +60,23 @@ class MainActivity : ComponentActivity() {
                             val aberta = conversaId
                             when {
                                 noSobre -> TelaSobre(app.api, aoVoltar = { noSobre = false })
-                                aberta != null -> TelaConversa(aberta, conversaTitulo, aoVoltar = { conversaId = null })
+                                aberta != null -> {
+                                    val modeloConversa = remember(aberta) { ModeloConversa(app.api, conversaTelefone) }
+                                    TelaConversa(
+                                        modelo = modeloConversa,
+                                        telefone = conversaTelefone,
+                                        tituloLista = conversaTitulo,
+                                        modoLista = conversaModo,
+                                        aoVoltar = { conversaId = null },
+                                    )
+                                }
                                 else -> TelaConversas(
                                     modelo = modelo,
                                     semConfirmar = atual.semConfirmar,
                                     aoAbrirConversa = { conversa ->
                                         conversaTitulo = tituloConversa(conversa)
+                                        conversaTelefone = conversa.telefone
+                                        conversaModo = conversa.modoOperacao
                                         conversaId = conversa.id
                                     },
                                     aoAbrirSobre = { noSobre = true },

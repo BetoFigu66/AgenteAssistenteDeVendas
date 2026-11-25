@@ -914,7 +914,31 @@ async def obter_historico(
         data_fim=data_fim,
         status_atendimento=status,
     )
+    _marcar_reprovadas(mensagens)
     return {"telefone": telefone, "mensagens": mensagens}
+
+
+def _marcar_reprovadas(mensagens: list[dict]) -> None:
+    """Acrescenta `reprovada` a cada mensagem do histórico (tela da conversa do App).
+
+    Reprovar não tem coluna própria: grava `aprovador_id` como aprovar e cria um report
+    `resposta_inadequada`. Mesmo critério de `indicadores_execucao`, com a mesma
+    ambiguidade assumida (report retroativo dessa categoria numa aprovada conta como
+    reprovação). Ainda pendente nunca é reprovada.
+    """
+    ids = [m["id"] for m in mensagens if m["origem"] == OrigemMensagem.SYSTEM.value and not m["pendente_aprovacao"]]
+    reprovadas: set[int] = set()
+    if ids:
+        with db.get_session() as session:
+            reprovadas = {
+                mid
+                for (mid,) in session.query(ReportProblema.mensagem_id)
+                .filter(ReportProblema.mensagem_id.in_(ids))
+                .filter(ReportProblema.categoria == CategoriaReport.RESPOSTA_INADEQUADA)
+                .distinct()
+            }
+    for m in mensagens:
+        m["reprovada"] = m["id"] in reprovadas
 
 
 @app.get("/api/telefones")
@@ -1579,6 +1603,7 @@ async def enviar_mensagem_manual(
             atendimento_id=atendimento.id,
             aprovador_id=aprovador_id,
             timestamp_aprovacao=utc_now(),
+            manual=True,
         )
         session.add(mensagem)
         session.flush()

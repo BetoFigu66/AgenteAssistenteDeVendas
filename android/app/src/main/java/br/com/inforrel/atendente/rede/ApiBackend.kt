@@ -5,6 +5,7 @@ import kotlinx.serialization.Serializable
 import retrofit2.http.Body
 import retrofit2.http.GET
 import retrofit2.http.POST
+import retrofit2.http.Path
 import retrofit2.http.Query
 
 /** Usuário do sistema, como `User.to_dict()` do backend devolve em `/api/auth/login` e `/api/auth/me`. */
@@ -66,6 +67,49 @@ data class ListaAtendimentos(
     val atendimentos: List<AtendimentoResumo> = emptyList(),
 )
 
+/** Uma mensagem de `GET /api/historico/{telefone}` (`Mensagem.to_dict()` mais `reprovada`). */
+@Serializable
+data class Mensagem(
+    val id: Int,
+    val conteudo: String,
+    /** "user" (cliente) ou "system" (IA ou atendente, ver [manual]). */
+    val origem: String,
+    val timestamp: String? = null,
+    @SerialName("atendimento_id") val atendimentoId: Int? = null,
+    @SerialName("resposta_a_mensagem_id") val respostaAMensagemId: Int? = null,
+    @SerialName("timestamp_envio") val timestampEnvio: String? = null,
+    @SerialName("erro_envio") val erroEnvio: String? = null,
+    @SerialName("pendente_aprovacao") val pendenteAprovacao: Boolean = false,
+    /** Escrita pelo atendente, não pela IA. */
+    val manual: Boolean = false,
+    val reprovada: Boolean = false,
+)
+
+@Serializable
+data class Historico(val mensagens: List<Mensagem> = emptyList())
+
+@Serializable
+data class ContatoConversa(val nome: String? = null)
+
+@Serializable
+data class EmpresaConversa(val nome: String? = null, val fantasia: String? = null)
+
+@Serializable
+data class AtendimentoConversa(
+    val id: Int,
+    @SerialName("modo_operacao") val modoOperacao: String? = null,
+    val fase: String? = null,
+)
+
+/** `GET /api/conversa/{telefone}`: o que o cabeçalho da conversa usa (o resto é ignorado). */
+@Serializable
+data class DadosConversa(
+    val contato: ContatoConversa? = null,
+    val empresa: EmpresaConversa? = null,
+    val pessoa: ContatoConversa? = null,
+    val atendimento: AtendimentoConversa? = null,
+)
+
 /**
  * Rotas do backend usadas pelo App. Os próximos goals (conversas, mensagens) acrescentam aqui.
  * A sessão vai no cookie assinado do `SessionMiddleware`, guardado pelo [CookieJarPersistente].
@@ -95,6 +139,13 @@ interface ApiBackend {
         @Query("q") q: String? = null,
         @Query("limit") limit: Int = LIMITE_CONVERSAS,
     ): ListaAtendimentos
+
+    /** As [limit] mensagens mais recentes do telefone, em ordem cronológica (o painel usa 200). */
+    @GET("api/historico/{telefone}")
+    suspend fun historico(@Path("telefone") telefone: String, @Query("limit") limit: Int): Historico
+
+    @GET("api/conversa/{telefone}")
+    suspend fun dadosConversa(@Path("telefone") telefone: String): DadosConversa
 
     companion object {
         /** Máximo que o backend aceita numa página; o App não pagina. */
