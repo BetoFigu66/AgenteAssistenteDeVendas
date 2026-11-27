@@ -237,7 +237,14 @@ class FinalizandoState(EstadoAtendimento):
             if resposta_qa is not None:
                 return await self._retomar_apos_duvida(ctx, resposta_duvida=resposta_qa)
 
+        modelo_pendente = not atendimento.modelo_ja_resolvido()
         modelo_nao_reconhecido = await self._resolver_modelo(ctx)
+        if eh_duvida and modelo_pendente and atendimento.modelo_ja_resolvido() and "?" not in ctx.conteudo:
+            # Report #2242: o classificador marca como `perguntar_produto` qualquer menção
+            # a "facial", "biométrico", "cartão"... A mensagem que acabou de resolver o
+            # modelo, sem pergunta explícita, é a resposta à pergunta de tecnologia, não
+            # uma dúvida: mandá-la ao RAG respondia sobre catracas a quem pediu relógio.
+            eh_duvida = False
         # O modelo é o único campo que a pilha não grava (vai para o catálogo): se acabou
         # de ser resolvido, sai da pilha já neste turno.
         pilha.sincronizar(ctx)
